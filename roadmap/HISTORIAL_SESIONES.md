@@ -34,3 +34,30 @@
 ---
 
 *(Las sesiones reales se añaden debajo, la más reciente primero.)*
+
+---
+
+### Sesión 2026-08-25 (PM)
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión (roadmap: definida oleada v1)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (oleada v1, fases F-01/F-02/F-03,
+R-01 a R-07), `roadmap/SEGUIMIENTO.md` (§1: filas R-01 a R-07 PENDIENTE; §6: preguntas #1 y #2),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna decisión técnica de esquema/RLS/cliente (eso es del programador);
+alcance de producto documentado en las R-XX de `ROADMAP_PRODUCTO.md`
+**Hallazgos del auditor atendidos:** ninguno — `auditoriacontinua.md` no tiene todavía ninguna
+auditoría registrada (el auditor no ha corrido aún)
+**Hallazgos:** `FEEDBACK.md` no tiene entradas `nuevo` reales todavía (fila plantilla vacía); nada
+que convertir en esta pasada
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el MVP (T-00 a T-25) sigue íntegro PENDIENTE — es lo primero que debe ejecutar la
+siguiente sesión de desarrollo, en orden, antes de tocar ninguna R-XX. Cuando T-25 esté
+COMPLETADA/DESPLEGADA EN PRODUCCIÓN, la cola continúa por R-01. El siguiente ciclo de PM debe:
+revisar si hay hallazgos ABIERTOS en `auditoriacontinua.md` y entradas `nuevo` en `FEEDBACK.md`
+para convertir; y, si el dueño ha respondido las preguntas #1 o #2 de §6, ajustar el roadmap en
+consecuencia (P. ej. #1 puede convertirse en una R-XX de envío automático de avisos).
