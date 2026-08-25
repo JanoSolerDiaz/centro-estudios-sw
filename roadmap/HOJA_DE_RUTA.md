@@ -31,16 +31,24 @@
 - **Ramas: el agente vive en `develop`.** Trabaja directamente en `develop` y haz push ahí. El push a `develop` despliega el frontend compilado al hosting estático (proveedor concreto `<pendiente>`). Es intencionado y está permitido.
   - **`master` es del dueño.** El agente **nunca** hace push, merge ni rebase sobre `master`, ni abre un pull request hacia ella por iniciativa propia. `master` recibe merge solo cuando el dueño lo decide, que en la práctica será en T-25 (paso a producción). Si en algún momento te encuentras en `master`, vuelve a `develop` antes de tocar nada.
 
-- **Base de datos: solo se usa `dev` hasta que el desarrollo esté terminado.** Decisión del dueño (2026-08-25). La persistencia es PostgreSQL en **Supabase**:
-  - **`dev`** — existe y sus credenciales están en `.env.local`. El agente tiene acceso completo y **aplica el DDL él mismo** con `npm run migrate`, que ejecuta los scripts a través de la Management API (`POST https://api.supabase.com/v1/projects/{ref}/database/query`). Aquí no hay ningún bloqueo humano por esquema.
-  - **`prod`** — **todavía no existe y no se toca**. El agente **NUNCA** ejecuta DDL contra producción, ni ahora ni cuando exista. La propagación completa del esquema a `prod` se hace **una sola vez, en T-25**, cuando el dueño cree el proyecto. La razón no se negocia: el histórico de asistencia es el dato con valor administrativo de esta aplicación, y ninguna automatización debe alterar el esquema que lo contiene sin una persona delante.
+- **Base de datos: solo se usa `dev` hasta que el desarrollo esté terminado.** Decisión del dueño (2026-08-25). La persistencia es PostgreSQL en **Supabase**, con dos proyectos:
+  - **`dev`** — existe. Sus credenciales están en `.env.local`, **en la máquina del dueño y en ningún otro sitio**.
+  - **`prod`** — todavía no existe y no se toca. Se crea en T-25.
+
+- **El agente NUNCA aplica DDL, en ningún entorno.** Decisión del dueño (2026-08-25), y el razonamiento importa para que no se relaje por comodidad: el token de la Management API **no está limitado a un proyecto** —permite DDL sobre cualquier proyecto de la cuenta, incluido crearlos y borrarlos—, Supabase no ofrece una credencial restringida que reduzca ese alcance, y un agente desatendido no es el sitio para algo así. El coste de la alternativa es pequeño y medible: **en todo el MVP hay cinco o seis migraciones**. La regla que ya regía para `prod` se aplica igual a `dev`, de forma uniforme.
 
 - **Procedimiento de toda migración:**
-  1. Escribe el script en `db/NNN_<nombre>.sql` y **commitéalo antes de ejecutarlo**. Se aplica exactamente ese fichero, sin variaciones sobre la marcha.
-  2. Aplícalo a `dev` con `npm run migrate`. El runner registra número, nombre y hash en `esquema_migracion` y **rechaza** un script cuyo hash haya cambiado tras haberse aplicado: una migración aplicada es inmutable; los arreglos van en una migración nueva.
-  3. Verifica el resultado consultando la RPC `esquema_version()` y anota la fila en `db/APLICADAS.md`, dejando la columna `prod` vacía.
-  4. **No abras una fila en §3 por cada migración.** Mientras `prod` no exista, la lista de pendientes de propagación es la columna `prod` de `db/APLICADAS.md`, y nada más. §3 es para acciones que el dueño debe hacer *ahora*.
-  5. Nunca declares una migración aplicada sin haberlo comprobado con `esquema_version()`.
+  1. **El agente** escribe el script en `db/NNN_<nombre>.sql`, lo **commitea y lo empuja a `develop`**. Se aplicará exactamente ese fichero, sin variaciones sobre la marcha.
+  2. **El agente** abre una fila en §3 de SEGUIMIENTO con el número de migración, el fichero, y qué debe ver el dueño al terminar. Marca la tarea `BLOQUEADA — pendiente aplicar migración NNN` y **pasa a la siguiente tarea que no dependa de ella**. El bloqueo no detiene el desarrollo: el código que consumirá ese esquema se escribe y se testea contra los dobles, y queda latente.
+  3. **El dueño** hace `git pull` y ejecuta **`npm run migrate` en local**, donde vive `.env.local`. No se pega SQL a mano en el editor de Supabase: el runner es lo que aporta las guardas de contenido, la inmutabilidad por hash y el registro en `esquema_migracion`, y todo eso se pierde copiando y pegando.
+  4. **El dueño** confirma en §3. A partir de ahí el agente puede verificar con `esquema_version()`, anotar la fila en `db/APLICADAS.md` y desbloquear.
+  5. Una migración aplicada es **inmutable**: los arreglos van en una migración nueva, nunca editando la anterior. El runner lo impone rechazando un script cuyo hash haya cambiado.
+  6. Nunca declares una migración aplicada sin haberlo comprobado. Si no tienes forma de comprobarlo, dilo y déjala pendiente.
+  7. La columna `prod` de `db/APLICADAS.md` es la lista de propagación a producción, que se hace de una vez en T-25. Eso **no** genera filas en §3 por cada migración.
+
+- **Credenciales que el agente puede y no puede tener.** No todas valen lo mismo y la diferencia es la que sostiene la regla anterior:
+  - **Nunca**, en ningún entorno de agente: el **access token de la Management API**, la contraseña de la base de datos y la clave **`service_role`**. Viven solo en `.env.local` del dueño.
+  - **Aceptable si en algún momento hace falta** (por ejemplo para el health check post-deploy): la **URL del proyecto** y la **clave anónima**, que son públicas por diseño —viajan en el paquete del navegador— y que sin políticas para `anon` no dan acceso a nada. Si se le dan, se le dan **solo esas dos**.
 
 - Único requisito antes de cada push: la verificación local completa debe pasar:
   ```
@@ -244,7 +252,7 @@ Sin backend propio, los límites se aplican donde son eficaces:
 *Runner de migraciones (`herramientas/migrar.ts`, `npm run migrate`):*
 1. Lee `db/NNN_*.sql` en orden, aplica los pendientes contra la Management API con `fetch` nativo y el access token de `.env.local`, y registra en `esquema_migracion` número, nombre, hash SHA-256, instante y entorno.
 2. **Inmutabilidad:** si el hash de un script ya aplicado ha cambiado, aborta con un mensaje claro. Un arreglo va en una migración nueva.
-3. **Entorno por defecto `dev`.** Apuntar a `prod` exige el flag `--entorno=prod` **y** `PERMITIR_PROD=1`; el agente no la usa nunca (§0.3). El runner imprime a qué proyecto va a escribir antes de ejecutar.
+3. **Entorno por defecto `dev`.** Apuntar a `prod` exige el flag `--entorno=prod` **y** `PERMITIR_PROD=1`. El runner imprime a qué proyecto va a escribir antes de ejecutar. **Quien ejecuta el runner es el dueño, en su máquina** (§0.1): el agente lo escribe y lo testea, pero no lo lanza, porque no tiene ni debe tener el access token. Si el runner no encuentra las credenciales, debe fallar con un mensaje claro en español que diga exactamente eso, no intentar continuar.
 4. **Guardas técnicas de contenido:** rechaza cualquier script que contenga `DROP TABLE`, `DROP SCHEMA`, `TRUNCATE`, `DISABLE ROW LEVEL SECURITY`, un `DROP POLICY` sin `CREATE POLICY` en el mismo fichero, un `DELETE` sobre `asistencia`, o un `UPDATE`/`DELETE` sobre `asistencia_historial`. Esta lista convierte los invariantes de §0.2 en algo que el agente no puede saltarse por descuido.
 5. Cada script se aplica dentro de una transacción; si falla, no deja el esquema a medias.
 6. `npm run migrate -- --estado` lista qué hay aplicado en cada entorno sin escribir nada.
@@ -274,9 +282,13 @@ Sin backend propio, los límites se aplican donde son eficaces:
 23. **Test de fuga de secretos:** inspecciona el resultado de `npm run build` y falla si aparece el access token, la contraseña de base de datos o la clave `service_role`.
 24. Semilla de desarrollo (`npm run seed`) con datos ficticios de los tres roles, varios centros de estudios, alumnos con y sin segundo apellido, y alumnos con 0, 1 y 3 personas de referencia. Con salvaguarda que impida ejecutarla contra `prod`.
 
-**Bloqueo humano:** ninguno para empezar — las credenciales de `dev` ya están en `.env.local`. Se abre **una pregunta no bloqueante en §6** pidiendo al dueño que revise `db/MODELO.md` cuando pueda; su validación es requisito para T-25 (paso a producción), no para seguir desarrollando.
+**Bloqueo humano:** el dueño ejecuta `npm run migrate` **en local** para aplicar `001` a `dev` (§0.1), y revisa `db/MODELO.md`. La revisión del modelo es requisito para T-25 (paso a producción), no para seguir desarrollando.
 
-**Criterio de aceptación:** `esquema_version()` devuelve `0` antes de empezar (bootstrap aplicado); `npm run migrate` aplica `001` a `dev`, es idempotente al repetirse, y después `esquema_version()` devuelve `1`; `npm run migrate` sobre un script ya aplicado y modificado **falla** por hash; el runner **rechaza** un script de prueba por cada guarda de contenido (un test por guarda); un intento de apuntar a `prod` sin `PERMITIR_PROD=1` falla; test de que ninguna tabla queda sin `enable row level security`; tests de la presencia del trigger de inmutabilidad, del trigger de historial y de las revocaciones; el test de fuga de secretos pasa; `db/MODELO.md` y `db/APLICADAS.md` commiteados y coherentes con el script.
+**Criterio de aceptación, en dos partes.**
+
+*Lo que el agente cierra por sí mismo, sin ninguna credencial:* `db/001_esquema_inicial.sql` y `db/MODELO.md` commiteados y coherentes entre sí; el runner escrito y **testeado contra un doble de la Management API**, incluyendo que rechaza un script por cada guarda de contenido (un test por guarda), que falla por hash si un script ya aplicado cambia, que se niega a apuntar a `prod` sin `PERMITIR_PROD=1`, y que ante credenciales ausentes falla con un mensaje claro en lugar de continuar; test de que ninguna tabla del script queda sin `enable row level security`; tests de la presencia del trigger de inmutabilidad, del trigger de historial y de las revocaciones; test de privilegios explícitos (punto 20b); test de fuga de secretos; y la fila abierta en §3 pidiendo la aplicación.
+
+*Lo que requiere al dueño:* tras su `npm run migrate`, `esquema_version()` devuelve `1` y la fila queda anotada en `db/APLICADAS.md`. La tarea no está COMPLETADA hasta esa segunda parte, pero **no bloquea** a T-08 y siguientes, que se desarrollan y se testean contra los dobles.
 
 ### T-08 — Cliente propio de la API de Supabase
 **Prioridad:** ALTA · **Migración:** No · **Depende de:** T-07

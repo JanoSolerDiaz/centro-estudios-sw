@@ -36,19 +36,35 @@ protocolo le prohíbe tocar.
 > de invierno hay que pasar el programador a `0 7,9,11,13,15 * * 1-5` para mantenerlo en la misma
 > hora local. Mismo desplazamiento para el PM y el auditor.
 
-### Dónde ejecutar cada una, y por qué no es indiferente
+### Las tres van en la nube, y ninguna lleva secretos
 
-El programador necesita `.env.local` con el access token de la Management API y el *project ref*
-para poder ejecutar `npm run migrate`. **Un agente en la nube no tiene ese fichero**, porque no
-se commitea nunca. Consecuencias prácticas:
+Decisión del dueño (2026-08-25): **ningún agente recibe credenciales de Supabase.** Las tres
+rutinas corren en la nube sin una sola variable de entorno.
 
-- **PM y auditor: en la nube sin problema.** Solo leen y escriben documentos. No tocan la base de
-  datos, no necesitan ningún secreto, y el CI no les pide nada.
-- **Programador: en local**, donde vive `.env.local`. Es la opción recomendada.
-- Si se quiere el programador también en la nube, hay que **configurar los secretos en el entorno
-  del agente** (access token, project ref, URL y clave anónima). Mientras no estén, el agente hará
-  todo lo que no toque esquema y dejará las tareas con migración marcadas como BLOQUEADA, lo cual
-  es correcto por protocolo pero frena el avance en T-07 y siguientes.
+El razonamiento, para que no se relaje por comodidad más adelante: el access token de la
+Management API **no está limitado a un proyecto** —permite DDL sobre cualquier proyecto de la
+cuenta, incluido crearlos y borrarlos— y Supabase no ofrece una credencial restringida que reduzca
+ese alcance. Un agente desatendido que se despierta cada dos horas no es el sitio para eso. Y el
+coste de la alternativa es pequeño y contable: **en todo el MVP hay cinco o seis migraciones**
+(001 a 005). Cinco veces que el dueño ejecuta un comando.
+
+Cómo funciona en la práctica, y por qué no frena el desarrollo:
+
+1. El agente escribe `db/NNN_*.sql`, lo empuja a `develop`, abre la fila en §3 y marca la tarea
+   BLOQUEADA. **Pasa a la siguiente tarea que no dependa de ella.**
+2. El dueño hace `git pull` y ejecuta **`npm run migrate` en local**. No pega SQL a mano: el runner
+   es lo que aporta las guardas de contenido, la inmutabilidad por hash y el ledger.
+3. El dueño confirma en §3. El agente verifica y desbloquea en su siguiente pasada — o se le lanza
+   la rutina al momento, sin esperar al ciclo.
+
+Esto funciona porque **toda la estrategia de test es contra dobles** (T-03): `npm test` no toca la
+red ni necesita variables de entorno. El agente puede escribir y verificar el código que consumirá
+un esquema que todavía no existe.
+
+**Si algún día hiciera falta darle algo** —por ejemplo para el health check post-deploy— serían
+**solo la URL del proyecto y la clave anónima**, que son públicas por diseño (viajan en el paquete
+del navegador) y que sin políticas para `anon` no dan acceso a nada. El access token, la contraseña
+de base de datos y la clave `service_role` no salen de la máquina del dueño en ningún caso.
 
 ### Antes de la primera ejecución
 
