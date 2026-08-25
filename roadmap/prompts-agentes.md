@@ -6,6 +6,60 @@
 
 ---
 
+## Cómo dar de alta las rutinas
+
+En el campo de **instrucciones** de cada rutina va el bloque entre comillas triples de este
+documento, **copiado tal cual**: RUTINA 1 → programador, RUTINA 2 → product manager,
+RUTINA 3 → auditor. No hay que adaptar nada; las variables ya están resueltas.
+
+Los demás campos, para las tres:
+
+| Campo | Valor |
+|-------|-------|
+| Repositorio | `JanoSolerDiaz/centro-estudios-sw` |
+| Rama | `develop` — **nunca `master`**, que es del dueño |
+
+Los prompts deben empezar por `git checkout develop && git pull origin develop`: al clonar, el
+agente aterriza en la rama por defecto del repositorio, que es `master` — justo la que el
+protocolo le prohíbe tocar.
+
+**Cadencias vigentes** (dadas de alta el 2026-08-25):
+
+| Rutina | Cadencia | Cron (UTC) |
+|--------|----------|------------|
+| Programador | Cada 2 h, de 08:00 a 16:00, lunes a viernes | `0 6,8,10,12,14 * * 1-5` |
+| Product Manager | Diario, 21:00 | `0 19 * * *` |
+| Auditor | Diario, 05:00 | `0 3 * * *` |
+
+> **Aviso de horario de verano:** el cron es UTC y fijo, así que la ventana local se desplaza una
+> hora al cambiar la hora. Los valores de arriba corresponden a CEST (UTC+2). Al entrar el horario
+> de invierno hay que pasar el programador a `0 7,9,11,13,15 * * 1-5` para mantenerlo en la misma
+> hora local. Mismo desplazamiento para el PM y el auditor.
+
+### Dónde ejecutar cada una, y por qué no es indiferente
+
+El programador necesita `.env.local` con el access token de la Management API y el *project ref*
+para poder ejecutar `npm run migrate`. **Un agente en la nube no tiene ese fichero**, porque no
+se commitea nunca. Consecuencias prácticas:
+
+- **PM y auditor: en la nube sin problema.** Solo leen y escriben documentos. No tocan la base de
+  datos, no necesitan ningún secreto, y el CI no les pide nada.
+- **Programador: en local**, donde vive `.env.local`. Es la opción recomendada.
+- Si se quiere el programador también en la nube, hay que **configurar los secretos en el entorno
+  del agente** (access token, project ref, URL y clave anónima). Mientras no estén, el agente hará
+  todo lo que no toque esquema y dejará las tareas con migración marcadas como BLOQUEADA, lo cual
+  es correcto por protocolo pero frena el avance en T-07 y siguientes.
+
+### Antes de la primera ejecución
+
+1. Los documentos de `roadmap/` y los scripts de `db/` deben estar **commiteados y en `origin/develop`**.
+   Un agente que lee una hoja de ruta vieja trabaja contra una especificación que ya no existe.
+2. `db/000_bootstrap_perfil.sql` y `db/000b_arreglo_permisos.sql` aplicados en el proyecto de
+   desarrollo, y el primer usuario `administrator` creado.
+3. Comprobar que `select public.esquema_version();` devuelve `0`.
+
+---
+
 ## RUTINA 1 — PROGRAMADOR (ejecuta)
 **Cadencia sugerida:** cada hora.
 
