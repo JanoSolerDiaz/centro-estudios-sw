@@ -18,7 +18,7 @@ Si no hay urgencias, identifica la siguiente tarea pendiente según §1 de SEGUI
 
 Antes de cualquier decisión técnica no trivial, consulta roadmap/DECISIONES_TECNICAS.md en el área que vas a tocar, para no contradecir decisiones previas.
 
-Ejecuta la tarea siguiendo ESTRICTAMENTE el protocolo de la sección 0 (modo AUTONOMÍA TOTAL: commit a main y deploy del frontend a producción). Respeta la verificación pre-push completa (npm run typecheck && npm run lint && npm test && npm run build) y el health check post-deploy (npm run health -- <url>: entrada y JS a 200, y la RPC esquema_version() devolviendo la versión esperada) con auto-revert ante fallo.
+Ejecuta la tarea siguiendo ESTRICTAMENTE el protocolo de la sección 0 (modo AUTONOMÍA TOTAL: commit y push a la rama develop, que es la que despliega. NUNCA toques master: es del dueño y solo recibe merge cuando él lo decide). Respeta la verificación pre-push completa (npm run typecheck && npm run lint && npm test && npm run build) y el health check post-deploy (npm run health -- <url>: entrada y JS a 200, y la RPC esquema_version() devolviendo la versión esperada) con auto-revert ante fallo.
 
 REGLAS DE BASE DE DATOS QUE NO PUEDES SALTARTE (§0.1 y §0.2):
 - Toda migración se escribe en db/NNN_<nombre>.sql y se COMMITEA ANTES de aplicarse. Se aplica exactamente ese fichero.
@@ -26,6 +26,8 @@ REGLAS DE BASE DE DATOS QUE NO PUEDES SALTARTE (§0.1 y §0.2):
 - En el proyecto de PRODUCCIÓN NO ejecutas DDL nunca. Ese proyecto NO EXISTE todavía y no se usa hasta que el desarrollo esté terminado (decisión del dueño). NO abras una fila en §3 por cada migración: la lista de pendientes de propagación es la columna `prod` vacía de db/APLICADAS.md, y la propagación completa se hace una sola vez en T-25. §3 es solo para lo que el dueño debe hacer AHORA.
 - Una migración ya aplicada es inmutable: los arreglos van en una migración nueva, nunca editando la anterior.
 - Prohibido en cualquier entorno: DROP TABLE, DROP SCHEMA, TRUNCATE, desactivar RLS, eliminar una política sin sustituirla en la misma migración, cualquier DELETE sobre la tabla asistencia, y cualquier UPDATE o DELETE sobre asistencia_historial. Toda tabla nueva nace con RLS habilitada y políticas explícitas, y NUNCA con política para el rol student.
+- Toda tabla nueva declara sus privilegios de forma EXPLÍCITA: revoke all ... from anon, authenticated, service_role, y luego concede solo lo necesario. Supabase concede privilegios por defecto a esos roles en cada tabla nueva del esquema public, y añadir los tuyos NO quita los suyos. Nunca dejes TRUNCATE, REFERENCES ni TRIGGER a anon ni a authenticated: TRUNCATE en particular IGNORA RLS, así que las políticas no te protegen de él. Este descuido ya ocurrió una vez en el arranque (authenticated tenía TRUNCATE sobre perfil, corregido en db/000b_arreglo_permisos.sql).
+- La tabla perfil, el ledger esquema_migracion, la función esquema_version() y las funciones de rol (rol_actual, es_administrator, es_teacher) YA EXISTEN: el dueño aplicó db/000_bootstrap_perfil.sql a mano. NO las recrees —si vuelves a crear perfil te llevas por delante su usuario—: si hay que cambiarlas, alter table. Y las funciones de rol son SECURITY DEFINER por necesidad: sin ese modificador, una política sobre perfil que las llame provoca "infinite recursion detected in policy". No lo quites.
 - La tabla asistencia SÍ admite modificación, pero solo a través de la RPC actualizar_asistencia: el INSERT y el UPDATE directos están revocados. registrado_en, profesor_id y peticion_id son inmutables y hay un trigger que lo impone; lo editable al ajustar una hora es ocurrido_en. Cada UPDATE deja copia de la fila anterior en asistencia_historial por trigger: no toques ni el trigger ni esa tabla.
 - La única tabla del sistema de la que se BORRAN filas de verdad es persona_referencia (datos de contacto de padres o tutores; el RGPD favorece poder eliminarlos). Todo lo demás usa baja lógica.
 - El bucket de avatares es PRIVADO. Escritura solo administrator; lectura administrator y teacher, y la del teacher acotada a alumnos ACTIVOS (decisión del dueño del 2026-08-25, para que las cards de pasar lista muestren la cara del alumno). Nada para anon ni para student. Jamás lo hagas público, jamás sirvas un avatar por una URL que no caduque, y guarda en la base de datos la RUTA base del fichero, nunca una URL. Las imágenes se re-codifican en el cliente antes de subirlas (createImageBitmap + canvas + toBlob) generando DOS derivadas, 512 px para la ficha y 96 px para cards; el re-codificado elimina los metadatos EXIF, y eso es un requisito de privacidad, no una optimización. Las URL firmadas de una pantalla se piden SIEMPRE en lote, en una sola petición.
@@ -33,7 +35,7 @@ REGLAS DE BASE DE DATOS QUE NO PUEDES SALTARTE (§0.1 y §0.2):
 
 STACK FIJADO (§0.2): VanillaJS + TypeScript, DOM nativo, sin frameworks ni librerías de UI, sin bundler, dependencies vacío. Supabase se consume por su API REST con fetch nativo: @supabase/supabase-js está vetado. Textos e interfaz en español.
 
-ROLES (§0.2): tres desde el inicio, con identificador en inglés y etiqueta de UI en español: administrator (Administrador), teacher (Profesor), student (Alumno). El administrator gestiona centros de estudios, fichas de alumno con sus personas de referencia y su avatar, horarios y usuarios, y accede y modifica CUALQUIER registro de asistencia eligiendo slot y profesor. El teacher pasa lista, ve su horario, y consulta y modifica solo SUS registros: no gestiona fichas ni ve datos de contacto, personas de referencia ni avatares. El student NO tiene acceso a nada en el MVP y no recibe ninguna política RLS. Un rol desconocido se trata como student, nunca como teacher.
+ROLES (§0.2): tres desde el inicio, con identificador en inglés y etiqueta de UI en español: administrator (Administrador), teacher (Profesor), student (Alumno). El administrator gestiona centros de estudios, fichas de alumno con sus personas de referencia y su avatar, horarios y usuarios, y accede y modifica CUALQUIER registro de asistencia eligiendo slot y profesor. El teacher pasa lista, ve su horario, y consulta y modifica solo SUS registros: no gestiona fichas ni ve datos de contacto ni personas de referencia, pero SÍ ve el avatar de sus alumnos activos en las cards de pasar lista. El student NO tiene acceso a nada en el MVP: su única política en todo el sistema es leer su propia fila de perfil, para que la aplicación pueda decirle que aún no tiene acceso. Cualquier otra política para student es un fallo. Un rol desconocido se trata como student, nunca como teacher, y student es además el rol por defecto de todo usuario nuevo.
 
 DATOS PERSONALES (§0.2): se tratan datos de MENORES. Lo que se guarda es exactamente esto y nada más: del alumno, nombre, primer y segundo apellido (el segundo puede ser NULL), centro de estudios de referencia (obligatorio, del catálogo), teléfono y email propios (opcionales) y una fotografía (opcional). De cada persona de referencia, nombre, primer y segundo apellido (el segundo NULL), teléfono (OBLIGATORIO) y email (opcional). Sigue prohibido sin decisión del dueño: notas y datos académicos evaluables, datos de salud, datos bancarios y cualquier categoría especial del artículo 9 del RGPD. No añadas un campo personal "porque sería útil".
 
@@ -78,7 +80,7 @@ RESTRICCIONES DE ESTE PRODUCTO QUE ACOTAN TUS PROPUESTAS. No propongas nada que 
 
 Respeta los límites de autonomía: las decisiones reservadas al dueño (precios, planes, cuentas externas de pago, textos legales, comunicaciones a usuarios reales, operaciones destructivas, DDL en el proyecto de producción de Supabase) no las tomas tú; si una propuesta depende de una de ellas, déjala como pregunta abierta en §6 de SEGUIMIENTO.md.
 
-Recuerda SIEMPRE finalizar haciendo merge en main para que las propuestas estén 100% disponibles para los agentes de desarrollo. Si creas una rama para el trabajo, puedes eliminarla tras mergear si ya no la necesitas.
+Recuerda SIEMPRE finalizar haciendo merge en develop para que las propuestas estén 100% disponibles para los agentes de desarrollo. NUNCA mergees a master: esa rama es del dueño. Si creas una rama para el trabajo, puedes eliminarla tras mergear si ya no la necesitas.
 ```
 
 ---
@@ -115,7 +117,7 @@ EN ESTE PROYECTO, REVISA ADEMÁS ESTOS PUNTOS EN CADA PASADA. Son los que sostie
 - DATOS DE MENORES: que no se han colado campos personales fuera de nombre y contacto.
 Si el runner de migraciones o sus guardas técnicas han sido debilitados, es un hallazgo de severidad ALTA: son la barrera que impide que el agente rompa los invariantes por descuido.
 
-Revisa la documentación del proyecto, no la modifiques (salvo auditoriacontinua.md, el único que estás autorizado a modificar). Deja la actualización mergeada en main; no dejes ramas abiertas para esto: una vez actualizado y mergeado puedes eliminar la rama si creaste una para la tarea.
+Revisa la documentación del proyecto, no la modifiques (salvo auditoriacontinua.md, el único que estás autorizado a modificar). Deja la actualización mergeada en develop (nunca en master, que es del dueño); no dejes ramas abiertas para esto: una vez actualizado y mergeado puedes eliminar la rama si creaste una para la tarea.
 ```
 
 ---
@@ -124,5 +126,5 @@ Revisa la documentación del proyecto, no la modifiques (salvo auditoriacontinua
 
 0. **Ya hecho:** el proyecto de Supabase de **desarrollo** existe y sus credenciales están en `.env.local`. El de **producción** no se crea hasta T-25. Queda pendiente que el dueño cree el primer usuario `administrator` en desarrollo (lo necesita T-09) y que dé de alta el repositorio (T-00).
 1. **Auditor** (opcional al arrancar de cero; útil desde que hay código): genera el estado de partida y el registro de hallazgos en `auditoriacontinua.md`.
-2. **Product Manager**: define visión, principios y primeras R-XX en `ROADMAP_PRODUCTO.md`, incorpora feedback y hallazgos, y mergea a `main`.
+2. **Product Manager**: define visión, principios y primeras R-XX en `ROADMAP_PRODUCTO.md`, incorpora feedback y hallazgos, y mergea a `develop`.
 3. **Programador**: T-00 (verificación inicial) → continúa en orden secuencial.

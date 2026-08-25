@@ -18,7 +18,7 @@
 ### Sesión YYYY-MM-DD HH:MM
 **Tarea(s):** T-XX / R-XX / P-XX
 **Estado resultante:** EN CURSO / COMPLETADA / DESPLEGADA EN PRODUCCIÓN / BLOQUEADA
-**Commits a main:** <hashes y mensajes>
+**Commits a `develop`:** <hashes y mensajes>
 **Migraciones aplicadas:** <fichero db/NNN_*.sql, entorno (dev/prod), versión devuelta por esquema_version(), o "ninguna">
 **Propagación a prod pendiente:** <fila abierta en §3, o "ninguna">
 **Archivos creados/modificados:** <lista>

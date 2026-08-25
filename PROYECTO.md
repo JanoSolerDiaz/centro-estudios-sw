@@ -71,6 +71,7 @@ Frente al papel y a la hoja de cálculo, que es la alternativa real:
 ## Decisiones de producto estables
 
 - **Una pantalla manda sobre las demás:** pasar lista. Todo lo que la haga más lenta necesita justificarse.
+- **Una cuenta por profesor, en su propio dispositivo.** No hay cuenta compartida de la academia ni tablet común. Es lo que hace que un registro pueda atribuirse a una persona; sin eso, el resto del producto pierde su sentido. El administrador nunca conoce la contraseña de nadie: crea el usuario y el profesor se la pone él mismo por recuperación.
 - **Se corrige, no se borra.** Quien se equivoca lo arregla —el profesor lo suyo, el administrador todo—, pero nada desaparece y cada cambio deja rastro. Es un centro privado: la fricción no aporta, la trazabilidad sí.
 - **La hora real, nunca la teórica**, y lo apuntado a posteriori se marca como tal. El producto no ofrece la comodidad de "poner la hora del horario".
 - **Privacidad por diseño:** el dato que no se guarda no hay que protegerlo. Cada campo nuevo se gana su sitio.

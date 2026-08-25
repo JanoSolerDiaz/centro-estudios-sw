@@ -28,7 +28,8 @@
 
 **AUTONOMÍA TOTAL** (vigente antes de clientes reales — prima la agilidad):
 
-- Trabaja directamente en `main` y haz push. El push despliega el frontend compilado al hosting estático (proveedor concreto `<pendiente>`). Es intencionado y está permitido.
+- **Ramas: el agente vive en `develop`.** Trabaja directamente en `develop` y haz push ahí. El push a `develop` despliega el frontend compilado al hosting estático (proveedor concreto `<pendiente>`). Es intencionado y está permitido.
+  - **`master` es del dueño.** El agente **nunca** hace push, merge ni rebase sobre `master`, ni abre un pull request hacia ella por iniciativa propia. `master` recibe merge solo cuando el dueño lo decide, que en la práctica será en T-25 (paso a producción). Si en algún momento te encuentras en `master`, vuelve a `develop` antes de tocar nada.
 
 - **Base de datos: solo se usa `dev` hasta que el desarrollo esté terminado.** Decisión del dueño (2026-08-25). La persistencia es PostgreSQL en **Supabase**:
   - **`dev`** — existe y sus credenciales están en `.env.local`. El agente tiene acceso completo y **aplica el DDL él mismo** con `npm run migrate`, que ejecuta los scripts a través de la Management API (`POST https://api.supabase.com/v1/projects/{ref}/database/query`). Aquí no hay ningún bloqueo humano por esquema.
@@ -68,7 +69,7 @@ Tres roles desde el inicio. **Los identificadores en base de datos y en código 
 |---------------|----------------|-----------------|
 | `administrator` | Administrador | Todo: gestiona el catálogo de centros de estudios, las fichas de alumno (incluidas sus personas de referencia y su avatar), los horarios y los usuarios. Accede a **todos** los registros de asistencia y puede modificar cualquiera, eligiendo slot y profesor. |
 | `teacher` | Profesor | Pasa lista, ve su horario y sus alumnos por slot, añade alumnos extra, y **consulta y modifica únicamente SUS propios registros**. **No** gestiona fichas de alumno, ni personas de referencia, ni centros. |
-| `student` | Alumno | **Ningún acceso a esta funcionalidad en el MVP.** El rol existe en el modelo desde el día 1 para no migrarlo después, pero no tiene ni una política de lectura sobre ninguna tabla. Si un usuario con este rol inicia sesión, ve una pantalla que le explica que su perfil todavía no tiene acceso, y nada más. Qué podrá hacer en el futuro es decisión de producto, no del agente. |
+| `student` | Alumno | **Ningún acceso a esta funcionalidad en el MVP.** El rol existe en el modelo desde el día 1 para no migrarlo después. Su única política en todo el sistema es leer **su propia fila de `perfil`** —son sus datos, y la aplicación necesita su nombre y su rol para decirle que todavía no tiene acceso—; ninguna otra tabla, ningún bucket. Si inicia sesión, ve esa pantalla y nada más. **Es también el rol por defecto de todo usuario nuevo**, para que el fallo por omisión sea cerrado. Qué podrá hacer en el futuro es decisión de producto, no del agente. |
 
 #### Invariantes de datos
 
@@ -97,6 +98,7 @@ El MVP trata datos personales de **menores de edad**, y desde el 2026-08-25 ese 
 
 - **Operaciones de esquema prohibidas al agente, en cualquier entorno:** `DROP TABLE`, `DROP SCHEMA`, `TRUNCATE` y `DELETE` masivo sobre tablas con datos; desactivar RLS (`DISABLE ROW LEVEL SECURITY`); eliminar una política sin sustituirla en la misma migración; cualquier `DELETE` sobre `asistencia`; y cualquier `UPDATE` o `DELETE` sobre `asistencia_historial`. **El runner de migraciones debe rechazar por sí mismo un script que contenga estos patrones** (T-07): el invariante no puede depender de la buena conducta del agente.
 - **La seguridad vive en RLS.** No hay backend propio: la clave anónima viaja en el cliente, por lo que **toda** autorización se implementa como Row Level Security y funciones en la base de datos — incluidas las políticas del almacenamiento de avatares. Una tabla o un bucket nuevos sin políticas explícitas es un fallo de seguridad, no un pendiente. Ocultar un botón en la interfaz no es un control de acceso.
+- **RLS no basta: los privilegios de tabla también hay que declararlos.** Supabase concede privilegios por defecto a `anon`, `authenticated` y `service_role` sobre toda tabla nueva del esquema `public`. **Añadir los permisos que quieres no quita los que ya venían.** Toda tabla nueva empieza por `revoke all ... from anon, authenticated, service_role` y luego concede **solo** lo que necesita. Y ojo con lo que RLS **no** filtra: `TRUNCATE` ignora las políticas por completo, así que un `authenticated` con `TRUNCATE` es un agujero aunque todas las políticas sean perfectas. Lo mismo aplica a `REFERENCES` y `TRIGGER`, que no le hacen falta a la aplicación. Origen de esta regla: se detectó en el arranque que `authenticated` tenía `TRUNCATE` sobre `perfil` (corregido en `db/000b_arreglo_permisos.sql`).
 - Aislamiento: **sin multi-tenant** (una única academia). El aislamiento es **por rol y por pertenencia**, según la tabla de roles de arriba. (Evolución futura, no bloqueante: añadir `centro_id` y extender las políticas si se pasa a varias academias. Ojo con el nombre: eso es distinto de `centro_estudios`, que es el colegio reglado al que asiste el alumno.)
 - Validación de entradas: en el cliente para dar buen mensaje al usuario, y **además** en la base de datos (`CHECK`, dominios, validación dentro de las RPC), porque la validación de cliente es solo cortesía.
 - Logger centralizado — nunca dejar logging de desarrollo en código de producción. El logger no emite nunca datos personales de alumnos ni de personas de referencia, ni rutas de avatar, ni tokens, ni claves: solo identificadores.
@@ -204,9 +206,9 @@ Añadir un **reloj inyectable**: ninguna función de dominio puede leer la hora 
 
 ### T-04 — Integración continua (CI)
 **Prioridad:** ALTA · **Migración:** No · **Depende de:** T-01, T-03
-Pipeline (GitHub Actions o equivalente) que ejecute `typecheck`, `lint`, `test` y `build` en cada push a `main`, fijando la versión de Node. El pipeline **no** debe necesitar credenciales de Supabase para la verificación: si alguna prueba las pide, es que está tocando la red y hay que doblarla.
-**Aceptación:** workflow en verde en el último commit de `main`, con la verificación ejecutándose sin ningún secreto configurado.
-**Bloqueo humano:** alta del repositorio si aún no existe (§3).
+Pipeline (GitHub Actions o equivalente) que ejecute `typecheck`, `lint`, `test` y `build` en cada push a `develop` **y a `master`**, fijando la versión de Node. El pipeline **no** debe necesitar credenciales de Supabase para la verificación: si alguna prueba las pide, es que está tocando la red y hay que doblarla. Los secretos del CI se limitan a lo que necesite el despliegue.
+**Aceptación:** workflow en verde en el último commit de `develop`, con la verificación ejecutándose sin ningún secreto configurado; el mismo workflow declarado también para `master`, para que el merge del dueño no entre nunca a ciegas.
+**Bloqueo humano:** ninguno — el repositorio ya existe, con `master` y `develop` enlazadas.
 
 ### T-05 — Monitorización de errores
 **Prioridad:** ALTA · **Migración:** No · **Depende de:** T-02
@@ -248,14 +250,14 @@ Sin backend propio, los límites se aplican donde son eficaces:
 6. `npm run migrate -- --estado` lista qué hay aplicado en cada entorno sin escribir nada.
 
 *Modelo de datos — `db/001_esquema_inicial.sql`:*
-7. `perfil` — extiende `auth.users` con `nombre`, `rol` (`administrator` | `teacher` | `student`) y `activo`.
+7. `perfil`, `esquema_migracion`, `esquema_version()` y las funciones de rol (`rol_actual()`, `es_administrator()`, `es_teacher()`) **ya existen**: el dueño aplicó `db/000_bootstrap_perfil.sql` a mano antes de empezar. **No las recrees**: leelas, respétalas y compruébalas con `esquema_version()` (debe devolver `0` antes de aplicar `001`). Si `001` necesita tocar `perfil`, hazlo con `alter table`, nunca volviendo a crearla.
 8. **`centro_estudios`** — catálogo de los centros reglados a los que asisten los alumnos (colegios, institutos). Campos: `nombre` (obligatorio, único), `activo`. Baja lógica, nunca `DELETE`. Cualquier campo adicional (localidad, tipo de centro, etc.) es pregunta para §6, no invención del agente.
 9. **`alumno`** — `nombre` (obligatorio), `primer_apellido` (obligatorio), `segundo_apellido` (**nullable**), `centro_referencia_id` (obligatorio, FK a `centro_estudios`), `avatar_ruta` (**nullable**, ruta en Storage, nunca una URL), `email_alumno` (**nullable**), `telefono_alumno` (**nullable**), `activo`, `alta_en`, `baja_en`, `motivo_baja`, y `usuario_id` (**nullable**, FK a `perfil`) para poder vincular en el futuro a un alumno con su cuenta sin migrar la tabla.
 10. **`persona_referencia`** — 0..N por alumno. Campos: `alumno_id` (FK), `nombre` (obligatorio), `primer_apellido` (obligatorio), `segundo_apellido` (**nullable**), `email_referencia` (**nullable**), `telefono_referencia` (**obligatorio**). Es la única tabla del sistema con `DELETE` real permitido (§0.2). Anotar en §6 dos preguntas: si se desea un campo `relacion` (padre / madre / tutor / otro), y si debe exigirse al menos una persona de referencia cuando el alumno no tiene ni email ni teléfono propios.
 11. `slot_horario` — `alumno_id`, `profesor_id`, `dia_semana` (1–7), `hora_inicio`, `hora_fin`, `asignatura_o_grupo`, `vigente_desde`, `vigente_hasta` (nullable).
 12. `asistencia` — `alumno_id`, `profesor_id`, `registrado_en timestamptz` (**inmutable**), `ocurrido_en timestamptz` (editable), `es_retroactivo boolean`, `origen` (`slot` | `manual`), `slot_id` (nullable), **snapshot** del slot, `estado` (`valida` | `anulada`), `motivo_anulacion`, `nota`, `actualizado_en`, `actualizado_por`, `peticion_id` único.
 13. `asistencia_historial` — copia de la fila anterior en cada `UPDATE`, con quién y cuándo. Estrictamente append-only.
-14. `evento_error` (T-05), `esquema_migracion`, y la función `esquema_version()` expuesta como RPC.
+14. `evento_error` (T-05). El ledger y `esquema_version()` ya vienen del bootstrap (punto 7).
 
 *Invariantes, dentro de la base de datos:*
 15. `CHECK` de dominios (rol, origen, estado, `dia_semana` 1–7, `hora_fin > hora_inicio`), formato de email y teléfono, claves ajenas, unicidad de `peticion_id` y de `centro_estudios.nombre`.
@@ -264,6 +266,7 @@ Sin backend propio, los límites se aplican donde son eficaces:
 18. **Trigger `AFTER UPDATE`** en `asistencia` que escribe la fila anterior en `asistencia_historial`.
 19. **`REVOKE INSERT, UPDATE, DELETE ON asistencia`** a los roles de la API. **`REVOKE UPDATE, DELETE ON asistencia_historial`** para todos.
 20. **RLS habilitada en todas las tablas** desde el propio script, sin excepción. El rol `student` no recibe ninguna política, ni aquí ni en T-10.
+20b. **Privilegios de tabla explícitos para cada tabla nueva:** `revoke all ... from anon, authenticated, service_role` y después conceder solo lo necesario. Nunca dar `TRUNCATE`, `REFERENCES` ni `TRIGGER` a los roles de la API. Es obligatorio incluir un test que recorra `information_schema.role_table_grants` y falle si alguna tabla del proyecto concede a `anon` o a `authenticated` algo fuera de la lista permitida — el descuido ya ocurrió una vez en el arranque y una regla escrita sin comprobación automática no impide que vuelva.
 
 *Cierre:*
 21. **`db/MODELO.md`** en español y legible sin saber SQL: cada tabla, cada campo con su tipo, su obligatoriedad y su porqué; las relaciones; la matriz de roles; y por qué cada invariante está donde está. Con diagrama de relaciones en texto. Se mantiene al día en cada migración posterior.
@@ -273,7 +276,7 @@ Sin backend propio, los límites se aplican donde son eficaces:
 
 **Bloqueo humano:** ninguno para empezar — las credenciales de `dev` ya están en `.env.local`. Se abre **una pregunta no bloqueante en §6** pidiendo al dueño que revise `db/MODELO.md` cuando pueda; su validación es requisito para T-25 (paso a producción), no para seguir desarrollando.
 
-**Criterio de aceptación:** `npm run migrate` aplica `001` a `dev`, es idempotente al repetirse, y `esquema_version()` devuelve `1`; `npm run migrate` sobre un script ya aplicado y modificado **falla** por hash; el runner **rechaza** un script de prueba por cada guarda de contenido (un test por guarda); un intento de apuntar a `prod` sin `PERMITIR_PROD=1` falla; test de que ninguna tabla queda sin `enable row level security`; tests de la presencia del trigger de inmutabilidad, del trigger de historial y de las revocaciones; el test de fuga de secretos pasa; `db/MODELO.md` y `db/APLICADAS.md` commiteados y coherentes con el script.
+**Criterio de aceptación:** `esquema_version()` devuelve `0` antes de empezar (bootstrap aplicado); `npm run migrate` aplica `001` a `dev`, es idempotente al repetirse, y después `esquema_version()` devuelve `1`; `npm run migrate` sobre un script ya aplicado y modificado **falla** por hash; el runner **rechaza** un script de prueba por cada guarda de contenido (un test por guarda); un intento de apuntar a `prod` sin `PERMITIR_PROD=1` falla; test de que ninguna tabla queda sin `enable row level security`; tests de la presencia del trigger de inmutabilidad, del trigger de historial y de las revocaciones; el test de fuga de secretos pasa; `db/MODELO.md` y `db/APLICADAS.md` commiteados y coherentes con el script.
 
 ### T-08 — Cliente propio de la API de Supabase
 **Prioridad:** ALTA · **Migración:** No · **Depende de:** T-07
@@ -295,17 +298,22 @@ Sin backend propio, los límites se aplican donde son eficaces:
 
 **Objetivo:** que cada usuario se identifique y que su rol determine qué aplicación ve — para que cada registro quede atribuido a una persona y para que `student` quede cerrado desde el primer día.
 
+**Premisa de uso, decidida por el dueño el 2026-08-25:** **una cuenta por profesor, en su propio dispositivo.** No hay tablet compartida ni cuenta común de la academia, y no se construye nada para ese escenario. Es lo que sostiene todo lo demás: si varios profesores compartieran una cuenta, `profesor_id` dejaría de significar nada, no se podría responder quién registró o modificó un dato, y la regla de que un profesor solo edita sus propios registros se quedaría sin sentido. Si algún día se plantea el dispositivo compartido, es una decisión de producto del dueño y exige diseño nuevo (varias sesiones guardadas y un PIN por profesor), no un parche.
+
 **Requisitos:**
 1. Inicio de sesión por email y contraseña contra GoTrue, cierre de sesión y renovación con `refresh_token`, con el cliente propio.
-2. Almacenamiento de la sesión con la opción más conservadora posible y **documentada** (riesgo de XSS explícito, mitigado por la prohibición de `innerHTML` y por la CSP de T-25). Renovación proactiva y cierre limpio al fallar.
-3. Estado de sesión observable por la interfaz: sin sesión se muestra el login; al caducar sin poder renovar se avisa y **no se pierde** ningún registro pendiente sin decirlo.
-4. Carga del `perfil` tras autenticar. Un usuario con `activo = false` no entra, aunque sus credenciales sean correctas.
-5. **Enrutado por rol:** `administrator` y `teacher` acceden a su aplicación; `student` ve una pantalla que le explica en español que su perfil todavía no tiene acceso, sin filtrar ninguna otra información y **sin ninguna llamada a datos**. Un rol desconocido se trata como `student`, nunca como `teacher`.
-6. Pantalla de login en DOM nativo, en español, accesible y usable en móvil. Mensajes de error que no revelen si el email existe.
+2. **Recuperación de contraseña, y es un requisito, no un extra.** Sin ella el alta de un profesor acaba en el administrador dictándole una contraseña por teléfono, que es la peor práctica posible y además no escala. El endpoint `POST /auth/v1/recover` funciona con la **clave anónima**, sin `service_role`, así que se puede implementar entero desde el cliente: pantalla de «he olvidado mi contraseña», y pantalla de establecer contraseña nueva al volver desde el enlace del correo. El flujo de alta real pasa a ser: el administrador crea el usuario en el panel y el profesor **se pone él mismo su contraseña** por esta vía. El administrador nunca conoce la contraseña de nadie.
+3. **Comprobar y documentar la configuración de correo del proyecto.** El envío de correos de recuperación depende del servidor SMTP de Supabase, que en el plan gratuito tiene un límite bajo y no es apto para uso real. Verificar si hace falta configurar un SMTP propio y, si lo hace, anotarlo en §3 como acción del dueño: la funcionalidad se despliega igual, pero el correo no sale. Comprobar también si la confirmación de email está activada, porque un usuario creado desde el panel puede quedar sin confirmar y no poder entrar — un fallo que parece un error de código y no lo es.
+4. Almacenamiento de la sesión con la opción más conservadora posible y **documentada** (riesgo de XSS explícito, mitigado por la prohibición de `innerHTML` y por la CSP de T-25).
+5. **Sesión larga y renovación anticipada, porque esto se usa en clase.** Que a un profesor le caduque la sesión con la lista a medias y el aula esperando es un fallo de producto, no un detalle técnico. Por tanto: renovar el token de forma proactiva **al abrir la pantalla de pasar lista** y con margen amplio antes de la caducidad, nunca esperar al `401`; configurar una vida larga del `refresh_token` en el proyecto; y si la renovación falla por red, decirlo con claridad sin descartar lo que el profesor ya tenía en pantalla.
+6. Estado de sesión observable por la interfaz: sin sesión se muestra el login; al caducar sin poder renovar se avisa y **no se pierde** ningún registro pendiente sin decirlo.
+7. Carga del `perfil` tras autenticar. Un usuario con `activo = false` no entra, aunque sus credenciales sean correctas. La tabla y su RLS ya existen desde el bootstrap `000`.
+8. **Enrutado por rol:** `administrator` y `teacher` acceden a su aplicación; `student` ve una pantalla que le explica en español que su perfil todavía no tiene acceso, sin filtrar ninguna otra información y **sin ninguna llamada a datos** más allá de su propio perfil. Un rol desconocido se trata como `student`, nunca como `teacher`. Recordar que `student` es el rol **por defecto** de todo usuario nuevo, así que esta pantalla es la que verá un profesor recién creado a quien nadie le ha cambiado el rol todavía: su mensaje debe orientarle a hablar con el administrador, no parecer un error.
+9. Pantalla de login en DOM nativo, en español, accesible y usable en móvil, con enlace visible a la recuperación de contraseña. Mensajes de error que no revelen si el email existe — y eso incluye la pantalla de recuperación, que debe responder lo mismo exista o no la cuenta.
 
-**Bloqueo humano:** el dueño crea el primer usuario `administrator` en el proyecto `dev` (o habilita el método de alta que prefiera).
+**Bloqueo humano:** el dueño crea el primer usuario `administrator` en el proyecto `dev` y le asigna el rol (el bootstrap `000` los crea como `student`). Si hace falta SMTP propio para los correos de recuperación, también.
 
-**Criterio de aceptación:** tests que cubren credenciales correctas, contraseña errónea, perfil inactivo, token caducado con renovación exitosa, renovación fallida y ausencia de sesión; test de que un perfil `student` y uno con rol desconocido llegan a la pantalla sin acceso y no disparan ninguna consulta; ningún test ni log contiene una contraseña ni un token en claro.
+**Criterio de aceptación:** tests que cubren credenciales correctas, contraseña errónea, perfil inactivo, token caducado con renovación exitosa, renovación fallida y ausencia de sesión; test del flujo completo de recuperación de contraseña y de que responde igual con un email inexistente; test de que la renovación proactiva se dispara al abrir pasar lista y no espera un `401`; test de que un perfil `student` y uno con rol desconocido llegan a la pantalla sin acceso y no disparan ninguna consulta de datos; ningún test ni log contiene una contraseña ni un token en claro.
 
 ### T-10 — Autorización: políticas RLS de los tres roles
 **Prioridad:** ALTA · **Migración:** Sí (`002_politicas_rls`) · **Depende de:** T-09
@@ -313,7 +321,7 @@ Sin backend propio, los límites se aplican donde son eficaces:
 **Objetivo:** que cada rol pueda hacer exactamente lo que le corresponde y nada más, con las reglas donde no se pueden esquivar.
 
 **Requisitos:**
-1. Funciones auxiliares (`rol_actual()`, `es_administrator()`, `es_teacher()`) que leen el rol del `perfil` del usuario autenticado, usadas por todas las políticas: una sola definición.
+1. Las funciones auxiliares (`rol_actual()`, `es_administrator()`, `es_teacher()`) **ya existen** desde el bootstrap `000`, y son `SECURITY DEFINER` por una razón: si no lo fueran, una política sobre `perfil` que las llame volvería a disparar la política y PostgreSQL aborta con *infinite recursion detected in policy*. **No las redefinas sin ese modificador.** Úsalas en todas las políticas nuevas; una sola definición, nunca repetir la lógica de rol dentro de una política.
 2. Políticas por tabla y operación, explícitas y comentadas:
    - `centro_estudios`: `teacher` lee los activos (los ve en la ficha del alumno); `administrator` lee y escribe. Sin `DELETE`.
    - `alumno`: `teacher` lee los activos, **y solo los campos que necesita** para identificarlos (ver punto 4); `administrator` lee y escribe todo. Sin `DELETE`.
@@ -321,9 +329,9 @@ Sin backend propio, los límites se aplican donde son eficaces:
    - `slot_horario`: `teacher` lee los suyos; `administrator` lee y escribe todos.
    - `asistencia`: `teacher` lee **las suyas**; `administrator` lee **todas**. Sin `INSERT` ni `UPDATE` directo (solo RPC). **Sin `DELETE` para nadie.**
    - `asistencia_historial`: lectura solo `administrator`. Sin `INSERT`, `UPDATE` ni `DELETE`.
-   - `perfil`: cada usuario lee el suyo; `administrator` lee y gestiona todos.
+   - `perfil`: **ya resuelto en el bootstrap `000`** — cada usuario autenticado lee su propia fila y `administrator` lee y gestiona todas, sin `DELETE` para nadie. Revísalo, no lo recrees.
    - `evento_error`: escritura por RPC; lectura solo `administrator`.
-   - **`student`: ninguna política en ninguna tabla.** No es un olvido, es el diseño.
+   - **`student`: ninguna política en ninguna tabla, con una única excepción deliberada** — lee su propia fila de `perfil`, porque son sus propios datos y la aplicación necesita su nombre y su rol para decirle que todavía no tiene acceso. No expone nada de nadie más. Cualquier otra política para `student` es un fallo.
 3. **Políticas del bucket de avatares** (`storage.objects`): el bucket es **privado**. Escritura solo `administrator`. Lectura para `administrator` y **también para `teacher`, restringida a avatares de alumnos activos** — la política extrae el `alumno_id` de la ruta y lo une con `alumno.activo`. Ningún acceso para `anon` ni para `student`. Esta lectura del `teacher` es una ampliación deliberada, decidida por el dueño el 2026-08-25 para que la pantalla de pasar lista muestre las caras de sus alumnos; queda acotada a activos porque un profesor no tiene por qué recuperar la foto de alguien dado de baja.
 4. Decidir e implementar cómo se restringe el conjunto de columnas que ve un `teacher` de un alumno (vista dedicada con `security_invoker`, o `GRANT` por columna). Documentar la elección en `DECISIONES_TECNICAS.md`. Un `teacher` no debe poder leer `email_alumno` ni `telefono_alumno` mediante una consulta directa a PostgREST. **`avatar_ruta` sí es legible para el `teacher`** en los alumnos activos, porque la necesita para pedir la URL firmada; no expone nada que la política del bucket no permita ya.
 5. **Batería de pruebas de aislamiento ejecutable** `db/pruebas_rls.sql`, lanzable con `npm run probar-rls`: suplantando a un `administrator`, a dos `teacher` distintos y a un `student`, comprueba que cada acceso permitido funciona y **cada acceso prohibido falla**. Obligatorios: el barrido completo del `student` (debe fallar en todas las tablas y en el bucket), el intento de un `teacher` de leer `persona_referencia` (debe fallar), de leer las columnas de contacto de un alumno (debe fallar), de leer el avatar de un alumno **activo** (debe funcionar), de leer el de un alumno **inactivo** (debe fallar) y de escribir en el bucket (debe fallar).
