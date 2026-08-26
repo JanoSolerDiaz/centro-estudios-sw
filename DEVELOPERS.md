@@ -41,8 +41,13 @@ incluye reglas propias que hacen fallar el lint (no solo lo documentan) si `src/
 - un import de un paquete de terceros (cualquier especificador que no sea relativo o
   `node:...`), con `@supabase/supabase-js` vetado explícitamente;
 - `innerHTML` (lectura o escritura);
-- `console.*` fuera del logger centralizado (T-02; hasta entonces, prohibido en todo `src/`);
-- `fetch` fuera de `src/datos/**` (la capa de acceso a Supabase, T-08).
+- `console.*` fuera del logger centralizado (`src/nucleo/registro.ts`, T-02; es el único fichero
+  con permiso para usarlo);
+- `fetch` fuera de `src/datos/**` (la capa de acceso a Supabase, T-08);
+- `process`, `Buffer`, `require`, `__dirname` y `__filename` en cualquier fichero de `src/`: son
+  globales de Node que `@types/node` declara para todo el programa (hace falta para tipar
+  `node:test`/`node:assert` en los tests) pero que no existen en el navegador; `tsc` no los
+  detecta porque para él son válidos, así que la guarda vive en ESLint.
 
 No se ha añadido Prettier ni ningún formateador como dependencia: la política de
 `devDependencies` (§0.2 de `roadmap/HOJA_DE_RUTA.md`) la deja fuera de la lista permitida. El
@@ -55,6 +60,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   función de aquí lee la hora del sistema directamente (ver T-03).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08).
+- `src/nucleo/` — infraestructura transversal usada por toda la aplicación. Hoy solo el logger
+  centralizado (`registro.ts`, T-02): entradas estructuradas (nivel, instante, mensaje, contexto),
+  nivel configurable, y depuración automática del `contexto` que descarta datos personales de
+  alumnos y personas de referencia, rutas de avatar, y cualquier campo con aspecto de token o de
+  clave (por nombre de campo o por forma del valor). El texto de `mensaje` no se depura: es una
+  cadena fija escrita por quien programa, nunca debe llevar datos de usuario.
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español. El agente los escribe pero **nunca los aplica**: los aplica el dueño con

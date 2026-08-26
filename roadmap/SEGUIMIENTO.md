@@ -10,15 +10,20 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-26 — T-01 COMPLETADA: ESLint estricto y *type-aware*
-(`typescript-eslint` `strictTypeChecked` + `stylisticTypeChecked`) sobre `src/`, con las cuatro
-reglas que defienden el stack por herramienta (paquetes de terceros —`@supabase/supabase-js`
-nombrado explícitamente—, `innerHTML`, `console.*` fuera del logger, `fetch` fuera de
-`src/datos/**`), verificadas con ficheros de prueba que fallan el lint como exige el criterio de
-aceptación. Hook de pre-commit instalado por `npm install` (`herramientas/instalar-ganchos.ts`,
-sin tocar `git config`) que ejecuta la verificación completa. Formato consistente vía
-`.editorconfig`, sin añadir Prettier (fuera de la lista cerrada de `devDependencies`). Sin
-hallazgos de auditoría de severidad alta abiertos (el único hallazgo, #1, es de severidad baja).
+**Última actualización:** 2026-08-26 — T-02 COMPLETADA: logger centralizado en
+`src/nucleo/registro.ts` (única entrada estructurada nivel/instante/mensaje/contexto, nivel
+configurable y silenciable, factoría `crearLogger` con sumidero inyectable para tests). El
+`contexto` pasa siempre por `depurarContexto`, que descarta recursivamente datos personales de
+alumnos y personas de referencia, la ruta del avatar, y cualquier campo con aspecto de token o de
+clave — por nombre de campo y, como defensa adicional, por forma del valor (JWT o cadena opaca
+larga), independientemente del nombre de la clave. Es el único fichero de `src/` con permiso para
+usar `console.*` (ESLint lo hace cumplir). Añadida `@types/node` (`^22.20.1`, `devDependency`,
+dentro de la lista cerrada `@types/*`) para tipar `node:test`/`node:assert` en los tests; su efecto
+colateral (globales de Node visibles en todo `src/`, incluido el código de navegador) se cierra con
+una regla nueva de ESLint (`no-restricted-globals` para `process`, `Buffer`, `require`,
+`__dirname`, `__filename`), ver `DECISIONES_TECNICAS.md`. Sin hallazgos de auditoría de severidad
+alta abiertos (el único hallazgo, #1, es de severidad baja). Siguiente tarea: T-03 (suite de tests
+mínima).
 
 ---
 
@@ -45,7 +50,7 @@ hallazgos de auditoría de severidad alta abiertos (el único hallazgo, #1, es d
 |----|-------|--------|---------------|-------|
 | T-00 | Verificación inicial | COMPLETADA | 2026-08-26 | `package.json` (`dependencies` vacío), `tsconfig.json` strict, ESLint mínimo (T-01 lo sustituye por el estricto/type-aware), `index.html` + `src/ui/main.ts` verificado en Chromium headless |
 | T-01 | Linting y formato | COMPLETADA | 2026-08-26 | ESLint estricto *type-aware* + 4 reglas de guarda del stack + hook de pre-commit; sin Prettier (ver DECISIONES_TECNICAS) |
-| T-02 | Logger centralizado | PENDIENTE | — | — |
+| T-02 | Logger centralizado | COMPLETADA | 2026-08-26 | `src/nucleo/registro.ts`; único fichero con permiso ESLint para `console.*`; depuración de contexto (personales, avatar, tokens/claves) por nombre y por forma del valor |
 | T-03 | Suite de tests mínima | PENDIENTE | — | — |
 | T-04 | CI | PENDIENTE | — | — |
 | T-05 | Monitorización de errores | PENDIENTE | — | — |

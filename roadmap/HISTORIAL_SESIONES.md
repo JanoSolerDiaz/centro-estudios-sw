@@ -37,6 +37,42 @@
 
 ---
 
+### Sesión 2026-08-26 (T-02)
+**Tarea(s):** T-02 — Logger centralizado
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (`T-02: logger centralizado con depuración de datos sensibles`)
+**Migraciones aplicadas:** ninguna (T-02 no tiene migración asociada)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/nucleo/registro.ts` (nuevo — logger), `src/nucleo/registro.test.ts`
+(nuevo — 9 tests), `eslint.config.js` (override que permite `console.*` solo en
+`src/nucleo/registro.ts`; nueva regla `no-restricted-globals` para los globales de Node
+`process`/`Buffer`/`require`/`__dirname`/`__filename` en todo `src/`, incluida `src/datos/**`),
+`tsconfig.json` (probado y revertido `"types": []`, ver decisión), `package.json` y
+`package-lock.json` (`devDependency` `@types/node@^22.20.1`), `DEVELOPERS.md` (documenta
+`src/nucleo/`, la quinta regla de guarda y la ruta real del logger), `roadmap/SEGUIMIENTO.md` (§1
+T-02 → COMPLETADA, cabecera), `roadmap/DECISIONES_TECNICAS.md` (dos filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ (0 errores, 0 warnings) · tests ✅ (9/9, `node --test`
+sobre `src/**/*.test.ts`, sin red ni variables de entorno) · build ✅
+**Health check post-deploy:** N/A — todavía no hay pipeline de despliegue (T-04/T-25); no aplica
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-26, ambas T-02): la
+depuración del contexto del logger como lista de bloqueo por nombre de campo + defensa por forma
+del valor, en vez de una allowlist; y la adición de `@types/node` con su efecto colateral (globales
+de Node visibles en todo `src/`) cerrado por una regla de ESLint nueva en vez de `"types": []` en
+`tsconfig.json` (probado y descartado: rompe la resolución de tipos de `node:test`/`node:assert`)
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 abierto (severidad baja, higiene
+documental de `HOJA_DE_RUTA.md`) no es de la competencia de esta tarea y sigue abierto para el PM/auditor
+**Hallazgos:** el primer test de "campo con aspecto de token o de clave" detectó que `service_role`
+—el nombre de rol explícitamente mencionado como secreto en §0.2— no encajaba en ningún patrón de
+la regex inicial (no contiene `token`, `clave` ni `key`); se corrigió antes de dar la tarea por
+cerrada, precisamente el tipo de fallo que un test real de la depuración está para atrapar
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-03 (suite de tests mínima) — la tarea que más pesa en modo autonomía total.
+Nota para esa sesión: ya existe un patrón a seguir en `src/nucleo/registro.test.ts` (factoría con
+sumidero/dependencia inyectable para no tocar recursos reales en tests), y ya está resuelto el
+tipado de `node:test`/`node:assert` vía `@types/node`.
+
+---
+
 ### Sesión 2026-08-26 (T-01)
 **Tarea(s):** T-01 — Linting y formato
 **Estado resultante:** COMPLETADA
