@@ -10,11 +10,15 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-26 — T-00 COMPLETADA: andamiaje inicial del repositorio
-(`package.json`, `tsconfig.json`, `index.html`, estructura `src/`/`herramientas/`) commiteado y
-verificado (typecheck, lint, test y build en verde; ejecución en navegador comprobada con
-Chromium headless). Sin hallazgos de auditoría de severidad alta abiertos (el único hallazgo,
-#1, es de severidad baja).
+**Última actualización:** 2026-08-26 — T-01 COMPLETADA: ESLint estricto y *type-aware*
+(`typescript-eslint` `strictTypeChecked` + `stylisticTypeChecked`) sobre `src/`, con las cuatro
+reglas que defienden el stack por herramienta (paquetes de terceros —`@supabase/supabase-js`
+nombrado explícitamente—, `innerHTML`, `console.*` fuera del logger, `fetch` fuera de
+`src/datos/**`), verificadas con ficheros de prueba que fallan el lint como exige el criterio de
+aceptación. Hook de pre-commit instalado por `npm install` (`herramientas/instalar-ganchos.ts`,
+sin tocar `git config`) que ejecuta la verificación completa. Formato consistente vía
+`.editorconfig`, sin añadir Prettier (fuera de la lista cerrada de `devDependencies`). Sin
+hallazgos de auditoría de severidad alta abiertos (el único hallazgo, #1, es de severidad baja).
 
 ---
 
@@ -40,7 +44,7 @@ Chromium headless). Sin hallazgos de auditoría de severidad alta abiertos (el �
 | ID | Tarea | Estado | Última sesión | Notas |
 |----|-------|--------|---------------|-------|
 | T-00 | Verificación inicial | COMPLETADA | 2026-08-26 | `package.json` (`dependencies` vacío), `tsconfig.json` strict, ESLint mínimo (T-01 lo sustituye por el estricto/type-aware), `index.html` + `src/ui/main.ts` verificado en Chromium headless |
-| T-01 | Linting y formato | PENDIENTE | — | — |
+| T-01 | Linting y formato | COMPLETADA | 2026-08-26 | ESLint estricto *type-aware* + 4 reglas de guarda del stack + hook de pre-commit; sin Prettier (ver DECISIONES_TECNICAS) |
 | T-02 | Logger centralizado | PENDIENTE | — | — |
 | T-03 | Suite de tests mínima | PENDIENTE | — | — |
 | T-04 | CI | PENDIENTE | — | — |

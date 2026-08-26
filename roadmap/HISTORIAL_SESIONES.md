@@ -37,6 +37,46 @@
 
 ---
 
+### Sesión 2026-08-26 (T-01)
+**Tarea(s):** T-01 — Linting y formato
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (`T-01: linting estricto, guardas de stack y hook de pre-commit`)
+**Migraciones aplicadas:** ninguna (T-01 no tiene migración asociada)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `eslint.config.js` (config estricta *type-aware* + 4 reglas de
+guarda del stack), `.editorconfig` (nuevo), `herramientas/git-hooks/pre-commit` (nuevo),
+`herramientas/instalar-ganchos.ts` (nuevo), `herramientas/.gitkeep` (eliminado, ya no está vacío),
+`package.json` (script `prepare`), `DEVELOPERS.md` (documenta el hook y las reglas de guarda),
+`roadmap/SEGUIMIENTO.md` (§1 T-01 → COMPLETADA, cabecera), `roadmap/DECISIONES_TECNICAS.md`
+(cinco filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ (0 errores, 0 warnings) · tests ✅ (0 tests, sin
+fallos — T-03 los añade) · build ✅. Además: `node herramientas/instalar-ganchos.ts` instala el
+hook con permisos de ejecución y `sh .git/hooks/pre-commit` corre la verificación completa en
+verde; ficheros de prueba temporales (no commiteados) confirmaron que un import de
+`@supabase/supabase-js`, un `innerHTML` y un `console.log` en `src/ui/` y un `fetch` fuera de
+`src/datos/` hacen fallar `npm run lint` con los cinco errores esperados, y que el mismo `fetch`
+sí pasa dentro de `src/datos/`
+**Health check post-deploy:** N/A — todavía no hay pipeline de despliegue (T-04/T-25); no aplica
+**Decisiones tomadas:** cinco filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-26, todas T-01):
+las cuatro reglas de guarda del stack con reglas nativas de ESLint (`no-restricted-imports`,
+`no-restricted-syntax`, `no-restricted-globals`) sin plugin nuevo; chequeo *type-aware* limitado a
+`src/**/*.ts` (herramientas queda con parsing TS simple, sin tipos, hasta T-07); sin Prettier,
+formato vía `.editorconfig` + `stylisticTypeChecked`; hook de pre-commit instalado copiando un
+fichero versionado en el `prepare` de npm, sin tocar `git config` (vetado por el protocolo de esta
+sesión)
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 abierto (severidad baja, higiene
+documental de `HOJA_DE_RUTA.md`) sigue sin ser competencia del programador y no es de severidad
+alta
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-02 (Logger centralizado) es la siguiente tarea de la cola. Debe crear el
+logger en la ruta que ya anticipa `eslint.config.js` (`src/nucleo/registro.ts`, constante
+`RUTA_LOGGER`) o, si elige otra ruta, actualizar esa constante y el mensaje de la regla
+`no-restricted-syntax` que prohíbe `console.*`; y añadir el override de `files` que permita
+`console.*` solo dentro de esa ruta.
+
+---
+
 ### Sesión 2026-08-26
 **Tarea(s):** T-00 — Verificación inicial del estado
 **Estado resultante:** COMPLETADA

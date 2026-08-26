@@ -1,0 +1,10 @@
+#!/bin/sh
+# Instalado por `npm install` (script `prepare`, ver herramientas/instalar-ganchos.ts).
+# Fuente versionada: herramientas/git-hooks/pre-commit — no editar la copia en .git/hooks/.
+set -e
+
+echo "pre-commit: verificación completa (typecheck, lint, test, build)…"
+npm run typecheck
+npm run lint
+npm test
+npm run build

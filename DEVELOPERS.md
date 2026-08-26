@@ -13,9 +13,9 @@
 ## Arranque
 
 ```
-npm install
+npm install          # también instala el hook de pre-commit (script `prepare`, ver abajo)
 npm run typecheck   # tsc --noEmit (strict)
-npm run lint        # eslint . (se configura en T-01)
+npm run lint        # eslint . — estricto y type-aware (typescript-eslint strictTypeChecked)
 npm test            # node --test sobre src/**/*.test.ts (se puebla desde T-03)
 npm run build        # tsc -b -> dist/ (ES modules nativos, sin bundler)
 ```
@@ -23,6 +23,31 @@ npm run build        # tsc -b -> dist/ (ES modules nativos, sin bundler)
 Para ver la página, sirve el directorio raíz con cualquier servidor estático (por ejemplo
 `npx serve .` o `python3 -m http.server`) y abre `index.html`. El navegador carga
 `dist/ui/main.js`, así que hace falta `npm run build` antes de abrirlo.
+
+## Hook de pre-commit
+
+`npm install` ejecuta el script `prepare`, que copia `herramientas/git-hooks/pre-commit` a
+`.git/hooks/pre-commit` (nunca se toca `git config`: es una copia de fichero, no un cambio de
+configuración compartida). El hook ejecuta la verificación completa
+(`typecheck && lint && test && build`) antes de cada commit local. Si necesitas saltártelo una
+vez de forma consciente, `git commit --no-verify`; si el hook no se instaló (por ejemplo, tras
+clonar sin `npm install`), vuelve a generarlo con `npm run prepare`.
+
+## Reglas de ESLint que defienden el stack por herramienta
+
+Además de la configuración estricta *type-aware* de `typescript-eslint`, `eslint.config.js`
+incluye reglas propias que hacen fallar el lint (no solo lo documentan) si `src/` contiene:
+
+- un import de un paquete de terceros (cualquier especificador que no sea relativo o
+  `node:...`), con `@supabase/supabase-js` vetado explícitamente;
+- `innerHTML` (lectura o escritura);
+- `console.*` fuera del logger centralizado (T-02; hasta entonces, prohibido en todo `src/`);
+- `fetch` fuera de `src/datos/**` (la capa de acceso a Supabase, T-08).
+
+No se ha añadido Prettier ni ningún formateador como dependencia: la política de
+`devDependencies` (§0.2 de `roadmap/HOJA_DE_RUTA.md`) la deja fuera de la lista permitida. El
+formato consistente se apoya en `.editorconfig` (indentación, fin de línea, salto final) y en las
+reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
 
 ## Estructura
 
