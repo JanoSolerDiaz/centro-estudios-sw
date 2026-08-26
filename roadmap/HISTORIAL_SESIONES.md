@@ -37,6 +37,39 @@
 
 ---
 
+### Sesión 2026-08-26 (T-04)
+**Tarea(s):** T-04 — Integración continua (CI)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (`T-04: integración continua con GitHub Actions`)
+**Migraciones aplicadas:** ninguna (T-04 no tiene migración asociada)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `.github/workflows/ci.yml` (nuevo — job único que ejecuta `npm ci`
+y luego `typecheck`, `lint`, `test`, `build`, disparado por `push` a `develop` y a `master`, sin
+`secrets`/`env` declarados), `.nvmrc` (nuevo — `22.22.2`, fuente de verdad de la versión de Node
+para CI y para desarrollo local), `DEVELOPERS.md` (sección nueva "Integración continua (T-04)";
+nota sobre `.nvmrc` en "Requisitos"), `roadmap/SEGUIMIENTO.md` (§1 T-04 → COMPLETADA, cabecera),
+`roadmap/DECISIONES_TECNICAS.md` (tres filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ (0 errores, 0 warnings) · tests ✅ (41/41) · build ✅
+— las cuatro reconfirmadas con `env -i` (entorno vacío, sin ninguna variable definida), igual que el
+propio workflow de CI las ejecuta sin secretos
+**Health check post-deploy:** N/A — sigue sin existir hosting al que desplegar (proveedor
+`<pendiente>`); no es responsabilidad de T-04 crearlo, como ya anotó la sesión de T-03
+**Decisiones tomadas:** tres filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-26, todas T-04): el
+`.nvmrc` como fuente única de la versión de Node fijada, separada del mínimo abierto de
+`engines.node`; el alcance del workflow (solo `push` a `develop`/`master`, sin `pull_request`, sin
+secretos, `npm ci` en vez de `npm install`); y las versiones mayores de `actions/checkout`/
+`actions/setup-node` usadas, verificadas por búsqueda en vez de asumidas
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 abierto (severidad baja, higiene
+documental de `HOJA_DE_RUTA.md`) no es de la competencia de esta tarea y sigue abierto para el PM/auditor
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-05 (monitorización de errores). El workflow de CI no se puede verificar en verde
+en GitHub Actions desde esta sesión (no hay forma de disparar ni leer un run remoto sin acceso a
+Actions); queda verificado localmente con `env -i` reproduciendo exactamente los mismos comandos que
+ejecuta el job, y su primer run real será el propio push de este commit a `develop`.
+
+---
+
 ### Sesión 2026-08-26 (T-03)
 **Tarea(s):** T-03 — Suite de tests mínima
 **Estado resultante:** COMPLETADA

@@ -6,7 +6,8 @@
 ## Requisitos
 
 - Node.js **22.22 o superior** (usa el stripping nativo de tipos de TypeScript; sin él, `npm test`
-  no puede ejecutar los ficheros `.ts` directamente).
+  no puede ejecutar los ficheros `.ts` directamente). La versión exacta usada en desarrollo y en CI
+  está fijada en `.nvmrc` (`nvm use` si usas `nvm`).
 - Sin base de datos local: el proyecto habla con Supabase por API REST. El entorno de desarrollo
   (`dev`) ya existe; sus credenciales viven en `.env.local`, que **no está en el repositorio**.
 
@@ -103,6 +104,15 @@ tocar la red, está mal planteado: hay que doblarlo. Tres niveles, todos con al 
 específico para esa ruta que añade esa única excepción al veto general de paquetes de terceros en
 `src/` — cualquier otro import de tercero en un test sigue fallando el lint igual que en el resto
 del código.
+
+## Integración continua (T-04)
+
+`.github/workflows/ci.yml` ejecuta `npm ci` seguido de `typecheck`, `lint`, `test` y `build`, en
+ese orden, en cada push a `develop` y a `master`. La versión de Node la fija `.nvmrc`
+(`node-version-file` de `actions/setup-node`), la misma que se usa en desarrollo. El workflow no
+declara ningún secreto: la verificación no necesita credenciales de Supabase porque toda la suite
+de tests corre contra dobles (ver arriba), y si algún día un test las pidiera sería la señal de que
+ese test está mal planteado y hay que doblarlo, no de que al workflow le falte un secreto.
 
 ## Sobre las importaciones `.ts`
 
