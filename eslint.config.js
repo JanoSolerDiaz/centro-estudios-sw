@@ -136,6 +136,37 @@ export default tseslint.config(
     },
   },
 
+  // Los tests (T-03) son la única excepción al veto de imports de terceros, y solo para `jsdom`:
+  // es la única `devDependency` de test permitida por §0.2 ("jsdom exclusivamente para tests de
+  // DOM"). El resto de restricciones (innerHTML, console fuera del logger) se mantienen igual.
+  {
+    files: ['src/**/*.test.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "ImportDeclaration[source.value=/^(?!\\.{1,2}\\/|node:|jsdom$)/]",
+          message:
+            'Prohibido importar paquetes de terceros en src/: el stack fijado (§0.2) no admite dependencias de runtime. Única excepción de test: `jsdom`.',
+        },
+        {
+          selector: "ImportExpression[source.value=/^(?!\\.{1,2}\\/|node:|jsdom$)/]",
+          message:
+            'Prohibido importar paquetes de terceros en src/: el stack fijado (§0.2) no admite dependencias de runtime. Única excepción de test: `jsdom`.',
+        },
+        {
+          selector: "MemberExpression[property.name='innerHTML']",
+          message:
+            'innerHTML está prohibido (riesgo XSS): usa manipulación de DOM nativa (textContent, createElement, etc.).',
+        },
+        {
+          selector: "MemberExpression[object.name='console']",
+          message: `Prohibido console.* fuera del logger centralizado (T-02): usa el logger de ${RUTA_LOGGER}.`,
+        },
+      ],
+    },
+  },
+
   // El logger centralizado (T-02) es el único fichero autorizado a usar `console.*`: es el
   // sumidero por defecto de toda entrada de log. El veto a paquetes de terceros y a `innerHTML`
   // se mantiene igual (SELECTORES_RESTRINGIDOS_COMUNES), solo se omite el selector de `console`.

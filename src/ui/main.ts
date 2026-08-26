@@ -1,5 +1,7 @@
-const app = document.querySelector<HTMLDivElement>('#app');
+import { mostrarPantallaInicial } from './pantallaInicial.ts';
 
-if (app) {
-  app.textContent = 'GestorAcademia — en construcción.';
+const contenedorApp = document.querySelector<HTMLDivElement>('#app');
+
+if (contenedorApp) {
+  mostrarPantallaInicial(contenedorApp);
 }

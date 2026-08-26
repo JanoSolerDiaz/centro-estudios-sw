@@ -10,20 +10,23 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-26 — T-02 COMPLETADA: logger centralizado en
-`src/nucleo/registro.ts` (única entrada estructurada nivel/instante/mensaje/contexto, nivel
-configurable y silenciable, factoría `crearLogger` con sumidero inyectable para tests). El
-`contexto` pasa siempre por `depurarContexto`, que descarta recursivamente datos personales de
-alumnos y personas de referencia, la ruta del avatar, y cualquier campo con aspecto de token o de
-clave — por nombre de campo y, como defensa adicional, por forma del valor (JWT o cadena opaca
-larga), independientemente del nombre de la clave. Es el único fichero de `src/` con permiso para
-usar `console.*` (ESLint lo hace cumplir). Añadida `@types/node` (`^22.20.1`, `devDependency`,
-dentro de la lista cerrada `@types/*`) para tipar `node:test`/`node:assert` en los tests; su efecto
-colateral (globales de Node visibles en todo `src/`, incluido el código de navegador) se cierra con
-una regla nueva de ESLint (`no-restricted-globals` para `process`, `Buffer`, `require`,
-`__dirname`, `__filename`), ver `DECISIONES_TECNICAS.md`. Sin hallazgos de auditoría de severidad
-alta abiertos (el único hallazgo, #1, es de severidad baja). Siguiente tarea: T-03 (suite de tests
-mínima).
+**Última actualización:** 2026-08-26 — T-03 COMPLETADA: suite de tests mínima, sin red real y sin
+ninguna variable de entorno. `npm test` (`node --test`) cubre los tres niveles exigidos: **dominio**
+puro con reloj inyectado (`src/dominio/slots.ts` — vigencia de slot y quién toca ahora;
+`src/dominio/asistencia.ts` — no-retroactividad y quién puede editar un registro; versión
+provisional con tipos propios, a ampliar en T-07/T-15/T-17/T-18/T-21 con los tipos oficiales del
+esquema real); **datos** contra un doble de `fetch` propio (`src/datos/pruebas/dobleHttp.ts`) que
+simula PostgREST/GoTrue/Storage incluidos `401`/`403`/`409` y respuestas vacías; **UI** con `jsdom`
+(única `devDependency` de test permitida) montando un contenedor real (`src/ui/pantallaInicial.ts`,
+extraído de `main.ts` para poder testearlo). Reloj inyectable nuevo en `src/nucleo/reloj.ts`
+(`Reloj`, `relojDelSistema`, `crearRelojFijo`), con guarda automática
+(`src/dominio/disciplinaReloj.test.ts`) que falla si aparece una lectura directa de la hora del
+sistema en `src/dominio/`. 41 tests en verde; verificado que la suite completa pasa con el entorno
+vacío (`env -i`). `npm run build` pasa a usar `tsconfig.build.json` (excluye los `*.test.ts` del
+`dist/` publicado, evitando que el `import 'jsdom'` de un test llegue al build estático que se
+despliega en cada push a `develop`); `npm run typecheck` sigue comprobando los tests. Detalle
+completo de cada decisión en `DECISIONES_TECNICAS.md`. Sin hallazgos de auditoría de severidad alta
+abiertos (el único hallazgo, #1, es de severidad baja, documental). Siguiente tarea: T-04 (CI).
 
 ---
 
@@ -51,7 +54,7 @@ mínima).
 | T-00 | Verificación inicial | COMPLETADA | 2026-08-26 | `package.json` (`dependencies` vacío), `tsconfig.json` strict, ESLint mínimo (T-01 lo sustituye por el estricto/type-aware), `index.html` + `src/ui/main.ts` verificado en Chromium headless |
 | T-01 | Linting y formato | COMPLETADA | 2026-08-26 | ESLint estricto *type-aware* + 4 reglas de guarda del stack + hook de pre-commit; sin Prettier (ver DECISIONES_TECNICAS) |
 | T-02 | Logger centralizado | COMPLETADA | 2026-08-26 | `src/nucleo/registro.ts`; único fichero con permiso ESLint para `console.*`; depuración de contexto (personales, avatar, tokens/claves) por nombre y por forma del valor |
-| T-03 | Suite de tests mínima | PENDIENTE | — | — |
+| T-03 | Suite de tests mínima | COMPLETADA | 2026-08-26 | 41 tests; dominio (slots, asistencia) con reloj inyectado, datos (doble de `fetch`), UI (`jsdom`); guarda automática contra lectura directa del reloj en dominio |
 | T-04 | CI | PENDIENTE | — | — |
 | T-05 | Monitorización de errores | PENDIENTE | — | — |
 | T-06 | Límites de abuso y robustez | PENDIENTE | — | — |

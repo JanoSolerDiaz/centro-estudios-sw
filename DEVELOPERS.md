@@ -14,10 +14,10 @@
 
 ```
 npm install          # también instala el hook de pre-commit (script `prepare`, ver abajo)
-npm run typecheck   # tsc --noEmit (strict)
+npm run typecheck   # tsc --noEmit (strict), sobre todo src/, incluidos los tests
 npm run lint        # eslint . — estricto y type-aware (typescript-eslint strictTypeChecked)
-npm test            # node --test sobre src/**/*.test.ts (se puebla desde T-03)
-npm run build        # tsc -b -> dist/ (ES modules nativos, sin bundler)
+npm test            # node --test sobre src/**/*.test.ts, sin red y sin ninguna variable de entorno
+npm run build        # tsc -b tsconfig.build.json -> dist/ (ES modules nativos, sin bundler; excluye los tests)
 ```
 
 Para ver la página, sirve el directorio raíz con cualquier servidor estático (por ejemplo
@@ -56,22 +56,53 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
 
 ## Estructura
 
-- `src/dominio/` — lógica de negocio pura, sin efectos ni acceso a red. Reloj inyectable: ninguna
-  función de aquí lee la hora del sistema directamente (ver T-03).
+- `src/dominio/` — lógica de negocio pura, sin efectos ni acceso a red. **Reloj inyectable**:
+  ninguna función de aquí lee la hora del sistema directamente (`new Date()`/`Date.now()`); reciben
+  un `Reloj` (`src/nucleo/reloj.ts`) como parámetro. Se comprueba automáticamente con
+  `src/dominio/disciplinaReloj.test.ts`, que recorre el filesystem y falla si aparece una lectura
+  directa. Desde T-03: `slots.ts` (vigencia de un slot de horario y quién toca ahora) y
+  `asistencia.ts` (no-retroactividad y quién puede editar un registro) — versión provisional con
+  tipos propios, T-07/T-15/T-17/T-18/T-21 las amplían con los tipos oficiales del esquema real.
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
-  única capa autorizada a usar `fetch` (T-08).
-- `src/nucleo/` — infraestructura transversal usada por toda la aplicación. Hoy solo el logger
-  centralizado (`registro.ts`, T-02): entradas estructuradas (nivel, instante, mensaje, contexto),
-  nivel configurable, y depuración automática del `contexto` que descarta datos personales de
-  alumnos y personas de referencia, rutas de avatar, y cualquier campo con aspecto de token o de
-  clave (por nombre de campo o por forma del valor). El texto de `mensaje` no se depura: es una
-  cadena fija escrita por quien programa, nunca debe llevar datos de usuario.
-- `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`.
+  única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
+  `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
+  fallos de red, sin tocar Supabase.
+- `src/nucleo/` — infraestructura transversal usada por toda la aplicación:
+  - `registro.ts` (T-02) — logger centralizado, único fichero con permiso ESLint para
+    `console.*`: entradas estructuradas (nivel, instante, mensaje, contexto), nivel configurable, y
+    depuración automática del `contexto` que descarta datos personales de alumnos y personas de
+    referencia, rutas de avatar, y cualquier campo con aspecto de token o de clave (por nombre de
+    campo o por forma del valor). El texto de `mensaje` no se depura: es una cadena fija escrita
+    por quien programa, nunca debe llevar datos de usuario.
+  - `reloj.ts` (T-03) — `Reloj` inyectable; `relojDelSistema` es la única implementación real
+    (`new Date()`) y vive fuera de `src/dominio/` a propósito.
+- `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
+  funciones puras sobre un `HTMLElement` ya obtenido (p. ej. `pantallaInicial.ts`) para que se
+  puedan testear montando un contenedor con `jsdom` en vez de depender del `document` global.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español. El agente los escribe pero **nunca los aplica**: los aplica el dueño con
   `npm run migrate` (T-07).
 - `herramientas/` — scripts de Node ejecutados directamente con `node herramientas/<script>.ts`
   (el stripping nativo de tipos evita necesitar `ts-node`), como el runner de migraciones.
+
+## Suite de tests (T-03)
+
+`npm test` ejecuta `node --test` (nativo, sin dependencia de runtime) sobre `src/**/*.test.ts`, sin
+red real y **sin ninguna variable de entorno definida** — si un test necesita una credencial o
+tocar la red, está mal planteado: hay que doblarlo. Tres niveles, todos con al menos un test real:
+
+1. **Dominio** (`src/dominio/*.test.ts`) — lógica de negocio pura con el reloj inyectado
+   (`crearRelojFijo`), sin ningún doble ni mock.
+2. **Datos** (`src/datos/**/*.test.ts`) — contra `crearFetchSimulado`/`crearFetchSimuladoConErrorDeRed`
+   de `src/datos/pruebas/dobleHttp.ts`, que imitan la firma de `fetch` para simular PostgREST,
+   GoTrue y Storage (incluidos errores `401`/`403`/`409` y respuestas vacías) sin red real.
+3. **UI** (`src/ui/*.test.ts`) — con `jsdom` (única `devDependency` de test permitida, §0.2): monta
+   un contenedor real y afirma sobre sus nodos, sin navegador.
+
+`jsdom` solo puede importarse dentro de ficheros `*.test.ts`: `eslint.config.js` tiene un override
+específico para esa ruta que añade esa única excepción al veto general de paquetes de terceros en
+`src/` — cualquier otro import de tercero en un test sigue fallando el lint igual que en el resto
+del código.
 
 ## Sobre las importaciones `.ts`
 

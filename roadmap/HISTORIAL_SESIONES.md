@@ -37,6 +37,61 @@
 
 ---
 
+### Sesión 2026-08-26 (T-03)
+**Tarea(s):** T-03 — Suite de tests mínima
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (`T-03: suite de tests mínima con reloj inyectable`)
+**Migraciones aplicadas:** ninguna (T-03 no tiene migración asociada)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/nucleo/reloj.ts` (nuevo — `Reloj`, `relojDelSistema`,
+`crearRelojFijo`), `src/nucleo/reloj.test.ts` (nuevo — 2 tests), `src/dominio/slots.ts` (nuevo —
+vigencia de slot y quién toca ahora), `src/dominio/slots.test.ts` (nuevo — 8 tests),
+`src/dominio/asistencia.ts` (nuevo — no-retroactividad y quién puede editar un registro),
+`src/dominio/asistencia.test.ts` (nuevo — 10 tests), `src/dominio/disciplinaReloj.test.ts` (nuevo —
+guarda por filesystem contra lectura directa de la hora del sistema en `src/dominio/`),
+`src/datos/pruebas/dobleHttp.ts` (nuevo — doble de `fetch` para PostgREST/GoTrue/Storage),
+`src/datos/pruebas/dobleHttp.test.ts` (nuevo — 7 tests), `src/ui/pantallaInicial.ts` (nuevo —
+extraído de `main.ts` para poder testearlo), `src/ui/pantallaInicial.test.ts` (nuevo — 3 tests con
+`jsdom`), `src/ui/main.ts` (modificado — delega en `pantallaInicial.ts`), `eslint.config.js`
+(override nuevo para `src/**/*.test.ts` que permite el import de `jsdom`, único paquete de terceros
+admitido en tests), `package.json`/`package-lock.json` (`devDependency` `jsdom@^30.0.1` y
+`@types/jsdom@^30.0.0`; script `build` pasa a `tsc -b tsconfig.build.json`), `tsconfig.build.json`
+(nuevo — extiende `tsconfig.json` excluyendo `src/**/*.test.ts` para no publicar los tests, ni su
+`import 'jsdom'`, en el `dist/` que se despliega), `DEVELOPERS.md` (documenta los tres niveles de
+test, el reloj inyectable y la excepción de ESLint para `jsdom`), `roadmap/SEGUIMIENTO.md` (§1 T-03
+→ COMPLETADA, cabecera), `roadmap/DECISIONES_TECNICAS.md` (ocho filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ (0 errores, 0 warnings) · tests ✅ (41/41, `node
+--test` sobre `src/**/*.test.ts`; reconfirmado con `env -i` que la suite completa pasa sin ninguna
+variable de entorno definida) · build ✅ (`dist/` verificado sin ningún `*.test.js`)
+**Health check post-deploy:** N/A — todavía no hay pipeline de despliegue (T-04/T-25); no aplica
+**Decisiones tomadas:** ocho filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-26, todas T-03): el
+reloj inyectable y su guarda automática por filesystem en vez de una regla de ESLint; la lógica de
+dominio de `slots.ts`/`asistencia.ts` como versión provisional e ilustrativa a ampliar en tareas
+posteriores; el uso de UTC (no la zona horaria local) en `slots.ts` para no depender de
+configuración de entorno en los tests, hasta que T-17 resuelva la zona horaria real; el doble de
+`fetch` propio en vez de una librería de mocking; la extracción de `pantallaInicial.ts` para poder
+testear la UI con `jsdom`; el override de ESLint que permite `jsdom` únicamente en `*.test.ts`; y la
+separación de `tsconfig.build.json` para no publicar los tests (ni `jsdom`) en el build estático.
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 abierto (severidad baja, higiene
+documental de `HOJA_DE_RUTA.md`) no es de la competencia de esta tarea y sigue abierto para el PM/auditor
+**Hallazgos:** al compilar por primera vez con `jsdom` como dependencia de test, `tsc -b` (con el
+`tsconfig.json` base, antes del cambio) emitió `dist/ui/pantallaInicial.test.js` con un
+`import { JSDOM } from 'jsdom'` — un especificador que no resuelve como módulo de navegador — dentro
+del `dist/` que el push a `develop` despliega al hosting estático. `index.html` solo carga
+`dist/ui/main.js`, así que no rompía nada en ejecución, pero es basura de test filtrándose al build
+de producción; se corrigió con `tsconfig.build.json` antes de dar la tarea por cerrada. De paso se
+confirmó que el mismo problema (sin riesgo, sin import externo) ya existía desde T-02 con
+`registro.test.js`, y queda resuelto igual para todos los tests presentes y futuros.
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-04 (integración continua). Nota para esa sesión: el pipeline debe ejecutar
+`typecheck && lint && test && build` sin ningún secreto configurado — ya está comprobado en esta
+sesión que la suite entera pasa con el entorno vacío (`env -i`), así que el workflow de CI no
+necesita declarar ninguna variable de Supabase. Con T-04 en verde, el "health check post-deploy" de
+§0.1 (`npm run health -- <url>`) sigue sin aplicar hasta que exista de verdad un hosting al que
+desplegar (proveedor `<pendiente>`), así que no es responsabilidad de T-04 crearlo.
+
+---
+
 ### Sesión 2026-08-26 (T-02)
 **Tarea(s):** T-02 — Logger centralizado
 **Estado resultante:** COMPLETADA
