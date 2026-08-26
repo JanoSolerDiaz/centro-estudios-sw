@@ -37,6 +37,41 @@
 
 ---
 
+### Sesión 2026-08-26
+**Tarea(s):** T-00 — Verificación inicial del estado
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (`T-00: andamiaje inicial del repositorio`)
+**Migraciones aplicadas:** ninguna (T-00 no tiene migración asociada)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `package.json`, `package-lock.json`, `tsconfig.json`,
+`eslint.config.js`, `index.html`, `src/ui/main.ts`, `src/dominio/.gitkeep`, `src/datos/.gitkeep`,
+`herramientas/.gitkeep`, `.gitignore` (añadido `*.tsbuildinfo`), `DEVELOPERS.md` (nuevo)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (0 tests, sin fallos) · build ✅
+**Health check post-deploy:** N/A — todavía no hay pipeline de despliegue (llega en T-04/T-25); en
+su lugar se comprobó manualmente que `index.html` ejecuta `dist/ui/main.js` con el Chromium
+headless preinstalado del entorno (el `<div id="app">` cambia de "Cargando…" al texto que escribe
+el módulo compilado)
+**Decisiones tomadas:** cinco filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-26, todas T-00):
+TypeScript fijado en `5.9.x` en vez de la recién publicada `7.0.x` (incompatible con
+`typescript-eslint` 8.68.0); patrón de imports con extensión `.ts` en el origen +
+`rewriteRelativeImportExtensions` para que `node --test` ejecute `.ts` directamente sin build ni
+`ts-node`; `herramientas/` queda fuera del `include` de `tsconfig.json` hasta que T-07 le dé
+contenido; ESLint mínimo (no *type-aware*, sin las reglas de guarda del stack) para poder cumplir
+la verificación pre-push, con el resto de su alcance íntegro para T-01; verificación de ejecución
+en navegador hecha a mano con Chromium headless, sin añadirlo como dependencia
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 abierto (severidad baja, higiene
+documental de `HOJA_DE_RUTA.md`) no es de la competencia del programador (no toca código) y no es
+de severidad alta, así que no se atiende como P-XX urgente
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-01 (Linting y formato) es la siguiente tarea de la cola. Debe sustituir
+`eslint.config.js` por la configuración estricta *type-aware* y añadir las reglas de guarda del
+stack (prohibir `@supabase/supabase-js`, `innerHTML`, `console.*` fuera del logger, `fetch` fuera
+de la capa de datos) más el hook de pre-commit — ninguna de ellas está cubierta todavía por la
+configuración mínima de esta sesión.
+
+---
+
 ### Sesión 2026-08-25 (PM)
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
 **Estado resultante:** N/A (documento vivo, no código)

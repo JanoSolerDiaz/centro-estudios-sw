@@ -10,9 +10,11 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-25 — primer ciclo del PM: definida la oleada v1 de producto
-(R-01 a R-07 en `ROADMAP_PRODUCTO.md`), añadidas a la cola tras T-25. Sin hallazgos de auditoría
-ni feedback pendientes de convertir todavía (ambos registros están vacíos).
+**Última actualización:** 2026-08-26 — T-00 COMPLETADA: andamiaje inicial del repositorio
+(`package.json`, `tsconfig.json`, `index.html`, estructura `src/`/`herramientas/`) commiteado y
+verificado (typecheck, lint, test y build en verde; ejecución en navegador comprobada con
+Chromium headless). Sin hallazgos de auditoría de severidad alta abiertos (el único hallazgo,
+#1, es de severidad baja).
 
 ---
 
@@ -37,7 +39,7 @@ ni feedback pendientes de convertir todavía (ambos registros están vacíos).
 
 | ID | Tarea | Estado | Última sesión | Notas |
 |----|-------|--------|---------------|-------|
-| T-00 | Verificación inicial | PENDIENTE | — | — |
+| T-00 | Verificación inicial | COMPLETADA | 2026-08-26 | `package.json` (`dependencies` vacío), `tsconfig.json` strict, ESLint mínimo (T-01 lo sustituye por el estricto/type-aware), `index.html` + `src/ui/main.ts` verificado en Chromium headless |
 | T-01 | Linting y formato | PENDIENTE | — | — |
 | T-02 | Logger centralizado | PENDIENTE | — | — |
 | T-03 | Suite de tests mínima | PENDIENTE | — | — |
