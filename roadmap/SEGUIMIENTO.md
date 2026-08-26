@@ -21,7 +21,9 @@ ni feedback pendientes de convertir todavía (ambos registros están vacíos).
 > - **§3 Bloqueos** = tu lista de tareas. Ahora mismo son pocas: el repositorio, el primer usuario administrador, y al final el paso a producción con los textos legales. La funcionalidad asociada queda *latente* hasta que las resuelvas.
 > - **§6 Preguntas abiertas** = tus decisiones de negocio. Mientras no respondas, el agente tira por lo conservador; ninguna bloquea el desarrollo.
 >
-> **Cómo funciona la base de datos** (§0.1 de la hoja de ruta): hay **dos entornos de Supabase**. El de **desarrollo ya existe** y sus credenciales están en `.env.local`, así que el agente aplica el esquema él mismo con `npm run migrate` y avanza sin pedirte nada. El de **producción no existe todavía y no se toca**: la propagación completa del esquema se hace **una sola vez, en T-25**, cuando lo crees. Es deliberado — el histórico de asistencia es el dato con valor administrativo de esta aplicación.
+> **Cómo funciona la base de datos** (§0.1 de la hoja de ruta): hay **dos entornos de Supabase**. El de **desarrollo ya existe** y sus credenciales están en `.env.local`, **en tu máquina y en ningún otro sitio**. El de **producción no existe todavía y no se toca**: se crea en T-25.
+>
+> **Ningún agente aplica migraciones, en ningún entorno** (decisión del 2026-08-25). El access token de la Management API permite DDL sobre toda tu cuenta de Supabase, así que no se le da a un proceso desatendido. El coste es contable: cinco o seis migraciones en todo el MVP. El flujo es: el agente escribe el `.sql`, lo empuja a `develop`, abre la fila en §3 y marca la tarea BLOQUEADA; **tú haces `git pull` y ejecutas `npm run migrate` en local** —no pegues SQL a mano, el runner es lo que te da las guardas, el hash y el ledger—; confirmas en §3 y el agente desbloquea. Que el agente no se pare mientras espera es posible porque toda la suite de tests corre contra dobles, sin red.
 >
 > **Dos cosas de las que conviene que estés al tanto:**
 > - La lista de migraciones pendientes de llevar a producción es la columna `prod` vacía de `db/APLICADAS.md`. No tienes que hacer nada con ella hasta T-25.
@@ -78,9 +80,14 @@ ni feedback pendientes de convertir todavía (ambos registros están vacíos).
 ## 3. BLOQUEOS — ACCIONES PENDIENTES DEL DUEÑO
 
 > El código se despliega igualmente; estas acciones activan funcionalidad latente.
-> **Las migraciones NO son bloqueo:** el agente las aplica en `dev` con `npm run migrate`, y la
-> propagación a producción se hace de una vez en T-25. La lista de pendientes de propagación es la
-> columna `prod` vacía de `db/APLICADAS.md`, no esta tabla. Aquí solo va lo que el dueño debe hacer
+>
+> **Cada migración SÍ genera una fila aquí**, porque el agente no aplica DDL en ningún entorno
+> (§0.1). El agente escribe el `.sql`, lo empuja a `develop` y abre la fila; el dueño hace
+> `git pull` y ejecuta **`npm run migrate` en local**; el dueño confirma y el agente desbloquea.
+> Mientras espera, el agente sigue con la siguiente tarea que no dependa de esa migración.
+>
+> Lo que **no** genera filas aquí es la propagación a producción: esa es la columna `prod` vacía de
+> `db/APLICADAS.md` y se hace de una vez en T-25. Esta tabla es solo para lo que el dueño debe hacer
 > **ahora** para desbloquear algo.
 
 | # | Acción | Tarea | Instrucciones exactas | Estado |
