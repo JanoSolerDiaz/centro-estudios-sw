@@ -19,9 +19,10 @@ y reutilizable en local con `nvm`; `engines.node` de `package.json` sigue siendo
 sin cambiar. `actions/checkout@v7` y `actions/setup-node@v6`, verificadas por búsqueda como las
 versiones mayores vigentes en la fecha de esta sesión. El "health check post-deploy" de §0.1 sigue
 sin aplicar: no existe todavía ningún hosting al que desplegar (proveedor `<pendiente>`), así que no
-era responsabilidad de T-04 crearlo. El workflow no se ha podido observar en verde en un run remoto
-real desde esta sesión (sin acceso a leer Actions); su primera ejecución real será el propio push de
-este commit. Detalle completo de cada decisión en `DECISIONES_TECNICAS.md`. Sin hallazgos de
+era responsabilidad de T-04 crearlo. Verificado con la API de GitHub Actions (herramienta MCP
+`github`): el run #1, disparado por el push de este commit a `develop`
+(https://github.com/JanoSolerDiaz/centro-estudios-sw/actions/runs/32979954481), terminó
+`completed`/`success`. Detalle completo de cada decisión en `DECISIONES_TECNICAS.md`. Sin hallazgos de
 auditoría de severidad alta abiertos (el único hallazgo, #1, es de severidad baja, documental).
 Siguiente tarea: T-05 (monitorización de errores).
 

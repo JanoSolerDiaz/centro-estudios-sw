@@ -63,10 +63,11 @@ secretos, `npm ci` en vez de `npm install`); y las versiones mayores de `actions
 documental de `HOJA_DE_RUTA.md`) no es de la competencia de esta tarea y sigue abierto para el PM/auditor
 **Hallazgos:** ninguno nuevo
 **Tareas autopropuestas (P-XX):** ninguna
-**Próximo paso:** T-05 (monitorización de errores). El workflow de CI no se puede verificar en verde
-en GitHub Actions desde esta sesión (no hay forma de disparar ni leer un run remoto sin acceso a
-Actions); queda verificado localmente con `env -i` reproduciendo exactamente los mismos comandos que
-ejecuta el job, y su primer run real será el propio push de este commit a `develop`.
+**Próximo paso:** T-05 (monitorización de errores). El workflow de CI quedó verificado tanto en
+local (`env -i`, mismos comandos que el job) como en GitHub Actions de verdad: el run #1, disparado
+por el push de este commit a `develop`
+(https://github.com/JanoSolerDiaz/centro-estudios-sw/actions/runs/32979954481, comprobado con la
+herramienta MCP `github`), terminó `completed`/`success`.
 
 ---
 
