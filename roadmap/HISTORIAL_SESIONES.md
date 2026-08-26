@@ -37,6 +37,38 @@
 
 ---
 
+### Sesión 2026-08-26 (PM)
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión (roadmap: definida oleada v2, R-08 a R-11)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (oleada v2, fases F-04/F-05/F-06,
+R-08 a R-11), `roadmap/SEGUIMIENTO.md` (§1: filas R-08 a R-11 PENDIENTE; §6: pregunta #3; cabecera),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna decisión técnica de esquema/RLS/cliente (eso es del programador);
+alcance de producto documentado en las R-XX de `ROADMAP_PRODUCTO.md`
+**Hallazgos del auditor atendidos:** #1 (severidad baja, higiene documental sobre
+`HOJA_DE_RUTA.md`) revisado: no encaja como R-XX ni como deuda técnica de código, así que se deja
+como pregunta #3 en §6 de `SEGUIMIENTO.md` para que el dueño decida si la cabecera necesita una
+excepción explícita — sigue `ABIERTO` en `auditoriacontinua.md`, no se cierra desde aquí
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía); nada que
+convertir en esta pasada. El MVP (T-00 a T-25) sigue con solo T-00 a T-04 COMPLETADA — la oleada v1
+(R-01 a R-07) no ha arrancado todavía, así que la oleada v2 recién definida queda en cola detrás de
+ambas, sin urgencia de desarrollo inmediata
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la siguiente sesión de desarrollo continúa por T-05 (el MVP sigue siendo la
+columna vertebral, en orden, antes de tocar cualquier R-XX). El siguiente ciclo de PM debe: revisar
+si hay hallazgos `ABIERTO` nuevos o escalados en `auditoriacontinua.md` y entradas `nuevo` en
+`FEEDBACK.md`; comprobar si el dueño ha respondido las preguntas #1, #2 o #3 de §6 y ajustar el
+roadmap en consecuencia; y, cuando la oleada v1 esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN, valorar si
+hace falta ya una oleada v3 o si v2 (7 tareas de fondo tras el MVP: R-08 a R-11 más lo que quede de
+v1) sigue dando margen suficiente para no ir por delante del programador sin necesidad.
+
+---
+
 ### Sesión 2026-08-26 (T-04)
 **Tarea(s):** T-04 — Integración continua (CI)
 **Estado resultante:** COMPLETADA

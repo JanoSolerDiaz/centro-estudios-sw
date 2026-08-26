@@ -8,7 +8,11 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-08-25 — primer ciclo del PM: definida la oleada v1 (R-01 a R-07).
+**Última actualización:** 2026-08-26 — segundo ciclo del PM: definida la oleada v2 (R-08 a R-11).
+`FEEDBACK.md` sigue sin entradas `nuevo` que convertir. El único hallazgo `ABIERTO` de
+`auditoriacontinua.md` en esta pasada (#1, severidad baja, higiene documental sobre
+`HOJA_DE_RUTA.md`) no encaja como mejora de producto ni como deuda técnica de código: queda
+anotado como pregunta abierta en §6 de `SEGUIMIENTO.md`, no como R-XX.
 
 ---
 
@@ -68,6 +72,34 @@ ni toca al rol `student`.
 > Quedan fuera de esta oleada, por depender de una decisión del dueño y anotadas en §6 de
 > `SEGUIMIENTO.md`: el envío automático (no solo preparado) del aviso a la familia, y cualquier
 > acceso del rol `student` o de una familia a su propio histórico.
+
+### Oleada v2 — Arranque rápido, confianza legal y visión de centro
+
+**Arranca cuando la oleada v1 (R-01 a R-07) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado
+real de esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces las R-XX de esta
+oleada quedan especificadas y en cola, detrás de la oleada v1, en el orden de §1.
+
+Por qué esta oleada y en este orden: v1 cierra el ciclo diario de una clase que ya está dada de
+alta en el sistema. Pero la primera vez que una academia real prueba GestorAcademia, el obstáculo
+no es pasar lista: es tener que teclear a mano cada alumno y cada horario que ya tenía en una hoja
+de cálculo — y si ese primer día cuesta demasiado, no hay segundo día. R-08 y R-09 atacan
+precisamente esa fricción de adopción: entrar los datos sin repetir trabajo, y abrir la aplicación
+tan rápido como una app nativa del móvil. Con la academia ya operando, R-10 cierra una obligación
+legal que hoy no tiene respuesta de un clic (RGPD, datos de menores), y R-11 da al administrador la
+vista de conjunto que ninguna hoja de cálculo ofrece de verdad — el argumento real frente a la
+alternativa actual. Nada de esto añade datos personales nuevos ni toca al rol `student`.
+
+- **F-04 — Arranque rápido.** El primer día de una academia real, migrando desde papel o Excel, y
+  el gesto diario de abrir la aplicación. R-08 (importación masiva), R-09 (aplicación instalable,
+  arranque sin red).
+- **F-05 — Confianza legal.** El expediente completo de un alumno, listo para una solicitud RGPD o
+  para archivar. R-10.
+- **F-06 — Visión de centro.** Lo que un administrador no puede ver hoy ni con una hoja de cálculo
+  bien hecha: el estado del día y las tendencias del mes, de un vistazo. R-11.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
 
 ---
 
@@ -302,3 +334,140 @@ se pierda.
 **Criterio de aceptación:** test que simula un fallo de red en el toque, cierra y reabre la
 pestaña, y verifica que el registro pendiente sigue en cola y se envía al recuperar conexión sin
 duplicar; test de que la card nunca pasa a «registrado» sin confirmación del servidor.
+
+---
+
+### R-08 — Importación masiva de alumnos y horarios
+**Oleada / Fase:** v2 / F-04 · **Migración:** No · **Depende de:** T-12, T-15, T-16
+**Origen:** roadmap
+
+**Objetivo:** que una academia que hoy lleva su alumnado en una hoja de cálculo pueda empezar a
+usar GestorAcademia sin volver a teclear cada alumno y cada horario a mano — el primer día es el
+que decide si hay un segundo. Hoy la única vía de alta es la ficha una a una (T-12) y el horario
+slot a slot (T-16), viable para el mantenimiento diario pero no para arrancar con 60 alumnos ya
+existentes.
+
+**Requisitos:**
+1. Desde el panel de `administrator` (T-16), subir un fichero CSV de alumnos con las columnas de
+   la ficha (T-12): nombre, primer apellido, segundo apellido opcional, centro de referencia,
+   teléfono y email opcionales. El centro se resuelve con la misma comparación acento-insensible de
+   T-11: si no existe, la fila queda en error con el motivo exacto, nunca crea un centro nuevo en
+   silencio.
+2. Vista previa obligatoria antes de confirmar: fila a fila, qué se va a crear y qué fila falla y
+   por qué (falta un campo obligatorio, formato de teléfono o email inválido, centro no encontrado).
+   Ninguna fila se escribe hasta que `administrator` confirma la importación completa.
+3. Un segundo CSV, opcional y separado, importa horarios (T-15): alumno (por nombre y apellidos
+   exactos de una fila ya importada o ya existente), profesor (por email de una cuenta que **ya
+   existe** — la importación nunca crea usuarios ni cuentas, eso sigue siendo T-09, alta manual del
+   administrador), día de la semana, hora de inicio, hora de fin y asignatura o grupo. Una fila que
+   referencia un profesor inexistente queda en error, igual que en el punto 2.
+4. Reintentar el mismo fichero tras corregir errores no duplica las filas ya importadas
+   correctamente: se identifica con la misma comparación de duplicados de T-12 (nombre completo +
+   centro).
+5. El fichero de origen no se conserva más allá de la sesión de importación: no es un dato nuevo
+   que guardar, es una entrada puntual que ya queda reflejada en las tablas de alumno y horario.
+6. Reservado a `administrator`, igual que T-12 y T-15. Parseo de CSV con código propio (sin
+   librería de terceros, coherente con el stack fijado).
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un CSV de 50 alumnos con 2 filas con error (un centro inexistente, un
+teléfono con formato inválido) muestra la vista previa con esas 2 filas marcadas y permite
+confirmar las 48 correctas sin esperar a corregirlas; reimportar el mismo fichero después de
+corregirlas solo añade las 2 que faltaban, sin duplicar las 48 ya creadas; un CSV de horarios que
+referencia un profesor sin cuenta en el sistema deja esa fila en error sin bloquear el resto.
+
+---
+
+### R-09 — Aplicación instalable y arranque sin red
+**Oleada / Fase:** v2 / F-04 · **Migración:** No (solo cliente) · **Depende de:** T-19
+**Origen:** roadmap
+
+**Objetivo:** el profesor que pasa lista varias veces al día no debería tener que abrir un
+navegador, teclear una URL y esperar a que cargue: tiene que ser un icono en su móvil que abre al
+toque, tan rápido como cualquier app nativa, incluso si el aula no tiene cobertura en ese instante.
+R-07 ya resuelve que un toque durante un corte de conexión no se pierda; esto resuelve que la
+propia aplicación pueda **abrirse** sin conexión.
+
+**Requisitos:**
+1. `manifest.json` (nombre corto, iconos en los tamaños que exige la instalación, modo standalone,
+   color de tema) para que el navegador ofrezca «añadir a pantalla de inicio» y el resultado se vea
+   como una app, no como una pestaña.
+2. Service Worker que cachea el cascarón estático (HTML, JS compilado, iconos) para que abrir la
+   aplicación sin red muestre al menos la pantalla de login o la última pantalla de pasar lista
+   servida, nunca una pestaña en blanco o el error del navegador. Los datos (alumnos, slots,
+   asistencia) siguen exigiendo red o la cola de R-07 cuando ya exista.
+3. Si R-07 se despliega antes, este Service Worker es el mismo fichero ampliado, no uno nuevo en
+   paralelo — dos Service Workers registrados sobre el mismo origen compiten por el mismo caché y
+   son fuente de fallos difíciles de reproducir.
+4. Actualización de versión: el push a `develop` despliega varias veces al día (§0.1); el Service
+   Worker debe purgar la caché antigua y avisar de que hay una versión nueva lista, en vez de dejar
+   a un profesor atrapado en una versión vieja sin que se entere.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** la aplicación se puede instalar desde el navegador (criterios estándar
+de instalabilidad de un manifest válido); abrir la aplicación en modo avión tras una visita previa
+muestra la pantalla de login o de pasar lista cacheada, no un error de red; tras un nuevo
+despliegue, la siguiente apertura ofrece la versión nueva sin dejar una versión cacheada
+indefinidamente.
+
+---
+
+### R-10 — Expediente completo del alumno (acceso y portabilidad RGPD)
+**Oleada / Fase:** v2 / F-05 · **Migración:** No · **Depende de:** T-13, T-23
+**Origen:** roadmap
+
+**Objetivo:** una familia tiene derecho a pedir todo lo que el centro guarda de su hijo o hija —
+derecho de acceso y portabilidad del RGPD—, y hoy responder a esa solicitud significa que
+`administrator` reconstruya a mano la ficha, las personas de referencia y el histórico completo. El
+informe mensual (R-04) está pensado para enseñar un resumen del mes a una familia; esto es
+distinto: el expediente completo, sin resumir, para cuando hace falta poder decir «esto es
+exactamente todo lo que tenemos».
+
+**Requisitos:**
+1. Desde la ficha del alumno, `administrator` genera una exportación completa (JSON legible y
+   documento imprimible) con: todos los campos de la ficha (T-12), todas sus personas de referencia
+   (T-13), y el histórico íntegro de asistencia (T-23) sin filtrar por mes — incluidas las filas
+   anuladas con su motivo y las marcadas retroactivas, porque un derecho de acceso que oculta lo
+   anulado no es un acceso completo.
+2. La exportación incluye la fecha de generación y quién la generó, dentro del propio documento —no
+   en una tabla nueva—, para que quede constancia de cuándo se atendió la solicitud.
+3. Reservado a `administrator`, mismo alcance que T-13 (personas de referencia) y la ficha completa
+   de T-12: un `teacher` no genera ni ve esta exportación.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** exportar el expediente de un alumno con historial mixto (registros
+válidos, anulados con motivo, retroactivos, con y sin personas de referencia) produce un único
+documento completo y coherente con lo almacenado; un `teacher` recibe `SinPermiso` al intentarlo.
+
+---
+
+### R-11 — Panel de centro para el administrador
+**Oleada / Fase:** v2 / F-06 · **Migración:** No · **Depende de:** T-16, T-21, R-01
+**Origen:** roadmap
+
+**Objetivo:** hoy `administrator` solo puede ver el estado del centro alumno a alumno o slot a
+slot; no hay ninguna vista que responda de un vistazo «¿qué ha pasado hoy?» o «¿quién falta más
+este mes?» — la clase de pregunta que en papel o en una hoja de cálculo exige reconstruir todo a
+mano, y que es el argumento real por el que un centro paga por gestionar esto en vez de seguir sin
+ello.
+
+**Requisitos:**
+1. Panel con tres bloques, calculados sobre datos ya existentes, sin tabla nueva: (a) las sesiones
+   de hoy y su estado — pasada lista, pendiente, o sin pasar lista con su horario ya vencido; (b)
+   ranking de alumnos con más ausencias injustificadas (R-01, R-02) en el mes en curso; (c) ranking
+   de slots o profesores con menor proporción de sesiones registradas frente a las esperadas.
+2. Los rankings muestran solo nombre y cifra — **nunca avatar**: es un listado que cambia cada día,
+   y la regla de diseño vigente reserva la fotografía a conjuntos estables (ficha, cards del propio
+   slot del profesor), no a listados transitorios.
+3. Filtro por rango de fechas y por centro de referencia del alumno (`centro_referencia_id`, el
+   colegio del alumno — no confundir con multi-centro de la academia, que sigue fuera de alcance).
+4. Reservado a `administrator`.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** con un mes de datos sintéticos que incluya ausencias, registros válidos
+y slots con distinta tasa de asistencia, el panel calcula correctamente ambos rankings y el estado
+de las sesiones de hoy; un `teacher` no accede a esta pantalla.
