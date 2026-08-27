@@ -37,6 +37,47 @@
 
 ---
 
+### Sesión 2026-08-27 (7)
+**Tarea(s):** transcripción de las respuestas del dueño a §6 — no es una T-XX
+**Estado resultante:** §6 respondida (4 de 4); una respuesta amplía el alcance de T-09
+**Commits a `develop`:** ver commit de esta sesión (registro: respuestas del dueño a §6)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** sin cambios
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (§6 respondida + pregunta #5 nueva; §7
+con dos filas; nota de T-09 en §1; cabecera), `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (241) · build ✅
+**Health check post-deploy:** no aplica — solo documentos de registro
+**Decisiones tomadas:** ninguna técnica propia. Las cuatro respuestas son **del dueño** y se
+transcriben literalmente, con la fecha, sin interpretarlas: lo que se añade aparte es el efecto
+que tienen sobre el desarrollo
+**Hallazgos del auditor atendidos:** #1 (higiene documental de `HOJA_DE_RUTA.md`) queda resuelto
+por la respuesta a la pregunta #3: la cabecera se mantiene literal y cada edición del dueño se
+documenta como excepción puntual en §7, donde ya quedan las dos del 2026-08-25. El cierre formal
+del hallazgo en `auditoriacontinua.md` lo hace el auditor, que es quien mantiene ese documento
+**Hallazgos:**
+- **La respuesta a #4 amplía T-09 y su mecanismo no es trivial.** "Al tercer intento fallido se
+  bloquea al usuario" no se puede implementar bien desde el cliente: el login va del navegador
+  directo a GoTrue y no hay backend propio (§0.2), así que un contador en el cliente no impide que
+  alguien llame a GoTrue con `curl` — sería disuasión, no control de acceso. El único punto donde
+  se aplica de verdad es la base de datos: negar por RLS a un usuario marcado como bloqueado,
+  aunque su token sea válido. Además aparece un vector nuevo: si el contador va por email y lo
+  puede incrementar quien no ha iniciado sesión, cualquiera que conozca el correo de un profesor
+  puede dejarlo fuera justo antes de una clase. Abierta la pregunta #5 en §6 para cerrarlo con el
+  dueño antes de programar esa parte.
+- **La otra mitad de #4 ya estaba resuelta en la spec, y por la vía correcta.** El requisito 2 de
+  T-09 ya obliga a la recuperación de contraseña con `POST /auth/v1/recover`, que funciona con la
+  clave anónima: el administrador dispara el correo y el profesor se pone su propia contraseña, así
+  que **el administrador nunca conoce la contraseña de nadie**. Que el administrador *fije* una
+  contraseña exigiría `service_role` en el navegador (prohibido) o un backend (no existe). Se hace
+  explícito en la pregunta #5 para que la respuesta no acabe pidiendo lo imposible.
+- El registro de la ampliación va a §7 (desviaciones) y no a la hoja de ruta: es inmutable, y la
+  propia respuesta a #3 confirma que se mantiene literal.
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-09. Se puede arrancar entera menos la parte de bloqueo por cuenta, que espera
+la respuesta a la pregunta #5.
+
+---
+
 ### Sesión 2026-08-27 (6)
 **Tarea(s):** cierre de §3 fila 2 (`000b_arreglo_permisos.sql`) — arranque manual, no una T-XX
 **Estado resultante:** RESUELTA — sin cambios en la base de datos

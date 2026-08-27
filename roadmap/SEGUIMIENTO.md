@@ -10,61 +10,38 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — **T-07 y T-08 COMPLETADAS** (dos sesiones en paralelo).
+**Última actualización:** 2026-08-27 — **el dueño ha respondido las cuatro preguntas de §6**, y
+una de ellas amplía el alcance de T-09. Transcritas literalmente en §6 con la fecha; lo que
+cambia para el desarrollo:
 
-**T-07:** el dueño aplicó `001_esquema_inicial` en `dev` con `npm run migrate` y quedó verificado:
-la RPC `esquema_version()` devuelve `1`. Fila anotada en `db/APLICADAS.md` (hash `93359e9a4e27`) y
-fila 1 de §3 cerrada. Antes hubo que arreglar un bug del propio runner que impedía aplicarla: no
-cargaba `.env.local`, así que decía "Falta SUPABASE_ACCESS_TOKEN" con un fichero correcto. Con la
-migración aplicada queda además confirmado en la práctica el endpoint de la Management API, que
-T-07 no pudo verificar contra documentación en vivo. Detalle en las sesiones (4) y (5) de
-`HISTORIAL_SESIONES.md` y en dos filas de `DECISIONES_TECNICAS.md`.
+- **#1 (avisos a la familia):** no se implementa envío automático ahora, ni se da de alta ningún
+  servicio externo. R-05 se entrega con `mailto:` / portapapeles, como estaba previsto.
+- **#2 (`student`):** no se amplía. En el MVP `student` sigue cerrado; ninguna sesión debe
+  proponer una política nueva para ese rol.
+- **#4 (fuerza bruta): amplía T-09.** Se quiere bloqueo de la cuenta al **tercer** intento fallido
+  y que el administrador pueda renovar la contraseña de un usuario. GoTrue no ofrece ninguna de
+  las dos cosas (T-06 lo documentó: solo límite por IP, no configurable). Registrado en §7 como
+  desviación de la hoja de ruta y en la fila de T-09. **El mecanismo está sin concretar y no es
+  trivial:** el login va del navegador directo a GoTrue y no hay backend propio, así que un
+  contador en el cliente es eludible con `curl`; lo único que se aplica de verdad es negar los
+  datos por RLS a un usuario marcado como bloqueado. Y contar por email abre un vector que antes
+  no existía: dejar fuera a un profesor sabiendo solo su correo. Abierta la **pregunta #5** para
+  cerrar el diseño antes de programar esa parte; el resto de T-09 no depende de ella.
+- **#3 (inmutabilidad de la hoja de ruta):** la cabecera se mantiene literal y **cada edición del
+  dueño se documenta como excepción puntual** en §7. Las dos ediciones del 2026-08-25 quedan ya
+  documentadas ahí; el hallazgo #1 de `auditoriacontinua.md` puede cerrarse en la próxima pasada.
 
-**T-08:** cliente propio de la API de Supabase (PostgREST + Storage) COMPLETADO en una sesión
-paralela: `src/datos/` con `erroresDominio.ts`, `codificadorValores.ts`, `configuracion.ts`,
-`peticionHttp.ts`, `postgrest.ts` y `almacenamiento.ts` (firma de URLs en lote en una sola
-petición), `eventoError.ts` reescrito sobre el cliente nuevo, `mensajesAbuso.ts` ampliado sin
-exponer nunca el `message` crudo de Postgres, y `config.js`/`config.ejemplo.js` como mecanismo de
-inyección de configuración sin bundler. Detalle completo en la sesión **(4b)** de
-`HISTORIAL_SESIONES.md` y en sus 12 filas de `DECISIONES_TECNICAS.md`.
+**§3 sigue sin ninguna fila pendiente:** las dos acciones que esperaban al dueño (primer usuario
+`administrator` en `dev` y `SUPABASE_SERVICE_ROLE_KEY_DEV` en `.env.local`) están hechas y
+confirmadas por él el 2026-08-27. Queda una comprobación que ningún agente puede hacer (§0.1):
+que ese usuario tenga `rol = 'administrator'` en `perfil` y no el `student` con el que nace todo
+usuario nuevo — crear el usuario en el panel y promoverlo son dos pasos distintos.
 
-**Aviso de proceso:** las dos sesiones colisionaron en los documentos de registro y la resolución
-de los merges `dd999ba` / `b7c09dd` perdió la entrada de bitácora de T-08 y el párrafo de esta
-cabecera. Ambos quedan recuperados (la entrada, literal del commit `860fc6f`). Nada de código se
-perdió: 241 tests en verde. Si se vuelven a lanzar dos sesiones a la vez, numerar las entradas de
-`HISTORIAL_SESIONES.md` por tarea y no por ordinal.
-
-**§3 fila 2 cerrada el mismo día que se abrió, y sin tocar la base de datos:**
-`db/000b_arreglo_permisos.sql` **ya estaba aplicado**. `db/APLICADAS.md` lo daba por pendiente
-porque su aplicación no se anotó en su día — el fichero de registro estaba desactualizado, no la
-base de datos. Comprobado por el dueño en `dev` con las dos herramientas: `npm run migrate --
---verificar-privilegios` no encuentra ninguna violación en ninguna tabla de `public`, y la consulta
-de comprobación del propio `000b` devuelve en `perfil` exactamente lo esperado (`authenticated` →
-INSERT/SELECT/UPDATE sin `TRUNCATE`, `service_role` → DELETE/INSERT/SELECT/UPDATE, `anon` → ninguna
-fila). Anotado en `db/APLICADAS.md` con la verificación, no con una suposición. **Lección de
-registro:** un fichero del arranque manual aplicado y no anotado es indistinguible de uno sin
-aplicar, y el runner no lo ve porque lo ignora por diseño; la verificación en vivo es la única
-fuente de verdad para `000`/`000b`.
-
-**Las dos acciones que esperaban al dueño ya están hechas (2026-08-27, confirmadas por él):**
-
-1. **Primer usuario `administrator` en `dev`** — el bloqueo humano de la spec de T-09, resuelto
-   antes de que la tarea arranque, así que T-09 no necesita abrir fila en §3. La sesión que la
-   implemente debe confirmar que ese usuario tiene `rol = 'administrator'` en `perfil` y no el
-   `student` por defecto: crear el usuario en el panel y promoverlo son dos pasos distintos, y el
-   segundo es el bloque del final de `db/000_bootstrap_perfil.sql`. Verificarlo exige el editor SQL
-   o la clave `service_role`, así que ningún agente puede hacerlo por su cuenta (§0.1): se pide al
-   dueño la salida de la consulta de comprobación de ese mismo fichero.
-2. **`SUPABASE_SERVICE_ROLE_KEY_DEV` en `.env.local`** — verificado por el agente por nombre, sin
-   leer ningún valor: el fichero pasó de 7 a 8 variables y la clave está definida. Con esto
-   `npm run seed` ya tiene todo lo que necesita, credencial y privilegios (`001` concede a
-   `service_role` los cuatro DML en `centro_estudios`, `alumno` y `persona_referencia`).
-
-**§3 no tiene ninguna fila pendiente.**
-
-**Siguiente tarea:** T-09 (autenticación y los tres roles), que depende de T-08 (ya completa). Su
-spec tiene un bloqueo humano propio (el dueño crea el primer usuario `administrator` en `dev`) que
-la sesión que la implemente abrirá en §3 al llegar a ese punto; no bloquea el arranque de la tarea.
+Estado del desarrollo: **T-00 a T-08 COMPLETADAS**, `001_esquema_inicial` aplicada y verificada en
+`dev`, 241 tests en verde y CI en verde. Historia de las últimas sesiones —incluidas el arreglo
+del runner y la recuperación de la bitácora de T-08 perdida en un merge— en
+`HISTORIAL_SESIONES.md`, sesiones (4) a (7). **Siguiente tarea: T-09** (autenticación y los tres
+roles), que ya no tiene bloqueo humano de entrada.
 
 ---
 
@@ -98,7 +75,7 @@ la sesión que la implemente abrirá en §3 al llegar a ese punto; no bloquea el
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
 | T-07 | Modelo de datos, runner de migraciones y entornos | COMPLETADA | 2026-08-27 | `001_esquema_inicial` aplicada en `dev` por el dueño y verificada con `esquema_version()` = `1`; fila anotada en `db/APLICADAS.md`. Incluye SQL, runner (`npm run migrate` con guardas, hash e inmutabilidad, `--estado` y `--verificar-privilegios`), `MODELO.md`, tipos de dominio, test de fuga de secretos y semilla. El primer intento del dueño falló por un bug del runner (no cargaba `.env.local`), arreglado en la sesión 2026-08-27 (4) |
 | T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
-| T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 **Su bloqueo humano ya está resuelto de antemano (2026-08-27, confirmado por el dueño): el primer usuario `administrator` existe en `dev`.** No hace falta abrir fila en §3 por ello. Queda una comprobación pendiente para la sesión que la implemente, porque el agente no puede hacerla (necesita el editor SQL o la clave `service_role`, y §0.1 se lo prohíbe): que ese usuario tenga `rol = 'administrator'` en `perfil` y no el `student` con el que nace todo usuario nuevo — el bloque de promoción del final de `db/000_bootstrap_perfil.sql` es un paso aparte de crear el usuario en el panel |
+| T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 **Su bloqueo humano ya está resuelto de antemano (2026-08-27, confirmado por el dueño): el primer usuario `administrator` existe en `dev`.** No hace falta abrir fila en §3 por ello. Queda una comprobación pendiente para la sesión que la implemente, porque el agente no puede hacerla (necesita el editor SQL o la clave `service_role`, y §0.1 se lo prohíbe): que ese usuario tenga `rol = 'administrator'` en `perfil` y no el `student` con el que nace todo usuario nuevo — el bloque de promoción del final de `db/000_bootstrap_perfil.sql` es un paso aparte de crear el usuario en el panel **Alcance ampliado el 2026-08-27 por el dueño (§7):** bloqueo de la cuenta tras tres contraseñas falladas y renovación de contraseña por el administrador. GoTrue no ofrece ninguna de las dos, y el mecanismo está pendiente de concretar (§6, pregunta #5) antes de arrancar esa parte; el resto de T-09 no depende de ello y se puede empezar |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | PENDIENTE | — | — |
@@ -190,10 +167,11 @@ la sesión que la implemente abrirá en §3 al llegar a ese punto; no bloquea el
 
 | # | Pregunta | Tarea | Respuesta |
 |---|----------|-------|-----------|
-| 1 | R-05 deja el aviso de ausencia listo para enviar a mano (`mailto:` o copiar al portapapeles), sin integración. ¿Se quiere en algún momento el envío automático por email transaccional, SMS o WhatsApp Business? Implica dar de alta una cuenta de servicio externo (posiblemente de pago) — decisión reservada al dueño, no autonomizable por una P-XX (§0.3). Mientras no haya respuesta, R-05 se entrega en su versión sin integración y no queda bloqueada por esto. | R-05 | |
-| 2 | Con R-04 (informe mensual) y R-05 (aviso a la familia) ya en el roadmap, ¿tiene sentido en el futuro dar al rol `student` —o a una persona de referencia, sin necesidad de que sea el propio menor quien inicie sesión— una vista de solo lectura de su propio histórico de asistencia y ausencias justificadas? Es justo la ampliación de `student` que la hoja de ruta reserva expresamente al dueño (§0.2); no se propone ninguna R-XX para esto sin tu decisión. | — | |
-| 4 | T-06 investigó los límites de intentos que Supabase Auth (GoTrue) aplica por defecto (requisito 1 de su spec). Confirmado por la documentación oficial y su código fuente: usa un algoritmo de *token bucket* por endpoint; los límites de envío de correo (`/auth/v1/signup`, `/auth/v1/recover`, `/auth/v1/user`) y de OTP/enlace mágico son configurables desde el panel (**Authentication → Rate Limits**) o por la Management API; los de `/auth/v1/verify`, `/auth/v1/token` (que es también el endpoint del inicio de sesión con contraseña) y los desafíos de MFA están limitados **por IP** y **no son configurables desde el panel**. GoTrue **no tiene** un bloqueo de cuenta tras N contraseñas incorrectas: la única defensa por defecto contra fuerza bruta al iniciar sesión es ese límite por IP, no un límite por email. Esta sesión no pudo confirmar la cifra numérica exacta vigente hoy (sin salida de red hacia `supabase.com` desde este entorno; detalle completo, con las dos fuentes consultadas, en `DECISIONES_TECNICAS.md`). Pide dos cosas al dueño: (a) revisar **Authentication → Rate Limits** en el panel del proyecto `dev` antes de T-25 (paso a producción) y ajustar lo que haga falta, y (b) decidir si además del límite por IP se quiere algún límite por cuenta — eso sería trabajo nuevo de T-09, no algo que Supabase ofrezca ya. No bloquea nada mientras tanto. | T-06 / T-09 / T-25 | |
-| 3 | `auditoriacontinua.md` registra el hallazgo #1 (severidad baja, higiene documental): `HOJA_DE_RUTA.md` se autodeclara "DOCUMENTO INMUTABLE... no se modifica nunca" pero el propio dueño lo editó 41 minutos después de crearse, el mismo día, para ajustar el protocolo de §0.1 (que el documento sí permite cambiar al dueño) y el cuerpo de la tarea T-07 (que se declara inmutable sin excepción explícita para nadie). Sin riesgo de dato ni operativo: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento. No encaja como mejora de producto (no es una R-XX) ni como deuda técnica de código (no hay nada que programar): es una pregunta de gobernanza documental que solo el dueño puede resolver, porque el PM tiene este documento en modo SOLO LECTURA. ¿Quieres que la cabecera de `HOJA_DE_RUTA.md` deje explícita una excepción para tus propias ediciones (p. ej. "inmutable salvo para el dueño"), o prefieres que la declaración se mantenga literal y que una futura edición tuya, si hace falta, se documente aquí mismo como excepción puntual? Mientras no haya respuesta, el hallazgo queda `ABIERTO` en `auditoriacontinua.md` sin bloquear nada — origen: auditoría #1. | — | |
+| 1 | R-05 deja el aviso de ausencia listo para enviar a mano (`mailto:` o copiar al portapapeles), sin integración. ¿Se quiere en algún momento el envío automático por email transaccional, SMS o WhatsApp Business? Implica dar de alta una cuenta de servicio externo (posiblemente de pago) — decisión reservada al dueño, no autonomizable por una P-XX (§0.3). Mientras no haya respuesta, R-05 se entrega en su versión sin integración y no queda bloqueada por esto. | R-05 | | **No hace falta implementarlo ahora.** No está decidido cómo se quieren mandar esos avisos, ni siquiera si se quieren mandar. Queda para un desarrollo futuro, cuando todo lo demás esté terminado. Efecto: R-05 se entrega en su versión sin integración (`mailto:` / portapapeles) y **no se da de alta ninguna cuenta de servicio externo**. — dueño, 2026-08-27 |
+| 2 | Con R-04 (informe mensual) y R-05 (aviso a la familia) ya en el roadmap, ¿tiene sentido en el futuro dar al rol `student` —o a una persona de referencia, sin necesidad de que sea el propio menor quien inicie sesión— una vista de solo lectura de su propio histórico de asistencia y ausencias justificadas? Es justo la ampliación de `student` que la hoja de ruta reserva expresamente al dueño (§0.2); no se propone ninguna R-XX para esto sin tu decisión. | — | | **No.** Los estudiantes tendrán funcionalidades, pero también más adelante. Efecto: en el MVP `student` sigue sin acceso a nada salvo su propia fila de `perfil`; cualquier otra política para `student` sigue siendo un fallo (§0.2), y ninguna sesión debe proponerla. — dueño, 2026-08-27 |
+| 4 | T-06 investigó los límites de intentos que Supabase Auth (GoTrue) aplica por defecto (requisito 1 de su spec). Confirmado por la documentación oficial y su código fuente: usa un algoritmo de *token bucket* por endpoint; los límites de envío de correo (`/auth/v1/signup`, `/auth/v1/recover`, `/auth/v1/user`) y de OTP/enlace mágico son configurables desde el panel (**Authentication → Rate Limits**) o por la Management API; los de `/auth/v1/verify`, `/auth/v1/token` (que es también el endpoint del inicio de sesión con contraseña) y los desafíos de MFA están limitados **por IP** y **no son configurables desde el panel**. GoTrue **no tiene** un bloqueo de cuenta tras N contraseñas incorrectas: la única defensa por defecto contra fuerza bruta al iniciar sesión es ese límite por IP, no un límite por email. Esta sesión no pudo confirmar la cifra numérica exacta vigente hoy (sin salida de red hacia `supabase.com` desde este entorno; detalle completo, con las dos fuentes consultadas, en `DECISIONES_TECNICAS.md`). Pide dos cosas al dueño: (a) revisar **Authentication → Rate Limits** en el panel del proyecto `dev` antes de T-25 (paso a producción) y ajustar lo que haga falta, y (b) decidir si además del límite por IP se quiere algún límite por cuenta — eso sería trabajo nuevo de T-09, no algo que Supabase ofrezca ya. No bloquea nada mientras tanto. | T-06 / T-09 / T-25 | | **(b) Sí, se quiere límite por cuenta: al tercer intento fallido de contraseña se bloquea al usuario, y el administrador debe poder renovar su contraseña.** Es trabajo nuevo dentro de T-09 y una ampliación de su spec — anotada en §7. GoTrue no ofrece nada de esto, así que el **mecanismo** hay que diseñarlo y tiene aristas reales (el conteo desde el cliente es eludible, y bloquear por email abre un vector para dejar fuera a un profesor sabiendo solo su correo): se concreta en la pregunta **#5**, abierta abajo. **(a)** revisar *Authentication → Rate Limits* en el panel de `dev` antes de T-25: sigue pendiente, no bloquea. — dueño, 2026-08-27 |
+| 3 | `auditoriacontinua.md` registra el hallazgo #1 (severidad baja, higiene documental): `HOJA_DE_RUTA.md` se autodeclara "DOCUMENTO INMUTABLE... no se modifica nunca" pero el propio dueño lo editó 41 minutos después de crearse, el mismo día, para ajustar el protocolo de §0.1 (que el documento sí permite cambiar al dueño) y el cuerpo de la tarea T-07 (que se declara inmutable sin excepción explícita para nadie). Sin riesgo de dato ni operativo: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento. No encaja como mejora de producto (no es una R-XX) ni como deuda técnica de código (no hay nada que programar): es una pregunta de gobernanza documental que solo el dueño puede resolver, porque el PM tiene este documento en modo SOLO LECTURA. ¿Quieres que la cabecera de `HOJA_DE_RUTA.md` deje explícita una excepción para tus propias ediciones (p. ej. "inmutable salvo para el dueño"), o prefieres que la declaración se mantenga literal y que una futura edición tuya, si hace falta, se documente aquí mismo como excepción puntual? Mientras no haya respuesta, el hallazgo queda `ABIERTO` en `auditoriacontinua.md` sin bloquear nada — origen: auditoría #1. | — | | **Cada edición mía debe documentarse como excepción puntual.** Efecto: la cabecera de `HOJA_DE_RUTA.md` se mantiene **literal** ("DOCUMENTO INMUTABLE… no se modifica nunca"), sin añadirle ninguna excepción, y cada edición del dueño se registra como excepción puntual en §7 de este documento. Las dos ediciones ya ocurridas (protocolo de §0.1 y cuerpo de T-07, ambas del 2026-08-25) quedan documentadas ahí. El hallazgo #1 de `auditoriacontinua.md` puede cerrarse en la próxima pasada del auditor. — dueño, 2026-08-27 |
+| 5 | **¿Cómo se implementa el bloqueo tras tres contraseñas falladas (respuesta a #4), y qué significa exactamente que "el administrador renueve la contraseña"?** El problema no es programarlo, es dónde se aplica: el inicio de sesión va del navegador directo a GoTrue, y **no hay backend propio** (§0.2), así que un contador en el cliente no impide que alguien llame a GoTrue por su cuenta con `curl` — sería disuasión, no un control de seguridad. Lo que sí se aplica de verdad es la base de datos: un usuario marcado como bloqueado no lee nada aunque su token sea válido, porque lo niegan las políticas de T-10. Y hay un riesgo nuevo que no existía: si el contador va por email y lo puede tocar quien no ha iniciado sesión, cualquiera que conozca el correo de un profesor puede dejarlo fuera antes de una clase. Sobre la renovación: la spec de T-09 (requisito 2) ya resuelve el caso por la vía en la que **el administrador nunca conoce la contraseña de nadie** — dispara el correo de recuperación, que funciona con la clave anónima, y el profesor se pone la suya; que el administrador **fije** una contraseña exigiría la clave `service_role` en el navegador, que está prohibida, o un backend, que hoy no existe. | T-09 | |
 
 ---
 
@@ -203,4 +181,5 @@ la sesión que la implemente abrirá en §3 al llegar a ese punto; no bloquea el
 
 | Fecha | Tarea | Desviación | Motivo |
 |-------|-------|-----------|--------|
-|       |       |           |        |
+| 2026-08-27 | T-09 | **Alcance ampliado por decisión del dueño:** se añade bloqueo de la cuenta tras **tres** contraseñas falladas y una vía para que el administrador renueve la contraseña de un usuario. La spec de T-09 en `HOJA_DE_RUTA.md` no lo pedía: su requisito 1 se limitaba al inicio de sesión contra GoTrue, y T-06 había documentado que GoTrue **no** tiene bloqueo por cuenta (solo un límite por IP, no configurable). El mecanismo está pendiente de concretar (§6, pregunta #5) | Respuesta del dueño a la pregunta #4 de §6, el 2026-08-27. La hoja de ruta es inmutable, así que la ampliación se registra aquí en vez de editar la tarea |
+| 2026-08-25 | — | **Excepción puntual a la inmutabilidad de `HOJA_DE_RUTA.md`:** el dueño editó el documento 41 minutos después de crearlo, para ajustar el protocolo de §0.1 y el cuerpo de la tarea T-07, pese a que la cabecera se declara "DOCUMENTO INMUTABLE… no se modifica nunca" | Respuesta del dueño a la pregunta #3 de §6, el 2026-08-27: la cabecera se mantiene literal y **cada edición suya se documenta aquí como excepción puntual**, en vez de relajar la declaración. Origen: hallazgo #1 de `auditoriacontinua.md`, que queda resuelto |
