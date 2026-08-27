@@ -37,6 +37,44 @@
 
 ---
 
+### Sesión 2026-08-27 (8)
+**Tarea(s):** cerrar el diseño del bloqueo por cuenta (§6, #5) antes de arrancar T-09
+**Estado resultante:** #5 respondida por el dueño; T-09 lista para empezar, con su alcance real
+**Commits a `develop`:** ver commit de esta sesión (registro: diseño del bloqueo por cuenta)
+**Migraciones aplicadas:** ninguna — pero T-09 pasa a necesitar una (ver §7)
+**Propagación a prod pendiente:** sin cambios
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (#5 respondida, §7 con una fila más,
+nota de T-09 en §1), `roadmap/DECISIONES_TECNICAS.md` (dos filas), `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (241) · build ✅
+**Health check post-deploy:** no aplica — solo documentos de registro
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md`, ambas **del dueño**, no
+autónomas: el bloqueo se aplica en la base de datos y por RLS y lo levanta el administrador; y
+«renovar la contraseña» es disparar el correo de recuperación, nunca fijarla el administrador
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- **T-09 pasa a necesitar migración y su spec dice `Migración: No`.** El bloqueo se aplica en la
+  base de datos, así que hace falta DDL sobre `perfil` más las RPC que lo mantienen. Eso arrastra
+  una decisión de numeración: si el bloqueo va en `002`, la migración de políticas de T-10
+  (`002_politicas_rls` en la hoja de ruta) pasa a `003`. Anotado en §7 para que la sesión de T-09
+  no lo descubra a mitad de la tarea.
+- **T-10 queda condicionada:** sus políticas deben incluir "no bloqueado" en **todas** las tablas,
+  no solo en `perfil`. Es ahí donde el bloqueo se hace efectivo; si T-10 escribe sus políticas sin
+  esa condición, el bloqueo queda en cosmética. Registrado en la fila de §7 y en la decisión.
+- **Contrapartida aceptada por el dueño, que conviene no perder de vista:** como el conteo de
+  fallos lo reporta un cliente sin autenticar, cualquiera que conozca el email de un profesor
+  puede dejarlo fuera antes de una clase. No sirve para entrar, solo para cerrar. Se le expuso
+  explícitamente antes de decidir, junto con la alternativa de caducidad automática, y eligió el
+  bloqueo hasta desbloqueo manual.
+- La RPC de conteo tiene que responder lo mismo exista o no el email, o se convierte en un
+  enumerador de cuentas y contradice el requisito 9 de T-09.
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** implementar T-09 con este alcance. Nada la bloquea: el primer usuario
+`administrator` ya existe en `dev`. Primer paso de esa sesión, antes de escribir código: confirmar
+con el dueño la salida de la consulta de comprobación de `db/000_bootstrap_perfil.sql`, para
+descartar que ese usuario se haya quedado con el rol `student` por defecto.
+
+---
+
 ### Sesión 2026-08-27 (7)
 **Tarea(s):** transcripción de las respuestas del dueño a §6 — no es una T-XX
 **Estado resultante:** §6 respondida (4 de 4); una respuesta amplía el alcance de T-09
