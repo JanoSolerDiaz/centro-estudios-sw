@@ -10,44 +10,47 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — T-08 (cliente propio de la API de Supabase): sin hallazgos de
+**Última actualización:** 2026-08-27 — T-09 (autenticación y los tres roles): sin hallazgos de
 severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea; el único
 hallazgo, #1, sigue de severidad baja/documental). T-07 sigue **BLOQUEADA — pendiente aplicar
-migración 001** (fila #1 de §3, todavía sin confirmar por el dueño), así que se siguió la
-indicación explícita dejada por la sesión anterior: T-08 es la siguiente tarea que no depende de
-esa migración (depende solo de T-07, que sí está completa en la parte que no exige credenciales).
-T-08 queda **COMPLETADA**. Entregado, todo en `src/datos/`: `erroresDominio.ts` (las ocho clases de
-error de dominio del requisito 4, más la traducción de una `Response` no exitosa por código de
-estado); `codificadorValores.ts` (el codificador de valores del requisito 5, dos capas — escapado
-sintáctico de PostgREST y `encodeURIComponent` — nunca construcción de filtros por concatenación);
-`configuracion.ts` (lectura y validación de `window.__CONFIG__`, con `ErrorConfiguracionFaltante` y
-mensaje en español si falta, requisito 1); `peticionHttp.ts` (petición HTTP autenticada compartida,
-extraída para no duplicar cabeceras/errores entre los dos clientes); `postgrest.ts` (cliente
-PostgREST fluido — `select` con recursos embebidos, `eq`/`in`/`gte`/`lte`/`ilike`, `order`, `limit`,
-rango de paginación con total opcional vía `Content-Range`, `insert`/`update`/`delete`, `rpc` —
-requisito 2); `almacenamiento.ts` (cliente de Storage — subida, borrado, URL firmada individual y
-**firma en lote de N rutas en una sola petición HTTP**, verificado con un test que cuenta llamadas
-— requisito 3). `config.js`/`config.ejemplo.js` nuevos (mecanismo de inyección de configuración sin
-bundler, ver `DECISIONES_TECNICAS.md`), `config.js` en `.gitignore`. `src/nucleo/mensajesAbuso.ts`
-(T-06) ampliado con la traducción de las ocho clases nuevas a mensajes fijos en español — nunca
-`error.message`, con un test explícito de que un mensaje técnico de Postgres no llega al usuario.
-`src/datos/eventoError.ts` (T-05) reescrito para usar el cliente nuevo (`cliente.rpc(...)`) en vez
-de su propio `fetch`, sin cambiar su API pública ni sus tests: la "puerta única" del objetivo de
-T-08 alcanza también al primer consumidor real. `src/ui/main.ts` conecta ya el envío remoto de
-errores no controlados de verdad (lee la configuración, crea el enviador real; sin ella, captura
-`ErrorConfiguracionFaltante` y sigue sin enviador, la app no deja de arrancar — verificado en
-Chromium headless, mismo método que T-00). Se documenta, sin poder verificarse contra documentación
-en vivo en esta sesión (misma limitación que T-06/T-07, sin salida de red a `supabase.com`), el
-subconjunto de PostgREST implementado y los cuatro endpoints asumidos de Storage. Se descubrió y
-documentó en `DECISIONES_TECNICAS.md` una clase nueva de error de `exactOptionalPropertyTypes`
-(activo desde T-00) al reconstruir objetos con campos opcionales — ni `tsc` con un mensaje genérico
-ni ESLint lo evitan salvo leyendo el error real, así que queda registrado para no perder tiempo
-redescubriéndolo. 67 tests nuevos (234 en total, antes 167), verificación pre-push completa
-(`typecheck && lint && test && build`) en verde. Detalle
-completo de cada decisión en `DECISIONES_TECNICAS.md`. Siguiente tarea: T-09 (autenticación y los
-tres roles), que depende de T-08 (ya completa) — su propia spec tiene un bloqueo humano (el dueño
-crea el primer usuario `administrator` en `dev`), que se abrirá en §3 cuando esa sesión llegue al
-punto de necesitarlo.
+migración 001** (fila #1 de §3, todavía sin confirmar por el dueño); T-09 es la siguiente tarea que
+no depende de esa migración (depende solo de T-08, ya completa; usa `perfil`, que ya existe desde el
+bootstrap `000`, no desde `001`). T-09 queda **COMPLETADA** en el código — todo testeado contra
+dobles, sin ninguna credencial —, con un bloqueo humano aparte para poder usarse de verdad (fila #2
+de §3), tal como preveía su propia spec.
+
+Entregado: `src/datos/autenticacion.ts` (cliente propio de GoTrue — login, logout, renovación por
+`refresh_token`, solicitud de recuperación de contraseña, y establecer una contraseña nueva desde el
+token de recuperación — endpoints sin poder verificarse contra documentación en vivo, mismo aviso ya
+dado por T-06/T-07/T-08 para Auth/Management API/Storage). `src/nucleo/almacenSesion.ts`
+(persistencia de sesión con la opción más conservadora razonable: solo el `refresh_token` en
+`sessionStorage`, nunca el `access_token`, que vive solo en memoria — riesgo de XSS documentado y
+justificado en `DECISIONES_TECNICAS.md`, requisito 4). `src/nucleo/gestorSesion.ts` (orquestación:
+junta GoTrue + PostgREST para cargar el `perfil` propio + el almacén; aplica que un `perfil.activo =
+false` no entra aunque las credenciales sean correctas, revocando la sesión en el servidor;
+renovación **proactiva** de token expuesta como `renovarAlAbrirPasarLista()` — el punto de enganche
+que usará T-19, nunca espera a un `401`; una renovación fallida no cierra la sesión ni descarta el
+estado, para no perder lo que el profesor ya tenía en pantalla). `src/nucleo/enlaceRecuperacion.ts`
+(parseo puro del fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo).
+Pantallas nuevas en `src/ui/` (DOM nativo, sin `innerHTML`, objetivos táctiles ≥44px):
+`pantallaLogin.ts`, `pantallaRecuperarContrasena.ts` (responde igual exista o no la cuenta),
+`pantallaEstablecerContrasenaNueva.ts` (validación local de longitud/coincidencia antes de gastar
+una petición), `pantallaSinAcceso.ts` (para `student` y cualquier rol desconocido, que se trata
+igual — nunca como `teacher` —, sin ninguna llamada a datos más allá del perfil que `gestorSesion.ts`
+ya cargó), y `aplicacion.ts` (el enrutador: hash de recuperación → login/recuperar → según rol,
+sin_acceso o un marcador de posición para `administrator`/`teacher`, ya que su aplicación real nace
+en T-16/T-19). `src/ui/formularios.ts` (helpers de formulario accesible compartidos por las tres
+pantallas). `src/ui/main.ts` conecta ya `gestorSesion` real (con `sessionStorage`) y enruta con
+`aplicacion.ts`; sin `config.js` desplegado sigue cayendo a la pantalla mínima de T-00, igual que
+antes. De paso, el enviador de `evento_error` (T-05/T-08) ya adjunta el token de sesión cuando lo
+hay, en vez de ir siempre con la clave anónima. `mensajesAbuso.ts` (T-06/T-08) ampliado con
+`CredencialesInvalidas` y `PerfilInactivo`, ninguno revela si el email existe. Verificado en
+Chromium headless (mismo método que T-00): sin `config.js`, pantalla de T-00; con un `config.js` de
+prueba, la pantalla de login real, sin errores de consola. 63 tests nuevos (297 en total, antes
+234), verificación pre-push completa (`typecheck && lint && test && build`) en verde. Detalle
+completo de cada decisión en `DECISIONES_TECNICAS.md`. Siguiente tarea: T-10 (autorización — RLS de
+los tres roles), que depende de T-09 (ya completa); su migración `002_politicas_rls` se escribirá y
+testeará igual, y quedará BLOQUEADA a la espera de que el dueño la aplique, igual que T-07.
 
 ---
 
@@ -81,7 +84,7 @@ punto de necesitarlo.
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
 | T-07 | Modelo de datos, runner de migraciones y entornos | BLOQUEADA — pendiente aplicar migración 001 | 2026-08-27 | Todo lo que no exige credenciales está hecho y verificado (SQL, runner, `MODELO.md`, tipos, tests, semilla); falta que el dueño ejecute `npm run migrate` en local — fila en §3 | **El primer intento del dueño falló por un bug del runner** (no cargaba `.env.local`, ver `DECISIONES_TECNICAS.md`); arreglado y verificado en la sesión 2026-08-27 (4), pendiente de reintento |
 | T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
-| T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 |
+| T-09 | Autenticación y los tres roles | COMPLETADA | 2026-08-27 | `student`/rol desconocido sin acceso, sin llamada de datos extra; login, logout, renovación proactiva, recuperación de contraseña completa; bloqueo humano aparte (crear el primer `administrator`) en fila #2 de §3 |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | PENDIENTE | — | — |
@@ -132,6 +135,7 @@ punto de necesitarlo.
 | # | Acción | Tarea | Instrucciones exactas | Estado |
 |---|--------|-------|-----------------------|--------|
 | 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | **Reintento:** tu primer intento falló con "Falta SUPABASE_ACCESS_TOKEN en .env.local" y era un bug del runner, no un problema de tu fichero — no toques `.env.local`. Ya está arreglado: `git pull` en `develop` y, en tu máquina, `npm run migrate`. Ahora el comando empieza diciendo qué `.env.local` ha cargado y cuántas variables trae; después imprime a qué proyecto va a escribir — confirma que dice `dev`. Al terminar, `npm run migrate -- --estado` y comprueba que aparece la fila `001  001_esquema_inicial`; si quieres el barrido de privilegios en vivo (opcional, ya cubierto en frío por un test), `npm run migrate -- --verificar-privilegios`. Si vuelve a fallar, pega la salida tal cual: si el error es un `404`, el primer sospechoso es el endpoint de la Management API, que no se pudo verificar contra documentación en vivo. Cuando confirmes aquí, la sesión que retome T-07 verifica con `esquema_version()`, anota la fila en `db/APLICADAS.md` y marca T-07 COMPLETADA. | pendiente |
+| 2 | Crear el primer usuario `administrator` en `dev` (bloqueo humano de T-09) | T-09 | El código de T-09 ya está completo y no depende de este paso para seguir avanzando (T-10 en adelante se desarrolla igual, contra dobles), pero para que tú mismo puedas entrar a la aplicación hace falta un usuario con rol `administrator`. Pasos exactos, ya documentados al final de `db/000_bootstrap_perfil.sql` (que ya tienes aplicado): 1) en el panel de Supabase del proyecto `dev`, **Authentication → Users → Add user**, créate un usuario con tu email y una contraseña provisional (o usa la recuperación de contraseña de la propia app en cuanto haya `config.js` desplegado). 2) En el editor SQL, ejecuta `update public.perfil set rol = 'administrator' where id = (select id from auth.users where email = 'TU_EMAIL_AQUI');` — todo usuario nuevo nace `student` (sin acceso) por diseño. 3) Verifica con `select p.nombre, p.rol, p.activo, u.email from public.perfil p join auth.users u on u.id = p.id;`. No requiere ninguna migración ni `npm run migrate`. Confirma aquí cuando lo hayas hecho; no bloquea ninguna tarea posterior. | pendiente |
 
 ---
 
@@ -175,6 +179,7 @@ punto de necesitarlo.
 | 1 | R-05 deja el aviso de ausencia listo para enviar a mano (`mailto:` o copiar al portapapeles), sin integración. ¿Se quiere en algún momento el envío automático por email transaccional, SMS o WhatsApp Business? Implica dar de alta una cuenta de servicio externo (posiblemente de pago) — decisión reservada al dueño, no autonomizable por una P-XX (§0.3). Mientras no haya respuesta, R-05 se entrega en su versión sin integración y no queda bloqueada por esto. | R-05 | |
 | 2 | Con R-04 (informe mensual) y R-05 (aviso a la familia) ya en el roadmap, ¿tiene sentido en el futuro dar al rol `student` —o a una persona de referencia, sin necesidad de que sea el propio menor quien inicie sesión— una vista de solo lectura de su propio histórico de asistencia y ausencias justificadas? Es justo la ampliación de `student` que la hoja de ruta reserva expresamente al dueño (§0.2); no se propone ninguna R-XX para esto sin tu decisión. | — | |
 | 4 | T-06 investigó los límites de intentos que Supabase Auth (GoTrue) aplica por defecto (requisito 1 de su spec). Confirmado por la documentación oficial y su código fuente: usa un algoritmo de *token bucket* por endpoint; los límites de envío de correo (`/auth/v1/signup`, `/auth/v1/recover`, `/auth/v1/user`) y de OTP/enlace mágico son configurables desde el panel (**Authentication → Rate Limits**) o por la Management API; los de `/auth/v1/verify`, `/auth/v1/token` (que es también el endpoint del inicio de sesión con contraseña) y los desafíos de MFA están limitados **por IP** y **no son configurables desde el panel**. GoTrue **no tiene** un bloqueo de cuenta tras N contraseñas incorrectas: la única defensa por defecto contra fuerza bruta al iniciar sesión es ese límite por IP, no un límite por email. Esta sesión no pudo confirmar la cifra numérica exacta vigente hoy (sin salida de red hacia `supabase.com` desde este entorno; detalle completo, con las dos fuentes consultadas, en `DECISIONES_TECNICAS.md`). Pide dos cosas al dueño: (a) revisar **Authentication → Rate Limits** en el panel del proyecto `dev` antes de T-25 (paso a producción) y ajustar lo que haga falta, y (b) decidir si además del límite por IP se quiere algún límite por cuenta — eso sería trabajo nuevo de T-09, no algo que Supabase ofrezca ya. No bloquea nada mientras tanto. | T-06 / T-09 / T-25 | |
+| 5 | T-09 no ha podido comprobar en el panel del proyecto `dev` (sin salida de red a `supabase.com`, misma limitación que T-06/T-07/T-08) dos cosas de **Authentication** que afectan directamente a si el flujo de recuperación de contraseña que ya está programado funciona de verdad para un profesor real: (a) si la **confirmación de email** está activada — un usuario creado desde el panel podría quedar sin confirmar y no poder iniciar sesión, un fallo que parece un error de código y no lo es (requisito 3 de T-09); y (b) si hace falta configurar un **SMTP propio**, porque el servidor de correo por defecto de Supabase tiene un límite bajo en el plan gratuito y no es apto para uso real con varios profesores. Pide al dueño revisar **Authentication → Email Templates** / **Authentication → Providers** (confirmación de email) y **Authentication → SMTP Settings** antes de repartir el acceso a profesores reales. No bloquea nada mientras tanto: el código funciona igual, solo el correo de recuperación podría no llegar o el alta podría quedar a medias hasta que se revise. | T-09 | |
 | 3 | `auditoriacontinua.md` registra el hallazgo #1 (severidad baja, higiene documental): `HOJA_DE_RUTA.md` se autodeclara "DOCUMENTO INMUTABLE... no se modifica nunca" pero el propio dueño lo editó 41 minutos después de crearse, el mismo día, para ajustar el protocolo de §0.1 (que el documento sí permite cambiar al dueño) y el cuerpo de la tarea T-07 (que se declara inmutable sin excepción explícita para nadie). Sin riesgo de dato ni operativo: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento. No encaja como mejora de producto (no es una R-XX) ni como deuda técnica de código (no hay nada que programar): es una pregunta de gobernanza documental que solo el dueño puede resolver, porque el PM tiene este documento en modo SOLO LECTURA. ¿Quieres que la cabecera de `HOJA_DE_RUTA.md` deje explícita una excepción para tus propias ediciones (p. ej. "inmutable salvo para el dueño"), o prefieres que la declaración se mantenga literal y que una futura edición tuya, si hace falta, se documente aquí mismo como excepción puntual? Mientras no haya respuesta, el hallazgo queda `ABIERTO` en `auditoriacontinua.md` sin bloquear nada — origen: auditoría #1. | — | |
 
 ---

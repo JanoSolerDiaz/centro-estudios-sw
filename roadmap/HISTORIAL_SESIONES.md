@@ -37,6 +37,57 @@
 
 ---
 
+### Sesión 2026-08-27 (5)
+**Tarea(s):** T-09 (autenticación y los tres roles)
+**Estado resultante:** COMPLETADA (código y tests; bloqueo humano aparte, no gate de esta tarea — ver abajo)
+**Commits a `develop`:** ver commit de esta sesión (T-09: autenticación y los tres roles)
+**Migraciones aplicadas:** ninguna — T-09 no tiene migración propia (spec: `Migración: No`); usa
+`perfil`, que ya existe desde el bootstrap `000`
+**Propagación a prod pendiente:** ninguna (columna `prod` de `db/APLICADAS.md`, se hace en T-25)
+**Archivos creados/modificados:** `src/datos/autenticacion.ts` + `.test.ts` (cliente GoTrue),
+`src/nucleo/almacenSesion.ts` + `.test.ts`, `src/nucleo/gestorSesion.ts` + `.test.ts`,
+`src/nucleo/enlaceRecuperacion.ts` + `.test.ts`, `src/nucleo/mensajesAbuso.ts` + `.test.ts`
+(ampliado con `CredencialesInvalidas`/`PerfilInactivo`), `src/dominio/tipos.ts` (`ETIQUETA_ROL`),
+`src/ui/formularios.ts` (nuevo), `src/ui/pantallaLogin.ts` + `.test.ts`,
+`src/ui/pantallaRecuperarContrasena.ts` + `.test.ts`,
+`src/ui/pantallaEstablecerContrasenaNueva.ts` + `.test.ts`, `src/ui/pantallaSinAcceso.ts` +
+`.test.ts`, `src/ui/aplicacion.ts` + `.test.ts` (el enrutador), `src/ui/main.ts` (conecta
+`gestorSesion` real), `roadmap/SEGUIMIENTO.md` (§1: T-09 COMPLETADA; §3: fila #2, primer
+`administrator`; §6: fila #5, confirmación de email/SMTP; cabecera), `roadmap/DECISIONES_TECNICAS.md`
+(8 filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (297/297, 63 nuevos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting configurado todavía (`<pendiente>`, T-25); se
+verificó en su lugar, como en T-00/T-08, que `index.html` carga `dist/ui/main.js` sin error en
+Chromium headless: sin `config.js` (no existe en este checkout, está en `.gitignore`) se ve la
+pantalla mínima de T-00, y con un `config.js` de prueba se ve el formulario de login real, sin
+errores de consola
+**Decisiones tomadas:** 8 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-27, T-09): por qué
+`autenticacion.ts` no reutiliza `peticionAutenticada` de T-08; `CredencialesInvalidas` (login) vs.
+`NoAutenticado` (T-08, reutilizada para `refresh_token` inválido); `sessionStorage` con solo el
+`refresh_token`, nunca el `access_token` (riesgo de XSS documentado); renovación estrictamente
+proactiva (`renovarAlAbrirPasarLista`, nunca reactiva a un `401`); por qué `gestorSesion.ts`
+construye su propio `ClientePostgrest` de usar-y-tirar en vez de recibir uno inyectado (evita una
+referencia circular); por qué ninguna pantalla toca el `document` global (recibe `Document` vía
+`contenedor.ownerDocument`, mismo principio de inyección que `Reloj`/`Temporizador`/`window`); y por
+qué los objetivos táctiles se fijan con estilos en línea en vez de crear ya una hoja CSS
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 (severidad baja, higiene documental de
+`HOJA_DE_RUTA.md`) sigue abierto, sin acción posible por esta sesión (espera respuesta del dueño en
+§6, pregunta #3 de `SEGUIMIENTO.md`)
+**Hallazgos:** ninguno nuevo. Dos limitaciones ya conocidas del entorno (sin salida de red a
+`supabase.com`) se repiten aquí y quedan documentadas sin bloquear nada: los endpoints exactos de
+GoTrue no se han podido verificar contra documentación en vivo (mismo aviso que T-06/T-07/T-08 para
+Auth/Management API/Storage), y no se ha podido comprobar en el panel si la confirmación de email
+está activada ni si hace falta SMTP propio (nueva fila #5 en §6 de `SEGUIMIENTO.md`)
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-10 (autorización — políticas RLS de los tres roles), que depende de T-09 (ya
+completa). Su migración `002_politicas_rls` se escribirá y testeará contra dobles igual que T-07/T-08,
+y quedará BLOQUEADA a la espera de que el dueño la aplique, igual que T-07 (fila #1 de §3, todavía
+pendiente, sin cambios esta sesión). Aparte, el dueño puede crear ya el primer usuario
+`administrator` en `dev` (fila #2 de §3, nueva) para poder usar la aplicación de verdad — no bloquea
+T-10 ni ninguna tarea posterior.
+
+---
+
 ### Sesión 2026-08-27 (4)
 **Tarea(s):** T-07 (arreglo del runner: la carga de `.env.local` faltaba)
 **Estado resultante:** BLOQUEADA — pendiente aplicar migración 001 (el estado no cambia: sigue

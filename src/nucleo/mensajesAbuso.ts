@@ -5,10 +5,13 @@
  * (`src/datos/erroresDominio.ts`). Los mensajes de esos errores son siempre fijos, escritos aquí —
  * **nunca** se usa `error.message` directamente: para `Conflicto`/`ErrorDeValidacion` ese mensaje
  * puede venir tal cual de Postgres/PostgREST (texto técnico, a veces en inglés), y esta función
- * existe precisamente para que ese texto no llegue nunca a la interfaz.
+ * existe precisamente para que ese texto no llegue nunca a la interfaz. Desde T-09, añade
+ * `CredencialesInvalidas` (login) y `PerfilInactivo` (perfil desactivado) — sus mensajes no revelan
+ * si el email existe (requisito 9 de T-09).
  */
 
 import { ErrorLimiteAlcanzado } from './limitadorTasa.ts';
+import { PerfilInactivo } from './gestorSesion.ts';
 import {
   NoAutenticado,
   SinPermiso,
@@ -19,6 +22,7 @@ import {
   FicheroDemasiadoGrande,
   TipoDeFicheroNoPermitido,
 } from '../datos/erroresDominio.ts';
+import { CredencialesInvalidas } from '../datos/autenticacion.ts';
 
 const MENSAJE_POR_DEFECTO = 'No se ha podido completar la acción. Inténtalo de nuevo en unos segundos.';
 
@@ -38,6 +42,12 @@ export function mensajeAmigable(error: unknown): string {
   }
   if (esErrorDeAborto(error)) {
     return 'La operación ha tardado demasiado o se ha cancelado. Comprueba tu conexión e inténtalo de nuevo.';
+  }
+  if (error instanceof CredencialesInvalidas) {
+    return 'Email o contraseña incorrectos.';
+  }
+  if (error instanceof PerfilInactivo) {
+    return 'Tu cuenta está desactivada. Habla con el administrador del centro.';
   }
   if (error instanceof NoAutenticado) {
     return 'Tu sesión ha caducado o no has iniciado sesión. Vuelve a iniciar sesión.';
