@@ -46,11 +46,21 @@ registro:** un fichero del arranque manual aplicado y no anotado es indistinguib
 aplicar, y el runner no lo ve porque lo ignora por diseño; la verificación en vivo es la única
 fuente de verdad para `000`/`000b`.
 
-**Nota, sin bloquear nada:** `.env.local` no tiene `SUPABASE_SERVICE_ROLE_KEY_DEV` (7 variables, y
-esa no está), así que `npm run seed` fallaría por la credencial, no por los privilegios. Los
-privilegios sí están listos: `001` concede a `service_role` los cuatro DML en `centro_estudios`,
-`alumno` y `persona_referencia`, que son las tres tablas donde escribe la semilla. Cuando haga
-falta sembrar, el dueño añade la clave (está documentada en `.env.ejemplo` desde T-07).
+**Las dos acciones que esperaban al dueño ya están hechas (2026-08-27, confirmadas por él):**
+
+1. **Primer usuario `administrator` en `dev`** — el bloqueo humano de la spec de T-09, resuelto
+   antes de que la tarea arranque, así que T-09 no necesita abrir fila en §3. La sesión que la
+   implemente debe confirmar que ese usuario tiene `rol = 'administrator'` en `perfil` y no el
+   `student` por defecto: crear el usuario en el panel y promoverlo son dos pasos distintos, y el
+   segundo es el bloque del final de `db/000_bootstrap_perfil.sql`. Verificarlo exige el editor SQL
+   o la clave `service_role`, así que ningún agente puede hacerlo por su cuenta (§0.1): se pide al
+   dueño la salida de la consulta de comprobación de ese mismo fichero.
+2. **`SUPABASE_SERVICE_ROLE_KEY_DEV` en `.env.local`** — verificado por el agente por nombre, sin
+   leer ningún valor: el fichero pasó de 7 a 8 variables y la clave está definida. Con esto
+   `npm run seed` ya tiene todo lo que necesita, credencial y privilegios (`001` concede a
+   `service_role` los cuatro DML en `centro_estudios`, `alumno` y `persona_referencia`).
+
+**§3 no tiene ninguna fila pendiente.**
 
 **Siguiente tarea:** T-09 (autenticación y los tres roles), que depende de T-08 (ya completa). Su
 spec tiene un bloqueo humano propio (el dueño crea el primer usuario `administrator` en `dev`) que
@@ -88,7 +98,7 @@ la sesión que la implemente abrirá en §3 al llegar a ese punto; no bloquea el
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
 | T-07 | Modelo de datos, runner de migraciones y entornos | COMPLETADA | 2026-08-27 | `001_esquema_inicial` aplicada en `dev` por el dueño y verificada con `esquema_version()` = `1`; fila anotada en `db/APLICADAS.md`. Incluye SQL, runner (`npm run migrate` con guardas, hash e inmutabilidad, `--estado` y `--verificar-privilegios`), `MODELO.md`, tipos de dominio, test de fuga de secretos y semilla. El primer intento del dueño falló por un bug del runner (no cargaba `.env.local`), arreglado en la sesión 2026-08-27 (4) |
 | T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
-| T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 |
+| T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 **Su bloqueo humano ya está resuelto de antemano (2026-08-27, confirmado por el dueño): el primer usuario `administrator` existe en `dev`.** No hace falta abrir fila en §3 por ello. Queda una comprobación pendiente para la sesión que la implemente, porque el agente no puede hacerla (necesita el editor SQL o la clave `service_role`, y §0.1 se lo prohíbe): que ese usuario tenga `rol = 'administrator'` en `perfil` y no el `student` con el que nace todo usuario nuevo — el bloque de promoción del final de `db/000_bootstrap_perfil.sql` es un paso aparte de crear el usuario en el panel |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | PENDIENTE | — | — |
