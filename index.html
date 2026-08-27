@@ -7,6 +7,11 @@
   </head>
   <body>
     <div id="app">Cargando…</div>
+    <!-- config.js (no commiteado, ver config.ejemplo.js) inyecta window.__CONFIG__ ANTES de
+         main.js: URL del proyecto Supabase y clave anónima, las dos únicas credenciales admitidas
+         en el cliente (§0.2). Sin él, la aplicación sigue funcionando; solo se pierde el envío
+         remoto de errores no controlados (ver src/ui/main.ts). -->
+    <script src="./config.js"></script>
     <script type="module" src="./dist/ui/main.js"></script>
   </body>
 </html>

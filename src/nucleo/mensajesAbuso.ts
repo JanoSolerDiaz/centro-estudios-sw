@@ -1,11 +1,24 @@
 /**
  * Mensajes al usuario en español (T-06, requisito 4): "qué hacer, no el código de error". Cubre
- * los errores que introduce esta tarea (límite de tasa, cancelación/tiempo de espera agotado); la
- * traducción completa de errores de dominio (`NoAutenticado`, `SinPermiso`, `Conflicto`, etc.) es
- * de T-08, que puede ampliar esta función cuando esos tipos existan — no se inventan aquí.
+ * los errores de T-06 (límite de tasa, cancelación/tiempo de espera agotado) y, desde T-08, la
+ * taxonomía completa de errores de dominio de la capa de acceso a Supabase
+ * (`src/datos/erroresDominio.ts`). Los mensajes de esos errores son siempre fijos, escritos aquí —
+ * **nunca** se usa `error.message` directamente: para `Conflicto`/`ErrorDeValidacion` ese mensaje
+ * puede venir tal cual de Postgres/PostgREST (texto técnico, a veces en inglés), y esta función
+ * existe precisamente para que ese texto no llegue nunca a la interfaz.
  */
 
 import { ErrorLimiteAlcanzado } from './limitadorTasa.ts';
+import {
+  NoAutenticado,
+  SinPermiso,
+  Conflicto,
+  ErrorDeValidacion,
+  ErrorDeRed,
+  ErrorDelServidor,
+  FicheroDemasiadoGrande,
+  TipoDeFicheroNoPermitido,
+} from '../datos/erroresDominio.ts';
 
 const MENSAJE_POR_DEFECTO = 'No se ha podido completar la acción. Inténtalo de nuevo en unos segundos.';
 
@@ -25,6 +38,30 @@ export function mensajeAmigable(error: unknown): string {
   }
   if (esErrorDeAborto(error)) {
     return 'La operación ha tardado demasiado o se ha cancelado. Comprueba tu conexión e inténtalo de nuevo.';
+  }
+  if (error instanceof NoAutenticado) {
+    return 'Tu sesión ha caducado o no has iniciado sesión. Vuelve a iniciar sesión.';
+  }
+  if (error instanceof SinPermiso) {
+    return 'No tienes permiso para hacer esto. Si crees que deberías tenerlo, habla con el administrador.';
+  }
+  if (error instanceof Conflicto) {
+    return 'Esta acción no se puede completar porque entra en conflicto con datos ya existentes.';
+  }
+  if (error instanceof ErrorDeValidacion) {
+    return 'Revisa los datos introducidos: alguno de ellos no es válido.';
+  }
+  if (error instanceof FicheroDemasiadoGrande) {
+    return 'El fichero es demasiado grande. Elige uno más pequeño.';
+  }
+  if (error instanceof TipoDeFicheroNoPermitido) {
+    return 'Ese tipo de fichero no está permitido.';
+  }
+  if (error instanceof ErrorDeRed) {
+    return 'No se ha podido conectar. Comprueba tu conexión a internet e inténtalo de nuevo.';
+  }
+  if (error instanceof ErrorDelServidor) {
+    return MENSAJE_POR_DEFECTO;
   }
   return MENSAJE_POR_DEFECTO;
 }
