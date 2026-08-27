@@ -10,26 +10,6 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-<<<<<<< HEAD
-**Última actualización:** 2026-08-27 — T-07, arreglo de un **bug real que reportó el dueño** al
-ejecutar `npm run migrate`: el runner decía "Falta SUPABASE_ACCESS_TOKEN en .env.local" con un
-`.env.local` perfectamente correcto. La causa no era la credencial sino que **nadie cargaba el
-fichero**: `migrar.ts` y `seed.ts` leen `process.env`, pero `dependencies` está vacío (no hay
-`dotenv`, §0.2) y los scripts de npm no pasaban `--env-file`, así que `process.env` nunca vio
-`.env.local`. Arreglado con `herramientas/cargarEnvLocal.ts` (cargador nativo de Node,
-`process.loadEnvFile`, cero dependencias nuevas): los dos CLI cargan el fichero por sí mismos,
-resolviendo la ruta desde el propio código y no desde el directorio de trabajo, y ahora imprimen
-qué fichero han cargado y cuántas variables trae antes de tocar nada. Siete tests nuevos cubren la
-carga, incluido el caso Windows (finales de línea CRLF) y el del CI (sin `.env.local`, donde los
-secretos del entorno siguen ganando al fichero). De paso se arregló un segundo bug del mismo
-origen — un test verde en CI y rojo en la máquina del dueño: el test de fuga de secretos lanzaba
-`node_modules/.bin/tsc`, que en Windows no es ejecutable. **La fila 1 de §3 sigue abierta: el
-dueño debe reintentar `npm run migrate`**, que es lo único que faltaba y sigue faltando para
-cerrar T-07. Verificación pre-push completa en verde (174 tests, antes 167). El detalle de la
-sesión anterior (la entrega de T-07) está en `HISTORIAL_SESIONES.md`; las dos decisiones nuevas,
-en `DECISIONES_TECNICAS.md`. Siguiente tarea de la cola normal: T-08 (cliente propio de la API de
-Supabase), que no depende de que la migración esté aplicada.
-=======
 **Última actualización:** 2026-08-27 — T-08 (cliente propio de la API de Supabase): sin hallazgos de
 severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea; el único
 hallazgo, #1, sigue de severidad baja/documental). T-07 sigue **BLOQUEADA — pendiente aplicar
@@ -68,7 +48,6 @@ completo de cada decisión en `DECISIONES_TECNICAS.md`. Siguiente tarea: T-09 (a
 tres roles), que depende de T-08 (ya completa) — su propia spec tiene un bloqueo humano (el dueño
 crea el primer usuario `administrator` en `dev`), que se abrirá en §3 cuando esa sesión llegue al
 punto de necesitarlo.
->>>>>>> 860fc6f210398b3a0ca02ec8772504d67d165976
 
 ---
 
