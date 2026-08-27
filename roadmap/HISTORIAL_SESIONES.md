@@ -37,6 +37,39 @@
 
 ---
 
+### Sesión 2026-08-27 (9)
+**Tarea(s):** confirmar el rol del primer usuario `administrator` — cierre del bloqueo humano de T-09
+**Estado resultante:** confirmado; T-09 sin nada pendiente antes de empezar
+**Commits a `develop`:** ver commit de esta sesión (registro: rol del administrador confirmado)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** sin cambios
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md`, `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (241) · build ✅
+**Health check post-deploy:** no aplica — solo documentos de registro
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- El dueño ejecutó la consulta de comprobación de `db/000_bootstrap_perfil.sql` y el único perfil
+  de `dev` tiene `rol = administrator` y `activo = true`. Se descarta el fallo que se temía: un
+  usuario creado en el panel y no promovido se queda en `student` y acaba en la pantalla de "sin
+  acceso", que parece un error de código sin serlo.
+- **En el registro se anota el resultado, no la salida literal.** La consulta devuelve nombre y
+  email del perfil, que son datos personales; §0.2 limita qué se guarda y de quién, y un documento
+  de seguimiento no es sitio para ellos. Criterio a mantener cuando el dueño pegue salidas de
+  consultas sobre tablas con datos de personas.
+- **Dato de contexto para T-09 y T-10:** hoy existe **un solo usuario** en `dev`, el administrador,
+  y ningún `teacher`. La interfaz del profesor y sus políticas se desarrollan y se testean contra
+  dobles hasta que el administrador cree usuarios reales; nadie debe interpretar la ausencia de
+  `teacher` como que algo está mal configurado.
+- Consecuencia de la decisión de bloqueo de §6 #5 que conviene recordar aquí: siendo hoy el
+  administrador el **único** usuario, si su cuenta se bloquea la única vía de vuelta es el editor
+  SQL del panel. Está previsto y decidido, pero la sesión de T-09 debe documentar esa consulta en
+  `DEVELOPERS.md` como parte de la tarea, no dejarla implícita.
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** implementar T-09. No queda ninguna dependencia humana.
+
+---
+
 ### Sesión 2026-08-27 (8)
 **Tarea(s):** cerrar el diseño del bloqueo por cuenta (§6, #5) antes de arrancar T-09
 **Estado resultante:** #5 respondida por el dueño; T-09 lista para empezar, con su alcance real

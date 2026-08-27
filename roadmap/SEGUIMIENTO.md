@@ -35,20 +35,23 @@ cambia para el desarrollo:
   documentadas ahí; el hallazgo #1 de `auditoriacontinua.md` puede cerrarse en la próxima pasada.
 
 **§3 sigue sin ninguna fila pendiente:** las dos acciones que esperaban al dueño (primer usuario
-`administrator` en `dev` y `SUPABASE_SERVICE_ROLE_KEY_DEV` en `.env.local`) están hechas y
-confirmadas por él el 2026-08-27. Queda una comprobación que ningún agente puede hacer (§0.1):
-que ese usuario tenga `rol = 'administrator'` en `perfil` y no el `student` con el que nace todo
-usuario nuevo — crear el usuario en el panel y promoverlo son dos pasos distintos.
+`administrator` en `dev` y `SUPABASE_SERVICE_ROLE_KEY_DEV` en `.env.local`) están hechas, y la
+**comprobación que ningún agente puede hacer (§0.1) ya está confirmada por el dueño el
+2026-08-27**: el único perfil que existe en `dev` tiene `rol = administrator` y `activo = true`, no
+el `student` con el que nace todo usuario nuevo. Se anota el resultado, no la salida literal: el
+nombre y el email del perfil son datos personales y no tienen por qué vivir en un documento de
+registro. Dato útil para T-09: **de momento no hay ningún `teacher`**, así que su interfaz se
+desarrolla y se testea contra dobles (que es como está previsto) hasta que el administrador cree
+usuarios reales.
 
 Estado del desarrollo: **T-00 a T-08 COMPLETADAS**, `001_esquema_inicial` aplicada y verificada en
 `dev`, 241 tests en verde y CI en verde. Historia de las últimas sesiones —incluidas el arreglo
 del runner y la recuperación de la bitácora de T-08 perdida en un merge— en
-`HISTORIAL_SESIONES.md`, sesiones (4) a (8). **Siguiente tarea: T-09** (autenticación y los tres
+`HISTORIAL_SESIONES.md`, sesiones (4) a (9). **Siguiente tarea: T-09** (autenticación y los tres
 roles). No tiene bloqueo humano de entrada —el primer usuario `administrator` ya existe en `dev`—
 pero su alcance es mayor que el de su spec (§7) y **necesita una migración**, así que abrirá fila
-en §3 cuando la escriba. Primer paso antes de programar, porque ningún agente puede comprobarlo
-(§0.1): pedir al dueño la salida de la consulta de comprobación de `db/000_bootstrap_perfil.sql`,
-para descartar que ese usuario se haya quedado con el rol `student` por defecto.
+en §3 cuando la escriba. **No queda nada por confirmar antes de empezar:** el rol del usuario
+`administrator` ya se comprobó (arriba).
 
 ---
 
