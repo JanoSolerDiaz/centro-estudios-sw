@@ -10,19 +10,40 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — **T-07 COMPLETADA.** El dueño aplicó
-`001_esquema_inicial` en `dev` con `npm run migrate` y quedó verificado: la RPC
-`esquema_version()` devuelve `1`. Fila anotada en `db/APLICADAS.md` (hash `93359e9a4e27`) y fila 1
-de §3 cerrada. Antes hubo que arreglar un bug del propio runner que impedía aplicarla: no cargaba
-`.env.local`, así que decía "Falta SUPABASE_ACCESS_TOKEN" con un fichero correcto (detalle en la
-sesión 2026-08-27 (4) de `HISTORIAL_SESIONES.md` y en dos filas de `DECISIONES_TECNICAS.md`).
-**Nueva fila 2 en §3, y conviene atenderla:** `db/000b_arreglo_permisos.sql` sigue sin aplicar
-según `db/APLICADAS.md`. Es parte del arranque manual y el runner lo ignora a propósito (su
-nombre no encaja con el patrón `NNN_nombre.sql`), así que **ningún agente lo va a aplicar nunca y
-hasta ahora nadie lo estaba siguiendo**: no tenía fila en §3. Mientras no se aplique, en `dev`
-`authenticated` conserva `TRUNCATE` sobre `perfil` — y `TRUNCATE` ignora RLS, así que las
-políticas no protegen de él — y `service_role` se quedó sin DML, lo que hará fallar `npm run seed`
-cuando se use. Siguiente tarea de la cola normal: T-08 (cliente propio de la API de Supabase).
+**Última actualización:** 2026-08-27 — **T-07 y T-08 COMPLETADAS** (dos sesiones en paralelo).
+
+**T-07:** el dueño aplicó `001_esquema_inicial` en `dev` con `npm run migrate` y quedó verificado:
+la RPC `esquema_version()` devuelve `1`. Fila anotada en `db/APLICADAS.md` (hash `93359e9a4e27`) y
+fila 1 de §3 cerrada. Antes hubo que arreglar un bug del propio runner que impedía aplicarla: no
+cargaba `.env.local`, así que decía "Falta SUPABASE_ACCESS_TOKEN" con un fichero correcto. Con la
+migración aplicada queda además confirmado en la práctica el endpoint de la Management API, que
+T-07 no pudo verificar contra documentación en vivo. Detalle en las sesiones (4) y (5) de
+`HISTORIAL_SESIONES.md` y en dos filas de `DECISIONES_TECNICAS.md`.
+
+**T-08:** cliente propio de la API de Supabase (PostgREST + Storage) COMPLETADO en una sesión
+paralela: `src/datos/` con `erroresDominio.ts`, `codificadorValores.ts`, `configuracion.ts`,
+`peticionHttp.ts`, `postgrest.ts` y `almacenamiento.ts` (firma de URLs en lote en una sola
+petición), `eventoError.ts` reescrito sobre el cliente nuevo, `mensajesAbuso.ts` ampliado sin
+exponer nunca el `message` crudo de Postgres, y `config.js`/`config.ejemplo.js` como mecanismo de
+inyección de configuración sin bundler. Detalle completo en la sesión **(4b)** de
+`HISTORIAL_SESIONES.md` y en sus 12 filas de `DECISIONES_TECNICAS.md`.
+
+**Aviso de proceso:** las dos sesiones colisionaron en los documentos de registro y la resolución
+de los merges `dd999ba` / `b7c09dd` perdió la entrada de bitácora de T-08 y el párrafo de esta
+cabecera. Ambos quedan recuperados (la entrada, literal del commit `860fc6f`). Nada de código se
+perdió: 241 tests en verde. Si se vuelven a lanzar dos sesiones a la vez, numerar las entradas de
+`HISTORIAL_SESIONES.md` por tarea y no por ordinal.
+
+**Pendiente del dueño (§3, fila 2):** `db/000b_arreglo_permisos.sql` sigue sin aplicar. El runner
+lo ignora a propósito (su nombre no encaja con el patrón `NNN_nombre.sql`), así que **ningún
+agente lo aplicará nunca**, y hasta ahora no tenía fila en §3: nadie lo estaba siguiendo. Mientras
+no se aplique, en `dev` `authenticated` conserva `TRUNCATE` sobre `perfil` — y `TRUNCATE` ignora
+RLS, así que las políticas de T-10 no protegerán de él — y `service_role` se quedó sin DML, lo que
+hará fallar `npm run seed`.
+
+**Siguiente tarea:** T-09 (autenticación y los tres roles), que depende de T-08 (ya completa). Su
+spec tiene un bloqueo humano propio (el dueño crea el primer usuario `administrator` en `dev`) que
+la sesión que la implemente abrirá en §3 al llegar a ese punto; no bloquea el arranque de la tarea.
 
 ---
 

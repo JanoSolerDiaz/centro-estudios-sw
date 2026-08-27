@@ -46,8 +46,8 @@
 `93359e9a4e27`. Anotada en `db/APLICADAS.md`
 **Propagación a prod pendiente:** sí — columna `prod` vacía de `db/APLICADAS.md`, se hace en T-25
 **Archivos creados/modificados:** `db/APLICADAS.md`, `roadmap/SEGUIMIENTO.md`,
-`roadmap/HISTORIAL_SESIONES.md`
-**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (174) · build ✅
+`roadmap/HISTORIAL_SESIONES.md` (incluida la recuperación de la entrada (4b) de T-08)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (241, tras integrar T-08) · build ✅
 **Health check post-deploy:** no aplica — esta sesión solo toca documentos de registro
 **Decisiones tomadas:** ninguna nueva (las dos de la sesión (4) siguen siendo las vigentes)
 **Hallazgos del auditor atendidos:** ninguno
@@ -69,9 +69,77 @@
   que el hash anotado en `db/APLICADAS.md` se calculó del fichero con la misma función que usa el
   runner (`herramientas/migraciones/hash.ts`). La comprobación cruzada contra lo que hay
   realmente en el ledger es `npm run migrate -- --estado`, que solo puede ejecutar el dueño.
+- **El merge con la rama de T-08 perdió registro, y se ha recuperado.** T-08 corrió en paralelo con
+  la sesión (4) y ambas escribieron una entrada «Sesión 2026-08-27 (4)» en el mismo punto de este
+  fichero; los merges `dd999ba` / `b7c09dd` se quedaron con una. Recuperada literal del commit
+  `860fc6f` como (4b). El párrafo de «Última actualización» de `SEGUIMIENTO.md` también se había
+  perdido dos veces por la misma razón (es un campo único que cada sesión reescribe): ahora cubre
+  T-07 y T-08 a la vez. Verificado que el resto del registro de T-08 sobrevivió (12 filas de
+  `DECISIONES_TECNICAS.md`, fila de §1, `DEVELOPERS.md`) y que no se perdió código (241 tests en
+  verde). Riesgo de método a tener en cuenta si se vuelven a lanzar sesiones concurrentes.
 **Tareas autopropuestas (P-XX):** ninguna
 **Próximo paso:** T-08 (cliente propio de la API de Supabase). Pendiente del dueño: fila 2 de §3
 (`000b`), que no bloquea T-08 pero sí `npm run seed` y el modelo de privilegios de `perfil`.
+
+---
+
+### Sesión 2026-08-27 (4b) — T-08, en paralelo con la (4)
+
+> **Entrada recuperada por la sesión (5), no escrita por ella.** La sesión de T-08 y la (4)
+> (arreglo del runner) corrieron **en paralelo** en ramas distintas y ambas numeraron su entrada
+> como «(4)», en el mismo punto del fichero. La resolución de los merges `dd999ba` / `b7c09dd` se
+> quedó con una sola de las dos y esta se perdió; sus 12 filas de `DECISIONES_TECNICAS.md`, su fila
+> de §1 y sus cambios de `DEVELOPERS.md` sí sobrevivieron, así que la pérdida fue solo de bitácora.
+> Se recupera literal del commit `860fc6f` y se renumera a (4b); no se ha tocado nada más de su
+> texto. **Lección:** dos sesiones concurrentes colisionan en los documentos de registro append-only
+> (misma cabecera, mismo punto de inserción, y el conflicto no se ve como tal si se resuelve rápido);
+> conviene numerar las entradas con la tarea, no solo con un ordinal.
+
+**Tarea(s):** T-08 (cliente propio de la API de Supabase)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (T-08: cliente propio de la API de Supabase)
+**Migraciones aplicadas:** ninguna — T-08 no tiene migración propia (spec: `Migración: No`)
+**Propagación a prod pendiente:** ninguna (columna `prod` de `db/APLICADAS.md`, se hace en T-25)
+**Archivos creados/modificados:** `src/datos/erroresDominio.ts` + `.test.ts`,
+`src/datos/codificadorValores.ts` + `.test.ts`, `src/datos/configuracion.ts` + `.test.ts`,
+`src/datos/peticionHttp.ts`, `src/datos/postgrest.ts` + `.test.ts`, `src/datos/almacenamiento.ts` +
+`.test.ts`, `src/datos/eventoError.ts` (reescrito sobre el cliente nuevo, tests sin cambios),
+`src/nucleo/mensajesAbuso.ts` + `.test.ts` (ampliado con la taxonomía de errores de dominio),
+`src/ui/main.ts` (conecta el envío remoto de errores real, con `ErrorConfiguracionFaltante`
+capturado), `config.ejemplo.js` (nuevo), `.gitignore` (`config.js`), `index.html` (carga
+`config.js` antes de `main.js`), `eslint.config.js` (global `window` para `config.ejemplo.js`),
+`roadmap/SEGUIMIENTO.md` (§1: T-08 COMPLETADA; cabecera), `roadmap/DECISIONES_TECNICAS.md` (11
+filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (234/234, 67 nuevos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting configurado todavía (`<pendiente>`, T-25); se
+verificó en su lugar, como en T-00, que `index.html` carga `dist/ui/main.js` sin error en Chromium
+headless (con y sin `config.js` presente, ya que en este checkout no existe — está en `.gitignore`)
+**Decisiones tomadas:** 11 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-27, T-08): mecanismo de
+inyección de configuración (`config.js`/`window.__CONFIG__`, sin bundler); taxonomía de ocho clases
+de error de dominio; ampliación de `mensajesAbuso.ts` sin exponer nunca el `message` crudo de
+Postgres; el codificador de valores en dos capas; el diseño del cliente PostgREST (builder único,
+`Range` para paginación); el subconjunto de PostgREST implementado (y lo que falta a propósito); los
+cuatro endpoints de Storage asumidos sin poder verificarse contra documentación en vivo (misma
+limitación de red que T-06/T-07); la firma en lote en una sola petición HTTP (con test que cuenta
+llamadas); la extracción de `peticionHttp.ts` compartido; la reescritura de `eventoError.ts` sobre
+el cliente nuevo; y una nueva clase de error de `exactOptionalPropertyTypes` al reconstruir objetos
+con campos opcionales (`TS2379`), documentada para que no se redescubra
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 (severidad baja, higiene documental de
+`HOJA_DE_RUTA.md`) sigue abierto, sin acción posible por esta sesión (espera respuesta del dueño en
+§6, pregunta #3 de `SEGUIMIENTO.md`)
+**Hallazgos:** ninguno nuevo. Un error de test propio detectado y corregido durante esta sesión (no
+un hallazgo del auditor): la primera versión de
+`codificarListaFiltro escapa un valor de la lista que contiene una coma` esperaba 3 partes al
+partir por comas, pero el propio comportamiento correcto del codificador (la coma interna del valor
+queda percent-codificada a `%2C`, sin ningún carácter `,` literal salvo el separador de la lista)
+da 2 — el test estaba mal razonado, no la implementación; corregido con la aserción correcta
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-09 (autenticación y los tres roles), que depende de T-08 (ya completa). Su spec
+tiene un bloqueo humano propio (el dueño crea el primer usuario `administrator` en `dev`, y quizá
+SMTP propio para los correos de recuperación) que la sesión que la implemente debe abrir en §3
+cuando llegue al punto de necesitarlo — T-09 no está bloqueada de entrada, se puede empezar y
+testear contra dobles igual que T-08. T-07 sigue esperando al dueño (`npm run migrate` en local,
+fila #1 de §3, sin cambios esta sesión)
 
 ---
 
