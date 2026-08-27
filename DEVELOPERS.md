@@ -69,9 +69,45 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
-  fallos de red, sin tocar Supabase. `eventoError.ts` (T-05) implementa el envío a la RPC
-  `registrar_evento_error` — escrito y testeado contra el doble, pero **latente**: nadie lo conecta
-  todavía porque no hay ni tabla (T-07) ni cliente real con URL/clave anónima (T-08).
+  fallos de red, sin tocar Supabase.
+  - `configuracion.ts` (T-08) — `leerConfiguracionEntorno(origen)` valida `window.__CONFIG__`
+    (URL del proyecto y clave anónima, inyectadas por `config.js`, ver más abajo) y lanza
+    `ErrorConfiguracionFaltante` con un mensaje claro en español si falta algo. No lee `window`
+    directamente: lo recibe como parámetro, igual que `instalarCapturaErrores` con `window`.
+  - `erroresDominio.ts` (T-08) — las ocho clases de error de dominio (`NoAutenticado`,
+    `SinPermiso`, `Conflicto`, `ErrorDeValidacion`, `ErrorDeRed`, `ErrorDelServidor`,
+    `FicheroDemasiadoGrande`, `TipoDeFicheroNoPermitido`) y `errorDeRespuesta(respuesta)`, que
+    traduce una `Response` HTTP no exitosa a una de ellas por código de estado. Sus mensajes por
+    defecto **no** se muestran nunca directamente al usuario — esa traducción vive en
+    `src/nucleo/mensajesAbuso.ts` (T-06), que los amplió.
+  - `codificadorValores.ts` (T-08) — `codificarValorFiltro`/`codificarListaFiltro`: el único sitio
+    permitido para convertir un valor de filtro en texto de URL de PostgREST (escapado sintáctico
+    + `encodeURIComponent`). Nunca se construye un filtro por concatenación de texto sin pasar por
+    aquí.
+  - `peticionHttp.ts` (T-08) — `peticionAutenticada`, compartida por `postgrest.ts` y
+    `almacenamiento.ts`: cabeceras de autenticación, traducción de fallo de red y de respuesta no
+    exitosa. Cada cliente añade sus propias cabeceras/cuerpo por encima.
+  - `postgrest.ts` (T-08) — `crearClientePostgrest(opciones)`: `cliente.desde<T>('tabla').eq(...)
+    .seleccionar('columnas')` (o `.insertar`/`.actualizar`/`.eliminar`) y `cliente.rpc(nombre,
+    parametros)`. Subconjunto documentado en la cabecera del propio fichero y en
+    `DECISIONES_TECNICAS.md`.
+  - `almacenamiento.ts` (T-08) — `crearClienteAlmacenamiento(opciones)`: `subir`, `eliminar`,
+    `urlFirmada`, `urlFirmadasEnLote` (esta última en una única petición HTTP, nunca un bucle —
+    T-19 lo necesita así). Endpoints de Storage asumidos, sin poder verificarse contra
+    documentación en vivo en esta sesión (ver cabecera del fichero).
+  - `eventoError.ts` (T-05, reescrito en T-08) — `crearEnviadorEventoError(config)` implementa el
+    envío a la RPC `registrar_evento_error` sobre `crearClientePostgrest(...).rpc(...)`, ya no con
+    su propio `fetch`. Conectado de verdad desde `src/ui/main.ts`.
+
+  ### Configuración del cliente (`config.js`)
+
+  Sin bundler no hay `import.meta.env`: `index.html` carga un `config.js` **plano** (JavaScript,
+  no pasa por `tsc`) ANTES de `dist/ui/main.js`, que asigna `window.__CONFIG__ = { SUPABASE_URL,
+  SUPABASE_ANON_KEY }`. `config.js` está en `.gitignore` y NO se commitea (mismo régimen que
+  `.env.local`); `config.ejemplo.js`, commiteado, es la plantilla sin valores. Para desarrollo
+  local, copia `config.ejemplo.js` a `config.js` y rellena los dos valores del proyecto `dev`. Sin
+  `config.js`, la aplicación arranca igual (verificado en Chromium headless): solo se pierde el
+  envío remoto de errores no controlados.
 - `src/nucleo/` — infraestructura transversal usada por toda la aplicación:
   - `registro.ts` (T-02) — logger centralizado, único fichero con permiso ESLint para
     `console.*`: entradas estructuradas (nivel, instante, mensaje, contexto), nivel configurable, y
@@ -107,14 +143,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `controlPeticion.ts` (T-06) — `crearEjecutorUltimaPeticion()` (cancela la petición anterior en
     cuanto empieza una nueva) y `conTiempoDeEspera(operacion, ms)` (aborta si no resuelve a
     tiempo), sobre `AbortController`/`AbortSignal` nativos.
-  - `mensajesAbuso.ts` (T-06) — `mensajeAmigable(error)`: traduce `ErrorLimiteAlcanzado` y
-    `AbortError` a un mensaje en español que dice qué hacer, nunca el error técnico. T-08 lo amplía
-    con el resto de la taxonomía de errores de dominio cuando exista.
+  - `mensajesAbuso.ts` (T-06, ampliado en T-08) — `mensajeAmigable(error)`: traduce
+    `ErrorLimiteAlcanzado`, `AbortError` y las ocho clases de `src/datos/erroresDominio.ts` a un
+    mensaje fijo en español que dice qué hacer. Nunca usa `error.message` para los errores de
+    dominio: el de `Conflicto`/`ErrorDeValidacion` puede venir tal cual de Postgres (texto técnico,
+    a veces en inglés).
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido (p. ej. `pantallaInicial.ts`) para que se
   puedan testear montando un contenedor con `jsdom` en vez de depender del `document` global. Desde
-  T-05, también instala la captura global de errores no controlados (sin envío remoto todavía: la
-  tabla `evento_error` nace en T-07 y el cliente real de Supabase en T-08).
+  T-05 instala la captura global de errores no controlados; desde T-08 el envío remoto es real
+  (lee `window.__CONFIG__`, crea el enviador si hay configuración; si no, sigue solo con el logger
+  local, sin fallar el arranque).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

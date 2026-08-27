@@ -2,6 +2,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mensajeAmigable } from './mensajesAbuso.ts';
 import { ErrorLimiteAlcanzado } from './limitadorTasa.ts';
+import {
+  NoAutenticado,
+  SinPermiso,
+  Conflicto,
+  ErrorDeValidacion,
+  ErrorDeRed,
+  ErrorDelServidor,
+  FicheroDemasiadoGrande,
+  TipoDeFicheroNoPermitido,
+} from '../datos/erroresDominio.ts';
 
 void test('un límite de tasa produce un mensaje que dice cuánto esperar, no el error técnico', () => {
   const mensaje = mensajeAmigable(new ErrorLimiteAlcanzado(5000));
@@ -39,4 +49,37 @@ void test('un valor que no es un Error también cae en el mensaje genérico sin 
   assert.doesNotThrow(() => {
     mensajeAmigable('cadena cualquiera');
   });
+});
+
+void test('NoAutenticado produce un mensaje sobre volver a iniciar sesión', () => {
+  assert.match(mensajeAmigable(new NoAutenticado()), /inicia(r)? sesión/i);
+});
+
+void test('SinPermiso produce un mensaje sobre no tener permiso', () => {
+  assert.match(mensajeAmigable(new SinPermiso()), /permiso/i);
+});
+
+void test('Conflicto NUNCA expone el message crudo de Postgres (puede ser texto técnico en inglés)', () => {
+  const mensaje = mensajeAmigable(new Conflicto('duplicate key value violates unique constraint "alumno_pkey"'));
+  assert.doesNotMatch(mensaje, /duplicate key|constraint/i);
+  assert.match(mensaje, /conflicto|ya existentes/i);
+});
+
+void test('ErrorDeValidacion NUNCA expone el message crudo de Postgres', () => {
+  const mensaje = mensajeAmigable(new ErrorDeValidacion('null value in column "telefono_referencia" violates not-null constraint'));
+  assert.doesNotMatch(mensaje, /column|constraint/i);
+  assert.match(mensaje, /revisa|válido/i);
+});
+
+void test('FicheroDemasiadoGrande y TipoDeFicheroNoPermitido producen mensajes distintos y accionables', () => {
+  assert.match(mensajeAmigable(new FicheroDemasiadoGrande()), /grande/i);
+  assert.match(mensajeAmigable(new TipoDeFicheroNoPermitido()), /tipo de fichero/i);
+});
+
+void test('ErrorDeRed produce un mensaje sobre la conexión', () => {
+  assert.match(mensajeAmigable(new ErrorDeRed()), /conectar|conexión/i);
+});
+
+void test('ErrorDelServidor cae en el mensaje genérico de reintentar', () => {
+  assert.equal(mensajeAmigable(new ErrorDelServidor('detalle interno de Postgres')), mensajeAmigable(undefined));
 });

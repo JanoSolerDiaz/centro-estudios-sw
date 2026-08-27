@@ -37,6 +37,55 @@
 
 ---
 
+### Sesión 2026-08-27 (4)
+**Tarea(s):** T-08 (cliente propio de la API de Supabase)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (T-08: cliente propio de la API de Supabase)
+**Migraciones aplicadas:** ninguna — T-08 no tiene migración propia (spec: `Migración: No`)
+**Propagación a prod pendiente:** ninguna (columna `prod` de `db/APLICADAS.md`, se hace en T-25)
+**Archivos creados/modificados:** `src/datos/erroresDominio.ts` + `.test.ts`,
+`src/datos/codificadorValores.ts` + `.test.ts`, `src/datos/configuracion.ts` + `.test.ts`,
+`src/datos/peticionHttp.ts`, `src/datos/postgrest.ts` + `.test.ts`, `src/datos/almacenamiento.ts` +
+`.test.ts`, `src/datos/eventoError.ts` (reescrito sobre el cliente nuevo, tests sin cambios),
+`src/nucleo/mensajesAbuso.ts` + `.test.ts` (ampliado con la taxonomía de errores de dominio),
+`src/ui/main.ts` (conecta el envío remoto de errores real, con `ErrorConfiguracionFaltante`
+capturado), `config.ejemplo.js` (nuevo), `.gitignore` (`config.js`), `index.html` (carga
+`config.js` antes de `main.js`), `eslint.config.js` (global `window` para `config.ejemplo.js`),
+`roadmap/SEGUIMIENTO.md` (§1: T-08 COMPLETADA; cabecera), `roadmap/DECISIONES_TECNICAS.md` (11
+filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (234/234, 67 nuevos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting configurado todavía (`<pendiente>`, T-25); se
+verificó en su lugar, como en T-00, que `index.html` carga `dist/ui/main.js` sin error en Chromium
+headless (con y sin `config.js` presente, ya que en este checkout no existe — está en `.gitignore`)
+**Decisiones tomadas:** 11 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-27, T-08): mecanismo de
+inyección de configuración (`config.js`/`window.__CONFIG__`, sin bundler); taxonomía de ocho clases
+de error de dominio; ampliación de `mensajesAbuso.ts` sin exponer nunca el `message` crudo de
+Postgres; el codificador de valores en dos capas; el diseño del cliente PostgREST (builder único,
+`Range` para paginación); el subconjunto de PostgREST implementado (y lo que falta a propósito); los
+cuatro endpoints de Storage asumidos sin poder verificarse contra documentación en vivo (misma
+limitación de red que T-06/T-07); la firma en lote en una sola petición HTTP (con test que cuenta
+llamadas); la extracción de `peticionHttp.ts` compartido; la reescritura de `eventoError.ts` sobre
+el cliente nuevo; y una nueva clase de error de `exactOptionalPropertyTypes` al reconstruir objetos
+con campos opcionales (`TS2379`), documentada para que no se redescubra
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 (severidad baja, higiene documental de
+`HOJA_DE_RUTA.md`) sigue abierto, sin acción posible por esta sesión (espera respuesta del dueño en
+§6, pregunta #3 de `SEGUIMIENTO.md`)
+**Hallazgos:** ninguno nuevo. Un error de test propio detectado y corregido durante esta sesión (no
+un hallazgo del auditor): la primera versión de
+`codificarListaFiltro escapa un valor de la lista que contiene una coma` esperaba 3 partes al
+partir por comas, pero el propio comportamiento correcto del codificador (la coma interna del valor
+queda percent-codificada a `%2C`, sin ningún carácter `,` literal salvo el separador de la lista)
+da 2 — el test estaba mal razonado, no la implementación; corregido con la aserción correcta
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-09 (autenticación y los tres roles), que depende de T-08 (ya completa). Su spec
+tiene un bloqueo humano propio (el dueño crea el primer usuario `administrator` en `dev`, y quizá
+SMTP propio para los correos de recuperación) que la sesión que la implemente debe abrir en §3
+cuando llegue al punto de necesitarlo — T-09 no está bloqueada de entrada, se puede empezar y
+testear contra dobles igual que T-08. T-07 sigue esperando al dueño (`npm run migrate` en local,
+fila #1 de §3, sin cambios esta sesión)
+
+---
+
 ### Sesión 2026-08-27 (3)
 **Tarea(s):** T-07 (modelo de datos, runner de migraciones y entornos)
 **Estado resultante:** BLOQUEADA — pendiente aplicar migración 001 (todo lo que no exige

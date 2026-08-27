@@ -10,41 +10,44 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — T-07 (modelo de datos, runner de migraciones y entornos):
-sin hallazgos de severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea;
-el único hallazgo, #1, sigue de severidad baja/documental), así que se siguió la cola normal de §1:
-T-07 es la siguiente tarea PENDIENTE y depende solo de T-03 (COMPLETADA). **Queda BLOQUEADA —
-pendiente aplicar migración 001** (fila abierta en §3 más abajo): todo lo que el agente puede cerrar
-por sí mismo, sin ninguna credencial, está hecho y verificado; falta que el dueño ejecute
-`npm run migrate` en local. Entregado: `db/001_esquema_inicial.sql` (DDL plano, sin `begin`/`commit`
-propios — los envuelve el runner, ver `DECISIONES_TECNICAS.md`) con las siete tablas nuevas
-(`centro_estudios`, `alumno`, `persona_referencia`, `slot_horario`, `asistencia`,
-`asistencia_historial`, `evento_error`), los triggers de inmutabilidad y de rastro de cambios de
-`asistencia`, la RPC `registrar_evento_error` siguiendo el contrato fijado por T-05, RLS habilitada
-en las siete sin ninguna política todavía (T-10 las escribe: hasta entonces nadie llega por la API,
-igual que ya rige en `perfil`), y privilegios de tabla explícitos (revoke-all-primero) en cada una.
-`db/MODELO.md` nuevo, en español, con diagrama de relaciones en texto. El runner
-(`herramientas/migrar.ts` + `herramientas/migraciones/*.ts`) lee `db/NNN_*.sql`, aplica los
-pendientes contra la Management API (con las guardas de contenido, la inmutabilidad por hash, la
-salvaguarda de `prod`, y `--estado`/`--verificar-privilegios`), todo testeado contra dobles —
-incluida una advertencia explícita en el código y en `DECISIONES_TECNICAS.md` de que el endpoint
-exacto de la Management API no se pudo verificar contra documentación en vivo (sin salida de red a
-`supabase.com`, misma limitación que T-06). `src/dominio/tipos.ts` con los tipos oficiales del
-dominio, confrontados con la forma de PostgREST en su test. Test de fuga de secretos
-(`herramientas/verificarFugaSecretos.test.ts`) que construye `dist/` de verdad y lo inspecciona.
-Semilla de desarrollo (`npm run seed`, necesita `SUPABASE_SERVICE_ROLE_KEY_DEV`, nueva en
-`.env.ejemplo`, mismo régimen que el access token). `herramientas/` recibe su propio
-`tsconfig.herramientas.json` y chequeo de tipos estricto (decisión pendiente desde T-01, resuelta
-ahora). 68 tests nuevos (167 en total, antes 78 — hubo que reinstalar `node_modules/` en este
-checkout con `npm ci`), `env -i npm test` en verde sin ninguna variable de entorno; se detectó y
-corrigió que las propiedades de parámetro de TypeScript no funcionan con el *type-stripping* nativo
-de Node (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, ni `tsc` ni ESLint lo avisan, solo se ve al ejecutar
-los tests) — registrado en `DECISIONES_TECNICAS.md` para que no se reintroduzca. Verificación
-pre-push completa (`typecheck && lint && test && build`) en verde; `dist/` inspeccionado, sin
-ninguna fuga de `herramientas/` ni de secretos. Detalle completo de cada decisión en
-`DECISIONES_TECNICAS.md`. Siguiente tarea (mientras T-07 espera al dueño): T-08 (cliente propio de
-la API de Supabase), que no depende de que la migración esté aplicada — se desarrolla y se testea
-contra dobles.
+**Última actualización:** 2026-08-27 — T-08 (cliente propio de la API de Supabase): sin hallazgos de
+severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea; el único
+hallazgo, #1, sigue de severidad baja/documental). T-07 sigue **BLOQUEADA — pendiente aplicar
+migración 001** (fila #1 de §3, todavía sin confirmar por el dueño), así que se siguió la
+indicación explícita dejada por la sesión anterior: T-08 es la siguiente tarea que no depende de
+esa migración (depende solo de T-07, que sí está completa en la parte que no exige credenciales).
+T-08 queda **COMPLETADA**. Entregado, todo en `src/datos/`: `erroresDominio.ts` (las ocho clases de
+error de dominio del requisito 4, más la traducción de una `Response` no exitosa por código de
+estado); `codificadorValores.ts` (el codificador de valores del requisito 5, dos capas — escapado
+sintáctico de PostgREST y `encodeURIComponent` — nunca construcción de filtros por concatenación);
+`configuracion.ts` (lectura y validación de `window.__CONFIG__`, con `ErrorConfiguracionFaltante` y
+mensaje en español si falta, requisito 1); `peticionHttp.ts` (petición HTTP autenticada compartida,
+extraída para no duplicar cabeceras/errores entre los dos clientes); `postgrest.ts` (cliente
+PostgREST fluido — `select` con recursos embebidos, `eq`/`in`/`gte`/`lte`/`ilike`, `order`, `limit`,
+rango de paginación con total opcional vía `Content-Range`, `insert`/`update`/`delete`, `rpc` —
+requisito 2); `almacenamiento.ts` (cliente de Storage — subida, borrado, URL firmada individual y
+**firma en lote de N rutas en una sola petición HTTP**, verificado con un test que cuenta llamadas
+— requisito 3). `config.js`/`config.ejemplo.js` nuevos (mecanismo de inyección de configuración sin
+bundler, ver `DECISIONES_TECNICAS.md`), `config.js` en `.gitignore`. `src/nucleo/mensajesAbuso.ts`
+(T-06) ampliado con la traducción de las ocho clases nuevas a mensajes fijos en español — nunca
+`error.message`, con un test explícito de que un mensaje técnico de Postgres no llega al usuario.
+`src/datos/eventoError.ts` (T-05) reescrito para usar el cliente nuevo (`cliente.rpc(...)`) en vez
+de su propio `fetch`, sin cambiar su API pública ni sus tests: la "puerta única" del objetivo de
+T-08 alcanza también al primer consumidor real. `src/ui/main.ts` conecta ya el envío remoto de
+errores no controlados de verdad (lee la configuración, crea el enviador real; sin ella, captura
+`ErrorConfiguracionFaltante` y sigue sin enviador, la app no deja de arrancar — verificado en
+Chromium headless, mismo método que T-00). Se documenta, sin poder verificarse contra documentación
+en vivo en esta sesión (misma limitación que T-06/T-07, sin salida de red a `supabase.com`), el
+subconjunto de PostgREST implementado y los cuatro endpoints asumidos de Storage. Se descubrió y
+documentó en `DECISIONES_TECNICAS.md` una clase nueva de error de `exactOptionalPropertyTypes`
+(activo desde T-00) al reconstruir objetos con campos opcionales — ni `tsc` con un mensaje genérico
+ni ESLint lo evitan salvo leyendo el error real, así que queda registrado para no perder tiempo
+redescubriéndolo. 67 tests nuevos (234 en total, antes 167), verificación pre-push completa
+(`typecheck && lint && test && build`) en verde. Detalle
+completo de cada decisión en `DECISIONES_TECNICAS.md`. Siguiente tarea: T-09 (autenticación y los
+tres roles), que depende de T-08 (ya completa) — su propia spec tiene un bloqueo humano (el dueño
+crea el primer usuario `administrator` en `dev`), que se abrirá en §3 cuando esa sesión llegue al
+punto de necesitarlo.
 
 ---
 
@@ -77,7 +80,7 @@ contra dobles.
 | T-05 | Monitorización de errores | COMPLETADA | 2026-08-27 | Captura global + informador con scrubbing (reusa `depurarContexto` de T-02) + cliente RPC contra doble de `fetch`; sin bloqueo — depende solo de T-02. El envío remoto real queda latente hasta T-07 (tabla) y T-08 (cliente real); contrato de `registrar_evento_error` fijado en DECISIONES_TECNICAS.md para que T-07 lo respete |
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
 | T-07 | Modelo de datos, runner de migraciones y entornos | BLOQUEADA — pendiente aplicar migración 001 | 2026-08-27 | Todo lo que no exige credenciales está hecho y verificado (SQL, runner, `MODELO.md`, tipos, tests, semilla); falta que el dueño ejecute `npm run migrate` en local — fila en §3 |
-| T-08 | Cliente propio de la API de Supabase | PENDIENTE | — | PostgREST + GoTrue + Storage; no depende de que la migración 001 esté aplicada, se desarrolla contra dobles |
+| T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
 | T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |

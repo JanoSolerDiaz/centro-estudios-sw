@@ -198,4 +198,15 @@ export default tseslint.config(
       'no-restricted-syntax': ['error', ...SELECTORES_RESTRINGIDOS_COMUNES],
     },
   },
+
+  // `config.ejemplo.js` (T-08) es JavaScript plano cargado directamente por `index.html` con una
+  // etiqueta `<script>` normal (sin módulos, sin `tsc`): asigna `window.__CONFIG__`, así que
+  // necesita el global de navegador `window`, que `eslint.configs.recommended` no conoce por
+  // defecto fuera de `src/` (que sí lo tiene vía los tipos de TypeScript, no vía ESLint).
+  {
+    files: ['config.ejemplo.js'],
+    languageOptions: {
+      globals: { window: 'writable' },
+    },
+  },
 );
