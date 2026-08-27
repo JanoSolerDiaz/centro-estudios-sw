@@ -1,0 +1,213 @@
+/**
+ * Confronta cada tipo de `tipos.ts` con la FORMA (conjunto de claves) que PostgREST devolvería para
+ * esa tabla, simulada con el doble de `fetch` de T-03 (`crearFetchSimulado`) — no una consulta real
+ * contra Supabase. Si se añade, quita o renombra una columna en `db/001_esquema_inicial.sql` sin
+ * actualizar aquí el tipo y esta lista, el test lo detecta.
+ */
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { crearFetchSimulado } from '../datos/pruebas/dobleHttp.ts';
+
+const FORMAS: Readonly<Record<string, readonly string[]>> = {
+  perfil: ['id', 'nombre', 'rol', 'activo', 'creado_en', 'actualizado_en'],
+  centro_estudios: ['id', 'nombre', 'activo', 'creado_en', 'actualizado_en'],
+  alumno: [
+    'id',
+    'nombre',
+    'primer_apellido',
+    'segundo_apellido',
+    'centro_referencia_id',
+    'avatar_ruta',
+    'email_alumno',
+    'telefono_alumno',
+    'activo',
+    'alta_en',
+    'baja_en',
+    'motivo_baja',
+    'usuario_id',
+    'creado_en',
+    'actualizado_en',
+  ],
+  persona_referencia: [
+    'id',
+    'alumno_id',
+    'nombre',
+    'primer_apellido',
+    'segundo_apellido',
+    'email_referencia',
+    'telefono_referencia',
+    'creado_en',
+    'actualizado_en',
+  ],
+  slot_horario: [
+    'id',
+    'alumno_id',
+    'profesor_id',
+    'dia_semana',
+    'hora_inicio',
+    'hora_fin',
+    'asignatura_o_grupo',
+    'vigente_desde',
+    'vigente_hasta',
+    'creado_en',
+    'actualizado_en',
+  ],
+  asistencia: [
+    'id',
+    'alumno_id',
+    'profesor_id',
+    'registrado_en',
+    'ocurrido_en',
+    'es_retroactivo',
+    'origen',
+    'slot_id',
+    'slot_dia_semana',
+    'slot_hora_inicio',
+    'slot_hora_fin',
+    'slot_asignatura_o_grupo',
+    'estado',
+    'motivo_anulacion',
+    'nota',
+    'actualizado_en',
+    'actualizado_por',
+    'peticion_id',
+  ],
+  asistencia_historial: [
+    'id',
+    'asistencia_id',
+    'cambiado_en',
+    'cambiado_por',
+    'alumno_id',
+    'profesor_id',
+    'registrado_en',
+    'ocurrido_en',
+    'es_retroactivo',
+    'origen',
+    'slot_id',
+    'slot_dia_semana',
+    'slot_hora_inicio',
+    'slot_hora_fin',
+    'slot_asignatura_o_grupo',
+    'estado',
+    'motivo_anulacion',
+    'nota',
+    'actualizado_en',
+    'actualizado_por',
+    'peticion_id',
+  ],
+  evento_error: ['id', 'origen', 'mensaje', 'pila', 'contexto', 'registrado_en', 'registrado_por'],
+};
+
+// Una fila de ejemplo por tabla, con valores plausibles — solo importan las CLAVES para esta
+// comprobación de forma, no los valores.
+const FILA_EJEMPLO: Readonly<Record<string, Record<string, unknown>>> = {
+  perfil: { id: 'u1', nombre: 'Ana', rol: 'teacher', activo: true, creado_en: 'x', actualizado_en: 'x' },
+  centro_estudios: { id: 'c1', nombre: 'IES Uno', activo: true, creado_en: 'x', actualizado_en: 'x' },
+  alumno: {
+    id: 'a1',
+    nombre: 'Luis',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    centro_referencia_id: 'c1',
+    avatar_ruta: null,
+    email_alumno: null,
+    telefono_alumno: null,
+    activo: true,
+    alta_en: 'x',
+    baja_en: null,
+    motivo_baja: null,
+    usuario_id: null,
+    creado_en: 'x',
+    actualizado_en: 'x',
+  },
+  persona_referencia: {
+    id: 'p1',
+    alumno_id: 'a1',
+    nombre: 'María',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    email_referencia: null,
+    telefono_referencia: '600000000',
+    creado_en: 'x',
+    actualizado_en: 'x',
+  },
+  slot_horario: {
+    id: 's1',
+    alumno_id: 'a1',
+    profesor_id: 'u1',
+    dia_semana: 1,
+    hora_inicio: '16:00',
+    hora_fin: '17:00',
+    asignatura_o_grupo: null,
+    vigente_desde: 'x',
+    vigente_hasta: null,
+    creado_en: 'x',
+    actualizado_en: 'x',
+  },
+  asistencia: {
+    id: 'as1',
+    alumno_id: 'a1',
+    profesor_id: 'u1',
+    registrado_en: 'x',
+    ocurrido_en: 'x',
+    es_retroactivo: false,
+    origen: 'slot',
+    slot_id: 's1',
+    slot_dia_semana: 1,
+    slot_hora_inicio: '16:00',
+    slot_hora_fin: '17:00',
+    slot_asignatura_o_grupo: null,
+    estado: 'valida',
+    motivo_anulacion: null,
+    nota: null,
+    actualizado_en: null,
+    actualizado_por: null,
+    peticion_id: 'peticion-1',
+  },
+  asistencia_historial: {
+    id: 'h1',
+    asistencia_id: 'as1',
+    cambiado_en: 'x',
+    cambiado_por: null,
+    alumno_id: 'a1',
+    profesor_id: 'u1',
+    registrado_en: 'x',
+    ocurrido_en: 'x',
+    es_retroactivo: false,
+    origen: 'slot',
+    slot_id: 's1',
+    slot_dia_semana: 1,
+    slot_hora_inicio: '16:00',
+    slot_hora_fin: '17:00',
+    slot_asignatura_o_grupo: null,
+    estado: 'valida',
+    motivo_anulacion: null,
+    nota: null,
+    actualizado_en: null,
+    actualizado_por: null,
+    peticion_id: 'peticion-1',
+  },
+  evento_error: {
+    id: 'e1',
+    origen: 'no_controlado',
+    mensaje: 'x',
+    pila: null,
+    contexto: null,
+    registrado_en: 'x',
+    registrado_por: null,
+  },
+};
+
+for (const tabla of Object.keys(FORMAS)) {
+  void test(`la forma que devuelve PostgREST para ${tabla} coincide con src/dominio/tipos.ts`, async () => {
+    const fila = FILA_EJEMPLO[tabla];
+    const fetchDoble = crearFetchSimulado(() => ({ estado: 200, cuerpo: [fila] }));
+    const respuesta = await fetchDoble(`https://proyecto.supabase.co/rest/v1/${tabla}?select=*`);
+    const filas = (await respuesta.json()) as Record<string, unknown>[];
+    assert.equal(filas.length, 1);
+    const claves = Object.keys(filas[0] ?? {}).sort();
+    const clavesEsperadas = [...(FORMAS[tabla] ?? [])].sort();
+    assert.deepEqual(claves, clavesEsperadas, `${tabla}: claves de PostgREST y de tipos.ts no coinciden`);
+  });
+}

@@ -15,10 +15,12 @@
 
 ```
 npm install          # también instala el hook de pre-commit (script `prepare`, ver abajo)
-npm run typecheck   # tsc --noEmit (strict), sobre todo src/, incluidos los tests
-npm run lint        # eslint . — estricto y type-aware (typescript-eslint strictTypeChecked)
-npm test            # node --test sobre src/**/*.test.ts, sin red y sin ninguna variable de entorno
+npm run typecheck   # tsc --noEmit (strict) sobre src/ + tsc --noEmit -p tsconfig.herramientas.json
+npm run lint        # eslint . — estricto y type-aware (typescript-eslint strictTypeChecked) en ambos árboles
+npm test            # node --test sobre src/**/*.test.ts y herramientas/**/*.test.ts, sin red y sin ninguna variable de entorno
 npm run build        # tsc -b tsconfig.build.json -> dist/ (ES modules nativos, sin bundler; excluye los tests)
+npm run migrate      # runner de migraciones (T-07) — solo el dueño, necesita SUPABASE_ACCESS_TOKEN
+npm run seed         # semilla de desarrollo (T-07) — solo el dueño, necesita SUPABASE_SERVICE_ROLE_KEY_DEV
 ```
 
 Para ver la página, sirve el directorio raíz con cualquier servidor estático (por ejemplo
@@ -114,16 +116,41 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   T-05, también instala la captura global de errores no controlados (sin envío remoto todavía: la
   tabla `evento_error` nace en T-07 y el cliente real de Supabase en T-08).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
-  español. El agente los escribe pero **nunca los aplica**: los aplica el dueño con
-  `npm run migrate` (T-07).
-- `herramientas/` — scripts de Node ejecutados directamente con `node herramientas/<script>.ts`
-  (el stripping nativo de tipos evita necesitar `ts-node`), como el runner de migraciones.
+  español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
+  dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin
+  `begin`/`commit` propios ni alta en el ledger): el runner los envuelve él mismo. Solo `000`/`000b`
+  (bootstrap manual, aplicado a mano antes de que existiera el runner) se autocontienen.
+- `herramientas/` — scripts de Node ejecutados directamente con `node herramientas/<script>.ts` (el
+  *type-stripping* nativo de Node evita necesitar `ts-node`). Tiene su propio `tsconfig.herramientas.json`
+  (Node puro, sin DOM) y su propio bloque de ESLint estricto *type-aware* en `eslint.config.js`
+  (`parserOptions.project` explícito — `projectService` no vale aquí, ver `DECISIONES_TECNICAS.md`).
+  No hereda las restricciones de stack de `src/` (`fetch`, `console`, `process` sí están permitidos):
+  son guardas del código de navegador, y esto es tooling de Node.
+  - `herramientas/migrar.ts` (`npm run migrate`, T-07) — CLI del runner de migraciones. Lee
+    `db/NNN_*.sql`, valida las guardas de contenido, comprueba inmutabilidad por hash contra
+    `esquema_migracion`, y aplica los pendientes contra la Management API envolviendo cada uno en
+    una transacción con su alta en el ledger. `--estado` solo lee; `--verificar-privilegios` hace el
+    barrido en vivo de `information_schema.role_table_grants` (punto 20b). Apuntar a `prod` exige
+    `--entorno=prod` **y** `PERMITIR_PROD=1`. Toda la lógica real vive en `herramientas/migraciones/`
+    (`guardas.ts`, `hash.ts`, `archivosMigracion.ts`, `clienteManagementApi.ts`, `entorno.ts`,
+    `runner.ts`, `verificarPrivilegios.ts`), testeada contra un doble de `fetch`
+    (`herramientas/migraciones/pruebas/dobleFetch.ts`) — `migrar.ts` en sí es solo wiring, sin test
+    directo, igual que `src/ui/main.ts`. **El endpoint exacto de la Management API no se ha podido
+    verificar contra documentación en vivo** (sin salida de red a `supabase.com` en esta sesión); si
+    `npm run migrate` da un `404`, es el primer sospechoso.
+  - `herramientas/seed.ts` (`npm run seed`, T-07) — semilla de desarrollo: crea los tres roles de
+    usuario y datos ficticios de alumnos/centros/personas de referencia. Necesita
+    `SUPABASE_SERVICE_ROLE_KEY_DEV` (mismo régimen que el access token: solo en `.env.local` del
+    dueño, nunca en el entorno de un agente) porque hoy no hay ninguna política RLS (T-10) que deje
+    escribir de otra forma. Idempotente por comprobación, no por upsert. Lógica en
+    `herramientas/semilla/` (`datosFicticios.ts`, `clienteAdmin.ts`, `entorno.ts`).
 
 ## Suite de tests (T-03)
 
-`npm test` ejecuta `node --test` (nativo, sin dependencia de runtime) sobre `src/**/*.test.ts`, sin
-red real y **sin ninguna variable de entorno definida** — si un test necesita una credencial o
-tocar la red, está mal planteado: hay que doblarlo. Tres niveles, todos con al menos un test real:
+`npm test` ejecuta `node --test` (nativo, sin dependencia de runtime) sobre `src/**/*.test.ts` **y**
+`herramientas/**/*.test.ts` (T-07 amplió el glob), sin red real y **sin ninguna variable de entorno
+definida** — si un test necesita una credencial o tocar la red, está mal planteado: hay que
+doblarlo. Tres niveles en `src/`, todos con al menos un test real:
 
 1. **Dominio** (`src/dominio/*.test.ts`) — lógica de negocio pura con el reloj inyectado
    (`crearRelojFijo`), sin ningún doble ni mock.
@@ -154,6 +181,17 @@ El código fuente importa módulos hermanos con extensión `.ts` (p. ej.
 `.ts` de origen directamente, sin paso de build. `tsc` reescribe esas extensiones a `.js` al
 compilar (`rewriteRelativeImportExtensions`), así que `dist/` queda con imports `.js` válidos
 para que el navegador los cargue como ES modules nativos, sin bundler.
+
+## Cuidado: las propiedades de parámetro de TypeScript no funcionan aquí
+
+`constructor(readonly x: string)` (el azúcar sintáctico que declara y asigna un campo a la vez)
+**no funciona en ningún fichero de este proyecto**, ni dentro ni fuera de `src/`. El *type-stripping*
+nativo de Node no lo soporta y falla en **tiempo de ejecución** con
+`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX: TypeScript parameter property is not supported in strip-only mode`
+— un error que **ni `tsc --noEmit` ni ESLint detectan**, solo aparece al ejecutar `npm test` de
+verdad. Declara el campo aparte y asígnalo a mano en el cuerpo del constructor (ver
+`src/nucleo/limitadorTasa.ts`, `ErrorLimiteAlcanzado`, o cualquiera de las clases de error de
+`herramientas/migraciones/` y `herramientas/semilla/`).
 
 ## Stack fijado
 

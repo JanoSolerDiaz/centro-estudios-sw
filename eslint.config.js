@@ -84,6 +84,28 @@ export default tseslint.config(
     },
   },
 
+  // `herramientas/` (el runner de migraciones, T-07) recibe el mismo chequeo estricto type-aware
+  // que `src/`, con su propio tsconfig (`tsconfig.herramientas.json`, Node puro — T-01 dejó esta
+  // decisión pendiente para cuando hubiera código real que la justificara). No hereda ninguna de
+  // las restricciones de stack de src/ (fetch, console, process): son guardas del código de
+  // navegador, y herramientas/ es tooling de Node que legítimamente los necesita.
+  // `project` explícito (no `projectService`): la búsqueda automática de `projectService` sube
+  // directorios buscando el `tsconfig.json` más cercano por NOMBRE, y encontraría el de `src/`
+  // (que no incluye `herramientas/`) en vez de `tsconfig.herramientas.json`.
+  {
+    files: ['herramientas/**/*.ts'],
+    extends: [...tseslint.configs.strictTypeChecked, ...tseslint.configs.stylisticTypeChecked],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.herramientas.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      'no-undef': 'off',
+    },
+  },
+
   // --- Reglas que defienden el stack fijado (§0.2 de HOJA_DE_RUTA.md) por herramienta, no solo
   // por documento. Aplican a todo el código de aplicación en `src/`. ---
   {

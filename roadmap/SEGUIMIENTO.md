@@ -10,35 +10,41 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — T-06 COMPLETADA: límites de abuso y robustez. Sin hallazgos de
-severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea; el único hallazgo,
-#1, sigue de severidad baja/documental), así que se siguió la cola normal de §1: T-06 es la siguiente
-tarea PENDIENTE y depende solo de T-03 (COMPLETADA). Seis piezas nuevas en `src/nucleo/`, todas sin
-red ni DOM: `limitadorTasa.ts` (`crearLimitadorTasa`, contador por clave y ventana fija con `Reloj`
-inyectado, lanza `ErrorLimiteAlcanzado` identificable con `reintentarEnMs`); `proteccionDobleToque.ts`
-(`crearProtectorDobleToque`, deduplica llamadas concurrentes a una misma operación asíncrona — un
-doble toque produce una única ejecución); `temporizador.ts` (interfaz `Temporizador` nueva, hermana
-de `Reloj` pero para esperas, no para el instante actual — ver por qué en `DECISIONES_TECNICAS.md`);
-`reintento.ts` (`reintentarConRetroceso`, retroceso exponencial acotado sobre `Temporizador`, solo
-para operaciones idempotentes); `controlPeticion.ts` (`crearEjecutorUltimaPeticion` y
-`conTiempoDeEspera`, sobre `AbortController` nativo); y `mensajesAbuso.ts` (`mensajeAmigable`,
-traduce los errores de esta tarea a español sin exponer el error técnico). Como en T-05, quedan
-**latentes hasta que exista un punto de llamada real**: no hay todavía ninguna RPC de escritura
-(`registrar_asistencia`/`actualizar_asistencia` son T-18/T-21, la subida de avatar es T-14) a la que
-conectar el limitador ni la protección de doble toque — el contrato recomendado de máximo/ventana
-para esas RPC queda fijado en `DECISIONES_TECNICAS.md` para que esas sesiones futuras solo tengan que
-implementarlo en SQL. El requisito 1 (límites de intentos de Supabase Auth) se investigó y quedó
-documentado en `DECISIONES_TECNICAS.md` y anotado en §6 más abajo: la cifra numérica exacta no se
-pudo verificar porque esta sesión no tiene salida de red hacia `supabase.com`, así que se deja como
-revisión pendiente del dueño en el panel, sin bloquear nada. 25 tests nuevos (78 en total, antes 53
-— la sesión encontró `node_modules/` sin instalar y corrió `npm ci` antes de poder verificar nada),
-`env -i npm test` en verde sin ninguna variable de entorno. Verificación
-pre-push completa (`typecheck && lint && test && build`) en verde tras dos ajustes de lint
-(`prefer-function-type` en dos interfaces con una única firma de llamada, y un `eslint-disable`
-sobrante que no hacía falta); `dist/` inspeccionado a mano, sin ningún import de `jsdom` filtrado
-desde los ficheros nuevos y sin secretos nuevos. Chromium headless confirma que la página sigue
-cargando sin error de consola. Detalle completo de cada decisión en `DECISIONES_TECNICAS.md`.
-Siguiente tarea: T-07 (modelo de datos, runner de migraciones y entornos).
+**Última actualización:** 2026-08-27 — T-07 (modelo de datos, runner de migraciones y entornos):
+sin hallazgos de severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea;
+el único hallazgo, #1, sigue de severidad baja/documental), así que se siguió la cola normal de §1:
+T-07 es la siguiente tarea PENDIENTE y depende solo de T-03 (COMPLETADA). **Queda BLOQUEADA —
+pendiente aplicar migración 001** (fila abierta en §3 más abajo): todo lo que el agente puede cerrar
+por sí mismo, sin ninguna credencial, está hecho y verificado; falta que el dueño ejecute
+`npm run migrate` en local. Entregado: `db/001_esquema_inicial.sql` (DDL plano, sin `begin`/`commit`
+propios — los envuelve el runner, ver `DECISIONES_TECNICAS.md`) con las siete tablas nuevas
+(`centro_estudios`, `alumno`, `persona_referencia`, `slot_horario`, `asistencia`,
+`asistencia_historial`, `evento_error`), los triggers de inmutabilidad y de rastro de cambios de
+`asistencia`, la RPC `registrar_evento_error` siguiendo el contrato fijado por T-05, RLS habilitada
+en las siete sin ninguna política todavía (T-10 las escribe: hasta entonces nadie llega por la API,
+igual que ya rige en `perfil`), y privilegios de tabla explícitos (revoke-all-primero) en cada una.
+`db/MODELO.md` nuevo, en español, con diagrama de relaciones en texto. El runner
+(`herramientas/migrar.ts` + `herramientas/migraciones/*.ts`) lee `db/NNN_*.sql`, aplica los
+pendientes contra la Management API (con las guardas de contenido, la inmutabilidad por hash, la
+salvaguarda de `prod`, y `--estado`/`--verificar-privilegios`), todo testeado contra dobles —
+incluida una advertencia explícita en el código y en `DECISIONES_TECNICAS.md` de que el endpoint
+exacto de la Management API no se pudo verificar contra documentación en vivo (sin salida de red a
+`supabase.com`, misma limitación que T-06). `src/dominio/tipos.ts` con los tipos oficiales del
+dominio, confrontados con la forma de PostgREST en su test. Test de fuga de secretos
+(`herramientas/verificarFugaSecretos.test.ts`) que construye `dist/` de verdad y lo inspecciona.
+Semilla de desarrollo (`npm run seed`, necesita `SUPABASE_SERVICE_ROLE_KEY_DEV`, nueva en
+`.env.ejemplo`, mismo régimen que el access token). `herramientas/` recibe su propio
+`tsconfig.herramientas.json` y chequeo de tipos estricto (decisión pendiente desde T-01, resuelta
+ahora). 68 tests nuevos (167 en total, antes 78 — hubo que reinstalar `node_modules/` en este
+checkout con `npm ci`), `env -i npm test` en verde sin ninguna variable de entorno; se detectó y
+corrigió que las propiedades de parámetro de TypeScript no funcionan con el *type-stripping* nativo
+de Node (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, ni `tsc` ni ESLint lo avisan, solo se ve al ejecutar
+los tests) — registrado en `DECISIONES_TECNICAS.md` para que no se reintroduzca. Verificación
+pre-push completa (`typecheck && lint && test && build`) en verde; `dist/` inspeccionado, sin
+ninguna fuga de `herramientas/` ni de secretos. Detalle completo de cada decisión en
+`DECISIONES_TECNICAS.md`. Siguiente tarea (mientras T-07 espera al dueño): T-08 (cliente propio de
+la API de Supabase), que no depende de que la migración esté aplicada — se desarrolla y se testea
+contra dobles.
 
 ---
 
@@ -70,8 +76,8 @@ Siguiente tarea: T-07 (modelo de datos, runner de migraciones y entornos).
 | T-04 | CI | COMPLETADA | 2026-08-26 | `.github/workflows/ci.yml`: `npm ci` + typecheck/lint/test/build en cada push a `develop` y `master`, sin secretos; Node fijado en `.nvmrc` |
 | T-05 | Monitorización de errores | COMPLETADA | 2026-08-27 | Captura global + informador con scrubbing (reusa `depurarContexto` de T-02) + cliente RPC contra doble de `fetch`; sin bloqueo — depende solo de T-02. El envío remoto real queda latente hasta T-07 (tabla) y T-08 (cliente real); contrato de `registrar_evento_error` fijado en DECISIONES_TECNICAS.md para que T-07 lo respete |
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
-| T-07 | Modelo de datos, runner de migraciones y entornos | PENDIENTE | — | Migración `001_esquema_inicial`; punto 14 (`evento_error`) debe seguir el contrato de RPC fijado por T-05 en `DECISIONES_TECNICAS.md` (parámetros `p_origen`/`p_mensaje`/`p_pila`/`p_contexto`) |
-| T-08 | Cliente propio de la API de Supabase | PENDIENTE | — | PostgREST + GoTrue + Storage |
+| T-07 | Modelo de datos, runner de migraciones y entornos | BLOQUEADA — pendiente aplicar migración 001 | 2026-08-27 | Todo lo que no exige credenciales está hecho y verificado (SQL, runner, `MODELO.md`, tipos, tests, semilla); falta que el dueño ejecute `npm run migrate` en local — fila en §3 |
+| T-08 | Cliente propio de la API de Supabase | PENDIENTE | — | PostgREST + GoTrue + Storage; no depende de que la migración 001 esté aplicada, se desarrolla contra dobles |
 | T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |
@@ -122,7 +128,7 @@ Siguiente tarea: T-07 (modelo de datos, runner de migraciones y entornos).
 
 | # | Acción | Tarea | Instrucciones exactas | Estado |
 |---|--------|-------|-----------------------|--------|
-|   |        |       |                       |        |
+| 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | `git pull` en `develop`, y en tu máquina (donde vive `.env.local`): `npm run migrate`. El runner imprime a qué proyecto va a escribir antes de ejecutar — confirma que dice `dev`. Al terminar, ejecuta `npm run migrate -- --estado` y comprueba que aparece la fila `001  001_esquema_inicial`; si quieres el barrido de privilegios en vivo (opcional, ya cubierto en frío por un test), `npm run migrate -- --verificar-privilegios`. Cuando confirmes aquí, la sesión que retome T-07 verifica con `esquema_version()`, anota la fila en `db/APLICADAS.md` y marca T-07 COMPLETADA. | pendiente |
 
 ---
 

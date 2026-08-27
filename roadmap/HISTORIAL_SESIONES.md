@@ -37,6 +37,64 @@
 
 ---
 
+### Sesión 2026-08-27 (3)
+**Tarea(s):** T-07 (modelo de datos, runner de migraciones y entornos)
+**Estado resultante:** BLOQUEADA — pendiente aplicar migración 001 (todo lo que no exige
+credenciales está hecho y verificado)
+**Commits a `develop`:** ver commit de esta sesión (T-07: modelo de datos, runner de migraciones y
+entornos)
+**Migraciones aplicadas:** ninguna — `db/001_esquema_inicial.sql` escrita, testeada y empujada a
+`develop`, pero el agente no la aplica (§0.1); fila abierta en §3 de `SEGUIMIENTO.md` pidiendo al
+dueño `npm run migrate` en local
+**Propagación a prod pendiente:** ninguna todavía (columna `prod` de `db/APLICADAS.md`, se hace en
+T-25)
+**Archivos creados/modificados:** `db/001_esquema_inicial.sql`, `db/MODELO.md`,
+`tsconfig.herramientas.json`, `herramientas/migrar.ts`, `herramientas/migraciones/` (`guardas.ts`,
+`hash.ts`, `archivosMigracion.ts`, `clienteManagementApi.ts`, `entorno.ts`, `runner.ts`,
+`verificarPrivilegios.ts`, `esquemaInicial.test.ts`, `pruebas/dobleFetch.ts`, y el `.test.ts` de
+cada uno de los anteriores), `herramientas/seed.ts`, `herramientas/semilla/` (`datosFicticios.ts`,
+`clienteAdmin.ts`, `entorno.ts` + sus `.test.ts`), `herramientas/verificarFugaSecretos.test.ts`,
+`src/dominio/tipos.ts` + `.test.ts`, `.env.ejemplo` (nuevas `SUPABASE_SERVICE_ROLE_KEY_DEV`/`_PROD`),
+`eslint.config.js` (bloque type-aware para `herramientas/**/*.ts`), `package.json` (scripts
+`typecheck` ampliado, `test` ampliado a `herramientas/**/*.test.ts`, `migrate`, `seed`),
+`roadmap/SEGUIMIENTO.md` (§1: T-07 BLOQUEADA; §3: fila 1 nueva; cabecera), `roadmap/
+DECISIONES_TECNICAS.md` (9 filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (167/167, antes 78 — el checkout no tenía
+`node_modules/` instalado, `npm ci` antes de poder verificar nada) · build ✅, las cuatro con
+`env -i` para `test` (sin ninguna variable de entorno). `dist/` inspeccionado tras el build: sin
+ningún fichero de `herramientas/`, sin ninguna mención a `SUPABASE_ACCESS_TOKEN`/
+`SUPABASE_SERVICE_ROLE_KEY`/`service_role`/`PERMITIR_PROD` ni ninguna cadena con forma de JWT — el
+propio test de fuga de secretos (punto 23) automatiza esta comprobación construyendo `dist/` él
+mismo. Se ejecutó manualmente `node herramientas/migrar.ts` y `node herramientas/seed.ts` sin
+ninguna variable de entorno: ambos fallan con un mensaje claro en español (`ErrorCredencialesFaltantes`
+o su equivalente de la semilla) en vez de continuar, como exige la spec
+**Health check post-deploy:** no aplica — esta tarea no toca `src/ui/` ni el frontend desplegado;
+no hay cambio visible en `index.html`/`dist/ui/`
+**Decisiones tomadas:** 9 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-27, T-07): DDL plano
+para migraciones aplicadas por el runner (contraste con el bootstrap autocontenido); `herramientas/`
+con su propio `tsconfig` y chequeo estricto de tipos, y por qué `project` explícito en vez de
+`projectService`; incertidumbre documentada del endpoint exacto de la Management API; guardas de
+contenido sobre SQL sin comentarios y emparejadas por nombre de política; resolución del punto 20b
+(test estático + modo `--verificar-privilegios` del runner) sin violar el corolario de "sin
+credenciales en `npm test`"; comparación de forma de `tipos.ts` por conjunto de claves; el
+descubrimiento de que las propiedades de parámetro de TypeScript no funcionan con el *type-stripping*
+nativo de Node, en ningún fichero del proyecto (no solo `src/`); régimen de credenciales de la
+semilla de desarrollo; construcción de `dist/` dentro del propio test de fuga de secretos
+**Hallazgos del auditor atendidos:** ninguno — hallazgo #1 (baja, documental) sigue igual, sin
+relación con esta tarea
+**Hallazgos:** el descubrimiento de `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX` con propiedades de
+parámetro (ver decisiones) — no es un hallazgo de seguridad ni un bug de producto, pero es una
+trampa real del stack que ninguna herramienta de verificación (`tsc`, ESLint) detecta antes de
+ejecutar los tests; queda documentada para que ninguna sesión futura la reintroduzca
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-07 queda BLOQUEADA hasta que el dueño ejecute `npm run migrate` en local (fila 1
+de §3) y confirme; mientras tanto, la siguiente sesión continúa con T-08 (cliente propio de la API de
+Supabase), que no depende de la migración aplicada. Cuando el dueño confirme la migración, una
+sesión debe verificar con `esquema_version()` (debe devolver `1`), anotar la fila en
+`db/APLICADAS.md` y marcar T-07 COMPLETADA en §1
+
+---
+
 ### Sesión 2026-08-27 (2)
 **Tarea(s):** T-06 (límites de abuso y robustez)
 **Estado resultante:** COMPLETADA
