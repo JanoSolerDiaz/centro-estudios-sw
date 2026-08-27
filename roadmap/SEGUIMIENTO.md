@@ -10,47 +10,62 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — T-09 (autenticación y los tres roles): sin hallazgos de
-severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea; el único
-hallazgo, #1, sigue de severidad baja/documental). T-07 sigue **BLOQUEADA — pendiente aplicar
-migración 001** (fila #1 de §3, todavía sin confirmar por el dueño); T-09 es la siguiente tarea que
-no depende de esa migración (depende solo de T-08, ya completa; usa `perfil`, que ya existe desde el
-bootstrap `000`, no desde `001`). T-09 queda **COMPLETADA** en el código — todo testeado contra
-dobles, sin ninguna credencial —, con un bloqueo humano aparte para poder usarse de verdad (fila #2
-de §3), tal como preveía su propia spec.
+**Última actualización:** 2026-08-27 — **T-07, T-08 y T-09 COMPLETADAS.**
 
-Entregado: `src/datos/autenticacion.ts` (cliente propio de GoTrue — login, logout, renovación por
-`refresh_token`, solicitud de recuperación de contraseña, y establecer una contraseña nueva desde el
-token de recuperación — endpoints sin poder verificarse contra documentación en vivo, mismo aviso ya
-dado por T-06/T-07/T-08 para Auth/Management API/Storage). `src/nucleo/almacenSesion.ts`
-(persistencia de sesión con la opción más conservadora razonable: solo el `refresh_token` en
-`sessionStorage`, nunca el `access_token`, que vive solo en memoria — riesgo de XSS documentado y
-justificado en `DECISIONES_TECNICAS.md`, requisito 4). `src/nucleo/gestorSesion.ts` (orquestación:
-junta GoTrue + PostgREST para cargar el `perfil` propio + el almacén; aplica que un `perfil.activo =
-false` no entra aunque las credenciales sean correctas, revocando la sesión en el servidor;
-renovación **proactiva** de token expuesta como `renovarAlAbrirPasarLista()` — el punto de enganche
-que usará T-19, nunca espera a un `401`; una renovación fallida no cierra la sesión ni descarta el
-estado, para no perder lo que el profesor ya tenía en pantalla). `src/nucleo/enlaceRecuperacion.ts`
-(parseo puro del fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo).
-Pantallas nuevas en `src/ui/` (DOM nativo, sin `innerHTML`, objetivos táctiles ≥44px):
-`pantallaLogin.ts`, `pantallaRecuperarContrasena.ts` (responde igual exista o no la cuenta),
-`pantallaEstablecerContrasenaNueva.ts` (validación local de longitud/coincidencia antes de gastar
-una petición), `pantallaSinAcceso.ts` (para `student` y cualquier rol desconocido, que se trata
-igual — nunca como `teacher` —, sin ninguna llamada a datos más allá del perfil que `gestorSesion.ts`
-ya cargó), y `aplicacion.ts` (el enrutador: hash de recuperación → login/recuperar → según rol,
-sin_acceso o un marcador de posición para `administrator`/`teacher`, ya que su aplicación real nace
-en T-16/T-19). `src/ui/formularios.ts` (helpers de formulario accesible compartidos por las tres
-pantallas). `src/ui/main.ts` conecta ya `gestorSesion` real (con `sessionStorage`) y enruta con
-`aplicacion.ts`; sin `config.js` desplegado sigue cayendo a la pantalla mínima de T-00, igual que
-antes. De paso, el enviador de `evento_error` (T-05/T-08) ya adjunta el token de sesión cuando lo
-hay, en vez de ir siempre con la clave anónima. `mensajesAbuso.ts` (T-06/T-08) ampliado con
-`CredencialesInvalidas` y `PerfilInactivo`, ninguno revela si el email existe. Verificado en
-Chromium headless (mismo método que T-00): sin `config.js`, pantalla de T-00; con un `config.js` de
-prueba, la pantalla de login real, sin errores de consola. 63 tests nuevos (297 en total, antes
-234), verificación pre-push completa (`typecheck && lint && test && build`) en verde. Detalle
-completo de cada decisión en `DECISIONES_TECNICAS.md`. Siguiente tarea: T-10 (autorización — RLS de
-los tres roles), que depende de T-09 (ya completa); su migración `002_politicas_rls` se escribirá y
-testeará igual, y quedará BLOQUEADA a la espera de que el dueño la aplique, igual que T-07.
+**T-07:** el dueño aplicó `001_esquema_inicial` en `dev` con `npm run migrate` y quedó verificado:
+la RPC `esquema_version()` devuelve `1`. Fila anotada en `db/APLICADAS.md` (hash `93359e9a4e27`) y
+fila 1 de §3 cerrada. Antes hubo que arreglar un bug del propio runner que impedía aplicarla: no
+cargaba `.env.local`, así que decía "Falta SUPABASE_ACCESS_TOKEN" con un fichero correcto. Con la
+migración aplicada queda además confirmado en la práctica el endpoint de la Management API, que
+T-07 no pudo verificar contra documentación en vivo. Detalle en las sesiones (4) y (5) de
+`HISTORIAL_SESIONES.md` y en dos filas de `DECISIONES_TECNICAS.md`.
+
+**T-08:** cliente propio de la API de Supabase (PostgREST + Storage): `src/datos/` con
+`erroresDominio.ts`, `codificadorValores.ts`, `configuracion.ts`, `peticionHttp.ts`, `postgrest.ts`
+y `almacenamiento.ts` (firma de URLs en lote en una sola petición), `eventoError.ts` reescrito sobre
+el cliente nuevo, `mensajesAbuso.ts` ampliado sin exponer nunca el `message` crudo de Postgres, y
+`config.js`/`config.ejemplo.js` como mecanismo de inyección de configuración sin bundler. Detalle
+completo en la sesión **(4b)** de `HISTORIAL_SESIONES.md` y en sus 12 filas de
+`DECISIONES_TECNICAS.md`.
+
+**T-09 (esta sesión):** autenticación y los tres roles. `src/datos/autenticacion.ts` (cliente propio
+de GoTrue — login, logout, renovación por `refresh_token`, recuperación de contraseña completa —
+endpoints sin poder verificarse contra documentación en vivo, mismo aviso ya dado para
+Auth/Management API/Storage). `src/nucleo/almacenSesion.ts` (persistencia con la opción más
+conservadora razonable: solo el `refresh_token` en `sessionStorage`, nunca el `access_token`, que
+vive solo en memoria — riesgo de XSS documentado en `DECISIONES_TECNICAS.md`).
+`src/nucleo/gestorSesion.ts` (orquestación: junta GoTrue + PostgREST para cargar el `perfil` propio;
+un `perfil.activo = false` no entra aunque las credenciales sean correctas, revocando la sesión en
+el servidor; renovación **proactiva** — `renovarAlAbrirPasarLista()`, el punto de enganche de T-19,
+nunca espera a un `401`; una renovación fallida no cierra la sesión ni descarta el estado).
+`src/nucleo/enlaceRecuperacion.ts` (parseo puro del enlace de recuperación del correo). Pantallas
+nuevas en `src/ui/` (DOM nativo, objetivos táctiles ≥44px): `pantallaLogin.ts`,
+`pantallaRecuperarContrasena.ts` (responde igual exista o no la cuenta),
+`pantallaEstablecerContrasenaNueva.ts`, `pantallaSinAcceso.ts` (para `student` y cualquier rol
+desconocido, que se trata igual — nunca como `teacher` —, sin ninguna llamada a datos extra), y
+`aplicacion.ts` (el enrutador). `src/ui/main.ts` conecta ya `gestorSesion` real; el enviador de
+`evento_error` ya adjunta el token de sesión cuando lo hay. `mensajesAbuso.ts` ampliado con
+`CredencialesInvalidas`/`PerfilInactivo`. Verificado en Chromium headless: sin `config.js`, pantalla
+de T-00; con un `config.js` de prueba, la pantalla de login real, sin errores de consola. 63 tests
+nuevos sobre la base ya integrada de T-07/T-08 (297 en total). Detalle completo en la sesión (6) de
+`HISTORIAL_SESIONES.md` y en 8 filas nuevas de `DECISIONES_TECNICAS.md`.
+
+**Aviso de proceso:** T-07 y T-08 corrieron en paralelo en sesiones distintas y colisionaron en los
+documentos de registro; la resolución de los merges `dd999ba`/`b7c09dd` perdió la entrada de
+bitácora de T-08 y un párrafo de esta cabecera, ambos recuperados después (ver sesión (4b) de
+`HISTORIAL_SESIONES.md`). Nada de código se perdió. Si se vuelven a lanzar dos sesiones a la vez,
+numerar las entradas de `HISTORIAL_SESIONES.md` por tarea y no por ordinal.
+
+**Pendiente del dueño:** `db/000b_arreglo_permisos.sql` sigue sin aplicar (fila 2 de §3) — el
+runner lo ignora a propósito (su nombre no encaja con `NNN_nombre.sql`), así que ningún agente lo
+aplicará nunca; mientras no se aplique, `authenticated` conserva `TRUNCATE` sobre `perfil` (ignora
+RLS) y `service_role` no tiene DML, lo que hará fallar `npm run seed`. Y el bloqueo humano propio de
+T-09 — crear el primer usuario `administrator` en `dev` — en la fila 3 de §3, nueva esta sesión; no
+bloquea ninguna tarea posterior.
+
+**Siguiente tarea:** T-10 (autorización — políticas RLS de los tres roles), que depende de T-09 (ya
+completa). Su migración `002_politicas_rls` se escribirá y testeará contra dobles igual que
+T-07/T-08, y quedará BLOQUEADA a la espera de que el dueño la aplique.
 
 ---
 
@@ -82,9 +97,9 @@ testeará igual, y quedará BLOQUEADA a la espera de que el dueño la aplique, i
 | T-04 | CI | COMPLETADA | 2026-08-26 | `.github/workflows/ci.yml`: `npm ci` + typecheck/lint/test/build en cada push a `develop` y `master`, sin secretos; Node fijado en `.nvmrc` |
 | T-05 | Monitorización de errores | COMPLETADA | 2026-08-27 | Captura global + informador con scrubbing (reusa `depurarContexto` de T-02) + cliente RPC contra doble de `fetch`; sin bloqueo — depende solo de T-02. El envío remoto real queda latente hasta T-07 (tabla) y T-08 (cliente real); contrato de `registrar_evento_error` fijado en DECISIONES_TECNICAS.md para que T-07 lo respete |
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
-| T-07 | Modelo de datos, runner de migraciones y entornos | BLOQUEADA — pendiente aplicar migración 001 | 2026-08-27 | Todo lo que no exige credenciales está hecho y verificado (SQL, runner, `MODELO.md`, tipos, tests, semilla); falta que el dueño ejecute `npm run migrate` en local — fila en §3 | **El primer intento del dueño falló por un bug del runner** (no cargaba `.env.local`, ver `DECISIONES_TECNICAS.md`); arreglado y verificado en la sesión 2026-08-27 (4), pendiente de reintento |
+| T-07 | Modelo de datos, runner de migraciones y entornos | COMPLETADA | 2026-08-27 | `001_esquema_inicial` aplicada en `dev` por el dueño y verificada con `esquema_version()` = `1`; fila anotada en `db/APLICADAS.md`. Incluye SQL, runner (`npm run migrate` con guardas, hash e inmutabilidad, `--estado` y `--verificar-privilegios`), `MODELO.md`, tipos de dominio, test de fuga de secretos y semilla. El primer intento del dueño falló por un bug del runner (no cargaba `.env.local`), arreglado en la sesión 2026-08-27 (4) |
 | T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
-| T-09 | Autenticación y los tres roles | COMPLETADA | 2026-08-27 | `student`/rol desconocido sin acceso, sin llamada de datos extra; login, logout, renovación proactiva, recuperación de contraseña completa; bloqueo humano aparte (crear el primer `administrator`) en fila #2 de §3 |
+| T-09 | Autenticación y los tres roles | COMPLETADA | 2026-08-27 | `student`/rol desconocido sin acceso, sin llamada de datos extra; login, logout, renovación proactiva, recuperación de contraseña completa; bloqueo humano aparte (crear el primer `administrator`) en fila #3 de §3 |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | PENDIENTE | — | — |
@@ -134,8 +149,9 @@ testeará igual, y quedará BLOQUEADA a la espera de que el dueño la aplique, i
 
 | # | Acción | Tarea | Instrucciones exactas | Estado |
 |---|--------|-------|-----------------------|--------|
-| 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | **Reintento:** tu primer intento falló con "Falta SUPABASE_ACCESS_TOKEN en .env.local" y era un bug del runner, no un problema de tu fichero — no toques `.env.local`. Ya está arreglado: `git pull` en `develop` y, en tu máquina, `npm run migrate`. Ahora el comando empieza diciendo qué `.env.local` ha cargado y cuántas variables trae; después imprime a qué proyecto va a escribir — confirma que dice `dev`. Al terminar, `npm run migrate -- --estado` y comprueba que aparece la fila `001  001_esquema_inicial`; si quieres el barrido de privilegios en vivo (opcional, ya cubierto en frío por un test), `npm run migrate -- --verificar-privilegios`. Si vuelve a fallar, pega la salida tal cual: si el error es un `404`, el primer sospechoso es el endpoint de la Management API, que no se pudo verificar contra documentación en vivo. Cuando confirmes aquí, la sesión que retome T-07 verifica con `esquema_version()`, anota la fila en `db/APLICADAS.md` y marca T-07 COMPLETADA. | pendiente |
-| 2 | Crear el primer usuario `administrator` en `dev` (bloqueo humano de T-09) | T-09 | El código de T-09 ya está completo y no depende de este paso para seguir avanzando (T-10 en adelante se desarrolla igual, contra dobles), pero para que tú mismo puedas entrar a la aplicación hace falta un usuario con rol `administrator`. Pasos exactos, ya documentados al final de `db/000_bootstrap_perfil.sql` (que ya tienes aplicado): 1) en el panel de Supabase del proyecto `dev`, **Authentication → Users → Add user**, créate un usuario con tu email y una contraseña provisional (o usa la recuperación de contraseña de la propia app en cuanto haya `config.js` desplegado). 2) En el editor SQL, ejecuta `update public.perfil set rol = 'administrator' where id = (select id from auth.users where email = 'TU_EMAIL_AQUI');` — todo usuario nuevo nace `student` (sin acceso) por diseño. 3) Verifica con `select p.nombre, p.rol, p.activo, u.email from public.perfil p join auth.users u on u.id = p.id;`. No requiere ninguna migración ni `npm run migrate`. Confirma aquí cuando lo hayas hecho; no bloquea ninguna tarea posterior. | pendiente |
+| 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | ~~`git pull` y `npm run migrate` en local~~ | **RESUELTA 2026-08-27** — aplicada por el dueño; verificada con `esquema_version()` = `1` y anotada en `db/APLICADAS.md`. El primer intento falló por un bug del runner (no cargaba `.env.local`), ya arreglado |
+| 2 | Aplicar `db/000b_arreglo_permisos.sql` en `dev` | T-00 / arranque manual | **Primero comprueba si hace falta:** `npm run migrate -- --verificar-privilegios`. Si informa de que `authenticated` tiene `TRUNCATE` sobre `perfil`, el fichero no está aplicado. Es parte del arranque manual (igual que `000_bootstrap_perfil.sql`) y **el runner lo ignora a propósito**: su nombre no encaja con el patrón `NNN_nombre.sql`, así que ningún agente lo aplicará nunca. Aplícalo pegando `db/000b_arreglo_permisos.sql` en el editor SQL de Supabase del proyecto `dev`, igual que hiciste con `000`. Es idempotente. Por qué importa: `TRUNCATE` **ignora RLS** (las políticas de T-10 no protegerán de él) y además `service_role` se quedó sin DML sobre `perfil`, lo que hará fallar `npm run seed`. Cuando lo confirmes aquí, la siguiente sesión anota la fecha en `db/APLICADAS.md`. | pendiente |
+| 3 | Crear el primer usuario `administrator` en `dev` (bloqueo humano de T-09) | T-09 | El código de T-09 ya está completo y no depende de este paso para seguir avanzando (T-10 en adelante se desarrolla igual, contra dobles), pero para que tú mismo puedas entrar a la aplicación hace falta un usuario con rol `administrator`. Pasos exactos, ya documentados al final de `db/000_bootstrap_perfil.sql` (que ya tienes aplicado): 1) en el panel de Supabase del proyecto `dev`, **Authentication → Users → Add user**, créate un usuario con tu email y una contraseña provisional (o usa la recuperación de contraseña de la propia app en cuanto haya `config.js` desplegado). 2) En el editor SQL, ejecuta `update public.perfil set rol = 'administrator' where id = (select id from auth.users where email = 'TU_EMAIL_AQUI');` — todo usuario nuevo nace `student` (sin acceso) por diseño. 3) Verifica con `select p.nombre, p.rol, p.activo, u.email from public.perfil p join auth.users u on u.id = p.id;`. No requiere ninguna migración ni `npm run migrate`. Confirma aquí cuando lo hayas hecho; no bloquea ninguna tarea posterior. | pendiente |
 
 ---
 
