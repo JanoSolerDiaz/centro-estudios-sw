@@ -34,12 +34,23 @@ cabecera. Ambos quedan recuperados (la entrada, literal del commit `860fc6f`). N
 perdió: 241 tests en verde. Si se vuelven a lanzar dos sesiones a la vez, numerar las entradas de
 `HISTORIAL_SESIONES.md` por tarea y no por ordinal.
 
-**Pendiente del dueño (§3, fila 2):** `db/000b_arreglo_permisos.sql` sigue sin aplicar. El runner
-lo ignora a propósito (su nombre no encaja con el patrón `NNN_nombre.sql`), así que **ningún
-agente lo aplicará nunca**, y hasta ahora no tenía fila en §3: nadie lo estaba siguiendo. Mientras
-no se aplique, en `dev` `authenticated` conserva `TRUNCATE` sobre `perfil` — y `TRUNCATE` ignora
-RLS, así que las políticas de T-10 no protegerán de él — y `service_role` se quedó sin DML, lo que
-hará fallar `npm run seed`.
+**§3 fila 2 cerrada el mismo día que se abrió, y sin tocar la base de datos:**
+`db/000b_arreglo_permisos.sql` **ya estaba aplicado**. `db/APLICADAS.md` lo daba por pendiente
+porque su aplicación no se anotó en su día — el fichero de registro estaba desactualizado, no la
+base de datos. Comprobado por el dueño en `dev` con las dos herramientas: `npm run migrate --
+--verificar-privilegios` no encuentra ninguna violación en ninguna tabla de `public`, y la consulta
+de comprobación del propio `000b` devuelve en `perfil` exactamente lo esperado (`authenticated` →
+INSERT/SELECT/UPDATE sin `TRUNCATE`, `service_role` → DELETE/INSERT/SELECT/UPDATE, `anon` → ninguna
+fila). Anotado en `db/APLICADAS.md` con la verificación, no con una suposición. **Lección de
+registro:** un fichero del arranque manual aplicado y no anotado es indistinguible de uno sin
+aplicar, y el runner no lo ve porque lo ignora por diseño; la verificación en vivo es la única
+fuente de verdad para `000`/`000b`.
+
+**Nota, sin bloquear nada:** `.env.local` no tiene `SUPABASE_SERVICE_ROLE_KEY_DEV` (7 variables, y
+esa no está), así que `npm run seed` fallaría por la credencial, no por los privilegios. Los
+privilegios sí están listos: `001` concede a `service_role` los cuatro DML en `centro_estudios`,
+`alumno` y `persona_referencia`, que son las tres tablas donde escribe la semilla. Cuando haga
+falta sembrar, el dueño añade la clave (está documentada en `.env.ejemplo` desde T-07).
 
 **Siguiente tarea:** T-09 (autenticación y los tres roles), que depende de T-08 (ya completa). Su
 spec tiene un bloqueo humano propio (el dueño crea el primer usuario `administrator` en `dev`) que
@@ -128,7 +139,7 @@ la sesión que la implemente abrirá en §3 al llegar a ese punto; no bloquea el
 | # | Acción | Tarea | Instrucciones exactas | Estado |
 |---|--------|-------|-----------------------|--------|
 | 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | ~~`git pull` y `npm run migrate` en local~~ | **RESUELTA 2026-08-27** — aplicada por el dueño; verificada con `esquema_version()` = `1` y anotada en `db/APLICADAS.md`. El primer intento falló por un bug del runner (no cargaba `.env.local`), ya arreglado |
-| 2 | Aplicar `db/000b_arreglo_permisos.sql` en `dev` | T-00 / arranque manual | **Primero comprueba si hace falta:** `npm run migrate -- --verificar-privilegios`. Si informa de que `authenticated` tiene `TRUNCATE` sobre `perfil`, el fichero no está aplicado. Es parte del arranque manual (igual que `000_bootstrap_perfil.sql`) y **el runner lo ignora a propósito**: su nombre no encaja con el patrón `NNN_nombre.sql`, así que ningún agente lo aplicará nunca. Aplícalo pegando `db/000b_arreglo_permisos.sql` en el editor SQL de Supabase del proyecto `dev`, igual que hiciste con `000`. Es idempotente. Por qué importa: `TRUNCATE` **ignora RLS** (las políticas de T-10 no protegerán de él) y además `service_role` se quedó sin DML sobre `perfil`, lo que hará fallar `npm run seed`. Cuando lo confirmes aquí, la siguiente sesión anota la fecha en `db/APLICADAS.md`. | pendiente |
+| 2 | Aplicar `db/000b_arreglo_permisos.sql` en `dev` | T-00 / arranque manual | ~~Comprobar con `npm run migrate -- --verificar-privilegios` y, si hacía falta, pegar el fichero en el editor SQL de `dev`~~ | **RESUELTA 2026-08-27 — no hacía falta aplicarlo: ya estaba aplicado.** El barrido no encontró ninguna violación, y la consulta de comprobación del propio fichero lo confirma en `perfil`: `authenticated` → INSERT/SELECT/UPDATE (sin `TRUNCATE`), `service_role` → DELETE/INSERT/SELECT/UPDATE, `anon` → ninguna fila. La fila existía porque `db/APLICADAS.md` lo daba por pendiente: la aplicación nunca se anotó. Ya está anotado y verificado |
 
 ---
 

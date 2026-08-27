@@ -37,6 +37,42 @@
 
 ---
 
+### Sesión 2026-08-27 (6)
+**Tarea(s):** cierre de §3 fila 2 (`000b_arreglo_permisos.sql`) — arranque manual, no una T-XX
+**Estado resultante:** RESUELTA — sin cambios en la base de datos
+**Commits a `develop`:** ver commit de esta sesión (registro: 000b verificado como ya aplicado)
+**Migraciones aplicadas:** ninguna. `000b` **ya estaba aplicado**: lo que faltaba era anotarlo
+**Propagación a prod pendiente:** sin cambios (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `db/APLICADAS.md`, `roadmap/SEGUIMIENTO.md`,
+`roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (241) · build ✅
+**Health check post-deploy:** no aplica — solo documentos de registro
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- **Un fichero del arranque manual aplicado y no anotado es indistinguible de uno sin aplicar.**
+  La fila 2 de §3, abierta en la sesión (5), resultó ser un falso pendiente: `000b` estaba
+  aplicado en `dev` desde el arranque, pero `db/APLICADAS.md` decía "pendiente de aplicar" porque
+  nadie anotó la aplicación. El runner no puede detectarlo (ignora `000`/`000b` por diseño: sus
+  nombres no encajan con `NNN_nombre.sql`) y ninguna sesión de agente puede consultarlo (haría
+  falta el access token). Coste real: cero, porque la comprobación previa que se pidió en la fila
+  era barata. Si se hubiera dicho "aplícalo" sin comprobar, se habría ejecutado DDL innecesario —
+  inofensivo aquí porque `000b` es idempotente, pero no era garantizable de antemano.
+- El barrido `--verificar-privilegios` cubre solo `anon`/`authenticated` y solo
+  `TRUNCATE`/`REFERENCES`/`TRIGGER`; la mitad de `000b` que restaura el DML de `service_role` no
+  la ve. Se cerró con la consulta de comprobación que trae el propio `000b` al final, ejecutada
+  por el dueño. Vale la pena tenerlo en cuenta si alguna vez se amplía el barrido.
+- `npm run seed` sigue sin poder ejecutarse, pero por la credencial, no por los privilegios:
+  `.env.local` no tiene `SUPABASE_SERVICE_ROLE_KEY_DEV`. Verificado por otra vía que los
+  privilegios sí están: `001` concede a `service_role` los cuatro DML en las tres tablas donde
+  escribe la semilla (`centro_estudios`, `alumno`, `persona_referencia`).
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-09 (autenticación y los tres roles). §3 queda **sin ninguna fila pendiente**.
+Lo único que espera al dueño es el primer usuario `administrator` en `dev`, que la sesión de T-09
+abrirá en §3 al llegar a ese punto (bloque de promoción al final de `db/000_bootstrap_perfil.sql`).
+
+---
+
 ### Sesión 2026-08-27 (5)
 **Tarea(s):** T-07 (cierre)
 **Estado resultante:** COMPLETADA
