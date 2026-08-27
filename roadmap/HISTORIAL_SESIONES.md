@@ -37,6 +37,44 @@
 
 ---
 
+### Sesión 2026-08-27 (5)
+**Tarea(s):** T-07 (cierre)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (T-07: COMPLETADA — 001 aplicada y verificada)
+**Migraciones aplicadas:** `db/001_esquema_inicial.sql` en `dev`, aplicada por **el dueño** con
+`npm run migrate` (§0.1: ningún agente aplica DDL). `esquema_version()` devuelve `1`. Hash
+`93359e9a4e27`. Anotada en `db/APLICADAS.md`
+**Propagación a prod pendiente:** sí — columna `prod` vacía de `db/APLICADAS.md`, se hace en T-25
+**Archivos creados/modificados:** `db/APLICADAS.md`, `roadmap/SEGUIMIENTO.md`,
+`roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (174) · build ✅
+**Health check post-deploy:** no aplica — esta sesión solo toca documentos de registro
+**Decisiones tomadas:** ninguna nueva (las dos de la sesión (4) siguen siendo las vigentes)
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- La verificación de `esquema_version()` se hizo por REST con la **clave anónima** (la única que
+  el agente puede usar, §0.1), no con el access token: la función es `SECURITY DEFINER` y su
+  `execute` está concedido por defecto, así que devuelve la versión sin exponer el ledger, que
+  tiene RLS activada y sin políticas. Contra `*.supabase.co` sí hay salida de red desde el
+  entorno del agente; lo que no se pudo consultar en T-07 era la documentación de
+  `api.supabase.com`. El endpoint de la Management API queda confirmado en la práctica: la
+  migración se aplicó con él, así que el `404` que se temía no se ha materializado.
+- **`db/000b_arreglo_permisos.sql` sigue sin aplicar y nadie lo estaba siguiendo.** El runner lo
+  ignora por diseño (su nombre no encaja con `NNN_nombre.sql`) y no tenía fila en §3, así que no
+  aparecía en ninguna lista de pendientes salvo como nota en `db/APLICADAS.md`. Mientras siga así,
+  en `dev` `authenticated` conserva `TRUNCATE` sobre `perfil` (ignora RLS: las políticas de T-10 no
+  protegerán de él) y `service_role` no tiene DML, lo que hará fallar `npm run seed`. Abierta la
+  fila 2 de §3, con la comprobación previa (`npm run migrate -- --verificar-privilegios`).
+- El ledger `esquema_migracion` no es consultable por API (RLS sin políticas, `revoke all`), así
+  que el hash anotado en `db/APLICADAS.md` se calculó del fichero con la misma función que usa el
+  runner (`herramientas/migraciones/hash.ts`). La comprobación cruzada contra lo que hay
+  realmente en el ledger es `npm run migrate -- --estado`, que solo puede ejecutar el dueño.
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-08 (cliente propio de la API de Supabase). Pendiente del dueño: fila 2 de §3
+(`000b`), que no bloquea T-08 pero sí `npm run seed` y el modelo de privilegios de `perfil`.
+
+---
+
 ### Sesión 2026-08-27 (4)
 **Tarea(s):** T-07 (arreglo del runner: la carga de `.env.local` faltaba)
 **Estado resultante:** BLOQUEADA — pendiente aplicar migración 001 (el estado no cambia: sigue

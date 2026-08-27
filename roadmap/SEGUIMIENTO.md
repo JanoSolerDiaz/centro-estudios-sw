@@ -10,44 +10,19 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — T-08 (cliente propio de la API de Supabase): sin hallazgos de
-severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea; el único
-hallazgo, #1, sigue de severidad baja/documental). T-07 sigue **BLOQUEADA — pendiente aplicar
-migración 001** (fila #1 de §3, todavía sin confirmar por el dueño), así que se siguió la
-indicación explícita dejada por la sesión anterior: T-08 es la siguiente tarea que no depende de
-esa migración (depende solo de T-07, que sí está completa en la parte que no exige credenciales).
-T-08 queda **COMPLETADA**. Entregado, todo en `src/datos/`: `erroresDominio.ts` (las ocho clases de
-error de dominio del requisito 4, más la traducción de una `Response` no exitosa por código de
-estado); `codificadorValores.ts` (el codificador de valores del requisito 5, dos capas — escapado
-sintáctico de PostgREST y `encodeURIComponent` — nunca construcción de filtros por concatenación);
-`configuracion.ts` (lectura y validación de `window.__CONFIG__`, con `ErrorConfiguracionFaltante` y
-mensaje en español si falta, requisito 1); `peticionHttp.ts` (petición HTTP autenticada compartida,
-extraída para no duplicar cabeceras/errores entre los dos clientes); `postgrest.ts` (cliente
-PostgREST fluido — `select` con recursos embebidos, `eq`/`in`/`gte`/`lte`/`ilike`, `order`, `limit`,
-rango de paginación con total opcional vía `Content-Range`, `insert`/`update`/`delete`, `rpc` —
-requisito 2); `almacenamiento.ts` (cliente de Storage — subida, borrado, URL firmada individual y
-**firma en lote de N rutas en una sola petición HTTP**, verificado con un test que cuenta llamadas
-— requisito 3). `config.js`/`config.ejemplo.js` nuevos (mecanismo de inyección de configuración sin
-bundler, ver `DECISIONES_TECNICAS.md`), `config.js` en `.gitignore`. `src/nucleo/mensajesAbuso.ts`
-(T-06) ampliado con la traducción de las ocho clases nuevas a mensajes fijos en español — nunca
-`error.message`, con un test explícito de que un mensaje técnico de Postgres no llega al usuario.
-`src/datos/eventoError.ts` (T-05) reescrito para usar el cliente nuevo (`cliente.rpc(...)`) en vez
-de su propio `fetch`, sin cambiar su API pública ni sus tests: la "puerta única" del objetivo de
-T-08 alcanza también al primer consumidor real. `src/ui/main.ts` conecta ya el envío remoto de
-errores no controlados de verdad (lee la configuración, crea el enviador real; sin ella, captura
-`ErrorConfiguracionFaltante` y sigue sin enviador, la app no deja de arrancar — verificado en
-Chromium headless, mismo método que T-00). Se documenta, sin poder verificarse contra documentación
-en vivo en esta sesión (misma limitación que T-06/T-07, sin salida de red a `supabase.com`), el
-subconjunto de PostgREST implementado y los cuatro endpoints asumidos de Storage. Se descubrió y
-documentó en `DECISIONES_TECNICAS.md` una clase nueva de error de `exactOptionalPropertyTypes`
-(activo desde T-00) al reconstruir objetos con campos opcionales — ni `tsc` con un mensaje genérico
-ni ESLint lo evitan salvo leyendo el error real, así que queda registrado para no perder tiempo
-redescubriéndolo. 67 tests nuevos (234 en total, antes 167), verificación pre-push completa
-(`typecheck && lint && test && build`) en verde. Detalle
-completo de cada decisión en `DECISIONES_TECNICAS.md`. Siguiente tarea: T-09 (autenticación y los
-tres roles), que depende de T-08 (ya completa) — su propia spec tiene un bloqueo humano (el dueño
-crea el primer usuario `administrator` en `dev`), que se abrirá en §3 cuando esa sesión llegue al
-punto de necesitarlo.
+**Última actualización:** 2026-08-27 — **T-07 COMPLETADA.** El dueño aplicó
+`001_esquema_inicial` en `dev` con `npm run migrate` y quedó verificado: la RPC
+`esquema_version()` devuelve `1`. Fila anotada en `db/APLICADAS.md` (hash `93359e9a4e27`) y fila 1
+de §3 cerrada. Antes hubo que arreglar un bug del propio runner que impedía aplicarla: no cargaba
+`.env.local`, así que decía "Falta SUPABASE_ACCESS_TOKEN" con un fichero correcto (detalle en la
+sesión 2026-08-27 (4) de `HISTORIAL_SESIONES.md` y en dos filas de `DECISIONES_TECNICAS.md`).
+**Nueva fila 2 en §3, y conviene atenderla:** `db/000b_arreglo_permisos.sql` sigue sin aplicar
+según `db/APLICADAS.md`. Es parte del arranque manual y el runner lo ignora a propósito (su
+nombre no encaja con el patrón `NNN_nombre.sql`), así que **ningún agente lo va a aplicar nunca y
+hasta ahora nadie lo estaba siguiendo**: no tenía fila en §3. Mientras no se aplique, en `dev`
+`authenticated` conserva `TRUNCATE` sobre `perfil` — y `TRUNCATE` ignora RLS, así que las
+políticas no protegen de él — y `service_role` se quedó sin DML, lo que hará fallar `npm run seed`
+cuando se use. Siguiente tarea de la cola normal: T-08 (cliente propio de la API de Supabase).
 
 ---
 
@@ -79,7 +54,7 @@ punto de necesitarlo.
 | T-04 | CI | COMPLETADA | 2026-08-26 | `.github/workflows/ci.yml`: `npm ci` + typecheck/lint/test/build en cada push a `develop` y `master`, sin secretos; Node fijado en `.nvmrc` |
 | T-05 | Monitorización de errores | COMPLETADA | 2026-08-27 | Captura global + informador con scrubbing (reusa `depurarContexto` de T-02) + cliente RPC contra doble de `fetch`; sin bloqueo — depende solo de T-02. El envío remoto real queda latente hasta T-07 (tabla) y T-08 (cliente real); contrato de `registrar_evento_error` fijado en DECISIONES_TECNICAS.md para que T-07 lo respete |
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
-| T-07 | Modelo de datos, runner de migraciones y entornos | BLOQUEADA — pendiente aplicar migración 001 | 2026-08-27 | Todo lo que no exige credenciales está hecho y verificado (SQL, runner, `MODELO.md`, tipos, tests, semilla); falta que el dueño ejecute `npm run migrate` en local — fila en §3 | **El primer intento del dueño falló por un bug del runner** (no cargaba `.env.local`, ver `DECISIONES_TECNICAS.md`); arreglado y verificado en la sesión 2026-08-27 (4), pendiente de reintento |
+| T-07 | Modelo de datos, runner de migraciones y entornos | COMPLETADA | 2026-08-27 | `001_esquema_inicial` aplicada en `dev` por el dueño y verificada con `esquema_version()` = `1`; fila anotada en `db/APLICADAS.md`. Incluye SQL, runner (`npm run migrate` con guardas, hash e inmutabilidad, `--estado` y `--verificar-privilegios`), `MODELO.md`, tipos de dominio, test de fuga de secretos y semilla. El primer intento del dueño falló por un bug del runner (no cargaba `.env.local`), arreglado en la sesión 2026-08-27 (4) |
 | T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
 | T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
@@ -131,7 +106,8 @@ punto de necesitarlo.
 
 | # | Acción | Tarea | Instrucciones exactas | Estado |
 |---|--------|-------|-----------------------|--------|
-| 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | **Reintento:** tu primer intento falló con "Falta SUPABASE_ACCESS_TOKEN en .env.local" y era un bug del runner, no un problema de tu fichero — no toques `.env.local`. Ya está arreglado: `git pull` en `develop` y, en tu máquina, `npm run migrate`. Ahora el comando empieza diciendo qué `.env.local` ha cargado y cuántas variables trae; después imprime a qué proyecto va a escribir — confirma que dice `dev`. Al terminar, `npm run migrate -- --estado` y comprueba que aparece la fila `001  001_esquema_inicial`; si quieres el barrido de privilegios en vivo (opcional, ya cubierto en frío por un test), `npm run migrate -- --verificar-privilegios`. Si vuelve a fallar, pega la salida tal cual: si el error es un `404`, el primer sospechoso es el endpoint de la Management API, que no se pudo verificar contra documentación en vivo. Cuando confirmes aquí, la sesión que retome T-07 verifica con `esquema_version()`, anota la fila en `db/APLICADAS.md` y marca T-07 COMPLETADA. | pendiente |
+| 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | ~~`git pull` y `npm run migrate` en local~~ | **RESUELTA 2026-08-27** — aplicada por el dueño; verificada con `esquema_version()` = `1` y anotada en `db/APLICADAS.md`. El primer intento falló por un bug del runner (no cargaba `.env.local`), ya arreglado |
+| 2 | Aplicar `db/000b_arreglo_permisos.sql` en `dev` | T-00 / arranque manual | **Primero comprueba si hace falta:** `npm run migrate -- --verificar-privilegios`. Si informa de que `authenticated` tiene `TRUNCATE` sobre `perfil`, el fichero no está aplicado. Es parte del arranque manual (igual que `000_bootstrap_perfil.sql`) y **el runner lo ignora a propósito**: su nombre no encaja con el patrón `NNN_nombre.sql`, así que ningún agente lo aplicará nunca. Aplícalo pegando `db/000b_arreglo_permisos.sql` en el editor SQL de Supabase del proyecto `dev`, igual que hiciste con `000`. Es idempotente. Por qué importa: `TRUNCATE` **ignora RLS** (las políticas de T-10 no protegerán de él) y además `service_role` se quedó sin DML sobre `perfil`, lo que hará fallar `npm run seed`. Cuando lo confirmes aquí, la siguiente sesión anota la fecha en `db/APLICADAS.md`. | pendiente |
 
 ---
 
