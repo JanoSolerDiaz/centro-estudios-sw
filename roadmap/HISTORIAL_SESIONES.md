@@ -37,6 +37,75 @@
 
 ---
 
+### Sesión 2026-08-27 (10) — T-09, en paralelo con las (6) a (9)
+
+> **Renumerada de (6) a (10) al resolver el merge con `develop`.** La nota de la propia sesión,
+> justo debajo, explica que ya había renumerado una vez de (5) a (6); ese (6) volvía a colisionar,
+> esta vez con la sesión (6) del cierre de `000b`. **Tercera colisión del mismo tipo en un día.**
+> Esta vez tampoco se perdió nada: se conservan las dos tandas de filas de
+> `DECISIONES_TECNICAS.md`, las cinco entradas de bitácora y las dos versiones de cada sección de
+> `SEGUIMIENTO.md`. El contenido de esta entrada es literal, salvo el ordinal del título.
+
+> Numerada (6), no (5): al fusionar con `origin/develop` para hacer `push`, esta sesión encontró que
+> la sesión de cierre de T-07 ya había usado el ordinal «(5)» (ver más abajo) — la misma colisión de
+> numeración que advertía el párrafo de la sesión (4b), y la razón por la que ese párrafo pedía
+> numerar por tarea. Aquí no hubo pérdida de contenido (a diferencia de la colisión de T-07/T-08):
+> se detectó en el propio `git push`, antes de terminar el merge, así que se resolvió renumerando en
+> vez de reconstruyendo después.
+
+**Tarea(s):** T-09 (autenticación y los tres roles)
+**Estado resultante:** COMPLETADA (código y tests; bloqueo humano aparte, no gate de esta tarea — ver abajo)
+**Commits a `develop`:** ver commit de esta sesión (T-09: autenticación y los tres roles)
+**Migraciones aplicadas:** ninguna — T-09 no tiene migración propia (spec: `Migración: No`); usa
+`perfil`, que ya existe desde el bootstrap `000`
+**Propagación a prod pendiente:** ninguna (columna `prod` de `db/APLICADAS.md`, se hace en T-25)
+**Archivos creados/modificados:** `src/datos/autenticacion.ts` + `.test.ts` (cliente GoTrue),
+`src/nucleo/almacenSesion.ts` + `.test.ts`, `src/nucleo/gestorSesion.ts` + `.test.ts`,
+`src/nucleo/enlaceRecuperacion.ts` + `.test.ts`, `src/nucleo/mensajesAbuso.ts` + `.test.ts`
+(ampliado con `CredencialesInvalidas`/`PerfilInactivo`), `src/dominio/tipos.ts` (`ETIQUETA_ROL`),
+`src/ui/formularios.ts` (nuevo), `src/ui/pantallaLogin.ts` + `.test.ts`,
+`src/ui/pantallaRecuperarContrasena.ts` + `.test.ts`,
+`src/ui/pantallaEstablecerContrasenaNueva.ts` + `.test.ts`, `src/ui/pantallaSinAcceso.ts` +
+`.test.ts`, `src/ui/aplicacion.ts` + `.test.ts` (el enrutador), `src/ui/main.ts` (conecta
+`gestorSesion` real), `roadmap/SEGUIMIENTO.md` (§1: T-09 COMPLETADA; §3: fila #3, primer
+`administrator`; §6: fila #5, confirmación de email/SMTP; cabecera), `roadmap/DECISIONES_TECNICAS.md`
+(8 filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (297/297, 63 nuevos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting configurado todavía (`<pendiente>`, T-25); se
+verificó en su lugar, como en T-00/T-08, que `index.html` carga `dist/ui/main.js` sin error en
+Chromium headless: sin `config.js` (no existe en este checkout, está en `.gitignore`) se ve la
+pantalla mínima de T-00, y con un `config.js` de prueba se ve el formulario de login real, sin
+errores de consola
+**Decisiones tomadas:** 8 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-27, T-09): por qué
+`autenticacion.ts` no reutiliza `peticionAutenticada` de T-08; `CredencialesInvalidas` (login) vs.
+`NoAutenticado` (T-08, reutilizada para `refresh_token` inválido); `sessionStorage` con solo el
+`refresh_token`, nunca el `access_token` (riesgo de XSS documentado); renovación estrictamente
+proactiva (`renovarAlAbrirPasarLista`, nunca reactiva a un `401`); por qué `gestorSesion.ts`
+construye su propio `ClientePostgrest` de usar-y-tirar en vez de recibir uno inyectado (evita una
+referencia circular); por qué ninguna pantalla toca el `document` global (recibe `Document` vía
+`contenedor.ownerDocument`, mismo principio de inyección que `Reloj`/`Temporizador`/`window`); y por
+qué los objetivos táctiles se fijan con estilos en línea en vez de crear ya una hoja CSS
+**Hallazgos del auditor atendidos:** ninguno — el hallazgo #1 (severidad baja, higiene documental de
+`HOJA_DE_RUTA.md`) sigue abierto, sin acción posible por esta sesión (espera respuesta del dueño en
+§6, pregunta #3 de `SEGUIMIENTO.md`)
+**Hallazgos:** ninguno nuevo. Dos limitaciones ya conocidas del entorno (sin salida de red a
+`supabase.com`) se repiten aquí y quedan documentadas sin bloquear nada: los endpoints exactos de
+GoTrue no se han podido verificar contra documentación en vivo (mismo aviso que T-06/T-07/T-08 para
+Auth/Management API/Storage), y no se ha podido comprobar en el panel si la confirmación de email
+está activada ni si hace falta SMTP propio (nueva fila #5 en §6 de `SEGUIMIENTO.md`)
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-10 (autorización — políticas RLS de los tres roles), que depende de T-09 (ya
+completa). Su migración `002_politicas_rls` se escribirá y testeará contra dobles igual que T-07/T-08,
+y quedará BLOQUEADA a la espera de que el dueño la aplique. Al fusionar con `origin/develop` se
+descubrió que, en paralelo, otra sesión cerró T-07 de verdad (migración `001` aplicada y verificada)
+y abrió una fila nueva en §3 para `db/000b_arreglo_permisos.sql` (ver sesión (5) justo debajo) — la
+fila #1 de §3 ya NO está pendiente. Aparte, el dueño puede crear ya el primer usuario
+`administrator` en `dev` (fila #3 de §3, nueva esta sesión) para poder usar la aplicación de verdad
+— no bloquea T-10 ni ninguna tarea posterior.
+
+
+---
+
 ### Sesión 2026-08-27 (9)
 **Tarea(s):** confirmar el rol del primer usuario `administrator` — cierre del bloqueo humano de T-09
 **Estado resultante:** confirmado; T-09 sin nada pendiente antes de empezar

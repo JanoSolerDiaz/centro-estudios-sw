@@ -99,7 +99,16 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     documentación en vivo en esta sesión (ver cabecera del fichero).
   - `eventoError.ts` (T-05, reescrito en T-08) — `crearEnviadorEventoError(config)` implementa el
     envío a la RPC `registrar_evento_error` sobre `crearClientePostgrest(...).rpc(...)`, ya no con
-    su propio `fetch`. Conectado de verdad desde `src/ui/main.ts`.
+    su propio `fetch`. Conectado de verdad desde `src/ui/main.ts`, con el token de sesión si lo hay
+    (T-09).
+  - `autenticacion.ts` (T-09) — `crearClienteAutenticacion(opciones)`: cliente propio de GoTrue
+    (`iniciarSesion`, `cerrarSesion`, `renovarSesion`, `solicitarRecuperacionContrasena`,
+    `establecerContrasenaNueva`) sobre `/auth/v1/...`. No reutiliza `peticionHttp.ts` (necesita un
+    `Bearer` distinto en cada llamada, no "la sesión actual"); comparte con él la misma traducción
+    de errores (`erroresDominio.ts`). `CredencialesInvalidas` es una clase nueva de este módulo,
+    fuera de las ocho de T-08 (login con contraseña incorrecta no es lo mismo que "sin sesión").
+    Endpoints sin poder verificarse contra documentación en vivo en esta sesión, mismo aviso que
+    T-06/T-07/T-08.
 
   ### Configuración del cliente (`config.js`)
 
@@ -145,17 +154,49 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `controlPeticion.ts` (T-06) — `crearEjecutorUltimaPeticion()` (cancela la petición anterior en
     cuanto empieza una nueva) y `conTiempoDeEspera(operacion, ms)` (aborta si no resuelve a
     tiempo), sobre `AbortController`/`AbortSignal` nativos.
-  - `mensajesAbuso.ts` (T-06, ampliado en T-08) — `mensajeAmigable(error)`: traduce
-    `ErrorLimiteAlcanzado`, `AbortError` y las ocho clases de `src/datos/erroresDominio.ts` a un
-    mensaje fijo en español que dice qué hacer. Nunca usa `error.message` para los errores de
-    dominio: el de `Conflicto`/`ErrorDeValidacion` puede venir tal cual de Postgres (texto técnico,
-    a veces en inglés).
+  - `mensajesAbuso.ts` (T-06, ampliado en T-08 y T-09) — `mensajeAmigable(error)`: traduce
+    `ErrorLimiteAlcanzado`, `AbortError`, las ocho clases de `src/datos/erroresDominio.ts` y, desde
+    T-09, `CredencialesInvalidas`/`PerfilInactivo`, a un mensaje fijo en español que dice qué hacer.
+    Nunca usa `error.message` para los errores de dominio: el de `Conflicto`/`ErrorDeValidacion`
+    puede venir tal cual de Postgres (texto técnico, a veces en inglés); el de
+    `CredencialesInvalidas` nunca revela si el email existe.
+  - `almacenSesion.ts` (T-09) — `AlmacenSesion` (persistencia de sesión): solo el `refresh_token`,
+    nunca el `access_token`. `crearAlmacenSesionWebStorage(storage)` recibe un `Storage` inyectado
+    (normalmente `sessionStorage`, nunca `localStorage` — ver `DECISIONES_TECNICAS.md`, riesgo de
+    XSS documentado); `crearAlmacenSesionEnMemoria()` para tests.
+  - `gestorSesion.ts` (T-09) — `crearGestorSesion(opciones)`: junta `autenticacion.ts` (GoTrue) +
+    `postgrest.ts` (para cargar el `perfil` propio) + `almacenSesion.ts`. `EstadoSesion` observable
+    (`suscribir`/`obtenerEstado`) con tres valores: `restaurando`/`sin_sesion`/`autenticado`. Un
+    `perfil.activo = false` nunca llega a `autenticado` (lanza `PerfilInactivo`, revoca en el
+    servidor). `renovarAlAbrirPasarLista()` es el único punto de renovación — **siempre proactivo**,
+    nunca reactivo a un `401` (lo llamará T-19 al montar la pantalla de pasar lista); una renovación
+    fallida no cierra la sesión ni descarta el estado.
+  - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
+    reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
+    (`#access_token=...&type=recovery`).
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
-  funciones puras sobre un `HTMLElement` ya obtenido (p. ej. `pantallaInicial.ts`) para que se
-  puedan testear montando un contenedor con `jsdom` en vez de depender del `document` global. Desde
-  T-05 instala la captura global de errores no controlados; desde T-08 el envío remoto es real
-  (lee `window.__CONFIG__`, crea el enviador si hay configuración; si no, sigue solo con el logger
-  local, sin fallar el arranque).
+  funciones puras sobre un `HTMLElement` ya obtenido para que se puedan testear montando un
+  contenedor con `jsdom`. Ninguna función de pantalla toca el `document` global directamente: reciben
+  el `Document` como parámetro, normalmente `contenedor.ownerDocument` (T-09). Desde T-05 instala la
+  captura global de errores no controlados; desde T-08 el envío remoto es real (lee
+  `window.__CONFIG__`); desde T-09 conecta `gestorSesion` real (con `sessionStorage`) y enruta con
+  `aplicacion.ts`. Sin `config.js` (o si falta), sigue cayendo a la pantalla mínima de T-00, sin
+  fallar el arranque.
+  - `formularios.ts` (T-09) — helpers de formulario accesible compartidos por las pantallas de
+    autenticación: `crearCampoTexto`, `crearZonaMensaje` (`role="alert"`/`"status"`, enfocable por
+    programa), `crearBoton`. Objetivos táctiles ≥44px y 16px de fuente (evita el zoom de iOS) fijados
+    aquí, en estilos en línea — el proyecto no tiene todavía ninguna hoja de estilos.
+  - `pantallaLogin.ts`, `pantallaRecuperarContrasena.ts`, `pantallaEstablecerContrasenaNueva.ts`,
+    `pantallaSinAcceso.ts` (T-09) — una función `mostrarPantallaX(contenedor, deps)` por pantalla,
+    con sus dependencias inyectadas (nunca llaman directamente a `gestorSesion.ts`). La de
+    recuperación responde igual exista o no la cuenta; la de nueva contraseña valida localmente
+    (coincidencia, longitud mínima) antes de gastar una petición; la de sin acceso no hace ninguna
+    llamada a datos, solo pinta el `Perfil` que ya le pasan.
+  - `aplicacion.ts` (T-09) — `iniciarAplicacion(contenedor, { gestorSesion, hashUrl })`: el
+    enrutador. Hash de recuperación → pantalla de nueva contraseña; si no, según `EstadoSesion` →
+    login/recuperar, o según `perfil.rol` → un marcador de posición para `administrator`/`teacher`
+    (su aplicación real nace en T-16/T-19) o `pantallaSinAcceso` para `student` y cualquier rol
+    desconocido (nunca se trata como `teacher`).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

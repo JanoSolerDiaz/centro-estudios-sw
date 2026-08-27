@@ -9,6 +9,15 @@
 
 export type Rol = 'administrator' | 'teacher' | 'student';
 
+/** Etiquetas de interfaz en español (§0.2 de HOJA_DE_RUTA.md): el identificador de rol es inglés
+ * en base de datos y en código, y esta es la ÚNICA traducción a texto visible — nunca comparar el
+ * rol contra la etiqueta traducida. */
+export const ETIQUETA_ROL: Readonly<Record<Rol, string>> = {
+  administrator: 'Administrador',
+  teacher: 'Profesor',
+  student: 'Alumno',
+};
+
 export interface Perfil {
   readonly id: string;
   readonly nombre: string;

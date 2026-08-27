@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mensajeAmigable } from './mensajesAbuso.ts';
 import { ErrorLimiteAlcanzado } from './limitadorTasa.ts';
+import { PerfilInactivo } from './gestorSesion.ts';
 import {
   NoAutenticado,
   SinPermiso,
@@ -12,6 +13,7 @@ import {
   FicheroDemasiadoGrande,
   TipoDeFicheroNoPermitido,
 } from '../datos/erroresDominio.ts';
+import { CredencialesInvalidas } from '../datos/autenticacion.ts';
 
 void test('un límite de tasa produce un mensaje que dice cuánto esperar, no el error técnico', () => {
   const mensaje = mensajeAmigable(new ErrorLimiteAlcanzado(5000));
@@ -82,4 +84,14 @@ void test('ErrorDeRed produce un mensaje sobre la conexión', () => {
 
 void test('ErrorDelServidor cae en el mensaje genérico de reintentar', () => {
   assert.equal(mensajeAmigable(new ErrorDelServidor('detalle interno de Postgres')), mensajeAmigable(undefined));
+});
+
+void test('CredencialesInvalidas produce un mensaje que no revela si el email existe (T-09)', () => {
+  const mensaje = mensajeAmigable(new CredencialesInvalidas());
+  assert.match(mensaje, /email.*contraseña|contraseña.*email/i);
+  assert.doesNotMatch(mensaje, /existe|no encontrad/i);
+});
+
+void test('PerfilInactivo produce un mensaje que orienta a hablar con el administrador (T-09)', () => {
+  assert.match(mensajeAmigable(new PerfilInactivo()), /desactivad|administrador/i);
 });
