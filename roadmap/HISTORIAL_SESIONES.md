@@ -37,6 +37,52 @@
 
 ---
 
+### Sesión 2026-08-27 (2)
+**Tarea(s):** T-06 (límites de abuso y robustez)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (T-06: límites de abuso y robustez)
+**Migraciones aplicadas:** ninguna — T-06 no tiene migración propia (`Migración: No`); el límite
+dentro de las RPC de escritura (requisito 2) queda como contrato recomendado en
+`DECISIONES_TECNICAS.md` para que T-14/T-18/T-21 lo implementen en SQL cuando escriban esas
+migraciones
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/nucleo/limitadorTasa.ts` + `.test.ts`,
+`src/nucleo/proteccionDobleToque.ts` + `.test.ts`, `src/nucleo/temporizador.ts` + `.test.ts`,
+`src/nucleo/reintento.ts` + `.test.ts`, `src/nucleo/controlPeticion.ts` + `.test.ts`,
+`src/nucleo/mensajesAbuso.ts` + `.test.ts`, `DEVELOPERS.md` (documenta las seis piezas nuevas),
+`roadmap/SEGUIMIENTO.md` (§1: T-06 COMPLETADA, notas en T-07/T-09/T-14/T-18/T-21; §6: pregunta #4
+sobre límites de Supabase Auth; cabecera), `roadmap/DECISIONES_TECNICAS.md` (5 filas nuevas),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ (dos ajustes: `prefer-function-type` en dos
+interfaces de una sola firma, reescritas como alias de tipo función; un `eslint-disable` de
+`no-await-in-loop` sobrante, la regla no está activa en esta configuración) · tests ✅ (78/78, antes
+53) · build ✅ — las cuatro con `env -i` (entorno vacío) para `test`, sin ninguna credencial. La
+sesión encontró `node_modules/` sin instalar (entorno recién aprovisionado) y corrió `npm ci` antes
+de poder verificar nada
+**Health check post-deploy:** N/A — sigue sin existir hosting al que desplegar (mismo estado que
+T-04/T-05); verificado en Chromium headless que `index.html` sigue cargando sin error de consola
+**Decisiones tomadas:** 5 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-27, T-06): arquitectura
+en seis piezas independientes de `src/nucleo/`; nueva interfaz `Temporizador` (hermana de `Reloj`
+pero para esperas, no para el instante) y por qué no basta reutilizar `Reloj`; contrato recomendado
+de límite de operaciones por usuario y ventana para las RPC de T-14/T-18/T-21 (60/minuto por
+profesor para asistencia, 20/hora por administrator para avatares); alcance deliberadamente acotado
+de `mensajesAbuso.ts` a los dos errores que esta tarea introduce, abierto para que T-08 lo amplíe; y
+la investigación de los límites de Supabase Auth, con la limitación explícita de que la cifra
+numérica exacta no se pudo verificar (sin salida de red hacia `supabase.com` desde este entorno)
+**Hallazgos del auditor atendidos:** ninguno — el único hallazgo abierto (#1, severidad baja,
+higiene documental sobre `HOJA_DE_RUTA.md`) sigue esperando respuesta del dueño en la pregunta #3 de
+§6; no se tocó
+**Hallazgos:** ninguno nuevo. Se revisó `auditoriacontinua.md` antes de elegir tarea: sin hallazgos
+de severidad alta ABIERTOS, así que no hubo ningún P-XX urgente que anteponer a la cola normal
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-07 (modelo de datos, runner de migraciones y entornos) — la siguiente tarea de
+la cola normal de §1. Recuerda que el runner escribe y testea contra un doble de la Management API
+pero no lo ejecuta; al terminar, abre la fila en §3 pidiendo al dueño que aplique
+`001_esquema_inicial.sql` con `npm run migrate`, y que el punto 14 (`evento_error`) siga el contrato
+de RPC fijado por T-05.
+
+---
+
 ### Sesión 2026-08-27
 **Tarea(s):** T-05 (monitorización de errores)
 **Estado resultante:** COMPLETADA

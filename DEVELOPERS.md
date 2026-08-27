@@ -87,6 +87,27 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `capturaErrores.ts` (T-05) — `instalarCapturaErrores(objetivo, informador)` conecta los eventos
     globales `error`/`unhandledrejection` de un `objetivo` inyectado (nunca lee `window`
     directamente) con un `InformadorErrores`.
+  - `limitadorTasa.ts` (T-06) — `crearLimitadorTasa({ maximo, ventanaMs, reloj })`: contador por
+    clave y ventana fija, con `Reloj` inyectado; lanza `ErrorLimiteAlcanzado` (error identificable,
+    con `reintentarEnMs`) al superar el máximo. Pieza de cliente para defensa en profundidad — el
+    límite autoritativo vive en la futura RPC de PostgreSQL (T-14/T-18/T-21); ver el contrato
+    recomendado en `DECISIONES_TECNICAS.md`.
+  - `proteccionDobleToque.ts` (T-06) — `crearProtectorDobleToque(operacion)`: mientras una llamada
+    esté en curso, cualquier llamada adicional recibe la misma promesa en vez de disparar una
+    segunda ejecución (protección contra doble toque en escrituras no idempotentes).
+  - `temporizador.ts` (T-06) — `Temporizador` inyectable, hermano de `Reloj` pero para esperas
+    (`esperar(ms)`), no para el instante actual; `temporizadorReal` usa `setTimeout`,
+    `crearTemporizadorDePrueba` no espera de verdad y registra los `ms` pedidos, para tests
+    deterministas del retroceso exponencial.
+  - `reintento.ts` (T-06) — `reintentarConRetroceso(operacion, opciones)`: retroceso exponencial
+    acotado con `Temporizador` inyectado. Solo para operaciones idempotentes (lecturas, o
+    escrituras protegidas por `peticion_id` único); nunca envolver aquí una escritura que no lo sea.
+  - `controlPeticion.ts` (T-06) — `crearEjecutorUltimaPeticion()` (cancela la petición anterior en
+    cuanto empieza una nueva) y `conTiempoDeEspera(operacion, ms)` (aborta si no resuelve a
+    tiempo), sobre `AbortController`/`AbortSignal` nativos.
+  - `mensajesAbuso.ts` (T-06) — `mensajeAmigable(error)`: traduce `ErrorLimiteAlcanzado` y
+    `AbortError` a un mensaje en español que dice qué hacer, nunca el error técnico. T-08 lo amplía
+    con el resto de la taxonomía de errores de dominio cuando exista.
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido (p. ej. `pantallaInicial.ts`) para que se
   puedan testear montando un contenedor con `jsdom` en vez de depender del `document` global. Desde
