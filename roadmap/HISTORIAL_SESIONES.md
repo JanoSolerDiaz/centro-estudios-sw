@@ -37,6 +37,42 @@
 
 ---
 
+### Sesión 2026-08-27 (11)
+**Tarea(s):** resolución del merge con T-09 y priorización de P-01 — no es una T-XX
+**Estado resultante:** merge cerrado; P-01 aprobada y priorizada por el dueño sobre T-10
+**Commits a `develop`:** el merge (`e290af7`) y el commit de esta entrada
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** sin cambios
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md`, `roadmap/HISTORIAL_SESIONES.md`,
+`roadmap/DECISIONES_TECNICAS.md` (fusión de las dos tandas de filas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (297) · build ✅
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** ninguna técnica propia. La priorización de **P-01 antes de T-10, a partir
+del 2026-08-28**, es del dueño
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- **T-09 se entregó con el alcance antiguo por trabajar sobre una base obsoleta.** Su sesión partió
+  de `origin/develop` en `1bde5de`, sin seis commits de registro que estaban sin empujar, así que no
+  conocía la ampliación que el dueño había acordado el mismo día (bloqueo al tercer intento fallido
+  y renovación de contraseña por el administrador). Lo entregado no es incorrecto: está incompleto
+  respecto a lo acordado, y se marcó COMPLETADA de buena fe. Encolado como P-01 en §5.
+- **Tercera colisión de registro en un día, y la primera con consecuencia real.** Las dos anteriores
+  costaron bitácora (recuperada) y un ordinal; esta ha costado trabajo mal dirigido. La lección ya no
+  es solo numerar las entradas por tarea: **una sesión no debe arrancar sin `git pull`, y el registro
+  debe empujarse en cuanto se escribe** — el trabajo se coordina por estos documentos, así que un
+  commit de registro sin empujar es una instrucción que no llega. Añadido al aviso de proceso de la
+  cabecera y a la nota de arranque de la siguiente sesión.
+- Al resolver el merge se conservaron los dos lados de los tres documentos (son append-only), y se
+  comprobó por conjuntos que no se perdiera ninguna fila ni ninguna entrada: 65 filas de decisión
+  (2 de una rama + 7 de la otra sobre 56 comunes) y 20 entradas de bitácora.
+- **Higiene pendiente, sin prisa:** este fichero ya tiene 20 entradas y su propia cabecera pide
+  mantener en línea las ~15 más recientes. Archivar por mes no sirve todavía (todo es de agosto de
+  2026); conviene decidir el criterio de rotación cuando haya un segundo mes, no antes.
+**Tareas autopropuestas (P-XX):** P-01 registrada en §5 (no es autopropuesta: es del dueño)
+**Próximo paso:** **2026-08-28, P-01 antes de T-10.** Primer gesto de esa sesión: `git pull`.
+
+---
+
 ### Sesión 2026-08-27 (10) — T-09, en paralelo con las (6) a (9)
 
 > **Renumerada de (6) a (10) al resolver el merge con `develop`.** La nota de la propia sesión,

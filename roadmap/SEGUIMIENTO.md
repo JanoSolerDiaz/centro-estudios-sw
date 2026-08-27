@@ -73,9 +73,15 @@ arrancar sin `git pull`, y el registro debe empujarse en cuanto se escribe** —
 coordina por estos documentos, así que un commit de registro sin empujar es una instrucción que no
 llega. Ninguna de las tres colisiones perdió código.
 
-**Siguiente tarea:** **P-01** (la ampliación de T-09) antes de T-10, para no escribir dos veces las
-políticas RLS. Si el dueño prefiere el orden inverso, T-10 debe escribir ya la condición de "no
-bloqueado" en todas sus políticas.
+**Siguiente tarea: P-01, y después T-10 — decidido por el dueño el 2026-08-27.** La sesión de
+programación del **2026-08-28** ataca P-01 (la ampliación de T-09) antes de T-10. El orden importa:
+el bloqueo se hace efectivo en las políticas RLS, así que escribir T-10 primero obligaría a
+rehacerla entera para meter la condición de "no bloqueado". P-01 tiene el alcance ya cerrado (§6
+#5) y el contexto en §7; incluye migración propia, con su fila en §3 para que el dueño la aplique.
+
+**Antes de empezar, esa sesión debe hacer `git pull`.** Es lo que falló hoy: T-09 se programó sobre
+una base sin los commits de registro que estaban sin empujar, y por eso entregó con el alcance
+antiguo. Y al terminar, empujar el registro en cuanto esté escrito, no al final del día.
 
 ---
 
@@ -181,7 +187,7 @@ bloqueado" en todas sus políticas.
 
 | ID | Descripción | Motivo / valor esperado (incl. `origen: auditoría #N` si aplica) | Estado | Veto del dueño |
 |----|-------------|-------------------------------------------------------------------|--------|----------------|
-| P-01 | **Ampliación de T-09: bloqueo de la cuenta al tercer intento fallido y renovación de contraseña por el administrador.** Alcance ya cerrado, no hay nada que diseñar: bloqueo en base de datos aplicado por RLS (un bloqueado no lee nada aunque su token valga), levantado por el administrador desde la aplicación, alcanzando a todos los roles, con el editor SQL del dueño como vía de escape documentada en `DEVELOPERS.md`; la renovación es disparar `POST /auth/v1/recover`, nunca fijar la contraseña. Incluye migración propia (DDL sobre `perfil` + las RPC), fila en §3 para que el dueño la aplique, y la condición "no bloqueado" en las políticas de T-10 | **No es una autopropuesta del agente: es una decisión del dueño** del 2026-08-27 (respuestas #4 y #5 de §6), registrada como desviación en §7. Se encola aquí porque la hoja de ruta es inmutable y no admite una T-XX nueva. **Prioridad sobre T-10:** si T-10 escribe sus políticas antes, tendrá que rehacerlas para incluir la condición de bloqueo | PENDIENTE | |
+| P-01 | **Ampliación de T-09: bloqueo de la cuenta al tercer intento fallido y renovación de contraseña por el administrador.** Alcance ya cerrado, no hay nada que diseñar: bloqueo en base de datos aplicado por RLS (un bloqueado no lee nada aunque su token valga), levantado por el administrador desde la aplicación, alcanzando a todos los roles, con el editor SQL del dueño como vía de escape documentada en `DEVELOPERS.md`; la renovación es disparar `POST /auth/v1/recover`, nunca fijar la contraseña. Incluye migración propia (DDL sobre `perfil` + las RPC), fila en §3 para que el dueño la aplique, y la condición "no bloqueado" en las políticas de T-10 | **No es una autopropuesta del agente: es una decisión del dueño** del 2026-08-27 (respuestas #4 y #5 de §6), registrada como desviación en §7. Se encola aquí porque la hoja de ruta es inmutable y no admite una T-XX nueva. **Prioridad sobre T-10:** si T-10 escribe sus políticas antes, tendrá que rehacerlas para incluir la condición de bloqueo | PENDIENTE — **arranca el 2026-08-28** | **Aprobada y priorizada por el dueño el 2026-08-27: se ataca ANTES de T-10.** No hay veto |
 
 ---
 
