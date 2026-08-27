@@ -39,7 +39,11 @@ function listarFicheros(directorio: string): string[] {
 }
 
 void test('npm run build no filtra secretos de servidor al paquete servido al navegador', () => {
-  execFileSync(join(RAIZ_REPO, 'node_modules', '.bin', 'tsc'), ['-b', 'tsconfig.build.json'], {
+  // Se invoca el ejecutable JS de TypeScript con el propio Node (`process.execPath`) en vez de
+  // `node_modules/.bin/tsc`: ese shim sin extensión es un script de shell que `execFileSync` no
+  // puede lanzar en Windows (ENOENT), donde el ejecutable real es `tsc.cmd`. Así el test es
+  // portable y no depende del shell del sistema.
+  execFileSync(process.execPath, [join(RAIZ_REPO, 'node_modules', 'typescript', 'bin', 'tsc'), '-b', 'tsconfig.build.json'], {
     cwd: RAIZ_REPO,
     stdio: 'pipe',
   });

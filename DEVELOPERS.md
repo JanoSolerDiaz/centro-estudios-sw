@@ -10,6 +10,8 @@
   está fijada en `.nvmrc` (`nvm use` si usas `nvm`).
 - Sin base de datos local: el proyecto habla con Supabase por API REST. El entorno de desarrollo
   (`dev`) ya existe; sus credenciales viven en `.env.local`, que **no está en el repositorio**.
+  `npm run migrate` y `npm run seed` cargan ese fichero por sí mismos
+  (`herramientas/cargarEnvLocal.ts`): no hace falta exportar nada a mano ni instalar `dotenv`.
 
 ## Arranque
 
@@ -144,6 +146,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     dueño, nunca en el entorno de un agente) porque hoy no hay ninguna política RLS (T-10) que deje
     escribir de otra forma. Idempotente por comprobación, no por upsert. Lógica en
     `herramientas/semilla/` (`datosFicticios.ts`, `clienteAdmin.ts`, `entorno.ts`).
+  - `herramientas/cargarEnvLocal.ts` — carga `.env.local` en `process.env` para los dos CLI de
+    arriba, con `process.loadEnvFile` (nativo de Node, sin dependencia). Existe porque faltaba: los
+    dos leían `process.env` y nadie lo poblaba, así que `npm run migrate` daba "Falta
+    SUPABASE_ACCESS_TOKEN" con un `.env.local` correcto. La ruta se resuelve desde `import.meta.url`
+    y no desde el `cwd`, no pisa las variables que ya vengan del entorno (los secretos del CI ganan
+    al fichero) y si el fichero no existe lo dice y sigue. Tests en `cargarEnvLocal.test.ts`.
 
 ## Suite de tests (T-03)
 

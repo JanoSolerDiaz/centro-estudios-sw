@@ -10,41 +10,24 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — T-07 (modelo de datos, runner de migraciones y entornos):
-sin hallazgos de severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea;
-el único hallazgo, #1, sigue de severidad baja/documental), así que se siguió la cola normal de §1:
-T-07 es la siguiente tarea PENDIENTE y depende solo de T-03 (COMPLETADA). **Queda BLOQUEADA —
-pendiente aplicar migración 001** (fila abierta en §3 más abajo): todo lo que el agente puede cerrar
-por sí mismo, sin ninguna credencial, está hecho y verificado; falta que el dueño ejecute
-`npm run migrate` en local. Entregado: `db/001_esquema_inicial.sql` (DDL plano, sin `begin`/`commit`
-propios — los envuelve el runner, ver `DECISIONES_TECNICAS.md`) con las siete tablas nuevas
-(`centro_estudios`, `alumno`, `persona_referencia`, `slot_horario`, `asistencia`,
-`asistencia_historial`, `evento_error`), los triggers de inmutabilidad y de rastro de cambios de
-`asistencia`, la RPC `registrar_evento_error` siguiendo el contrato fijado por T-05, RLS habilitada
-en las siete sin ninguna política todavía (T-10 las escribe: hasta entonces nadie llega por la API,
-igual que ya rige en `perfil`), y privilegios de tabla explícitos (revoke-all-primero) en cada una.
-`db/MODELO.md` nuevo, en español, con diagrama de relaciones en texto. El runner
-(`herramientas/migrar.ts` + `herramientas/migraciones/*.ts`) lee `db/NNN_*.sql`, aplica los
-pendientes contra la Management API (con las guardas de contenido, la inmutabilidad por hash, la
-salvaguarda de `prod`, y `--estado`/`--verificar-privilegios`), todo testeado contra dobles —
-incluida una advertencia explícita en el código y en `DECISIONES_TECNICAS.md` de que el endpoint
-exacto de la Management API no se pudo verificar contra documentación en vivo (sin salida de red a
-`supabase.com`, misma limitación que T-06). `src/dominio/tipos.ts` con los tipos oficiales del
-dominio, confrontados con la forma de PostgREST en su test. Test de fuga de secretos
-(`herramientas/verificarFugaSecretos.test.ts`) que construye `dist/` de verdad y lo inspecciona.
-Semilla de desarrollo (`npm run seed`, necesita `SUPABASE_SERVICE_ROLE_KEY_DEV`, nueva en
-`.env.ejemplo`, mismo régimen que el access token). `herramientas/` recibe su propio
-`tsconfig.herramientas.json` y chequeo de tipos estricto (decisión pendiente desde T-01, resuelta
-ahora). 68 tests nuevos (167 en total, antes 78 — hubo que reinstalar `node_modules/` en este
-checkout con `npm ci`), `env -i npm test` en verde sin ninguna variable de entorno; se detectó y
-corrigió que las propiedades de parámetro de TypeScript no funcionan con el *type-stripping* nativo
-de Node (`ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, ni `tsc` ni ESLint lo avisan, solo se ve al ejecutar
-los tests) — registrado en `DECISIONES_TECNICAS.md` para que no se reintroduzca. Verificación
-pre-push completa (`typecheck && lint && test && build`) en verde; `dist/` inspeccionado, sin
-ninguna fuga de `herramientas/` ni de secretos. Detalle completo de cada decisión en
-`DECISIONES_TECNICAS.md`. Siguiente tarea (mientras T-07 espera al dueño): T-08 (cliente propio de
-la API de Supabase), que no depende de que la migración esté aplicada — se desarrolla y se testea
-contra dobles.
+**Última actualización:** 2026-08-27 — T-07, arreglo de un **bug real que reportó el dueño** al
+ejecutar `npm run migrate`: el runner decía "Falta SUPABASE_ACCESS_TOKEN en .env.local" con un
+`.env.local` perfectamente correcto. La causa no era la credencial sino que **nadie cargaba el
+fichero**: `migrar.ts` y `seed.ts` leen `process.env`, pero `dependencies` está vacío (no hay
+`dotenv`, §0.2) y los scripts de npm no pasaban `--env-file`, así que `process.env` nunca vio
+`.env.local`. Arreglado con `herramientas/cargarEnvLocal.ts` (cargador nativo de Node,
+`process.loadEnvFile`, cero dependencias nuevas): los dos CLI cargan el fichero por sí mismos,
+resolviendo la ruta desde el propio código y no desde el directorio de trabajo, y ahora imprimen
+qué fichero han cargado y cuántas variables trae antes de tocar nada. Siete tests nuevos cubren la
+carga, incluido el caso Windows (finales de línea CRLF) y el del CI (sin `.env.local`, donde los
+secretos del entorno siguen ganando al fichero). De paso se arregló un segundo bug del mismo
+origen — un test verde en CI y rojo en la máquina del dueño: el test de fuga de secretos lanzaba
+`node_modules/.bin/tsc`, que en Windows no es ejecutable. **La fila 1 de §3 sigue abierta: el
+dueño debe reintentar `npm run migrate`**, que es lo único que faltaba y sigue faltando para
+cerrar T-07. Verificación pre-push completa en verde (174 tests, antes 167). El detalle de la
+sesión anterior (la entrega de T-07) está en `HISTORIAL_SESIONES.md`; las dos decisiones nuevas,
+en `DECISIONES_TECNICAS.md`. Siguiente tarea de la cola normal: T-08 (cliente propio de la API de
+Supabase), que no depende de que la migración esté aplicada.
 
 ---
 
@@ -76,7 +59,7 @@ contra dobles.
 | T-04 | CI | COMPLETADA | 2026-08-26 | `.github/workflows/ci.yml`: `npm ci` + typecheck/lint/test/build en cada push a `develop` y `master`, sin secretos; Node fijado en `.nvmrc` |
 | T-05 | Monitorización de errores | COMPLETADA | 2026-08-27 | Captura global + informador con scrubbing (reusa `depurarContexto` de T-02) + cliente RPC contra doble de `fetch`; sin bloqueo — depende solo de T-02. El envío remoto real queda latente hasta T-07 (tabla) y T-08 (cliente real); contrato de `registrar_evento_error` fijado en DECISIONES_TECNICAS.md para que T-07 lo respete |
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
-| T-07 | Modelo de datos, runner de migraciones y entornos | BLOQUEADA — pendiente aplicar migración 001 | 2026-08-27 | Todo lo que no exige credenciales está hecho y verificado (SQL, runner, `MODELO.md`, tipos, tests, semilla); falta que el dueño ejecute `npm run migrate` en local — fila en §3 |
+| T-07 | Modelo de datos, runner de migraciones y entornos | BLOQUEADA — pendiente aplicar migración 001 | 2026-08-27 | Todo lo que no exige credenciales está hecho y verificado (SQL, runner, `MODELO.md`, tipos, tests, semilla); falta que el dueño ejecute `npm run migrate` en local — fila en §3. **El primer intento del dueño falló por un bug del runner** (no cargaba `.env.local`, ver `DECISIONES_TECNICAS.md`); arreglado y verificado en la sesión 2026-08-27 (4), pendiente de reintento |
 | T-08 | Cliente propio de la API de Supabase | PENDIENTE | — | PostgREST + GoTrue + Storage; no depende de que la migración 001 esté aplicada, se desarrolla contra dobles |
 | T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1; revisar límites de intentos de Supabase Auth documentados por T-06 en `DECISIONES_TECNICAS.md` y en §6 |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
@@ -128,7 +111,7 @@ contra dobles.
 
 | # | Acción | Tarea | Instrucciones exactas | Estado |
 |---|--------|-------|-----------------------|--------|
-| 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | `git pull` en `develop`, y en tu máquina (donde vive `.env.local`): `npm run migrate`. El runner imprime a qué proyecto va a escribir antes de ejecutar — confirma que dice `dev`. Al terminar, ejecuta `npm run migrate -- --estado` y comprueba que aparece la fila `001  001_esquema_inicial`; si quieres el barrido de privilegios en vivo (opcional, ya cubierto en frío por un test), `npm run migrate -- --verificar-privilegios`. Cuando confirmes aquí, la sesión que retome T-07 verifica con `esquema_version()`, anota la fila en `db/APLICADAS.md` y marca T-07 COMPLETADA. | pendiente |
+| 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | **Reintento:** tu primer intento falló con "Falta SUPABASE_ACCESS_TOKEN en .env.local" y era un bug del runner, no un problema de tu fichero — no toques `.env.local`. Ya está arreglado: `git pull` en `develop` y, en tu máquina, `npm run migrate`. Ahora el comando empieza diciendo qué `.env.local` ha cargado y cuántas variables trae; después imprime a qué proyecto va a escribir — confirma que dice `dev`. Al terminar, `npm run migrate -- --estado` y comprueba que aparece la fila `001  001_esquema_inicial`; si quieres el barrido de privilegios en vivo (opcional, ya cubierto en frío por un test), `npm run migrate -- --verificar-privilegios`. Si vuelve a fallar, pega la salida tal cual: si el error es un `404`, el primer sospechoso es el endpoint de la Management API, que no se pudo verificar contra documentación en vivo. Cuando confirmes aquí, la sesión que retome T-07 verifica con `esquema_version()`, anota la fila en `db/APLICADAS.md` y marca T-07 COMPLETADA. | pendiente |
 
 ---
 

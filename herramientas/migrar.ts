@@ -10,6 +10,7 @@
  */
 
 import { fileURLToPath } from 'node:url';
+import { cargarEnvLocal } from './cargarEnvLocal.ts';
 import { leerMigracionesDisco } from './migraciones/archivosMigracion.ts';
 import { crearClienteManagementApi } from './migraciones/clienteManagementApi.ts';
 import { analizarArgv, resolverCredenciales } from './migraciones/entorno.ts';
@@ -20,6 +21,14 @@ const DIRECTORIO_MIGRACIONES = fileURLToPath(new URL('../db', import.meta.url));
 
 async function main(): Promise<void> {
   const opciones = analizarArgv(process.argv.slice(2));
+
+  const carga = cargarEnvLocal();
+  if (carga.cargado) {
+    console.log(`migrar: ${carga.ruta} cargado (${String(carga.variables.length)} variables).`);
+  } else {
+    console.log(`migrar: no existe ${carga.ruta}; se usan solo las variables del entorno.`);
+  }
+
   const credenciales = resolverCredenciales(process.env, opciones.entorno);
   console.log(`migrar: proyecto de destino = ${credenciales.entorno} (${credenciales.projectRef})`);
 

@@ -9,6 +9,7 @@
  * ya se sembró y no hace nada más.
  */
 
+import { cargarEnvLocal } from './cargarEnvLocal.ts';
 import { crearClienteAdmin } from './semilla/clienteAdmin.ts';
 import { ALUMNOS_SEMILLA, CENTROS_SEMILLA, USUARIOS_SEMILLA, generarPersonasReferencia } from './semilla/datosFicticios.ts';
 import { resolverCredencialesSemilla } from './semilla/entorno.ts';
@@ -24,6 +25,14 @@ function entornoDesdeArgv(argv: readonly string[]): 'dev' | 'prod' {
 
 async function main(): Promise<void> {
   const entorno = entornoDesdeArgv(process.argv.slice(2));
+
+  const carga = cargarEnvLocal();
+  if (carga.cargado) {
+    console.log(`seed: ${carga.ruta} cargado (${String(carga.variables.length)} variables).`);
+  } else {
+    console.log(`seed: no existe ${carga.ruta}; se usan solo las variables del entorno.`);
+  }
+
   const credenciales = resolverCredencialesSemilla(process.env, entorno);
   console.log(`seed: sembrando datos ficticios en ${credenciales.entorno} (${credenciales.url})`);
 

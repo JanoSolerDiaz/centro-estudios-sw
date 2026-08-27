@@ -37,6 +37,44 @@
 
 ---
 
+### Sesión 2026-08-27 (4)
+**Tarea(s):** T-07 (arreglo del runner: la carga de `.env.local` faltaba)
+**Estado resultante:** BLOQUEADA — pendiente aplicar migración 001 (el estado no cambia: sigue
+esperando al dueño, pero ya sin el bug que se lo impedía)
+**Commits a `develop`:** ver commit de esta sesión (T-07: cargar `.env.local` en los CLI del dueño)
+**Migraciones aplicadas:** ninguna (el agente no aplica DDL en ningún entorno, §0.1)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `herramientas/cargarEnvLocal.ts` y
+`herramientas/cargarEnvLocal.test.ts` (nuevos), `herramientas/migrar.ts`, `herramientas/seed.ts`,
+`herramientas/verificarFugaSecretos.test.ts`, `DEVELOPERS.md`, `roadmap/DECISIONES_TECNICAS.md`,
+`roadmap/SEGUIMIENTO.md`, `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (174, antes 167) · build ✅
+**Health check post-deploy:** no aplica — el cambio es de `herramientas/`, que no entra en `dist/`
+ni se sirve al navegador (`npm run health` tampoco existe todavía: llega con T-24)
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (carga de `.env.local` en los
+CLI del dueño; invocación portable de `tsc` en el test de fuga de secretos)
+**Hallazgos del auditor atendidos:** ninguno (el hallazgo #1 sigue ABIERTO, es documental y del dueño)
+**Hallazgos:**
+- **Bug (arreglado):** `npm run migrate` y `npm run seed` no cargaban `.env.local`. Los dos leen
+  `process.env`, pero nada lo poblaba: `dependencies` está vacío (sin `dotenv`, §0.2) y los scripts
+  npm no pasaban `--env-file`. El dueño, con un `.env.local` correcto, recibía "Falta
+  SUPABASE_ACCESS_TOKEN en .env.local". El mensaje describía bien el síntoma y mentía sobre la causa.
+- **Causa de que no se detectara (deuda de método, no de código):** los tests de credenciales
+  inyectan el entorno (`resolverCredenciales(env, ...)`), que es lo correcto para testear la lógica,
+  y el wiring que los conecta con `process.env` real era justo el fichero declarado "sin test
+  directo". La verificación `env -i npm test` en verde daba una falsa sensación de cobertura: probaba
+  que la suite no depende del entorno, no que los CLI sepan leerlo. Lección para T-08 y siguientes:
+  cuando un fichero de wiring decide *de dónde* salen los datos, esa decisión va en un módulo con test.
+- **Bug (arreglado):** el test de fuga de secretos fallaba en Windows por lanzar el shim de shell
+  `node_modules/.bin/tsc` con `execFileSync`. Verde en CI (Ubuntu) y rojo en la máquina del dueño.
+- `node_modules/` no estaba en el checkout otra vez; hizo falta `npm ci` (18 s, 130 paquetes).
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el dueño reintenta `npm run migrate` (fila 1 de §3, ya actualizada con el aviso).
+Cuando confirme, la sesión que retome T-07 verifica con `esquema_version()`, anota la fila en
+`db/APLICADAS.md` y marca T-07 COMPLETADA. Mientras tanto, la cola normal sigue en T-08.
+
+---
+
 ### Sesión 2026-08-27 (3)
 **Tarea(s):** T-07 (modelo de datos, runner de migraciones y entornos)
 **Estado resultante:** BLOQUEADA — pendiente aplicar migración 001 (todo lo que no exige
