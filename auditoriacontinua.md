@@ -53,6 +53,111 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-08-27
+
+**Alcance real de esta pasada — ya hay código, pero todavía ninguno de producto.** Desde la
+auditoría anterior (2026-08-26) el repositorio avanzó T-00 a T-04 (FASE A completa: andamiaje,
+lint estricto, logger, suite de tests con reloj inyectable, CI) más un segundo ciclo de PM que
+definió la oleada v2 (R-08 a R-11). T-05 en adelante siguen `PENDIENTE`. Esto significa que la
+inmensa mayoría de los puntos de control permanentes de este proyecto (RLS de `asistencia`, RPC,
+bucket de avatares, superficie de columnas del `teacher`, rol `student` en tablas de producto,
+etc.) **siguen sin aplicar**, porque las tablas, políticas y RPC que auditarían nacen en T-07/T-10/
+T-14 y no existen todavía. No se fabrica ningún hallazgo sobre esa funcionalidad inexistente. Lo
+que sí existe — el andamiaje de calidad de FASE A — se ha auditado con rigor porque es exactamente
+lo que sostiene la promesa de "autonomía total": la red de tests, lint y CI que sustituye a la
+revisión humana en todo lo que viene después.
+
+**Verificación directa, no solo lectura de documentos.** Se hizo `git checkout develop && git pull`
+(limpio, sin conflicto), se instalaron las dependencias (`npm ci`, que además ejecutó el hook
+`prepare` e instaló `.git/hooks/pre-commit` correctamente) y se ejecutaron los cuatro comandos de
+verificación exigidos por §0.1: `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`.
+Los cuatro terminan en verde, tal cual reclaman `SEGUIMIENTO.md` y `HISTORIAL_SESIONES.md` — **41
+tests, 0 fallos**. Se confirmó además contra la API de GitHub Actions (herramienta MCP `github`)
+que los tres runs de CI en `develop` (incluido el del commit actual, `ce4e0ea`) terminaron
+`completed`/`success`.
+
+**Las reglas de guarda del stack no son solo documentación — se comprobó que ESLint las hace
+cumplir de verdad**, creando y borrando ficheros de prueba dentro de `src/`: un import de
+`@supabase/supabase-js` falla (con el mensaje específico nombrado en T-01, más el genérico de
+terceros y el de `console`, los tres a la vez), un `innerHTML` falla, un `fetch` fuera de
+`src/datos/` falla, y ese mismo `fetch` **sí** pasa dentro de `src/datos/`. Un `grep` sobre todo
+`src/` no encuentra ningún `console.*` fuera de `src/nucleo/registro.ts`, ningún `fetch` fuera de
+`src/datos/`, ni ningún `innerHTML`. `dependencies` de `package.json` sigue vacío, verificado
+directamente, no solo leído. **Sin hallazgo**: las cuatro reglas de T-01 funcionan por herramienta,
+no por promesa.
+
+**Secretos** — se repitió la búsqueda de la pasada anterior sobre el estado nuevo del repositorio:
+ningún token, contraseña ni clave `service_role` aparece commiteado. `.gitignore` sigue cubriendo
+`.env.local` y `.env`; `.env.ejemplo` documenta las variables sin valores, ahora con las nuevas
+(`SUPABASE_*_DEV/PROD`, `PERMITIR_PROD`, `ZONA_HORARIA_CENTRO`) igual de vacías. `git status` está
+limpio. **Sin hallazgo.**
+
+**Calidad real de los tests (T-03) — la tarea que más pesa en autonomía total.** No se dio por
+buena la suite por estar verde: se leyó el contenido de los 41 tests. No son triviales. Cubren
+casos de frontera reales de la lógica que sí existe hoy: inclusión/exclusión exacta de
+`horaInicio`/`horaFin` en `slotActivoEnInstante`, el límite exacto de la ventana de edición del
+profesor en `puedeEditarAsistencia` (un milisegundo por encima y por debajo del margen), que un
+`administrator` puede editar cualquier registro por antiguo que sea y que un `teacher` no puede
+tocar el de otro aunque esté dentro de su ventana, y que el logger depura por nombre de campo, por
+forma del valor (JWT, cadena opaca) y recursivamente en objetos y arrays anidados — con un test que
+confirma explícitamente que un identificador (`alumno_id`) no se depura por error. La guarda
+automática `disciplinaReloj.test.ts` (recorre por filesystem todo `.ts` de `src/dominio/` y falla
+si aparece `new Date()`/`Date.now()` sin argumentos) es un mecanismo real, no un `# TODO`: se
+comprobó que hoy no hay ningún fichero de dominio que lo dispare. Es una base pequeña pero honesta:
+`slots.ts` y `asistencia.ts` están documentados en su propia cabecera como "provisionales e
+ilustrativos" (tipos propios, no los oficiales de T-07; día/hora en UTC, no en la zona horaria del
+centro), y `DECISIONES_TECNICAS.md` explica por qué y qué tarea los reemplaza — no es un intento de
+hacer pasar un placeholder por trabajo terminado. **Sin hallazgo.**
+
+**Guardas del runner de migraciones** — no aplica: T-07 (que escribe `herramientas/migrar.ts`)
+sigue `PENDIENTE`. Nada que evaluar todavía.
+
+**Coherencia entre lo decidido y lo ejecutado:** `DECISIONES_TECNICAS.md` registra 15 decisiones
+nuevas desde la pasada anterior (T-00 a T-04), todas con alternativas consideradas y su porqué, y
+ninguna contradice §0.2. Se contrastaron varias contra el código real, no solo contra su propio
+texto: la decisión de separar `tsconfig.build.json` de `tsconfig.json` para que `jsdom` no se
+filtre al `dist/` desplegable se confirmó leyendo ambos ficheros; la de las cuatro reglas de ESLint
+por selector nativo (sin plugin nuevo) se confirmó ejecutándolas contra código de prueba; la de
+`dependencies` vacío se confirmó leyendo `package.json`. `SEGUIMIENTO.md` §1 tiene T-00 a T-04
+`COMPLETADA` y el resto `PENDIENTE`, consistente con lo que hay en el repositorio. §7 (desviaciones)
+sigue vacío — correcto, no ha habido ninguna. §3 (bloqueos) sigue vacío — correcto, T-00 a T-04 no
+tienen bloqueo humano y T-05 tampoco lo tiene por sí sola. El PM registró el segundo ciclo (oleada
+v2, R-08 a R-11) sin tocar código ni estado de desarrollo, tal como declara su propia entrada en
+`HISTORIAL_SESIONES.md`, y esa entrada además referencia correctamente el hallazgo #1 de este
+documento (lo revisó, no lo cerró, lo convirtió en la pregunta #3 de §6) — es exactamente el
+mecanismo de trazabilidad que exige el protocolo.
+
+**Oleada v2 del roadmap (R-08 a R-11), revisada frase a frase contra las restricciones
+innegociables:** no introduce ningún campo personal nuevo (R-08, la importación CSV, usa
+literalmente las mismas columnas de la ficha de T-12); no amplía el rol `student` en ningún punto;
+y R-11 (panel de centro) declara explícitamente "nunca avatar" en sus rankings — coherente con el
+punto de control de este documento de que el avatar no debe aparecer en listados generales. Nada
+que objetar.
+
+**Reevaluación del hallazgo #1 (ABIERTO, higiene documental, severidad baja):** sigue exactamente
+igual que en la pasada anterior. No ha habido ninguna nueva edición de `HOJA_DE_RUTA.md` (se
+comprobó con `git log -- roadmap/HOJA_DE_RUTA.md`: el único commit que la toca sigue siendo el de
+arranque). El ciclo de PM del 2026-08-26 lo revisó correctamente y lo convirtió en la pregunta #3 de
+§6 de `SEGUIMIENTO.md`, en vez de intentar resolverlo por su cuenta (el propio documento declara al
+PM en modo SOLO LECTURA sobre `HOJA_DE_RUTA.md`). Sigue sin respuesta del dueño. Se mantiene
+`ABIERTO`, sin escalar: sigue sin riesgo de dato ni operativo asociado.
+
+**Ningún hallazgo nuevo esta pasada.** No porque no se haya buscado — se ejecutó la suite completa,
+se comprobaron las guardas de ESLint contra código adversarial creado para la ocasión, se leyó el
+código fuente completo de `src/`, se repitió el barrido de secretos, y se contrastó CI contra la
+API real de GitHub — sino porque el estado del repositorio coincide, punto por punto, con lo que
+`DECISIONES_TECNICAS.md`, `SEGUIMIENTO.md` y `HISTORIAL_SESIONES.md` dicen que hay.
+
+**Conclusión:** FASE A (T-00 a T-04) está completa y es sólida: la verificación pre-push
+(`typecheck`, `lint`, `test`, `build`) pasa en local y en CI, las cuatro reglas que defienden el
+stack por herramienta funcionan de verdad, el logger depura lo que promete, y la suite de 41 tests
+—aunque su alcance de dominio es todavía deliberadamente pequeño y provisional— prueba casos de
+frontera reales, no humo. No hay ningún hallazgo de seguridad que atender antes de seguir. La
+próxima auditoría con sustancia real de seguridad llega con T-07 (modelo de datos, runner de
+migraciones, RLS de `perfil`/`esquema_migracion` ampliado) y sobre todo T-10 (RLS de los tres roles)
+y T-14 (bucket de avatares), que es cuando nacen los puntos de control que de verdad sostienen el
+valor de este producto.
+
 ### Auditoría 2026-08-26
 
 **Alcance real de esta pasada — el proyecto todavía no tiene código.** Todas las tareas T-00 a
