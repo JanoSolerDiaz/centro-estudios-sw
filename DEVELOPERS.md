@@ -67,7 +67,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
-  fallos de red, sin tocar Supabase.
+  fallos de red, sin tocar Supabase. `eventoError.ts` (T-05) implementa el envío a la RPC
+  `registrar_evento_error` — escrito y testeado contra el doble, pero **latente**: nadie lo conecta
+  todavía porque no hay ni tabla (T-07) ni cliente real con URL/clave anónima (T-08).
 - `src/nucleo/` — infraestructura transversal usada por toda la aplicación:
   - `registro.ts` (T-02) — logger centralizado, único fichero con permiso ESLint para
     `console.*`: entradas estructuradas (nivel, instante, mensaje, contexto), nivel configurable, y
@@ -77,9 +79,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     por quien programa, nunca debe llevar datos de usuario.
   - `reloj.ts` (T-03) — `Reloj` inyectable; `relojDelSistema` es la única implementación real
     (`new Date()`) y vive fuera de `src/dominio/` a propósito.
+  - `informadorErrores.ts` (T-05) — `crearInformadorErrores(logger, enviar?)`: depura (reusa
+    `depurarContexto`) y registra en local cualquier error capturado; con `enviar` (opcional,
+    implementado en `src/datos/eventoError.ts`) intenta además persistirlo en `evento_error`, sin
+    dejar nunca que un fallo de `enviar` provoque una segunda llamada (recursión) ni un rechazo sin
+    capturar.
+  - `capturaErrores.ts` (T-05) — `instalarCapturaErrores(objetivo, informador)` conecta los eventos
+    globales `error`/`unhandledrejection` de un `objetivo` inyectado (nunca lee `window`
+    directamente) con un `InformadorErrores`.
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido (p. ej. `pantallaInicial.ts`) para que se
-  puedan testear montando un contenedor con `jsdom` en vez de depender del `document` global.
+  puedan testear montando un contenedor con `jsdom` en vez de depender del `document` global. Desde
+  T-05, también instala la captura global de errores no controlados (sin envío remoto todavía: la
+  tabla `evento_error` nace en T-07 y el cliente real de Supabase en T-08).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español. El agente los escribe pero **nunca los aplica**: los aplica el dueño con
   `npm run migrate` (T-07).

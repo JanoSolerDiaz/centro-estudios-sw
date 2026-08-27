@@ -37,6 +37,43 @@
 
 ---
 
+### Sesión 2026-08-27
+**Tarea(s):** T-05 (monitorización de errores)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (T-05: monitorización de errores)
+**Migraciones aplicadas:** ninguna — T-05 no tiene migración propia (`Migración: No`); la tabla
+`evento_error` y la RPC `registrar_evento_error` viajan en el script de T-07, siguiendo el contrato
+fijado en `DECISIONES_TECNICAS.md`
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/nucleo/informadorErrores.ts` + `.test.ts`,
+`src/nucleo/capturaErrores.ts` + `.test.ts`, `src/datos/eventoError.ts` + `.test.ts`,
+`src/ui/main.ts` (instala la captura en el arranque, sin `enviar` todavía), `roadmap/SEGUIMIENTO.md`
+(§1: T-05 COMPLETADA, nota en T-07; cabecera), `roadmap/DECISIONES_TECNICAS.md` (7 filas nuevas),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (53/53, antes 41) · build ✅ — las cuatro
+con `env -i` (entorno vacío) para `test`, sin ninguna credencial
+**Health check post-deploy:** N/A — sigue sin existir hosting al que desplegar (mismo estado que
+T-04)
+**Decisiones tomadas:** 7 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-27, T-05): arquitectura
+en tres piezas (núcleo puro / captura DOM inyectada / envío por `fetch` confinado a `src/datos/`);
+reutilización de `depurarContexto` de T-02 para `mensaje`/`pila`/`contexto`; contrato fijado de la
+RPC `registrar_evento_error` para que T-07 lo respete; instalación en `main.ts` sin `enviar` todavía
+(latente hasta T-08); defensa contra recursión sin reintento automático (se deja para T-06); y una
+nota sobre un hueco de tipado de `@types/jsdom` (`PromiseRejectionEvent` no está en `DOMWindow`) y
+cómo se resolvió sin apagar ninguna regla de lint
+**Hallazgos del auditor atendidos:** ninguno — el único hallazgo abierto (#1, severidad baja,
+higiene documental sobre `HOJA_DE_RUTA.md`) sigue esperando respuesta del dueño en la pregunta #3 de
+§6; no se tocó
+**Hallazgos:** ninguno nuevo. Se revisó `auditoriacontinua.md` antes de elegir tarea: sin hallazgos
+de severidad alta ABIERTOS, así que no hubo ningún P-XX urgente que anteponer a la cola normal
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-06 (límites de abuso y robustez). Cuando T-08 exista (cliente real de Supabase),
+conectar `crearEnviadorEventoError` (ya escrito y testeado en `src/datos/eventoError.ts`) como
+segundo argumento de `crearInformadorErrores` en `src/ui/main.ts`, con la URL y la clave anónima que
+T-08 exponga
+
+---
+
 ### Sesión 2026-08-26 (PM)
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
 **Estado resultante:** N/A (documento vivo, no código)

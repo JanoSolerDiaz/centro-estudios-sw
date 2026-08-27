@@ -10,24 +10,29 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-26 — ciclo de Product Manager: definida la oleada v2 (R-08 a
-R-11) en `ROADMAP_PRODUCTO.md` — importación masiva, aplicación instalable, expediente RGPD y panel
-de centro. Sin cambios de estado de desarrollo en esta pasada. Anterior actualización de desarrollo,
-T-04 COMPLETADA: integración continua con GitHub Actions.
-`.github/workflows/ci.yml` ejecuta `npm ci` y luego `typecheck`, `lint`, `test`, `build` (en ese
-orden) en cada `push` a `develop` y a `master`, sin declarar ningún secreto — verificado en esta
-sesión que la suite completa pasa con `env -i` (entorno vacío), igual que exige el corolario de
-T-03. La versión de Node queda fijada en `.nvmrc` nuevo (`22.22.2`), leído por `actions/setup-node`
-y reutilizable en local con `nvm`; `engines.node` de `package.json` sigue siendo el mínimo abierto,
-sin cambiar. `actions/checkout@v7` y `actions/setup-node@v6`, verificadas por búsqueda como las
-versiones mayores vigentes en la fecha de esta sesión. El "health check post-deploy" de §0.1 sigue
-sin aplicar: no existe todavía ningún hosting al que desplegar (proveedor `<pendiente>`), así que no
-era responsabilidad de T-04 crearlo. Verificado con la API de GitHub Actions (herramienta MCP
-`github`): el run #1, disparado por el push de este commit a `develop`
-(https://github.com/JanoSolerDiaz/centro-estudios-sw/actions/runs/32979954481), terminó
-`completed`/`success`. Detalle completo de cada decisión en `DECISIONES_TECNICAS.md`. Sin hallazgos de
-auditoría de severidad alta abiertos (el único hallazgo, #1, es de severidad baja, documental).
-Siguiente tarea: T-05 (monitorización de errores).
+**Última actualización:** 2026-08-27 — T-05 COMPLETADA: monitorización de errores. Sin hallazgos de
+severidad alta ABIERTOS en `auditoriacontinua.md` (revisado antes de elegir tarea; el único hallazgo,
+#1, sigue de severidad baja/documental), así que se siguió la cola normal de §1: T-05 es la siguiente
+tarea PENDIENTE y depende solo de T-02 (COMPLETADA), no de T-07 pese a ir justo antes en el orden de
+la hoja de ruta. Tres piezas nuevas: `src/nucleo/informadorErrores.ts` (depura `mensaje`/`pila`/
+`contexto` reusando `depurarContexto` de T-02 y registra en el logger local; con un `enviar`
+opcional, tolera su propio fallo sin recursión — verificado con un test que simula `enviar`
+rechazando y otro lanzando síncronamente, ambos comprobando que no hay una segunda llamada ni un
+`unhandledRejection` sin capturar); `src/nucleo/capturaErrores.ts` (conecta `error`/
+`unhandledrejection` de un `objetivo` inyectado, testeado con `jsdom` real, no un doble a medida);
+y `src/datos/eventoError.ts` (`crearEnviadorEventoError`, la RPC `registrar_evento_error` por
+`fetch`, testeado contra `crearFetchSimulado` de T-03, incluida una petición real y un fallo de red).
+`src/ui/main.ts` instala la captura ya en el arranque real de la aplicación, sin `enviar` (solo local
+por ahora): verificado en Chromium headless (mismo método que T-00) que la página sigue cargando sin
+ningún error de consola tras esta instalación. La persistencia remota en `evento_error` queda
+**latente**, no bloqueada: T-05 no tiene migración propia (`Migración: No` en su spec), la tabla y
+la RPC viajan en el script de T-07 — su contrato exacto (parámetros `p_origen`/`p_mensaje`/`p_pila`/
+`p_contexto`, la RPC fija `registrado_en` y el autor) queda fijado en `DECISIONES_TECNICAS.md` para
+que esa sesión futura solo tenga que hacerlo coincidir. 9 tests nuevos (53 en total, antes 41),
+`env -i npm test` en verde sin ninguna variable de entorno. Verificación pre-push completa
+(`typecheck && lint && test && build`) en verde; `dist/` inspeccionado a mano, sin ningún import de
+`jsdom` filtrado y sin secretos. Detalle completo de cada decisión en `DECISIONES_TECNICAS.md`.
+Siguiente tarea: T-06 (límites de abuso y robustez).
 
 ---
 
@@ -57,9 +62,9 @@ Siguiente tarea: T-05 (monitorización de errores).
 | T-02 | Logger centralizado | COMPLETADA | 2026-08-26 | `src/nucleo/registro.ts`; único fichero con permiso ESLint para `console.*`; depuración de contexto (personales, avatar, tokens/claves) por nombre y por forma del valor |
 | T-03 | Suite de tests mínima | COMPLETADA | 2026-08-26 | 41 tests; dominio (slots, asistencia) con reloj inyectado, datos (doble de `fetch`), UI (`jsdom`); guarda automática contra lectura directa del reloj en dominio |
 | T-04 | CI | COMPLETADA | 2026-08-26 | `.github/workflows/ci.yml`: `npm ci` + typecheck/lint/test/build en cada push a `develop` y `master`, sin secretos; Node fijado en `.nvmrc` |
-| T-05 | Monitorización de errores | PENDIENTE | — | — |
+| T-05 | Monitorización de errores | COMPLETADA | 2026-08-27 | Captura global + informador con scrubbing (reusa `depurarContexto` de T-02) + cliente RPC contra doble de `fetch`; sin bloqueo — depende solo de T-02. El envío remoto real queda latente hasta T-07 (tabla) y T-08 (cliente real); contrato de `registrar_evento_error` fijado en DECISIONES_TECNICAS.md para que T-07 lo respete |
 | T-06 | Límites de abuso y robustez | PENDIENTE | — | — |
-| T-07 | Modelo de datos, runner de migraciones y entornos | PENDIENTE | — | Migración `001_esquema_inicial` |
+| T-07 | Modelo de datos, runner de migraciones y entornos | PENDIENTE | — | Migración `001_esquema_inicial`; punto 14 (`evento_error`) debe seguir el contrato de RPC fijado por T-05 en `DECISIONES_TECNICAS.md` (parámetros `p_origen`/`p_mensaje`/`p_pila`/`p_contexto`) |
 | T-08 | Cliente propio de la API de Supabase | PENDIENTE | — | PostgREST + GoTrue + Storage |
 | T-09 | Autenticación y los tres roles | PENDIENTE | — | `student` sin acceso desde el día 1 |
 | T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
