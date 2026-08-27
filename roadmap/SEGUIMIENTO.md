@@ -18,15 +18,18 @@ cambia para el desarrollo:
   servicio externo. R-05 se entrega con `mailto:` / portapapeles, como estaba previsto.
 - **#2 (`student`):** no se amplía. En el MVP `student` sigue cerrado; ninguna sesión debe
   proponer una política nueva para ese rol.
-- **#4 (fuerza bruta): amplía T-09.** Se quiere bloqueo de la cuenta al **tercer** intento fallido
-  y que el administrador pueda renovar la contraseña de un usuario. GoTrue no ofrece ninguna de
-  las dos cosas (T-06 lo documentó: solo límite por IP, no configurable). Registrado en §7 como
-  desviación de la hoja de ruta y en la fila de T-09. **El mecanismo está sin concretar y no es
-  trivial:** el login va del navegador directo a GoTrue y no hay backend propio, así que un
-  contador en el cliente es eludible con `curl`; lo único que se aplica de verdad es negar los
-  datos por RLS a un usuario marcado como bloqueado. Y contar por email abre un vector que antes
-  no existía: dejar fuera a un profesor sabiendo solo su correo. Abierta la **pregunta #5** para
-  cerrar el diseño antes de programar esa parte; el resto de T-09 no depende de ella.
+- **#4 (fuerza bruta): amplía T-09, y el diseño ya está cerrado.** Se quiere bloqueo de la cuenta
+  al **tercer** intento fallido y que el administrador pueda renovar la contraseña de un usuario.
+  GoTrue no ofrece ninguna de las dos (T-06 lo documentó: solo límite por IP, no configurable), así
+  que el mecanismo se decidió con el dueño en la **pregunta #5**, ya respondida: el bloqueo se
+  aplica **en la base de datos y por RLS** (un usuario bloqueado no lee nada aunque su token valga)
+  y lo levanta el administrador; «renovar la contraseña» es **disparar el correo de recuperación**
+  con la clave anónima, nunca fijarla el administrador; y el bloqueo alcanza a todos los roles, con
+  el editor SQL del dueño como única vía de escape. Dos consecuencias que la sesión de T-09 debe
+  tener presentes desde el principio, ambas en §7: **T-09 necesita migración** aunque su spec diga
+  `Migración: No` (y eso arrastra la numeración de la de T-10), y **las políticas de T-10 deben
+  incluir "no bloqueado" en todas las tablas**, o el bloqueo queda en cosmética. Detalle técnico
+  completo en las dos últimas filas de `DECISIONES_TECNICAS.md`.
 - **#3 (inmutabilidad de la hoja de ruta):** la cabecera se mantiene literal y **cada edición del
   dueño se documenta como excepción puntual** en §7. Las dos ediciones del 2026-08-25 quedan ya
   documentadas ahí; el hallazgo #1 de `auditoriacontinua.md` puede cerrarse en la próxima pasada.
@@ -40,8 +43,12 @@ usuario nuevo — crear el usuario en el panel y promoverlo son dos pasos distin
 Estado del desarrollo: **T-00 a T-08 COMPLETADAS**, `001_esquema_inicial` aplicada y verificada en
 `dev`, 241 tests en verde y CI en verde. Historia de las últimas sesiones —incluidas el arreglo
 del runner y la recuperación de la bitácora de T-08 perdida en un merge— en
-`HISTORIAL_SESIONES.md`, sesiones (4) a (7). **Siguiente tarea: T-09** (autenticación y los tres
-roles), que ya no tiene bloqueo humano de entrada.
+`HISTORIAL_SESIONES.md`, sesiones (4) a (8). **Siguiente tarea: T-09** (autenticación y los tres
+roles). No tiene bloqueo humano de entrada —el primer usuario `administrator` ya existe en `dev`—
+pero su alcance es mayor que el de su spec (§7) y **necesita una migración**, así que abrirá fila
+en §3 cuando la escriba. Primer paso antes de programar, porque ningún agente puede comprobarlo
+(§0.1): pedir al dueño la salida de la consulta de comprobación de `db/000_bootstrap_perfil.sql`,
+para descartar que ese usuario se haya quedado con el rol `student` por defecto.
 
 ---
 
