@@ -37,6 +37,43 @@
 
 ---
 
+### Sesión 2026-08-27 (12) (PM)
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código) — **revisado, sin cambios de contenido**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: tercer ciclo del PM, sin cambios)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, "Última actualización"),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno nuevo que convertir. El único hallazgo del registro de
+`auditoriacontinua.md` sigue siendo el #1 (severidad baja, gobernanza documental de
+`HOJA_DE_RUTA.md`), que no es una mejora de producto ni deuda técnica de código — ya está tratado
+como pregunta #3 de §6 de `SEGUIMIENTO.md`, que el dueño respondió el 2026-08-27; queda listo para
+que el auditor lo cierre en su próxima pasada
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía); nada que
+convertir. Se revisaron también las respuestas del dueño a las preguntas #1 y #2 de §6 (sin envío
+automático de avisos por ahora; `student` sigue sin acceso en el MVP): ambas confirman, sin
+modificar, el alcance que la oleada v1/v2 ya daba por hecho — no generan ninguna R-XX nueva ni
+cambian ninguna existente. Se revisó también `PROYECTO.md` y `db/MODELO.md` para contexto de
+esquema; sin hallazgos de producto. Nota de higiene documental fuera del alcance del PM (no se
+actúa): `PROYECTO.md` §"Dominio y cumplimiento" referencia "el procedimiento [de anonimización por
+derecho de supresión] se documenta en T-22", pero esa tarea es "Mi horario" del profesor — el
+requisito 3 de **T-25** es el que trata la anonimización. `PROYECTO.md` no es uno de los documentos
+del PM (§0.4 de `HOJA_DE_RUTA.md`) y la discrepancia no tiene efecto de producto ni de seguridad, así
+que se deja anotada aquí para quien mantenga ese fichero, sin tocarlo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el MVP sigue en curso (P-01 antes de T-10, según lo decidido por el dueño y
+registrado en la sesión anterior) — es lo que debe ejecutar la siguiente sesión de desarrollo. El
+siguiente ciclo de PM debe repetir esta misma revisión (hallazgos ABIERTO del auditor, entradas
+`nuevo` de `FEEDBACK.md`, respuestas nuevas en §6) y, si el MVP (T-00 a T-25) ya está
+COMPLETADA/DESPLEGADA EN PRODUCCIÓN, empezar a mover a `roadmap/ROADMAP_HISTORICO.md` la oleada v1
+en cuanto esté 100% desplegada.
+
+---
+
 ### Sesión 2026-08-27 (11)
 **Tarea(s):** resolución del merge con T-09 y priorización de P-01 — no es una T-XX
 **Estado resultante:** merge cerrado; P-01 aprobada y priorizada por el dueño sobre T-10

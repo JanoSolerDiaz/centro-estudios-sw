@@ -8,11 +8,19 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-08-26 — segundo ciclo del PM: definida la oleada v2 (R-08 a R-11).
-`FEEDBACK.md` sigue sin entradas `nuevo` que convertir. El único hallazgo `ABIERTO` de
-`auditoriacontinua.md` en esta pasada (#1, severidad baja, higiene documental sobre
-`HOJA_DE_RUTA.md`) no encaja como mejora de producto ni como deuda técnica de código: queda
-anotado como pregunta abierta en §6 de `SEGUIMIENTO.md`, no como R-XX.
+**Última actualización:** 2026-08-27 — tercer ciclo del PM: revisado, **sin cambios de contenido**.
+`FEEDBACK.md` sigue sin entradas `nuevo` que convertir (fila plantilla vacía). El único hallazgo del
+registro de `auditoriacontinua.md` sigue siendo el #1 (severidad baja, higiene documental sobre
+`HOJA_DE_RUTA.md`), que no encaja como mejora de producto ni como deuda técnica de código y ya está
+tratado como pregunta #3 de §6 de `SEGUIMIENTO.md` — el dueño la respondió el 2026-08-27 y el
+hallazgo queda listo para que el auditor lo cierre en su próxima pasada, sin acción del PM. Las
+respuestas del dueño a las preguntas #1 (sin envío automático de avisos por ahora) y #2 (`student`
+sigue sin acceso) confirman, sin modificarlo, el alcance conservador que R-05 y el resto de la
+oleada v1/v2 ya daban por hecho: ningún requisito de R-XX cambia. Desde la pasada anterior el
+desarrollo avanzó T-05 a T-09 (MVP, no roadmap de producto) y el dueño amplió el alcance de T-09
+(bloqueo de cuenta, encolado como P-01 en §5 de `SEGUIMIENTO.md`) — ninguna de las dos cosas es una
+R-XX: la primera es la hoja de ruta inmutable, la segunda es una decisión técnica del dueño sobre una
+tarea ya especificada. **No hay nada nuevo que añadir al roadmap de producto en este ciclo.**
 
 ---
 
