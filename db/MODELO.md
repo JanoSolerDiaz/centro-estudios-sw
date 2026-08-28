@@ -6,12 +6,13 @@
 >
 > Estado actual: `000`/`000b` (bootstrap manual del dueño) + `001_esquema_inicial` (T-07,
 > **aplicado y verificado** en `dev`, `esquema_version()` = `1`) + `002_bloqueo_cuenta` (P-01,
-> escrito y testeado, **pendiente de que el dueño lo aplique** con `npm run migrate` — ver §3 de
-> `roadmap/SEGUIMIENTO.md`). Ninguna tabla de este documento tiene todavía políticas de acceso por
-> rol: eso es el contenido íntegro de T-10 (`003_politicas_rls` — renumerada de `002` porque P-01 se
-> intercaló antes, ver §7 de `SEGUIMIENTO.md`). Hasta que se aplique, cada tabla de abajo (salvo
-> `perfil`) tiene la seguridad activada pero cerrada a cal y canto — nadie entra por la API, ni
-> siquiera `administrator`.
+> escrito y testeado, **pendiente de que el dueño lo aplique** con `npm run migrate`) +
+> `003_politicas_rls` (T-10, escrito y testeado —estáticamente y con `db/pruebas_rls.sql`—,
+> **pendiente de que el dueño aplique primero `002` y después esta**, en ese orden — ver §3 de
+> `roadmap/SEGUIMIENTO.md`). Hasta que se aplique `003`, cada tabla de abajo (salvo `perfil`) tiene
+> la seguridad activada pero cerrada a cal y canto — nadie entra por la API, ni siquiera
+> `administrator`. La matriz completa rol × tabla × operación vive en `roadmap/DECISIONES_TECNICAS.md`
+> (sección final, fuera del registro append-only).
 
 ## Diagrama de relaciones (texto)
 
@@ -217,6 +218,33 @@ una de las suyas) hereda la condición automáticamente, sin repetirla tabla por
   `POST /auth/v1/recover` (ya implementado desde T-09, `solicitarRecuperacionContrasena`), nunca que
   el administrador fije una contraseña — eso exigiría `service_role` en el navegador.
 
+## Políticas RLS por rol (`003_politicas_rls.sql`, T-10)
+
+Cada una de las siete tablas nuevas de `001_esquema_inicial` gana sus políticas por rol; la matriz
+completa está en `roadmap/DECISIONES_TECNICAS.md`. Dos piezas merecen explicación aparte porque no
+son solo "una política por celda":
+
+- **Columnas de contacto de `alumno` (`email_alumno`/`telefono_alumno`).** Un `teacher` no debe
+  poder leerlas ni con una consulta directa. Como `administrator` y `teacher` son el mismo rol de
+  Postgres (`authenticated`, distinguidos solo por `perfil.rol`), un `GRANT` de columna no puede
+  dárselas a uno sin dárselas también al otro. La solución: la tabla base concede a `authenticated`
+  solo las columnas de identificación (leer `email_alumno`/`telefono_alumno` ahí falla con un error
+  real, para cualquiera); `administrator` lee la ficha completa a través de una vista aparte,
+  `public.alumno_ficha` (`select * from alumno where es_administrator()`), que al no delegar en la
+  RLS de la tabla base sí puede devolver todas las columnas. Detalle y alternativas descartadas en
+  `DECISIONES_TECNICAS.md`. **Efecto práctico para T-12:** escribir siempre `alumno`
+  (`INSERT`/`UPDATE`, con `Prefer: return=minimal`) y leer siempre `alumno_ficha` si la pantalla es
+  de `administrator`; un `teacher` sigue leyendo `alumno` directamente, nunca la vista.
+- **Bucket de avatares (`storage.objects`).** Las políticas ya existen desde esta migración, aunque
+  el bucket lo crea T-14 (`004_bucket_avatares`, renumerada porque esta migración pasó de `002` a
+  `003` — ver `db/APLICADAS.md`): una política sobre `bucket_id = 'avatares'` no exige que el bucket
+  exista todavía, así que nunca hay una ventana en la que el bucket exista sin RLS en vigor.
+
+`db/pruebas_rls.sql`, lanzable con `npm run probar-rls` (el dueño, nunca el agente: exige
+`SUPABASE_ACCESS_TOKEN`), impersona usuarios reales de `perfil` para comprobar cada celda de la
+matriz en vivo contra `dev`. Vive en una única transacción que termina siempre en `rollback`: no
+deja datos de prueba en la base pase lo que pase.
+
 ## Invariantes que vive en PostgreSQL, no en el cliente
 
 - **`registrado_en` de `asistencia` es inmutable.** Trigger `BEFORE UPDATE`
@@ -231,21 +259,16 @@ una de las suyas) hereda la condición automáticamente, sin repetirla tabla por
   un test estático (`herramientas/migraciones/esquemaInicial.test.ts`) y, tras aplicar la migración,
   por un barrido en vivo de `information_schema.role_table_grants`
   (`npm run migrate -- --verificar-privilegios`).
-- **RLS activada en las siete tablas nuevas, sin excepción, desde el primer script.** Sin ninguna
-  política todavía (T-10): el efecto es que hoy nadie llega a ninguna por la API, ni siquiera
-  `administrator`. Es el mismo "cerrado por defecto" que ya rige en `perfil` desde el bootstrap.
+- **RLS activada en las siete tablas nuevas, sin excepción, desde el primer script.** Cada una tiene
+  ya sus políticas por rol desde `003_politicas_rls` (T-10, ver arriba y la matriz completa en
+  `roadmap/DECISIONES_TECNICAS.md`); todas usan `es_administrator()`/`es_teacher()`, así que heredan
+  automáticamente la condición "no bloqueado" de `rol_actual()` (P-01) sin repetirla.
 - **`student` no tiene ninguna política nueva.** Su única política en todo el sistema sigue siendo
   la de leer su propia fila de `perfil`, ya existente desde el bootstrap.
 
-## Qué falta (a propósito, para T-10 y siguientes)
+## Qué falta (a propósito, para T-11 y siguientes)
 
-- Las políticas RLS por rol de las siete tablas nuevas y del bucket de avatares: T-10
-  (`003_politicas_rls` — pasa de `002` a `003` porque P-01 se intercaló antes, ver §7 de
-  `SEGUIMIENTO.md`). Deben incluir la condición de "no bloqueado" en las que no dependan ya de
-  `es_administrator()`/`es_teacher()`.
 - Las RPC `registrar_asistencia` y `actualizar_asistencia`: T-18/T-21.
-- La vista o los `GRANT` por columna que le ocultan `email_alumno`/`telefono_alumno` a un `teacher`:
-  T-10, punto 4.
 - El campo `relacion` en `persona_referencia` y si debe exigirse al menos una vía de contacto por
   alumno: preguntas abiertas para el dueño (§6 de `SEGUIMIENTO.md`), no se han añadido sin su
   decisión.

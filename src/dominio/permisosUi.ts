@@ -1,0 +1,70 @@
+/**
+ * Ayudas de PRESENTACIÓN para adaptar la interfaz al rol del usuario (T-10, requisito 6 de su
+ * spec: "la interfaz se adapta al rol, con un comentario explícito de que eso es presentación y no
+ * control de acceso"). Este comentario es ese comentario explícito.
+ *
+ * Nada de este fichero controla acceso a ningún dato: el control real vive en las políticas RLS de
+ * `db/003_politicas_rls.sql`, verificadas por `db/pruebas_rls.sql`. Si una pantalla futura llamara a
+ * estas funciones con el rol equivocado, o no las llamara nunca, el servidor seguiría rechazando
+ * cualquier operación que ese rol no tenga permitida — lo único que cambiaría es que la interfaz
+ * mostraría un control que iba a fallar al pulsarlo, nunca que dejaría pasar algo indebido.
+ *
+ * Puras, sin acceso a red ni al DOM: cada pantalla que las consuma (T-11 en adelante) decide cómo
+ * pintar el resultado.
+ */
+
+import type { Rol } from './tipos.ts';
+
+/** Catálogo de centros: alta, edición y baja (T-11). */
+export function puedeGestionarCentros(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
+/** Ficha de alumno: alta, edición y baja lógica (T-12). */
+export function puedeGestionarFichaAlumno(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
+/** Personas de referencia del alumno: el dato más sensible junto al avatar (T-13). Un teacher no
+ * ve esta sección en ninguna pantalla, ni siquiera en modo lectura. */
+export function puedeVerPersonasReferencia(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
+/** Horarios: alta y edición de slots de cualquier alumno/profesor (T-15/T-16). */
+export function puedeGestionarHorarios(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
+/** Revisar y corregir un registro de asistencia que no es el propio (T-21: administrator elige
+ * slot y profesor libremente; un teacher solo su ventana de edición sobre lo suyo). */
+export function puedeEditarAsistenciaDeCualquiera(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
+/** El teacher SÍ ve el avatar de sus alumnos activos en las cards de pasar lista (ampliación del
+ * dueño, 2026-08-25) — pero nunca en un listado general ni en el buscador de alumnos extra (T-20). */
+export function puedeVerAvatarEnCards(rol: Rol): boolean {
+  return rol === 'administrator' || rol === 'teacher';
+}
+
+/** Columnas de `alumno` con las que merece la pena pintar un formulario o una card para `rol`: no
+ * es una lista de lo que el dato PUEDE tener, es una lista de lo que no tiene sentido dibujar
+ * porque el servidor nunca lo va a devolver para ese rol (`003_politicas_rls.sql`, requisito 4 de
+ * T-10: un teacher no tiene ningún GRANT de columna sobre `email_alumno`/`telefono_alumno`). Evita
+ * que una pantalla futura dibuje una casilla de contacto vacía y la confunda con "sin dato". */
+export function columnasVisiblesFichaAlumno(rol: Rol): readonly string[] {
+  const IDENTIFICACION = ['id', 'nombre', 'primer_apellido', 'segundo_apellido', 'avatar_ruta', 'activo'] as const;
+  if (rol === 'administrator') {
+    return [
+      ...IDENTIFICACION,
+      'centro_referencia_id',
+      'email_alumno',
+      'telefono_alumno',
+      'alta_en',
+      'baja_en',
+      'motivo_baja',
+    ];
+  }
+  return IDENTIFICACION;
+}

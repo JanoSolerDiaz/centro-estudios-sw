@@ -13,7 +13,8 @@
     "test": "node --test \"src/**/*.test.ts\" \"herramientas/**/*.test.ts\"",
     "build": "tsc -b tsconfig.build.json",
     "migrate": "node herramientas/migrar.ts",
-    "seed": "node herramientas/seed.ts"
+    "seed": "node herramientas/seed.ts",
+    "probar-rls": "node herramientas/probarRls.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

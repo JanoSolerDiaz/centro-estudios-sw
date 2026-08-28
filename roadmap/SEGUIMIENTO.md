@@ -10,70 +10,73 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-28 — **P-01 implementada en código y tests, BLOQUEADA — pendiente
-aplicar la migración `002_bloqueo_cuenta`.** Bloqueo de cuenta al tercer intento fallido de
-contraseña y renovación de contraseña por el administrador, con el diseño ya cerrado en la sesión
-anterior (§6 #5, DECISIONES_TECNICAS.md T-09 2026-08-27): `perfil` gana `intentos_fallidos` y
-`bloqueado`; `rol_actual()` se redefine (`create or replace function`, conservando
-`security definer`) para exigir además `not bloqueado` — efecto deliberado: como T-10 debe escribir
-todas sus políticas nuevas con `es_administrator()`/`es_teacher()` (su propio requisito 1), heredan
-la condición de "no bloqueado" sin repetirla tabla por tabla, que es la razón de que esta migración
-vaya antes que T-10 y no después; `registrar_intento_fallido(p_email)` (`SECURITY DEFINER`,
-ejecutable por `anon`, responde igual exista o no la cuenta) cuenta los fallos y bloquea al llegar a
-3; `admin_desbloquear_usuario(p_usuario_id)` (`SECURITY DEFINER`, solo `authenticated`, comprueba
-`es_administrator()` ella misma) levanta el bloqueo. La renovación de contraseña no necesitaba
-ninguna pieza nueva: ya era `solicitarRecuperacionContrasena` desde T-09.
+**Última actualización:** 2026-08-28 (segunda sesión del día) — **T-10 implementada en código y
+tests, BLOQUEADA — pendiente aplicar primero la migración `002_bloqueo_cuenta` y después
+`003_politicas_rls`, en ese orden.** Políticas RLS de los tres roles en las siete tablas de
+`001_esquema_inicial` más el bucket `avatares` (todavía sin crear, ver más abajo), con la matriz
+completa en `roadmap/DECISIONES_TECNICAS.md`: `teacher` lee los `centro_estudios`/`alumno` activos y
+sus propios `slot_horario`/`asistencia`; `administrator` lee y escribe todo (sin `DELETE` salvo en
+`persona_referencia`, la única tabla con borrado real); `persona_referencia`/`asistencia_historial`/
+`evento_error` quedan reservadas a `administrator`; ninguna política nueva menciona a `student`.
 
-En el cliente, `gestorSesion.ts` rechaza un perfil `bloqueado` igual que ya rechazaba uno inactivo
-(`CuentaBloqueada`, mismo patrón que `PerfilInactivo`: revoca la sesión en el servidor, no persiste
-nada), y cuenta cada `CredencialesInvalidas` contra la RPC con la clave anónima, mejor esfuerzo (un
-fallo de red al contar nunca enmascara el error real de login). **No** resetea el contador en un
-login correcto: hacerlo habría exigido una segunda llamada de datos al autenticar, y eso rompe el
-requisito de T-09 de que un `student`/rol desconocido dispare como máximo UNA — verificado por un
-test ya existente que sigue en verde sin tocarlo. `desbloquearUsuario(usuarioId)` en `GestorSesion`
-llama a la RPC de desbloqueo; sin consumidor todavía (T-24, administración de usuarios, sigue
-`PENDIENTE`), queda listo y testeado contra dobles. 13 tests nuevos (310 en total, antes 297).
-Detalle completo en la sesión de hoy en `HISTORIAL_SESIONES.md` y en las filas nuevas de
-`DECISIONES_TECNICAS.md`.
+**La pieza con más matices (requisito 4 de T-10): que un `teacher` no pueda leer
+`email_alumno`/`telefono_alumno` de `alumno` ni con una consulta directa.** Como `administrator` y
+`teacher` comparten el mismo rol de Postgres (`authenticated`, distinguidos solo por `perfil.rol`),
+un `GRANT` de columna no puede dárselas a uno sin dárselas también al otro — así que la "vista con
+`security_invoker`" que sugería el punto 4 de la propia spec de T-10 **no habría resuelto nada**:
+hereda los privilegios de columna del invocador, que son los mismos para los dos. Solución
+implementada: la tabla base concede a `authenticated` solo las columnas de identificación (leer las
+de contacto ahí falla con un error real, para cualquiera); `administrator` lee la ficha completa por
+una vista aparte, `public.alumno_ficha`, que al no delegar en la RLS de la tabla base sí puede
+devolver todas las columnas. Detalle y alternativas descartadas en `DECISIONES_TECNICAS.md`. Efecto
+práctico anotado ahí mismo para T-12: escribir siempre con `Prefer: return=minimal` contra `alumno`.
 
-**Efecto en T-10:** su migración pasa de `002_politicas_rls` a **`003_politicas_rls`** (la
-numeración la arrastra P-01, tal como ya avisaba §7). Como el mecanismo de bloqueo quedó resuelto
-dentro de `rol_actual()`, T-10 no necesita añadir una condición explícita de "no bloqueado" en cada
-política que ya use `es_administrator()`/`es_teacher()` — la hereda. Sí debe revisar si alguna
-política suya necesitara comprobar el rol de otra forma (sin pasar por esas dos funciones): en ese
-caso concreto sí tendría que añadir `not bloqueado` a mano.
+**Las políticas del bucket `avatares` se escriben ya, aunque el bucket lo crea T-14.** Una política
+de RLS sobre `storage.objects` no exige que el bucket exista todavía, así que nunca hay una ventana
+en la que exista sin RLS en vigor — misma lógica que T-07 ya siguió con las siete tablas nuevas.
+**Efecto en la numeración:** la migración de T-14 pasaba a llamarse `003_bucket_avatares` tras el
+desplazamiento de P-01; como esta migración de T-10 ocupa ese `003`, T-14 se recorre una posición
+más y pasa a `004_bucket_avatares`.
 
-**T-07/T-08/T-09 (resumen, completadas 2026-08-27):** modelo de datos + runner de migraciones
-(`001_esquema_inicial` aplicada y verificada, `esquema_version()` = `1`); cliente propio de
-PostgREST/Storage; autenticación con los tres roles (GoTrue propio, sesión con renovación
-proactiva, `student`/rol desconocido sin acceso). Detalle en las sesiones (4b) y (10) de
-`HISTORIAL_SESIONES.md`.
+**`db/pruebas_rls.sql` (requisito 5), lanzable con `npm run probar-rls`:** impersona usuarios reales
+de `perfil` (nunca inventados) fijando `request.jwt.claims` + `set local role authenticated`, vive
+en una única transacción que siempre termina en `rollback` (no deja datos de prueba en `dev` pase lo
+que pase), y registra cada comprobación como permitida/prohibida/OMITIDA — OMITIDA cuando el
+entorno no tiene todavía el fixture necesario (hoy no hay ningún `teacher` en `dev`, así que esa
+parte queda OMITIDA hasta que exista uno) en vez de fabricar un resultado falso. Los tres casos del
+bucket de avatares quedan OMITIDOS hasta que T-14 cree el bucket y suba al menos un fichero real; esa
+sesión debe completar esa sección del script. La lógica de "qué cuenta como fallo" vive aparte
+(`herramientas/migraciones/resultadoPruebasRls.ts`), testeada contra dobles.
 
-**§6 respondida, 5 de 6.** El dueño contestó las cuatro preguntas abiertas y cerró el diseño del
-bloqueo (#5, implementado hoy en P-01). Efectos: no se implementa envío automático de avisos a la
-familia ni se da de alta ningún servicio externo (#1); `student` no se amplía en el MVP (#2); la
-cabecera de `HOJA_DE_RUTA.md` se mantiene literal y **cada edición del dueño se documenta como
-excepción puntual en §7** (#3, que resuelve el hallazgo #1 del auditor, ya `RESUELTO`). Queda
-abierta la **#6**, sobre dos ajustes del panel de `Authentication` que ningún agente puede
-consultar.
+**En el cliente, `src/dominio/permisosUi.ts`** (requisito 6): funciones puras de presentación
+(`puedeGestionarCentros`, `puedeVerPersonasReferencia`, `columnasVisiblesFichaAlumno`, etc.), cada
+una con el comentario explícito que exige la spec — esto es presentación, no control de acceso — y
+sin consumidor todavía (la primera pantalla que las usa es T-11). 23 tests nuevos (333 en total,
+antes 310: 12 del test estático de `003_politicas_rls.sql`, 5 de `resultadoPruebasRls.ts`, 6 de
+`permisosUi.ts`). Detalle
+completo en la sesión de hoy en `HISTORIAL_SESIONES.md` y en las diez filas nuevas de
+`DECISIONES_TECNICAS.md` (incluida la matriz de referencia al final del documento).
 
-**§3 con una fila pendiente:** la migración `002_bloqueo_cuenta` (fila 4, nueva de hoy). Las tres
-anteriores siguen resueltas y verificadas. También está ya `SUPABASE_SERVICE_ROLE_KEY_DEV` en
-`.env.local`, así que `npm run seed` tiene credencial y privilegios. Dato para T-10: **hoy no hay
-ningún `teacher`**, así que su parte se testea contra dobles.
+**P-01 (bloqueo de cuenta, sesión anterior del mismo día) sigue exactamente igual: BLOQUEADA —
+pendiente aplicar `002_bloqueo_cuenta`.** No ha cambiado nada de su implementación en esta sesión.
+Ver la fila de P-01 en §5 y la entrada correspondiente de `HISTORIAL_SESIONES.md` para el detalle.
+
+**§3 con dos filas pendientes, en orden:** `002_bloqueo_cuenta` (fila 4) y, después de esa,
+`003_politicas_rls` (fila 5, nueva de hoy) — el runner aplica en orden numérico, así que no tiene
+sentido intentar `003` sin `002` primero. También está ya `SUPABASE_SERVICE_ROLE_KEY_DEV` en
+`.env.local`, así que `npm run seed` tiene credencial y privilegios. Sigue sin haber ningún
+`teacher` en `dev`: `npm run probar-rls` solo podrá ejercitar esa parte de la matriz cuando exista
+uno (T-24, o uno de prueba creado a mano por el dueño).
 
 **Aviso de proceso, vigente desde 2026-08-27:** una sesión no debe arrancar sin `git pull`, y el
 registro debe empujarse en cuanto se escribe — el trabajo se coordina por estos documentos, así que
-un commit de registro sin empujar es una instrucción que no llega. Esta sesión (2026-08-28) empezó
-con `git pull` limpio sobre `8bbc35d` (la pasada del auditor), sin colisión.
+un commit de registro sin empujar es una instrucción que no llega. Esta sesión empezó con
+`git pull` limpio sobre `011d155` (la pasada del auditor de esta mañana más P-01), sin colisión.
 
-**Siguiente tarea: T-10, una vez el dueño confirme la migración `002`.** No hace falta esperar a
-esa confirmación para *escribir* T-10 (el runner aplica en orden numérico igualmente), pero sí para
-darla por `COMPLETADA` de verdad, igual que ya le pasó a T-07. Recordatorio para quien la escriba:
-`rol_actual()` ya exige `not bloqueado` desde `002_bloqueo_cuenta`, así que cualquier política
-nueva que use `es_administrator()`/`es_teacher()` hereda la condición sin repetirla; solo hace
-falta añadirla a mano si alguna política de T-10 comprobara el rol de otra forma. Su migración es
-`003_politicas_rls` (renumerada de `002`, ver arriba).
+**Siguiente tarea: T-11 (catálogo de centros de estudios), sin esperar a que el dueño confirme
+`002`/`003`.** Igual que T-10 se pudo escribir sin esperar a `002`, T-11 se escribe y testea contra
+dobles sin esperar a `003`: el criterio de aceptación de T-11 no depende de una conexión real. Su
+spec está en el cuerpo de `HOJA_DE_RUTA.md`; no lleva migración propia (`Migración: No`).
 
 ---
 
@@ -108,11 +111,11 @@ falta añadirla a mano si alguna política de T-10 comprobara el rol de otra for
 | T-07 | Modelo de datos, runner de migraciones y entornos | COMPLETADA | 2026-08-27 | `001_esquema_inicial` aplicada en `dev` por el dueño y verificada con `esquema_version()` = `1`; fila anotada en `db/APLICADAS.md`. Incluye SQL, runner (`npm run migrate` con guardas, hash e inmutabilidad, `--estado` y `--verificar-privilegios`), `MODELO.md`, tipos de dominio, test de fuga de secretos y semilla. El primer intento del dueño falló por un bug del runner (no cargaba `.env.local`), arreglado en la sesión 2026-08-27 (4) |
 | T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
 | T-09 | Autenticación y los tres roles | COMPLETADA | 2026-08-27 | `student`/rol desconocido sin acceso, sin llamada de datos extra; login, logout, renovación proactiva, recuperación de contraseña completa; bloqueo humano aparte (crear el primer `administrator`) en fila #3 de §3. Su ampliación (bloqueo de cuenta) es P-01, ver más abajo |
-| T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `003_politicas_rls` (renumerada de `002`: P-01 se intercaló antes, ver §7) |
+| T-10 | Autorización: políticas RLS de los tres roles | BLOQUEADA — pendiente aplicar migración `002` y después `003` | 2026-08-28 | Migración `003_politicas_rls` (renumerada de `002`: P-01 se intercaló antes, ver §7). Código y tests completos; matriz en `DECISIONES_TECNICAS.md` |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | PENDIENTE | — | — |
 | T-13 | Personas de referencia del alumno | PENDIENTE | — | 0..N, solo `administrator` |
-| T-14 | Avatar del alumno (Supabase Storage) | PENDIENTE | — | Migración `003_bucket_avatares`. Bucket privado; límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
+| T-14 | Avatar del alumno (Supabase Storage) | PENDIENTE | — | Migración `004_bucket_avatares` (renumerada de `003`: T-10 ocupó ese número, ver §7). Sus políticas de `storage.objects` ya existen desde `003_politicas_rls`; esta tarea solo crea el bucket. Bucket privado; límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md`. Debe completar los casos OMITIDOS del bucket en `db/pruebas_rls.sql` |
 | T-15 | Slots de horario y no-retroactividad | PENDIENTE | — | — |
 | T-16 | Interfaz de gestión del administrador | PENDIENTE | — | Centros, ficha completa y horarios |
 | T-17 | Motor de propuesta "quién toca ahora" | PENDIENTE | — | — |
@@ -161,6 +164,7 @@ falta añadirla a mano si alguna política de T-10 comprobara el rol de otra for
 | 2 | Aplicar `db/000b_arreglo_permisos.sql` en `dev` | T-00 / arranque manual | ~~Comprobar con `npm run migrate -- --verificar-privilegios` y, si hacía falta, pegar el fichero en el editor SQL de `dev`~~ | **RESUELTA 2026-08-27 — no hacía falta aplicarlo: ya estaba aplicado.** El barrido no encontró ninguna violación, y la consulta de comprobación del propio fichero lo confirma en `perfil`: `authenticated` → INSERT/SELECT/UPDATE (sin `TRUNCATE`), `service_role` → DELETE/INSERT/SELECT/UPDATE, `anon` → ninguna fila. La fila existía porque `db/APLICADAS.md` lo daba por pendiente: la aplicación nunca se anotó. Ya está anotado y verificado |
 | 3 | Crear el primer usuario `administrator` en `dev` (bloqueo humano de T-09) | T-09 | ~~Crear el usuario en Authentication → Users y promoverlo con el bloque del final de `db/000_bootstrap_perfil.sql`~~ | **RESUELTA 2026-08-27** — hecho y **verificado**: el dueño ejecutó la consulta de comprobación y el único perfil de `dev` tiene `rol = administrator` y `activo = true`, no el `student` por defecto. Se anota el resultado y no la salida literal: nombre y email son datos personales y no van a un documento de registro |
 | 4 | Aplicar la migración `002_bloqueo_cuenta` en `dev` | P-01 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `2` | **PENDIENTE** — añade `intentos_fallidos`/`bloqueado` a `perfil`, redefine `rol_actual()` (misma función, `create or replace`, sigue `security definer`) para exigir `not bloqueado`, y crea las RPC `registrar_intento_fallido`/`admin_desbloquear_usuario`. No borra ni recrea nada existente: es segura de aplicar sobre los datos ya presentes (las dos columnas nacen con sus valores por defecto, `0`/`false`, en todas las filas actuales) |
+| 5 | Aplicar la migración `003_politicas_rls` en `dev`, **después** de la fila 4 | T-10 | `git pull` y `npm run migrate` en local (aplica en orden numérico: no hace nada si `002` sigue pendiente). Al terminar, comprobar que `esquema_version()` devuelve `3`. Opcional pero recomendado: ejecutar también `npm run probar-rls` y revisar que no haya ninguna fila `FALLO` | **PENDIENTE** — añade las políticas RLS de los tres roles a las siete tablas de `001_esquema_inicial` (matriz completa en `DECISIONES_TECNICAS.md`) y las políticas del bucket `avatares` (el bucket en sí lo crea T-14). No borra ni recrea nada existente |
 
 ---
 
@@ -219,3 +223,4 @@ falta añadirla a mano si alguna política de T-10 comprobara el rol de otra for
 | 2026-08-27 | T-09 | **Alcance ampliado por decisión del dueño:** se añade bloqueo de la cuenta tras **tres** contraseñas falladas y una vía para que el administrador renueve la contraseña de un usuario. La spec de T-09 en `HOJA_DE_RUTA.md` no lo pedía: su requisito 1 se limitaba al inicio de sesión contra GoTrue, y T-06 había documentado que GoTrue **no** tiene bloqueo por cuenta (solo un límite por IP, no configurable). El mecanismo está pendiente de concretar (§6, pregunta #5) | Respuesta del dueño a la pregunta #4 de §6, el 2026-08-27. La hoja de ruta es inmutable, así que la ampliación se registra aquí en vez de editar la tarea |
 | 2026-08-27 | T-09 / T-10 | **T-09 pasa a necesitar migración, y su spec dice `Migración: No`.** El bloqueo acordado se aplica en la base de datos, así que hace falta DDL sobre `perfil` (marca de bloqueo y conteo de intentos) más las RPC que lo mantienen y lo levantan. Eso es un fichero `db/NNN_*.sql` nuevo, con su fila en §3 para que lo aplique el dueño, y obliga a decidir la numeración: si el bloqueo va en `002`, la migración de políticas RLS de T-10 (`002_politicas_rls` en la hoja de ruta) pasa a `003`. Además, las políticas de T-10 tendrán que incluir la condición de "no bloqueado" en **todas** las tablas, no solo en `perfil`: es ahí donde el bloqueo se hace efectivo | Consecuencia directa de la respuesta del dueño a #4 y de la decisión (1) de #5, el 2026-08-27. Se registra aquí para que la sesión de T-09 no lo descubra a mitad y para que T-10 no escriba sus políticas sin esa condición |
 | 2026-08-25 | — | **Excepción puntual a la inmutabilidad de `HOJA_DE_RUTA.md`:** el dueño editó el documento 41 minutos después de crearlo, para ajustar el protocolo de §0.1 y el cuerpo de la tarea T-07, pese a que la cabecera se declara "DOCUMENTO INMUTABLE… no se modifica nunca" | Respuesta del dueño a la pregunta #3 de §6, el 2026-08-27: la cabecera se mantiene literal y **cada edición suya se documenta aquí como excepción puntual**, en vez de relajar la declaración. Origen: hallazgo #1 de `auditoriacontinua.md`, que queda resuelto |
+| 2026-08-28 | T-10 / T-14 | **Renumeración en cadena de las migraciones posteriores a T-10, por segunda vez el mismo día.** La hoja de ruta original llamaba `003_bucket_avatares` a la migración de T-14 (ya corregida una vez de `002` a `003` por la intercalación de P-01, ver la fila anterior de este mismo §7 del 2026-08-27). Como la migración de T-10 (`002_politicas_rls` en el original) ocupa ahora el número `003`, la de T-14 se recorre una posición más y pasa a `004_bucket_avatares`. T-10 además escribe ya, en su propia migración `003`, las políticas RLS del bucket `avatares` sobre `storage.objects` (válidas aunque el bucket todavía no exista) — T-14 solo tendrá que crear el bucket en sí | Consecuencia directa de la numeración de P-01 (fila anterior) al llegar a la migración de T-10. Anotado aquí, en `db/003_politicas_rls.sql`, en `db/MODELO.md` y en la fila de T-14 de §1 para que esa sesión no lo descubra a mitad |

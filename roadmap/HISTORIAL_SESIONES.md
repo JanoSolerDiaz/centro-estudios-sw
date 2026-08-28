@@ -37,6 +37,75 @@
 
 ---
 
+### Sesión 2026-08-28 (14) — T-10
+
+**Tarea(s):** T-10 (Autorización: políticas RLS de los tres roles) — siguiente tarea de §1 tras
+verificar que `auditoriacontinua.md` no tenía ningún hallazgo `ABIERTO` de severidad alta
+**Estado resultante:** T-10 **BLOQUEADA — pendiente aplicar primero la migración `002_bloqueo_cuenta`
+y después `003_politicas_rls`, en ese orden** (código, migración y tests completos; misma situación
+que ya tuvo T-07/P-01: el runner aplica en orden numérico, así que `003` no hace nada mientras `002`
+siga pendiente)
+**Commits a `develop`:** el commit de esta sesión (T-10: políticas RLS de los tres roles)
+**Migraciones aplicadas:** ninguna por esta sesión (nunca las aplica el agente, §0.1). Escrita y
+testeada: `db/003_politicas_rls.sql`, fila 5 abierta en §3 de `SEGUIMIENTO.md`
+**Propagación a prod pendiente:** sin cambios (no existe `prod` todavía)
+**Archivos creados/modificados:** `db/003_politicas_rls.sql` (nuevo: políticas de las siete tablas
+de `001_esquema_inicial` más `storage.objects` del futuro bucket `avatares`, columna-restricción de
+`alumno` vía `GRANT` de columna + vista `alumno_ficha`), `herramientas/migraciones/
+politicasRls.test.ts` (nuevo, 12 tests estáticos sobre el SQL real), `db/pruebas_rls.sql` (nuevo:
+batería de aislamiento ejecutable con impersonación de usuarios reales vía `request.jwt.claims`, una
+única transacción que siempre termina en `rollback`), `herramientas/probarRls.ts` (nuevo, CLI de
+`npm run probar-rls`, sin test directo, mismo patrón que `migrar.ts`), `herramientas/migraciones/
+resultadoPruebasRls.ts` + su test (nuevo, 5 tests: qué cuenta como fallo/omisión), `src/dominio/
+permisosUi.ts` + su test (nuevo, 6 tests: adaptación de la interfaz al rol, presentación no control
+de acceso), `package.json` (script `probar-rls`), `roadmap/DECISIONES_TECNICAS.md` (10 filas nuevas
+más la sección final de matriz rol × tabla × operación), `db/MODELO.md` (sección nueva de políticas
+RLS, cabecera de estado, "Qué falta" actualizado), `roadmap/SEGUIMIENTO.md` (§1 T-10 y T-14, §3 fila
+5, §7 fila nueva de renumeración, "Última actualización" y "Siguiente tarea" reescritos)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (333, antes 310) · build ✅
+**Health check post-deploy:** no aplica (esta sesión no toca el frontend desplegable, solo esquema,
+herramientas y una pieza de dominio sin consumidor todavía)
+**Decisiones tomadas:** 10 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-28, T-10): el mecanismo
+de columna-restricción de `alumno` (`GRANT` de columna + vista `alumno_ficha` sin `security_invoker`,
+y por qué la vista con `security_invoker` que sugería la propia spec no habría resuelto nada dado
+que `administrator`/`teacher` comparten el rol `authenticated`); el aviso para T-12 sobre `Prefer:
+return=minimal`; escribir ya las políticas del bucket de avatares aunque el bucket lo cree T-14 (con
+la renumeración en cadena `003_bucket_avatares` → `004_bucket_avatares`); `persona_referencia` con
+una única política `for all`; el diseño de `pruebas_rls.sql` (impersonación de usuarios reales,
+`rollback` siempre, `OMITIDO` en vez de fabricar falsos positivos cuando falta un fixture o el bucket
+de T-14); separar la CLI de `probarRls.ts` de la lógica testeable de resumen; y `permisosUi.ts`
+construido sin consumidor todavía, mismo criterio que `eventoError.ts` (T-08) y `desbloquearUsuario`
+(P-01)
+**Hallazgos del auditor atendidos:** ninguno (el registro de `auditoriacontinua.md` no tenía ningún
+`ABIERTO` de severidad alta al empezar esta sesión — se revisó antes de elegir tarea, tal como exige
+el protocolo)
+**Hallazgos:**
+- La propia spec de T-10 (punto 4) sugiere una "vista dedicada con `security_invoker`" para ocultar
+  las columnas de contacto de `alumno` a `teacher`. Se comprobó que esa sugerencia concreta no
+  funciona en este proyecto: como no hay un rol de Postgres por cada rol de aplicación
+  (`administrator`/`teacher` son ambos `authenticated`, distinguidos solo por `perfil.rol`), una
+  vista `security_invoker` hereda los privilegios de columna del invocador, que son los mismos para
+  los dos — así que `administrator` seguiría sin poder leer esas columnas a través de ella. No es un
+  error de la spec (el punto 4 la ofrece como alternativa, no como única vía; también menciona
+  "`GRANT` por columna"), pero merece quedar explícito para que ninguna sesión futura la reintente
+  sin la vista adicional. Detalle completo en la fila correspondiente de `DECISIONES_TECNICAS.md`.
+- `db/pruebas_rls.sql` no se ha podido ejecutar en esta sesión contra un proyecto real (el agente no
+  tiene esa credencial, §0.1): está escrito siguiendo la técnica documentada de Supabase para probar
+  RLS desde el editor SQL, pero su primera ejecución real (el dueño, tras aplicar `002` y `003`) es
+  la que lo valida de verdad. Mismo espíritu de aviso que ya lleva `clienteManagementApi.ts` sobre su
+  propio endpoint (T-07).
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el dueño hace `git pull` y `npm run migrate` en local dos veces seguidas (aplica
+`002_bloqueo_cuenta` y `003_politicas_rls` en el mismo `npm run migrate`, en orden numérico); confirma
+en §3 (filas 4 y 5) y la siguiente sesión verifica con `esquema_version()` = `3`, anota
+`db/APLICADAS.md` y marca P-01 y T-10 `COMPLETADA`. Opcionalmente, el dueño puede ejecutar también
+`npm run probar-rls` para ver el resultado en vivo (algunas filas quedarán `OMITIDO` hasta que exista
+un `teacher` real y, para el bucket, hasta T-14). Después, **T-11** (catálogo de centros de estudios,
+sin migración propia): no hace falta esperar a la confirmación del dueño para escribirla, igual que
+ya le pasó a T-10 con `002`.
+
+---
+
 ### Sesión 2026-08-28 (13) — P-01
 
 **Tarea(s):** P-01 (ampliación de T-09: bloqueo de cuenta al tercer intento fallido, renovación de
