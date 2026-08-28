@@ -37,6 +37,57 @@
 
 ---
 
+### Sesión 2026-08-28 (13) — P-01
+
+**Tarea(s):** P-01 (ampliación de T-09: bloqueo de cuenta al tercer intento fallido, renovación de
+contraseña por el administrador) — decidida por el dueño el 2026-08-27, priorizada antes de T-10
+**Estado resultante:** P-01 **BLOQUEADA — pendiente aplicar migración `002_bloqueo_cuenta` en `dev`**
+(código, migración y tests completos; falta la segunda parte, igual que le pasó a T-07)
+**Commits a `develop`:** el commit de esta sesión (P-01: bloqueo de cuenta al tercer intento
+fallido)
+**Migraciones aplicadas:** ninguna por esta sesión (nunca las aplica el agente, §0.1). Escrita y
+testeada: `db/002_bloqueo_cuenta.sql`, fila 4 abierta en §3 de `SEGUIMIENTO.md`
+**Propagación a prod pendiente:** sin cambios (no existe `prod` todavía)
+**Archivos creados/modificados:** `db/002_bloqueo_cuenta.sql` (nuevo),
+`herramientas/migraciones/bloqueoCuenta.test.ts` (nuevo, 6 tests estáticos sobre el SQL),
+`src/dominio/tipos.ts` y `tipos.test.ts` (`Perfil.intentos_fallidos`/`Perfil.bloqueado`),
+`src/nucleo/gestorSesion.ts` (`CuentaBloqueada`, conteo de intentos fallidos contra la RPC,
+comprobación de `bloqueado` en `activarSesion`, `desbloquearUsuario`) y `gestorSesion.test.ts` (7
+tests nuevos), `src/nucleo/mensajesAbuso.ts` y su test (mensaje de `CuentaBloqueada`),
+`src/ui/pantallaSinAcceso.test.ts` y `src/ui/aplicacion.test.ts` (literales de `Perfil` actualizados
+con los dos campos nuevos, y el doble de `GestorSesion` con `desbloquearUsuario`), `DEVELOPERS.md`
+(consulta SQL exacta de desbloqueo manual, vía del dueño), `db/MODELO.md` (columnas nuevas de
+`perfil`, sección de bloqueo de cuenta, corrección de una cabecera desactualizada que seguía
+diciendo `001` pendiente de aplicar cuando ya estaba aplicada desde la sesión (10)),
+`roadmap/SEGUIMIENTO.md` (§1, §3 fila 4, §5 P-01), `roadmap/DECISIONES_TECNICAS.md` (5 filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (310, antes 297) · build ✅
+**Health check post-deploy:** no aplica (esta sesión no toca el frontend desplegable, solo esquema y
+capa de dominio/datos)
+**Decisiones tomadas:** 5 filas nuevas en `DECISIONES_TECNICAS.md` (2026-08-28, P-01): redefinir
+`rol_actual()` con `and not bloqueado` para que T-10 herede la condición sin repetirla tabla por
+tabla; no resetear `intentos_fallidos` en un login correcto (para no romper el requisito de T-09 de
+una sola llamada de datos para `student`/rol desconocido); congelar el contador una vez bloqueada la
+cuenta; y añadir `desbloquearUsuario` sin consumidor todavía, latente para T-24
+**Hallazgos del auditor atendidos:** ninguno (el registro de `auditoriacontinua.md` no tenía ningún
+`ABIERTO` de severidad alta al empezar esta sesión — se revisó antes de elegir tarea, tal como exige
+el protocolo)
+**Hallazgos:**
+- `db/MODELO.md` tenía una cabecera desactualizada: seguía diciendo que `001_esquema_inicial`
+  estaba "pendiente de que el dueño lo aplique", cuando ya se aplicó y verificó en la sesión (10).
+  No es un hallazgo de esta tarea, pero se corrigió de paso por ser una inconsistencia barata de
+  arreglar y visible para el dueño (que revisa este documento, no el código).
+- El diseño de P-01 ya venía cerrado por completo desde la sesión (11)/§6 #5 de `SEGUIMIENTO.md`, así
+  que esta sesión fue puramente de implementación: no hubo preguntas nuevas para el dueño ni
+  ambigüedad de alcance que resolver.
+**Tareas autopropuestas (P-XX):** ninguna nueva (P-01 ya estaba registrada, no es autopropuesta)
+**Próximo paso:** el dueño hace `git pull` y `npm run migrate` en local para aplicar
+`002_bloqueo_cuenta`; confirma en §3 (fila 4) y la siguiente sesión verifica con `esquema_version()`
+= `2`, anota `db/APLICADAS.md` y marca P-01 `COMPLETADA`. Después, **T-10** (políticas RLS), cuya
+migración pasa a ser `003_politicas_rls` — no hace falta esperar a la confirmación del dueño para
+escribir T-10, solo para darla por completada de verdad.
+
+---
+
 ### Sesión 2026-08-27 (12) (PM)
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
 **Estado resultante:** N/A (documento vivo, no código) — **revisado, sin cambios de contenido**

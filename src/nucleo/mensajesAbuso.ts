@@ -7,11 +7,12 @@
  * puede venir tal cual de Postgres/PostgREST (texto técnico, a veces en inglés), y esta función
  * existe precisamente para que ese texto no llegue nunca a la interfaz. Desde T-09, añade
  * `CredencialesInvalidas` (login) y `PerfilInactivo` (perfil desactivado) — sus mensajes no revelan
- * si el email existe (requisito 9 de T-09).
+ * si el email existe (requisito 9 de T-09). Desde P-01, añade `CuentaBloqueada` (tres intentos
+ * fallidos).
  */
 
 import { ErrorLimiteAlcanzado } from './limitadorTasa.ts';
-import { PerfilInactivo } from './gestorSesion.ts';
+import { PerfilInactivo, CuentaBloqueada } from './gestorSesion.ts';
 import {
   NoAutenticado,
   SinPermiso,
@@ -48,6 +49,9 @@ export function mensajeAmigable(error: unknown): string {
   }
   if (error instanceof PerfilInactivo) {
     return 'Tu cuenta está desactivada. Habla con el administrador del centro.';
+  }
+  if (error instanceof CuentaBloqueada) {
+    return 'Tu cuenta se ha bloqueado por varios intentos fallidos. Habla con el administrador para desbloquearla.';
   }
   if (error instanceof NoAutenticado) {
     return 'Tu sesión ha caducado o no has iniciado sesión. Vuelve a iniciar sesión.';

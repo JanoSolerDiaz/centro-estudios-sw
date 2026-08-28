@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mensajeAmigable } from './mensajesAbuso.ts';
 import { ErrorLimiteAlcanzado } from './limitadorTasa.ts';
-import { PerfilInactivo } from './gestorSesion.ts';
+import { PerfilInactivo, CuentaBloqueada } from './gestorSesion.ts';
 import {
   NoAutenticado,
   SinPermiso,
@@ -94,4 +94,8 @@ void test('CredencialesInvalidas produce un mensaje que no revela si el email ex
 
 void test('PerfilInactivo produce un mensaje que orienta a hablar con el administrador (T-09)', () => {
   assert.match(mensajeAmigable(new PerfilInactivo()), /desactivad|administrador/i);
+});
+
+void test('CuentaBloqueada produce un mensaje que orienta a hablar con el administrador (P-01)', () => {
+  assert.match(mensajeAmigable(new CuentaBloqueada()), /bloquead|administrador/i);
 });

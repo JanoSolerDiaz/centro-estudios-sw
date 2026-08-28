@@ -23,6 +23,12 @@ export interface Perfil {
   readonly nombre: string;
   readonly rol: Rol;
   readonly activo: boolean;
+  /** Contraseñas incorrectas contadas por `registrar_intento_fallido` (P-01). No se resetea al
+   * iniciar sesión con éxito, solo al desbloquear. */
+  readonly intentos_fallidos: number;
+  /** true al llegar a 3 intentos fallidos. Un perfil bloqueado sigue leyendo su propia fila (para
+   * poder avisarle), pero `rol_actual()` deja de reconocerle ningún rol en el resto del esquema. */
+  readonly bloqueado: boolean;
   readonly creado_en: string;
   readonly actualizado_en: string;
 }

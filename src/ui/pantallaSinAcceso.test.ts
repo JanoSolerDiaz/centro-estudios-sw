@@ -16,6 +16,8 @@ const PERFIL_STUDENT: Perfil = {
   nombre: 'Alex Alumno',
   rol: 'student',
   activo: true,
+  intentos_fallidos: 0,
+  bloqueado: false,
   creado_en: '2026-01-01T00:00:00.000Z',
   actualizado_en: '2026-01-01T00:00:00.000Z',
 };

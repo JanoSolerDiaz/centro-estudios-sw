@@ -262,6 +262,40 @@ declara ningún secreto: la verificación no necesita credenciales de Supabase p
 de tests corre contra dobles (ver arriba), y si algún día un test las pidiera sería la señal de que
 ese test está mal planteado y hay que doblarlo, no de que al workflow le falte un secreto.
 
+## Bloqueo de cuenta y desbloqueo manual (P-01)
+
+Desde `002_bloqueo_cuenta.sql`, `perfil` bloquea a un usuario (`bloqueado = true`) al tercer intento
+fallido de contraseña, y **eso alcanza también al `administrator`** — es la única forma de que el
+bloqueo sea real y no un adorno: si el propio administrador pudiera saltárselo, cualquiera que
+supiera su email podría dejar fuera a todos los demás sin que nadie pudiera arreglarlo desde la
+aplicación. La vía normal de desbloqueo es la RPC `admin_desbloquear_usuario(p_usuario_id)`, que
+solo funciona si quien la llama **ya** tiene rol `administrator` — es decir, no sirve si el único
+administrador activo es precisamente quien está bloqueado.
+
+Para ese caso (o para cualquier incidente en el que la aplicación no sea una vía posible), **la
+única vía de escape es el editor SQL del panel de Supabase, y solo la tiene el dueño** — decisión
+expresa del dueño el 2026-08-27 (§6 pregunta #5 de `SEGUIMIENTO.md`), misma lógica que ya rige para
+el arranque manual de `db/000_bootstrap_perfil.sql`. La consulta exacta:
+
+```sql
+-- Desbloquea una cuenta directamente, sin pasar por la RPC (que exige ser ya administrator).
+-- Sustituye el email por el de la cuenta bloqueada.
+update public.perfil
+   set bloqueado = false,
+       intentos_fallidos = 0
+ where id = (select id from auth.users where email = 'EMAIL_DE_LA_CUENTA_BLOQUEADA');
+
+-- Verifica el resultado:
+select p.nombre, p.rol, p.activo, p.bloqueado, p.intentos_fallidos, u.email
+  from public.perfil p
+  join auth.users u on u.id = p.id
+ where u.email = 'EMAIL_DE_LA_CUENTA_BLOQUEADA';
+```
+
+Esto **nunca** requiere conocer ni fijar una contraseña: renovar la contraseña de un usuario
+(bloqueado o no) sigue siendo disparar el correo de recuperación (`solicitarRecuperacionContrasena`,
+T-09), nunca que el administrador —ni el dueño— fije una nueva.
+
 ## Sobre las importaciones `.ts`
 
 El código fuente importa módulos hermanos con extensión `.ts` (p. ej.

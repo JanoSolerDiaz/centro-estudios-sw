@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearGestorSesion, PerfilInactivo } from './gestorSesion.ts';
+import { crearGestorSesion, PerfilInactivo, CuentaBloqueada } from './gestorSesion.ts';
 import { crearAlmacenSesionEnMemoria } from './almacenSesion.ts';
 import { crearLogger, type EntradaLog } from './registro.ts';
 import { CredencialesInvalidas } from '../datos/autenticacion.ts';
@@ -24,6 +24,8 @@ const PERFIL_ADMIN: Perfil = {
   nombre: 'Ana Admin',
   rol: 'administrator',
   activo: true,
+  intentos_fallidos: 0,
+  bloqueado: false,
   creado_en: '2026-01-01T00:00:00.000Z',
   actualizado_en: '2026-01-01T00:00:00.000Z',
 };
@@ -58,6 +60,27 @@ function fetchPerfil(perfil: Perfil | undefined, peticiones: PeticionSimulada[])
   return crearFetchSimulado((peticion) => {
     peticiones.push(peticion);
     return { estado: 200, cuerpo: perfil ? [perfil] : [] };
+  });
+}
+
+/** Distingue, por URL, entre la carga del perfil (`/rest/v1/perfil?...`) y las RPC de P-01
+ * (`registrar_intento_fallido`, `admin_desbloquear_usuario`), que van a `/rest/v1/rpc/...`. */
+function fetchConRpc(opciones: {
+  perfil?: Perfil | undefined;
+  peticionesPerfil?: PeticionSimulada[];
+  peticionesRpc?: PeticionSimulada[];
+  fallarRpc?: boolean;
+}) {
+  return crearFetchSimulado((peticion) => {
+    if (peticion.url.includes('/rpc/')) {
+      opciones.peticionesRpc?.push(peticion);
+      if (opciones.fallarRpc) {
+        throw new TypeError('fallo de red simulado en la RPC');
+      }
+      return { estado: 200, cuerpo: null };
+    }
+    opciones.peticionesPerfil?.push(peticion);
+    return { estado: 200, cuerpo: opciones.perfil ? [opciones.perfil] : [] };
   });
 }
 
@@ -133,6 +156,129 @@ void test('login con perfil inactivo: se rechaza con PerfilInactivo, se revoca e
   assert.equal(gestor.obtenerEstado().tipo, 'restaurando');
   assert.equal(almacen.leer(), null);
   assert.equal(cerrarSesionLlamadaCon, 'access-1');
+});
+
+void test('login con cuenta bloqueada: se rechaza con CuentaBloqueada, se revoca en el servidor, no queda sesión', async () => {
+  const almacen = crearAlmacenSesionEnMemoria();
+  const { logger } = crearLoggerDePrueba();
+  let cerrarSesionLlamadaCon: string | undefined;
+  const gestor = crearGestorSesion({
+    ...OPCIONES_BASE,
+    logger,
+    almacenSesion: almacen,
+    fetchImpl: fetchConRpc({ perfil: { ...PERFIL_ADMIN, bloqueado: true } }),
+    clienteAutenticacion: crearClienteAutenticacionFalso({
+      iniciarSesion: () => Promise.resolve(SESION_1),
+      cerrarSesion: (token) => {
+        cerrarSesionLlamadaCon = token;
+        return Promise.resolve();
+      },
+    }),
+  });
+
+  await assert.rejects(() => gestor.iniciarSesion('admin@ejemplo.es', 'contrasena-correcta'), CuentaBloqueada);
+
+  assert.equal(gestor.obtenerEstado().tipo, 'restaurando');
+  assert.equal(almacen.leer(), null);
+  assert.equal(cerrarSesionLlamadaCon, 'access-1');
+});
+
+void test('login con contraseña errónea (P-01): registra el intento fallido contra la RPC, con el email tal cual', async () => {
+  const almacen = crearAlmacenSesionEnMemoria();
+  const { logger } = crearLoggerDePrueba();
+  const peticionesRpc: PeticionSimulada[] = [];
+  const gestor = crearGestorSesion({
+    ...OPCIONES_BASE,
+    logger,
+    almacenSesion: almacen,
+    fetchImpl: fetchConRpc({ perfil: PERFIL_ADMIN, peticionesRpc }),
+    clienteAutenticacion: crearClienteAutenticacionFalso({
+      iniciarSesion: () => Promise.reject(new CredencialesInvalidas()),
+    }),
+  });
+
+  await assert.rejects(() => gestor.iniciarSesion('profesor@ejemplo.es', 'mal'), CredencialesInvalidas);
+
+  assert.equal(peticionesRpc.length, 1);
+  assert.match(peticionesRpc[0]?.url ?? '', /\/rpc\/registrar_intento_fallido$/);
+  assert.deepEqual(peticionesRpc[0]?.cuerpo, { p_email: 'profesor@ejemplo.es' });
+});
+
+void test('login con credenciales correctas: NO llama a registrar_intento_fallido', async () => {
+  const almacen = crearAlmacenSesionEnMemoria();
+  const { logger } = crearLoggerDePrueba();
+  const peticionesRpc: PeticionSimulada[] = [];
+  const gestor = crearGestorSesion({
+    ...OPCIONES_BASE,
+    logger,
+    almacenSesion: almacen,
+    fetchImpl: fetchConRpc({ perfil: PERFIL_ADMIN, peticionesRpc }),
+    clienteAutenticacion: crearClienteAutenticacionFalso({
+      iniciarSesion: () => Promise.resolve(SESION_1),
+    }),
+  });
+
+  await gestor.iniciarSesion('admin@ejemplo.es', 'contrasena-correcta');
+
+  assert.equal(peticionesRpc.length, 0);
+});
+
+void test('si falla el registro del intento fallido (p.ej. red), el login sigue lanzando CredencialesInvalidas igualmente', async () => {
+  const almacen = crearAlmacenSesionEnMemoria();
+  const { logger, entradas } = crearLoggerDePrueba();
+  const gestor = crearGestorSesion({
+    ...OPCIONES_BASE,
+    logger,
+    almacenSesion: almacen,
+    fetchImpl: fetchConRpc({ perfil: PERFIL_ADMIN, fallarRpc: true }),
+    clienteAutenticacion: crearClienteAutenticacionFalso({
+      iniciarSesion: () => Promise.reject(new CredencialesInvalidas()),
+    }),
+  });
+
+  await assert.rejects(() => gestor.iniciarSesion('admin@ejemplo.es', 'mal'), CredencialesInvalidas);
+  assert.ok(entradas.some((entrada) => entrada.nivel === 'warn'));
+});
+
+void test('desbloquearUsuario llama a admin_desbloquear_usuario con el usuarioId indicado, usando el token de la sesión actual', async () => {
+  const almacen = crearAlmacenSesionEnMemoria();
+  const { logger } = crearLoggerDePrueba();
+  const peticionesRpc: PeticionSimulada[] = [];
+  const gestor = crearGestorSesion({
+    ...OPCIONES_BASE,
+    logger,
+    almacenSesion: almacen,
+    fetchImpl: fetchConRpc({ perfil: PERFIL_ADMIN, peticionesRpc }),
+    clienteAutenticacion: crearClienteAutenticacionFalso({
+      iniciarSesion: () => Promise.resolve(SESION_1),
+    }),
+  });
+  await gestor.iniciarSesion('admin@ejemplo.es', 'contrasena-correcta');
+
+  await gestor.desbloquearUsuario('usuario-bloqueado-1');
+
+  assert.equal(peticionesRpc.length, 1);
+  const peticion = peticionesRpc[0];
+  assert.ok(peticion);
+  assert.match(peticion.url, /\/rpc\/admin_desbloquear_usuario$/);
+  assert.deepEqual(peticion.cuerpo, { p_usuario_id: 'usuario-bloqueado-1' });
+  assert.equal(peticion.cabeceras.authorization, 'Bearer access-1');
+});
+
+void test('desbloquearUsuario sin sesión: lanza NoAutenticado sin llamar a la red', async () => {
+  const almacen = crearAlmacenSesionEnMemoria();
+  const { logger } = crearLoggerDePrueba();
+  const peticionesRpc: PeticionSimulada[] = [];
+  const gestor = crearGestorSesion({
+    ...OPCIONES_BASE,
+    logger,
+    almacenSesion: almacen,
+    fetchImpl: fetchConRpc({ peticionesRpc }),
+    clienteAutenticacion: crearClienteAutenticacionFalso(),
+  });
+
+  await assert.rejects(() => gestor.desbloquearUsuario('usuario-1'), NoAutenticado);
+  assert.equal(peticionesRpc.length, 0);
 });
 
 void test('ausencia de sesión: restaurar sin nada guardado deja sin_sesion sin llamar a la red', async () => {

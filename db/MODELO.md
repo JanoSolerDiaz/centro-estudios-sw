@@ -4,12 +4,14 @@
 > mantiene al día en cada migración (§0.4 de `HOJA_DE_RUTA.md`). El SQL exacto vive en `db/NNN_*.sql`;
 > este documento es el mapa, no la fuente de verdad — ante cualquier duda, el SQL manda.
 >
-> Estado actual: `000`/`000b` (bootstrap manual del dueño) + `001_esquema_inicial` (T-07, escrito y
-> testeado, **pendiente de que el dueño lo aplique** con `npm run migrate` — ver §3 de
+> Estado actual: `000`/`000b` (bootstrap manual del dueño) + `001_esquema_inicial` (T-07,
+> **aplicado y verificado** en `dev`, `esquema_version()` = `1`) + `002_bloqueo_cuenta` (P-01,
+> escrito y testeado, **pendiente de que el dueño lo aplique** con `npm run migrate` — ver §3 de
 > `roadmap/SEGUIMIENTO.md`). Ninguna tabla de este documento tiene todavía políticas de acceso por
-> rol: eso es el contenido íntegro de T-10 (`002_politicas_rls`). Hasta que se aplique, cada tabla
-> de abajo (salvo `perfil`) tiene la seguridad activada pero cerrada a cal y canto — nadie entra por
-> la API, ni siquiera `administrator`.
+> rol: eso es el contenido íntegro de T-10 (`003_politicas_rls` — renumerada de `002` porque P-01 se
+> intercaló antes, ver §7 de `SEGUIMIENTO.md`). Hasta que se aplique, cada tabla de abajo (salvo
+> `perfil`) tiene la seguridad activada pero cerrada a cal y canto — nadie entra por la API, ni
+> siquiera `administrator`.
 
 ## Diagrama de relaciones (texto)
 
@@ -45,6 +47,8 @@ gestiona Supabase Auth; `perfil` es el complemento con lo que la aplicación nec
 | `nombre` | texto | sí | Nombre para mostrar. Lo rellena el trigger al crear el usuario, a partir de los metadatos o del email. |
 | `rol` | texto | sí | `administrator` \| `teacher` \| `student`. Nace siempre en `student` (sin acceso), aunque luego el administrador lo cambie. |
 | `activo` | booleano | sí | Un perfil inactivo no entra, aunque su contraseña sea correcta. |
+| `intentos_fallidos` | entero | sí | Añadido por `002_bloqueo_cuenta` (P-01). Contraseñas incorrectas contadas por `registrar_intento_fallido()`. Por defecto `0`; solo vuelve a `0` cuando `admin_desbloquear_usuario()` levanta un bloqueo — no se resetea con un login correcto. |
+| `bloqueado` | booleano | sí | Añadido por `002_bloqueo_cuenta` (P-01). `true` al llegar a 3 intentos fallidos. Por defecto `false`. Ver la sección de más abajo. |
 | `creado_en` / `actualizado_en` | fecha y hora | sí | Los fija el servidor. |
 
 Nunca se borra un perfil: se desactiva. Un trigger sobre `auth.users` crea la fila de `perfil`
@@ -188,6 +192,31 @@ Se escribe únicamente a través de la RPC `registrar_evento_error(p_origen, p_m
 p_contexto)`, que fija ella misma `registrado_en` y `registrado_por` — el contrato que fijó T-05.
 La lectura queda reservada a `administrator` (política todavía por escribir, T-10).
 
+## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
+
+Ampliación de T-09 acordada por el dueño el 2026-08-27 (§5/§6#5 de `SEGUIMIENTO.md`), aplicada
+**antes** de T-10 a propósito: `rol_actual()` pasa a exigir `not bloqueado` además de `activo`, así
+que toda política que use `es_administrator()`/`es_teacher()` (que es como T-10 debe escribir cada
+una de las suyas) hereda la condición automáticamente, sin repetirla tabla por tabla.
+
+- **`rol_actual()` redefinida** (`create or replace function`, conserva `security definer`): además
+  de `activo`, ahora exige `not bloqueado`. Un perfil bloqueado sigue leyendo su **propia** fila
+  (`perfil_leer_propio` no depende de `rol_actual()`), para que la aplicación pueda explicarle que
+  está bloqueado — pero no tiene ningún rol reconocido en el resto del esquema.
+- **`registrar_intento_fallido(p_email text)`** — `SECURITY DEFINER`, ejecutable por `anon` y
+  `authenticated`: quien falla el login todavía no tiene sesión. Busca el email en `auth.users`,
+  suma uno a `intentos_fallidos` y, al llegar a 3, pone `bloqueado = true`. Responde igual exista o
+  no la cuenta (no hay ninguna señal de vuelta): la contrapartida aceptada por el dueño es que
+  cualquiera que conozca el email de un profesor puede dejarlo fuera, pero eso nunca permite entrar,
+  solo cerrar.
+- **`admin_desbloquear_usuario(p_usuario_id uuid)`** — `SECURITY DEFINER`, solo `authenticated`;
+  comprueba `es_administrator()` ella misma y lanza una excepción si quien llama no lo es. Pone
+  `bloqueado = false` e `intentos_fallidos = 0`. El bloqueo alcanza también al `administrator`: su
+  única vía de escape es el editor SQL del panel (solo el dueño), documentada en `DEVELOPERS.md`.
+- **Renovar la contraseña de un usuario bloqueado** no necesita ninguna pieza nueva: es disparar
+  `POST /auth/v1/recover` (ya implementado desde T-09, `solicitarRecuperacionContrasena`), nunca que
+  el administrador fije una contraseña — eso exigiría `service_role` en el navegador.
+
 ## Invariantes que vive en PostgreSQL, no en el cliente
 
 - **`registrado_en` de `asistencia` es inmutable.** Trigger `BEFORE UPDATE`
@@ -211,7 +240,9 @@ La lectura queda reservada a `administrator` (política todavía por escribir, T
 ## Qué falta (a propósito, para T-10 y siguientes)
 
 - Las políticas RLS por rol de las siete tablas nuevas y del bucket de avatares: T-10
-  (`002_politicas_rls`).
+  (`003_politicas_rls` — pasa de `002` a `003` porque P-01 se intercaló antes, ver §7 de
+  `SEGUIMIENTO.md`). Deben incluir la condición de "no bloqueado" en las que no dependan ya de
+  `es_administrator()`/`es_teacher()`.
 - Las RPC `registrar_asistencia` y `actualizar_asistencia`: T-18/T-21.
 - La vista o los `GRANT` por columna que le ocultan `email_alumno`/`telefono_alumno` a un `teacher`:
   T-10, punto 4.

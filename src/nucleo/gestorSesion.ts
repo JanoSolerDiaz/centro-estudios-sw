@@ -5,6 +5,9 @@
  * ninguno de esos tres por separado: un `perfil.activo = false` no entra aunque las credenciales
  * sean correctas (requisito 7), y la renovación de token es siempre **proactiva** — se dispara
  * explícitamente al abrir una pantalla que la necesita, nunca esperando a un `401` (requisito 5).
+ * Desde P-01 (ampliación de T-09), también rechaza un `perfil.bloqueado = true` de la misma forma
+ * que un inactivo, y cuenta cada contraseña incorrecta contra `registrar_intento_fallido` (con la
+ * clave anónima, porque todavía no hay sesión) para que la base de datos bloquee al tercer fallo.
  *
  * El `access_token` vive SOLO en memoria, en el cierre de `crearGestorSesion` — nunca en el
  * `EstadoSesion` que se expone a la interfaz (que solo lleva `perfil`), para que ningún código de
@@ -16,7 +19,8 @@
 
 import type { Perfil } from '../dominio/tipos.ts';
 import { crearClientePostgrest } from '../datos/postgrest.ts';
-import { ErrorDelServidor } from '../datos/erroresDominio.ts';
+import { ErrorDelServidor, NoAutenticado } from '../datos/erroresDominio.ts';
+import { CredencialesInvalidas } from '../datos/autenticacion.ts';
 import type { ClienteAutenticacion, SesionGoTrue } from '../datos/autenticacion.ts';
 import type { AlmacenSesion } from './almacenSesion.ts';
 import type { Reloj } from './reloj.ts';
@@ -30,6 +34,18 @@ export class PerfilInactivo extends Error {
   constructor(mensaje = 'Tu cuenta está desactivada. Habla con el administrador del centro.') {
     super(mensaje);
     this.name = 'PerfilInactivo';
+  }
+}
+
+/** Perfil bloqueado tras tres contraseñas incorrectas (P-01, ampliación de T-09). Igual que
+ * `PerfilInactivo`: las credenciales eran correctas, pero no se entra. Solo un administrador puede
+ * levantar el bloqueo (`desbloquearUsuario`); el afectado no puede hacerlo por sí mismo. */
+export class CuentaBloqueada extends Error {
+  constructor(
+    mensaje = 'Tu cuenta se ha bloqueado por varios intentos fallidos. Habla con el administrador para desbloquearla.',
+  ) {
+    super(mensaje);
+    this.name = 'CuentaBloqueada';
   }
 }
 
@@ -63,7 +79,8 @@ export interface GestorSesion {
   /** Intenta recuperar una sesión persistida (arranque de la aplicación). Nunca lanza: cualquier
    * fallo termina en el estado `sin_sesion`. */
   restaurar(): Promise<void>;
-  /** Lanza `CredencialesInvalidas` (email o contraseña incorrectos) o `PerfilInactivo`. */
+  /** Lanza `CredencialesInvalidas` (email o contraseña incorrectos), `PerfilInactivo` o
+   * `CuentaBloqueada` (P-01, tres intentos fallidos). */
   iniciarSesion(email: string, contrasena: string): Promise<void>;
   cerrarSesion(): Promise<void>;
   /** `undefined` si no hay sesión autenticada. */
@@ -79,6 +96,14 @@ export interface GestorSesion {
   /** Responde igual exista o no la cuenta (delegado en GoTrue, ver `autenticacion.ts`). */
   solicitarRecuperacionContrasena(email: string): Promise<void>;
   establecerContrasenaNueva(tokenRecuperacion: string, contrasenaNueva: string): Promise<void>;
+  /**
+   * Levanta el bloqueo de una cuenta (P-01): pone `bloqueado = false` e `intentos_fallidos = 0` en
+   * `perfil`. Requiere sesión de `administrator` — lo exige la RPC `admin_desbloquear_usuario` en
+   * la base de datos, no esta función; un `teacher` recibiría `SinPermiso` de todos modos. Sin
+   * consumidor todavía (T-24, administración de usuarios, sigue `PENDIENTE`): queda listo y
+   * testeado contra dobles para cuando exista esa pantalla.
+   */
+  desbloquearUsuario(usuarioId: string): Promise<void>;
 }
 
 function nombreDeError(error: unknown): string {
@@ -101,13 +126,17 @@ export function crearGestorSesion(opciones: OpcionesGestorSesion): GestorSesion 
     }
   }
 
-  async function cargarPerfilOFallar(usuarioId: string, accessToken: string): Promise<Perfil> {
-    const cliente = crearClientePostgrest({
+  function clientePostgrest(obtenerTokenSesion?: () => string | undefined) {
+    return crearClientePostgrest({
       urlBase: opciones.urlBase,
       claveAnonima: opciones.claveAnonima,
-      obtenerTokenSesion: () => accessToken,
+      ...(obtenerTokenSesion !== undefined ? { obtenerTokenSesion } : {}),
       ...(opciones.fetchImpl !== undefined ? { fetchImpl: opciones.fetchImpl } : {}),
     });
+  }
+
+  async function cargarPerfilOFallar(usuarioId: string, accessToken: string): Promise<Perfil> {
+    const cliente = clientePostgrest(() => accessToken);
     const filas = await cliente.desde<Perfil>('perfil').eq('id', usuarioId).seleccionar();
     const perfil = filas[0];
     if (!perfil) {
@@ -116,23 +145,45 @@ export function crearGestorSesion(opciones: OpcionesGestorSesion): GestorSesion 
     return perfil;
   }
 
+  /** Mejor esfuerzo: quien llama ya tiene un `CredencialesInvalidas` que lanzar, y esta llamada
+   * nunca debe enmascararlo ni bloquear el login por un fallo de red al contarlo (P-01). Sin
+   * `obtenerTokenSesion`: todavía no hay sesión, así que usa la clave anónima (`registrar_intento_fallido`
+   * es `SECURITY DEFINER`, llamable por `anon`). Responde igual exista o no la cuenta (requisito 9
+   * de T-09): esta función no distingue ningún caso, solo intenta y registra el fallo si lo hay. */
+  async function registrarIntentoFallido(email: string): Promise<void> {
+    try {
+      await clientePostgrest().rpc('registrar_intento_fallido', { p_email: email });
+    } catch (error) {
+      logger.warn('No se ha podido registrar el intento de login fallido.', { error: nombreDeError(error) });
+    }
+  }
+
+  /** Revoca en el servidor una sesión que no va a considerarse iniciada (perfil `inactivo` o
+   * `bloqueado`), mejor esfuerzo: si la revocación falla, se registra y se sigue igual — localmente
+   * esta sesión nunca llega a persistirse ni a guardarse en memoria. */
+  async function revocarSesionSinDejarRastro(accessToken: string, motivo: string): Promise<void> {
+    try {
+      await clienteAutenticacion.cerrarSesion(accessToken);
+    } catch (error) {
+      logger.warn(`No se ha podido revocar en el servidor la sesión de un perfil ${motivo}.`, {
+        error: nombreDeError(error),
+      });
+    }
+  }
+
   /** Núcleo compartido de `iniciarSesion` y `restaurar`: a partir de una `SesionGoTrue` ya
-   * obtenida, carga el perfil, aplica la puerta de `activo`, y si todo va bien deja la sesión
-   * activa (memoria + almacén) y notifica. Lanza `PerfilInactivo` sin dejar rastro en el almacén ni
-   * en memoria. */
+   * obtenida, carga el perfil y aplica las puertas de `activo` y `bloqueado`; si todo va bien deja
+   * la sesión activa (memoria + almacén) y notifica. Lanza `PerfilInactivo`/`CuentaBloqueada` sin
+   * dejar rastro en el almacén ni en memoria. */
   async function activarSesion(sesion: SesionGoTrue): Promise<void> {
     const perfil = await cargarPerfilOFallar(sesion.usuarioId, sesion.accessToken);
     if (!perfil.activo) {
-      try {
-        await clienteAutenticacion.cerrarSesion(sesion.accessToken);
-      } catch (error) {
-        // Mejor esfuerzo: aunque falle la revocación en el servidor, localmente esta sesión nunca
-        // llega a considerarse iniciada (no se persiste ni se guarda en memoria).
-        logger.warn('No se ha podido revocar en el servidor la sesión de un perfil inactivo.', {
-          error: nombreDeError(error),
-        });
-      }
+      await revocarSesionSinDejarRastro(sesion.accessToken, 'inactivo');
       throw new PerfilInactivo();
+    }
+    if (perfil.bloqueado) {
+      await revocarSesionSinDejarRastro(sesion.accessToken, 'bloqueado');
+      throw new CuentaBloqueada();
     }
     sesionActual = sesion;
     almacenSesion.guardar({ refreshToken: sesion.refreshToken });
@@ -163,7 +214,17 @@ export function crearGestorSesion(opciones: OpcionesGestorSesion): GestorSesion 
       }
     },
     async iniciarSesion(email, contrasena) {
-      const sesion = await clienteAutenticacion.iniciarSesion(email, contrasena);
+      let sesion: SesionGoTrue;
+      try {
+        sesion = await clienteAutenticacion.iniciarSesion(email, contrasena);
+      } catch (error) {
+        if (error instanceof CredencialesInvalidas) {
+          // `registrarIntentoFallido` nunca lanza (mejor esfuerzo): un fallo de red al contar el
+          // intento no debe enmascarar ni sustituir el CredencialesInvalidas de más abajo.
+          await registrarIntentoFallido(email);
+        }
+        throw error;
+      }
       await activarSesion(sesion);
     },
     async cerrarSesion() {
@@ -202,5 +263,12 @@ export function crearGestorSesion(opciones: OpcionesGestorSesion): GestorSesion 
     solicitarRecuperacionContrasena: (email) => clienteAutenticacion.solicitarRecuperacionContrasena(email),
     establecerContrasenaNueva: (tokenRecuperacion, contrasenaNueva) =>
       clienteAutenticacion.establecerContrasenaNueva(tokenRecuperacion, contrasenaNueva),
+    async desbloquearUsuario(usuarioId) {
+      if (!sesionActual) {
+        throw new NoAutenticado();
+      }
+      const token = sesionActual.accessToken;
+      await clientePostgrest(() => token).rpc('admin_desbloquear_usuario', { p_usuario_id: usuarioId });
+    },
   };
 }

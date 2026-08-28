@@ -10,78 +10,70 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-27 — **T-07, T-08 y T-09 COMPLETADAS**, con un aviso importante:
-**la ampliación de T-09 que el dueño acordó ese mismo día NO está implementada**. La sesión que
-programó T-09 partió de `origin/develop` en `1bde5de`, sin seis commits de registro que se habían
-quedado sin empujar, así que trabajó con la spec original de la hoja de ruta y no con el alcance
-ampliado. Queda encolado como **P-01 en §5**, con el diseño ya cerrado en §6 (#5) y el contexto en
-§7. Nada de lo entregado es incorrecto: está incompleto respecto a lo acordado.
+**Última actualización:** 2026-08-28 — **P-01 implementada en código y tests, BLOQUEADA — pendiente
+aplicar la migración `002_bloqueo_cuenta`.** Bloqueo de cuenta al tercer intento fallido de
+contraseña y renovación de contraseña por el administrador, con el diseño ya cerrado en la sesión
+anterior (§6 #5, DECISIONES_TECNICAS.md T-09 2026-08-27): `perfil` gana `intentos_fallidos` y
+`bloqueado`; `rol_actual()` se redefine (`create or replace function`, conservando
+`security definer`) para exigir además `not bloqueado` — efecto deliberado: como T-10 debe escribir
+todas sus políticas nuevas con `es_administrator()`/`es_teacher()` (su propio requisito 1), heredan
+la condición de "no bloqueado" sin repetirla tabla por tabla, que es la razón de que esta migración
+vaya antes que T-10 y no después; `registrar_intento_fallido(p_email)` (`SECURITY DEFINER`,
+ejecutable por `anon`, responde igual exista o no la cuenta) cuenta los fallos y bloquea al llegar a
+3; `admin_desbloquear_usuario(p_usuario_id)` (`SECURITY DEFINER`, solo `authenticated`, comprueba
+`es_administrator()` ella misma) levanta el bloqueo. La renovación de contraseña no necesitaba
+ninguna pieza nueva: ya era `solicitarRecuperacionContrasena` desde T-09.
 
-**T-07:** el dueño aplicó `001_esquema_inicial` en `dev` con `npm run migrate` y quedó verificado
-(`esquema_version()` devuelve `1`, fila anotada en `db/APLICADAS.md`, hash `93359e9a4e27`). Antes
-hubo que arreglar un bug del propio runner que lo impedía: no cargaba `.env.local`, así que decía
-"Falta SUPABASE_ACCESS_TOKEN" con un fichero correcto. Con la migración aplicada queda además
-confirmado en la práctica el endpoint de la Management API, que T-07 no pudo verificar contra
-documentación en vivo.
+En el cliente, `gestorSesion.ts` rechaza un perfil `bloqueado` igual que ya rechazaba uno inactivo
+(`CuentaBloqueada`, mismo patrón que `PerfilInactivo`: revoca la sesión en el servidor, no persiste
+nada), y cuenta cada `CredencialesInvalidas` contra la RPC con la clave anónima, mejor esfuerzo (un
+fallo de red al contar nunca enmascara el error real de login). **No** resetea el contador en un
+login correcto: hacerlo habría exigido una segunda llamada de datos al autenticar, y eso rompe el
+requisito de T-09 de que un `student`/rol desconocido dispare como máximo UNA — verificado por un
+test ya existente que sigue en verde sin tocarlo. `desbloquearUsuario(usuarioId)` en `GestorSesion`
+llama a la RPC de desbloqueo; sin consumidor todavía (T-24, administración de usuarios, sigue
+`PENDIENTE`), queda listo y testeado contra dobles. 13 tests nuevos (310 en total, antes 297).
+Detalle completo en la sesión de hoy en `HISTORIAL_SESIONES.md` y en las filas nuevas de
+`DECISIONES_TECNICAS.md`.
 
-**T-08:** cliente propio de la API de Supabase (PostgREST + Storage) en `src/datos/`, con la firma
-de URLs en lote en una sola petición y `eventoError.ts` reescrito sobre él. Detalle en la sesión
-(4b) de `HISTORIAL_SESIONES.md` y en sus 12 filas de `DECISIONES_TECNICAS.md`.
+**Efecto en T-10:** su migración pasa de `002_politicas_rls` a **`003_politicas_rls`** (la
+numeración la arrastra P-01, tal como ya avisaba §7). Como el mecanismo de bloqueo quedó resuelto
+dentro de `rol_actual()`, T-10 no necesita añadir una condición explícita de "no bloqueado" en cada
+política que ya use `es_administrator()`/`es_teacher()` — la hereda. Sí debe revisar si alguna
+política suya necesitara comprobar el rol de otra forma (sin pasar por esas dos funciones): en ese
+caso concreto sí tendría que añadir `not bloqueado` a mano.
 
-**T-09:** autenticación y los tres roles. Cliente propio de GoTrue (`src/datos/autenticacion.ts`:
-login, logout, renovación por `refresh_token` y recuperación de contraseña completa),
-`almacenSesion.ts` (solo el `refresh_token` en `sessionStorage`, el `access_token` únicamente en
-memoria, riesgo de XSS documentado), `gestorSesion.ts` (carga del `perfil` propio, `activo = false`
-no entra aunque las credenciales sean correctas, y renovación **proactiva** vía
-`renovarAlAbrirPasarLista()`, nunca esperando un `401`), `enlaceRecuperacion.ts`, y las pantallas
-en DOM nativo (`pantallaLogin`, `pantallaRecuperarContrasena` —que responde igual exista o no la
-cuenta—, `pantallaEstablecerContrasenaNueva`, `pantallaSinAcceso` para `student` y cualquier rol
-desconocido, y `aplicacion.ts` como enrutador). 297 tests en total. Detalle en la sesión (10) de
-`HISTORIAL_SESIONES.md` y en 8 filas de `DECISIONES_TECNICAS.md`.
-
-**Lo que le falta a T-09 (P-01 en §5):** bloqueo de la cuenta al **tercer** intento fallido,
-aplicado **en la base de datos y por RLS** —un usuario bloqueado no lee nada aunque su token sea
-válido— y levantado por el administrador; «renovar la contraseña» accesible al administrador como
-**disparo del correo de recuperación**, nunca fijándola él; y el bloqueo alcanzando a todos los
-roles, con el editor SQL del dueño como única vía de escape, documentada en `DEVELOPERS.md`. Dos
-consecuencias registradas en §7: **exige una migración** (la spec de T-09 dice `Migración: No`, y
-eso arrastra la numeración de la de T-10) y **las políticas de T-10 deben incluir "no bloqueado" en
-todas las tablas**, o el bloqueo queda en cosmética. Esto último es lo urgente: si T-10 se escribe
-antes de P-01 sin esa condición, habrá que rehacerla.
+**T-07/T-08/T-09 (resumen, completadas 2026-08-27):** modelo de datos + runner de migraciones
+(`001_esquema_inicial` aplicada y verificada, `esquema_version()` = `1`); cliente propio de
+PostgREST/Storage; autenticación con los tres roles (GoTrue propio, sesión con renovación
+proactiva, `student`/rol desconocido sin acceso). Detalle en las sesiones (4b) y (10) de
+`HISTORIAL_SESIONES.md`.
 
 **§6 respondida, 5 de 6.** El dueño contestó las cuatro preguntas abiertas y cerró el diseño del
-bloqueo (#5). Efectos: no se implementa envío automático de avisos a la familia ni se da de alta
-ningún servicio externo (#1); `student` no se amplía en el MVP (#2); la cabecera de
-`HOJA_DE_RUTA.md` se mantiene literal y **cada edición del dueño se documenta como excepción
-puntual en §7** (#3, que resuelve el hallazgo #1 del auditor). Queda abierta la **#6**, nueva de la
-sesión de T-09, sobre dos ajustes del panel de `Authentication` que ningún agente puede consultar.
+bloqueo (#5, implementado hoy en P-01). Efectos: no se implementa envío automático de avisos a la
+familia ni se da de alta ningún servicio externo (#1); `student` no se amplía en el MVP (#2); la
+cabecera de `HOJA_DE_RUTA.md` se mantiene literal y **cada edición del dueño se documenta como
+excepción puntual en §7** (#3, que resuelve el hallazgo #1 del auditor, ya `RESUELTO`). Queda
+abierta la **#6**, sobre dos ajustes del panel de `Authentication` que ningún agente puede
+consultar.
 
-**§3 sin ninguna fila pendiente.** Las tres filas están resueltas y verificadas: `001` aplicada
-(fila 1); `000b_arreglo_permisos.sql` **ya estaba aplicado** —el fichero de registro estaba
-desactualizado, no la base de datos— comprobado con el barrido de privilegios y con la consulta de
-comprobación del propio `000b` (fila 2); y el primer usuario `administrator` existe en `dev` con
-`rol = administrator` y `activo = true`, confirmado por el dueño (fila 3). También está ya
-`SUPABASE_SERVICE_ROLE_KEY_DEV` en `.env.local`, así que `npm run seed` tiene credencial y
-privilegios. Dato para T-10: **hoy no hay ningún `teacher`**, así que su parte se testea contra
-dobles.
+**§3 con una fila pendiente:** la migración `002_bloqueo_cuenta` (fila 4, nueva de hoy). Las tres
+anteriores siguen resueltas y verificadas. También está ya `SUPABASE_SERVICE_ROLE_KEY_DEV` en
+`.env.local`, así que `npm run seed` tiene credencial y privilegios. Dato para T-10: **hoy no hay
+ningún `teacher`**, así que su parte se testea contra dobles.
 
-**Aviso de proceso — tercera colisión en un día, y la primera con consecuencia real.** T-07/T-08
-colisionaron y el merge perdió bitácora (recuperada, sesión (4b)); T-09 colisionó en el ordinal y
-lo resolvió renumerando; y ahora T-09 ha entregado con un alcance obsoleto porque los commits de
-registro estaban sin empujar. La lección ya no es solo numerar por tarea: **una sesión no debe
-arrancar sin `git pull`, y el registro debe empujarse en cuanto se escribe** — el trabajo se
-coordina por estos documentos, así que un commit de registro sin empujar es una instrucción que no
-llega. Ninguna de las tres colisiones perdió código.
+**Aviso de proceso, vigente desde 2026-08-27:** una sesión no debe arrancar sin `git pull`, y el
+registro debe empujarse en cuanto se escribe — el trabajo se coordina por estos documentos, así que
+un commit de registro sin empujar es una instrucción que no llega. Esta sesión (2026-08-28) empezó
+con `git pull` limpio sobre `8bbc35d` (la pasada del auditor), sin colisión.
 
-**Siguiente tarea: P-01, y después T-10 — decidido por el dueño el 2026-08-27.** La sesión de
-programación del **2026-08-28** ataca P-01 (la ampliación de T-09) antes de T-10. El orden importa:
-el bloqueo se hace efectivo en las políticas RLS, así que escribir T-10 primero obligaría a
-rehacerla entera para meter la condición de "no bloqueado". P-01 tiene el alcance ya cerrado (§6
-#5) y el contexto en §7; incluye migración propia, con su fila en §3 para que el dueño la aplique.
-
-**Antes de empezar, esa sesión debe hacer `git pull`.** Es lo que falló hoy: T-09 se programó sobre
-una base sin los commits de registro que estaban sin empujar, y por eso entregó con el alcance
-antiguo. Y al terminar, empujar el registro en cuanto esté escrito, no al final del día.
+**Siguiente tarea: T-10, una vez el dueño confirme la migración `002`.** No hace falta esperar a
+esa confirmación para *escribir* T-10 (el runner aplica en orden numérico igualmente), pero sí para
+darla por `COMPLETADA` de verdad, igual que ya le pasó a T-07. Recordatorio para quien la escriba:
+`rol_actual()` ya exige `not bloqueado` desde `002_bloqueo_cuenta`, así que cualquier política
+nueva que use `es_administrator()`/`es_teacher()` hereda la condición sin repetirla; solo hace
+falta añadirla a mano si alguna política de T-10 comprobara el rol de otra forma. Su migración es
+`003_politicas_rls` (renumerada de `002`, ver arriba).
 
 ---
 
@@ -115,8 +107,8 @@ antiguo. Y al terminar, empujar el registro en cuanto esté escrito, no al final
 | T-06 | Límites de abuso y robustez | COMPLETADA | 2026-08-27 | `src/nucleo/limitadorTasa.ts`, `proteccionDobleToque.ts`, `temporizador.ts`, `reintento.ts`, `controlPeticion.ts`, `mensajesAbuso.ts` — piezas de cliente, latentes hasta que T-14/T-18/T-19/T-21 tengan un punto de llamada real; contrato recomendado de límite por operación fijado en `DECISIONES_TECNICAS.md` |
 | T-07 | Modelo de datos, runner de migraciones y entornos | COMPLETADA | 2026-08-27 | `001_esquema_inicial` aplicada en `dev` por el dueño y verificada con `esquema_version()` = `1`; fila anotada en `db/APLICADAS.md`. Incluye SQL, runner (`npm run migrate` con guardas, hash e inmutabilidad, `--estado` y `--verificar-privilegios`), `MODELO.md`, tipos de dominio, test de fuga de secretos y semilla. El primer intento del dueño falló por un bug del runner (no cargaba `.env.local`), arreglado en la sesión 2026-08-27 (4) |
 | T-08 | Cliente propio de la API de Supabase | COMPLETADA | 2026-08-27 | PostgREST (`postgrest.ts`) + Storage (`almacenamiento.ts`) sobre `fetch` nativo; `eventoError.ts` (T-05) ya lo usa. GoTrue (autenticación) es de T-09, no de esta tarea — su spec no lo incluye en el alcance de T-08 |
-| T-09 | Autenticación y los tres roles | COMPLETADA | 2026-08-27 | `student`/rol desconocido sin acceso, sin llamada de datos extra; login, logout, renovación proactiva, recuperación de contraseña completa; bloqueo humano aparte (crear el primer `administrator`) en fila #3 de §3 **Ampliación pendiente (P-01 de §5):** el bloqueo de la cuenta al tercer intento fallido y la renovación de contraseña por el administrador, acordados con el dueño el 2026-08-27 (§6 #5, contexto en §7), **no están implementados**: esta sesión partió de una base sin esos commits. Exige migración, pese al `Migración: No` de la spec, y condiciona las políticas de T-10 |
-| T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `002_politicas_rls` |
+| T-09 | Autenticación y los tres roles | COMPLETADA | 2026-08-27 | `student`/rol desconocido sin acceso, sin llamada de datos extra; login, logout, renovación proactiva, recuperación de contraseña completa; bloqueo humano aparte (crear el primer `administrator`) en fila #3 de §3. Su ampliación (bloqueo de cuenta) es P-01, ver más abajo |
+| T-10 | Autorización: políticas RLS de los tres roles | PENDIENTE | — | Migración `003_politicas_rls` (renumerada de `002`: P-01 se intercaló antes, ver §7) |
 | T-11 | Catálogo de centros de estudios | PENDIENTE | — | Prerequisito del alta de alumno |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | PENDIENTE | — | — |
 | T-13 | Personas de referencia del alumno | PENDIENTE | — | 0..N, solo `administrator` |
@@ -168,6 +160,7 @@ antiguo. Y al terminar, empujar el registro en cuanto esté escrito, no al final
 | 1 | Aplicar la migración `001_esquema_inicial` en `dev` | T-07 | ~~`git pull` y `npm run migrate` en local~~ | **RESUELTA 2026-08-27** — aplicada por el dueño; verificada con `esquema_version()` = `1` y anotada en `db/APLICADAS.md`. El primer intento falló por un bug del runner (no cargaba `.env.local`), ya arreglado |
 | 2 | Aplicar `db/000b_arreglo_permisos.sql` en `dev` | T-00 / arranque manual | ~~Comprobar con `npm run migrate -- --verificar-privilegios` y, si hacía falta, pegar el fichero en el editor SQL de `dev`~~ | **RESUELTA 2026-08-27 — no hacía falta aplicarlo: ya estaba aplicado.** El barrido no encontró ninguna violación, y la consulta de comprobación del propio fichero lo confirma en `perfil`: `authenticated` → INSERT/SELECT/UPDATE (sin `TRUNCATE`), `service_role` → DELETE/INSERT/SELECT/UPDATE, `anon` → ninguna fila. La fila existía porque `db/APLICADAS.md` lo daba por pendiente: la aplicación nunca se anotó. Ya está anotado y verificado |
 | 3 | Crear el primer usuario `administrator` en `dev` (bloqueo humano de T-09) | T-09 | ~~Crear el usuario en Authentication → Users y promoverlo con el bloque del final de `db/000_bootstrap_perfil.sql`~~ | **RESUELTA 2026-08-27** — hecho y **verificado**: el dueño ejecutó la consulta de comprobación y el único perfil de `dev` tiene `rol = administrator` y `activo = true`, no el `student` por defecto. Se anota el resultado y no la salida literal: nombre y email son datos personales y no van a un documento de registro |
+| 4 | Aplicar la migración `002_bloqueo_cuenta` en `dev` | P-01 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `2` | **PENDIENTE** — añade `intentos_fallidos`/`bloqueado` a `perfil`, redefine `rol_actual()` (misma función, `create or replace`, sigue `security definer`) para exigir `not bloqueado`, y crea las RPC `registrar_intento_fallido`/`admin_desbloquear_usuario`. No borra ni recrea nada existente: es segura de aplicar sobre los datos ya presentes (las dos columnas nacen con sus valores por defecto, `0`/`false`, en todas las filas actuales) |
 
 ---
 
@@ -187,7 +180,7 @@ antiguo. Y al terminar, empujar el registro en cuanto esté escrito, no al final
 
 | ID | Descripción | Motivo / valor esperado (incl. `origen: auditoría #N` si aplica) | Estado | Veto del dueño |
 |----|-------------|-------------------------------------------------------------------|--------|----------------|
-| P-01 | **Ampliación de T-09: bloqueo de la cuenta al tercer intento fallido y renovación de contraseña por el administrador.** Alcance ya cerrado, no hay nada que diseñar: bloqueo en base de datos aplicado por RLS (un bloqueado no lee nada aunque su token valga), levantado por el administrador desde la aplicación, alcanzando a todos los roles, con el editor SQL del dueño como vía de escape documentada en `DEVELOPERS.md`; la renovación es disparar `POST /auth/v1/recover`, nunca fijar la contraseña. Incluye migración propia (DDL sobre `perfil` + las RPC), fila en §3 para que el dueño la aplique, y la condición "no bloqueado" en las políticas de T-10 | **No es una autopropuesta del agente: es una decisión del dueño** del 2026-08-27 (respuestas #4 y #5 de §6), registrada como desviación en §7. Se encola aquí porque la hoja de ruta es inmutable y no admite una T-XX nueva. **Prioridad sobre T-10:** si T-10 escribe sus políticas antes, tendrá que rehacerlas para incluir la condición de bloqueo | PENDIENTE — **arranca el 2026-08-28** | **Aprobada y priorizada por el dueño el 2026-08-27: se ataca ANTES de T-10.** No hay veto |
+| P-01 | **Ampliación de T-09: bloqueo de la cuenta al tercer intento fallido y renovación de contraseña por el administrador.** Implementada: `db/002_bloqueo_cuenta.sql` (columnas `perfil.intentos_fallidos`/`perfil.bloqueado`, `rol_actual()` redefinida con `not bloqueado`, RPC `registrar_intento_fallido`/`admin_desbloquear_usuario`), `gestorSesion.ts` (`CuentaBloqueada`, conteo de fallos, `desbloquearUsuario`), 13 tests nuevos, `DEVELOPERS.md` con la consulta de desbloqueo manual del dueño. La renovación de contraseña no necesitó código nuevo: ya era `solicitarRecuperacionContrasena` desde T-09 | **No es una autopropuesta del agente: es una decisión del dueño** del 2026-08-27 (respuestas #4 y #5 de §6), registrada como desviación en §7. Se encola aquí porque la hoja de ruta es inmutable y no admite una T-XX nueva | **BLOQUEADA — pendiente aplicar migración `002_bloqueo_cuenta` en `dev`** (fila 4 de §3) | **Aprobada y priorizada por el dueño el 2026-08-27: se atacó ANTES de T-10.** No hay veto |
 
 ---
 

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { crearFetchSimulado } from '../datos/pruebas/dobleHttp.ts';
 
 const FORMAS: Readonly<Record<string, readonly string[]>> = {
-  perfil: ['id', 'nombre', 'rol', 'activo', 'creado_en', 'actualizado_en'],
+  perfil: ['id', 'nombre', 'rol', 'activo', 'intentos_fallidos', 'bloqueado', 'creado_en', 'actualizado_en'],
   centro_estudios: ['id', 'nombre', 'activo', 'creado_en', 'actualizado_en'],
   alumno: [
     'id',
@@ -102,7 +102,16 @@ const FORMAS: Readonly<Record<string, readonly string[]>> = {
 // Una fila de ejemplo por tabla, con valores plausibles — solo importan las CLAVES para esta
 // comprobación de forma, no los valores.
 const FILA_EJEMPLO: Readonly<Record<string, Record<string, unknown>>> = {
-  perfil: { id: 'u1', nombre: 'Ana', rol: 'teacher', activo: true, creado_en: 'x', actualizado_en: 'x' },
+  perfil: {
+    id: 'u1',
+    nombre: 'Ana',
+    rol: 'teacher',
+    activo: true,
+    intentos_fallidos: 0,
+    bloqueado: false,
+    creado_en: 'x',
+    actualizado_en: 'x',
+  },
   centro_estudios: { id: 'c1', nombre: 'IES Uno', activo: true, creado_en: 'x', actualizado_en: 'x' },
   alumno: {
     id: 'a1',
