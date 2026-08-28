@@ -37,6 +37,58 @@
 
 ---
 
+### Sesión 2026-08-28 (16) — T-12
+
+**Tarea(s):** T-12 (Ficha de alumno: datos, centro y baja lógica) — siguiente tarea de §1 tras
+verificar que `auditoriacontinua.md` no tenía ningún hallazgo `ABIERTO` de severidad alta (el único
+hallazgo, #1, seguía `RESUELTO` desde antes de esta sesión)
+**Estado resultante:** T-12 **COMPLETADA** — sin migración propia (`Migración: No`): `alumno` ya
+existía con todas sus columnas desde `001_esquema_inicial`, y no depende de que el dueño confirme
+`002_bloqueo_cuenta`/`003_politicas_rls` (mismo razonamiento que T-10/T-11)
+**Commits a `develop`:** el commit de esta sesión (T-12: ficha de alumno)
+**Migraciones aplicadas:** ninguna (T-12 no lleva migración; las dos que ya estaban en cola —
+`002_bloqueo_cuenta`, `003_politicas_rls` — siguen exactamente igual, sin tocar esta sesión)
+**Propagación a prod pendiente:** sin cambios (no existe `prod` todavía)
+**Archivos creados/modificados:** `src/dominio/alumno.ts` + su test (nuevo, 10 tests:
+`normalizarNombrePersona`/`normalizarTelefonoAlumno`/`emailAlumnoValido`/`telefonoAlumnoValido`
+—regex exactos a los `CHECK` de `001_esquema_inicial`—, `nombreCompletoAlumno` y
+`compararAlumnosParaOrden` con `localeCompare('es', { sensitivity: 'base' })`, comprobado con
+"García Pérez"/"García López"/"Ábalos"); `src/datos/alumnos.ts` + su test (nuevo, 17 tests:
+`listarAlumnos`/`obtenerAlumno`/`crearAlumno`/`editarAlumno`/`darDeBajaAlumno`/`reactivarAlumno`
+sobre `postgrest.ts`, leyendo siempre de la vista `alumno_ficha` con el centro embebido, escribiendo
+contra la tabla base con `id` generado en el cliente y `{ representar: false }` —la mitigación que
+T-10 ya había dejado anotada el mismo día para esta tarea—, `darDeBajaAlumno` con `Reloj` inyectado,
+y que dar de baja no toca `asistencia` ni `slot_horario`); `src/datos/postgrest.ts` + su test
+(ampliado, 3 tests nuevos: `orIlike(columnas, patron)` y `OpcionesEscritura.representar` en
+`insertar`/`actualizar`); `src/ui/pantallaFichaAlumno.ts` + su test (nuevo, 13 tests: pantalla
+enteramente de `administrator` —a diferencia de `pantallaCentros.ts`, sin lectura para `teacher`—,
+con filtro de estado, búsqueda, paginación en servidor, alta/edición/baja/reactivación);
+`roadmap/SEGUIMIENTO.md` (§1 T-12 → COMPLETADA, cabecera, nueva pregunta #8 de §6, nueva fila de §7);
+`roadmap/DECISIONES_TECNICAS.md` (seis filas nuevas, ver abajo); `DEVELOPERS.md` (sección Estructura
+ampliada con los módulos nuevos y las dos ampliaciones de `postgrest.ts`)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (408 tests, antes 365) · build ✅
+**Health check post-deploy:** no aplica — sin `config.js` desplegado en este entorno de agente
+(mismo estado que sesiones anteriores; el hosting de producción sigue `<pendiente>`)
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md` fechadas 2026-08-28 (T-12):
+el patrón id-en-cliente + `return=minimal` + relectura de `alumno_ficha`; las dos ampliaciones
+mínimas de `postgrest.ts` (`orIlike`, `representar`); la búsqueda no acento-insensible (misma
+limitación que T-11, `Migración: No` lo impide); la ordenación a la española con `localeCompare` y
+el reordenado de la página en cliente; y que la pantalla es enteramente de `administrator`, sin
+lectura para `teacher`
+**Hallazgos del auditor atendidos:** ninguno nuevo que atender (el único hallazgo del registro, #1,
+seguía `RESUELTO` desde antes de esta sesión)
+**Hallazgos:** ninguno de seguridad. Se confirmó, leyendo `003_politicas_rls.sql`, que la mitigación
+que T-10 dejó anotada para esta tarea (columna de contacto solo accesible vía `alumno_ficha`) era
+exactamente correcta y no hizo falta reabrirla
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente tarea de §1 es T-13 (personas de referencia del alumno), sin migración
+propia y sin depender de `002`/`003`. Las dos migraciones en cola (`002`, `003`) siguen pendientes de
+que el dueño ejecute `npm run migrate`, en ese orden. Pregunta abierta nueva para el dueño en §6 #8:
+si quiere una migración futura (`unaccent` o columna generada) para que la búsqueda de la ficha de
+alumno sea de verdad acento-insensible
+
+---
+
 ### Sesión 2026-08-28 (15) — T-11
 
 **Tarea(s):** T-11 (Catálogo de centros de estudios) — siguiente tarea de §1 tras verificar que

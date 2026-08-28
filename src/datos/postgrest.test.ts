@@ -172,6 +172,58 @@ void test('actualizar() manda PATCH con los filtros aplicados y el cuerpo de cam
   assert.deepEqual(peticion.cuerpo, { nombre: 'Nuevo nombre' });
 });
 
+void test('insertar(filas, { representar: false }) manda Prefer return=minimal y no lee cuerpo', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const fetchImpl = crearFetchSimulado((p) => {
+    peticion = p;
+    return { estado: 201, cuerpo: undefined };
+  });
+
+  const filas = await crearCliente(fetchImpl)
+    .desde<AlumnoDePrueba>('alumno')
+    .insertar({ nombre: 'X' }, { representar: false });
+
+  assert.ok(peticion);
+  assert.equal(peticion.cabeceras.prefer, 'return=minimal');
+  assert.deepEqual(filas, []);
+});
+
+void test('actualizar(cambios, { representar: false }) manda Prefer return=minimal', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const fetchImpl = crearFetchSimulado((p) => {
+    peticion = p;
+    return { estado: 204, cuerpo: undefined };
+  });
+
+  await crearCliente(fetchImpl)
+    .desde<AlumnoDePrueba>('alumno')
+    .eq('id', 'a1')
+    .actualizar({ nombre: 'Nuevo' }, { representar: false });
+
+  assert.ok(peticion);
+  assert.equal(peticion.cabeceras.prefer, 'return=minimal');
+});
+
+void test('orIlike(columnas, patron) genera un único or=(...) con ilike sobre cada columna', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const fetchImpl = crearFetchSimulado((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  await crearCliente(fetchImpl)
+    .desde<AlumnoDePrueba>('alumno')
+    .orIlike(['nombre', 'primer_apellido', 'segundo_apellido'], '*garcía*')
+    .seleccionar();
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(
+    url.searchParams.get('or'),
+    '(nombre.ilike.*garcía*,primer_apellido.ilike.*garcía*,segundo_apellido.ilike.*garcía*)',
+  );
+});
+
 void test('eliminar() manda DELETE con los filtros aplicados y sin cuerpo', async () => {
   let peticion: PeticionSimulada | undefined;
   const fetchImpl = crearFetchSimulado((p) => {

@@ -10,33 +10,43 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-28 (tercera sesión del día) — **T-11 (catálogo de centros de
-estudios) COMPLETADA, sin esperar a que el dueño confirme `002`/`003`.** Sin migración propia
-(`Migración: No` en su spec): `centro_estudios` y su `unique(nombre)` exacto ya viven en
-`001_esquema_inicial`, y `db/APLICADAS.md`/el comentario de esa columna ya dejaban dicho que la
-detección de duplicados acento-insensible es responsabilidad de la aplicación, no del esquema.
+**Última actualización:** 2026-08-28 (cuarta sesión del día) — **T-12 (ficha de alumno: datos,
+centro y baja lógica) COMPLETADA, sin esperar a que el dueño confirme `002`/`003`.** Sin migración
+propia (`Migración: No` en su spec): `alumno` ya existe con todas sus columnas desde
+`001_esquema_inicial`, incluidas las de contacto y las de baja lógica.
 
-**Los cinco requisitos de la spec:** (1) `src/datos/centrosEstudios.ts` — `listarCentros` (filtro por
-estado y búsqueda `ilike`), `crearCentro`, `editarNombreCentro`, `contarAlumnosActivosDeCentro`,
-`desactivarCentro`, `reactivarCentro`; sin `DELETE` en ningún camino. (2) `src/dominio/centrosEstudios.ts`
-— `normalizarNombreCentro` (NFD + retirar marcas combinantes + minúsculas) y `buscarCentroDuplicado`:
-`crearCentro`/`editarNombreCentro` comprueban el catálogo completo (excluyendo, en la edición, al
-propio centro) y devuelven `{ tipo: 'duplicado', existente }` en vez de intentar el alta cuando hay un
-equivalente — nunca un error seco. (3) `contarAlumnosActivosDeCentro` se usa antes de desactivar para
-avisar de cuántos alumnos activos quedarían apuntando a un centro inactivo; la baja no está bloqueada
-por ello, y no toca la tabla `alumno` en ningún momento (test explícito de que no le llega ninguna
-petición). (4) Escritura reservada a `administrator` por RLS (`003_politicas_rls.sql`, ya escrita en
-T-10): test de que un `teacher` recibe `SinPermiso`, no un error genérico. (5)
-`src/ui/pantallaCentros.ts` — pantalla de gestión en español con estados de carga, vacío y error;
-oculta las acciones de escritura y el filtro de estado si `!puedeGestionarCentros(rol)`
-(`permisosUi.ts`, T-10) y fuerza `estado: 'activos'` para `teacher`. **Standalone y sin enrutar**
-todavía dentro de `aplicacion.ts` (que sigue con el marcador de posición de T-09): la monta T-16,
-igual que T-06 dejó piezas de cliente latentes hasta tener un punto de llamada real.
+**Los seis requisitos de la spec:** (1) `src/datos/alumnos.ts` — `listarAlumnos` (filtro por estado,
+búsqueda y paginado en servidor con `range`/`seleccionarConTotal`), `obtenerAlumno`, `crearAlumno`,
+`editarAlumno`, `darDeBajaAlumno`, `reactivarAlumno`; sin `DELETE` en ningún camino. Las lecturas
+usan la vista `alumno_ficha` (T-10) con el centro embebido (`*,centro:centro_estudios(id,nombre)`).
+(2) Obligatoriedad exacta: `nombre`/`primer_apellido`/`centro_referencia_id` obligatorios,
+`segundo_apellido`/`email_alumno`/`telefono_alumno` opcionales — un alumno con un solo apellido no
+es un error. (3) `src/dominio/alumno.ts` — `normalizarNombrePersona`/`normalizarTelefonoAlumno` y
+los dos regex de validación, EXACTOS a los `CHECK` de `001_esquema_inicial` para que un valor válido
+en cliente lo sea también en la base de datos. (4) `nombreCompletoAlumno` (única función que compone
+el nombre para mostrar) y `compararAlumnosParaOrden` (orden por `primer_apellido`,
+`segundo_apellido`, `nombre`, con `localeCompare('es', { sensitivity: 'base' })` para que "Ábalos"
+ordene antes que "García"); la búsqueda por las tres partes usa un `or` de `ilike` nuevo en el
+cliente de PostgREST (`orIlike`), **no acento-insensible** — misma limitación, documentada con el
+mismo razonamiento, que la búsqueda de T-11 (`Migración: No` impide instalar `unaccent`). (5) La
+baja registra `baja_en` (reloj inyectado, nunca la hora del sistema leída directamente) y
+`motivo_baja` opcional, sin tocar `asistencia` ni `slot_horario` en ningún momento (test explícito de
+que no les llega ninguna petición). (6) Escritura reservada a `administrator` por RLS
+(`003_politicas_rls.sql`, T-10): test de que un `teacher` recibe `SinPermiso`. La pantalla
+(`src/ui/pantallaFichaAlumno.ts`) es **enteramente de `administrator`** — a diferencia de la de T-11,
+un `teacher` no tiene ni lectura aquí, esa vista es de T-19/T-22. **Standalone y sin enrutar**
+todavía, igual que T-11, hasta T-16.
 
-**32 tests nuevos (365 en total, antes 333): 6 de dominio, 14 de datos, 12 de UI.** Detalle completo
-en la sesión de hoy en `HISTORIAL_SESIONES.md` y las decisiones nuevas en `DECISIONES_TECNICAS.md`
-(normalización de nombre elegida, por qué la búsqueda por `ilike` no es acento-insensible aunque la
-detección de duplicados sí lo sea, y por qué la baja avisa en vez de bloquear).
+**Pieza técnica no anticipada por la spec, resuelta según lo que T-10 ya había dejado anotado el
+mismo día:** `email_alumno`/`telefono_alumno` solo se conceden por columna a través de la vista
+`alumno_ficha`, nunca en la tabla base, así que un `INSERT`/`UPDATE` normal con
+`Prefer: return=representation` fallaría al intentar devolverlas. `alumnos.ts` genera el `id` en el
+cliente, escribe con `Prefer: return=minimal` (`OpcionesEscritura.representar`, ampliación nueva de
+`postgrest.ts`) y siempre relee `alumno_ficha`. Detalle completo en `DECISIONES_TECNICAS.md`.
+
+**43 tests nuevos (408 en total, antes 365): 10 de dominio, 20 de datos (17 de la ficha de alumno +
+3 de las dos ampliaciones de `postgrest.ts`, `orIlike` y `representar`), 13 de UI.** Detalle completo
+en la sesión de hoy en `HISTORIAL_SESIONES.md` y las decisiones nuevas en `DECISIONES_TECNICAS.md`.
 
 **Pendiente de sesiones anteriores, sin cambios hoy — dos migraciones en cola, en orden:**
 `002_bloqueo_cuenta` (P-01, fila 4 de §3) y, después de esa, `003_politicas_rls` (T-10, fila 5 de §3).
@@ -44,18 +54,20 @@ El runner aplica en orden numérico: no tiene sentido intentar `003` sin `002` p
 haber ningún `teacher` en `dev`, así que `npm run probar-rls` solo podrá ejercitar esa parte de la
 matriz cuando exista uno (T-24, o uno de prueba creado a mano por el dueño).
 
-**Nueva pregunta abierta para el dueño (§6, prevista desde la sesión de T-10): campos adicionales de
-`centro_estudios`.** Hoy el catálogo solo tiene `nombre` y `activo` — sin dirección, teléfono ni
-persona de contacto del centro. Queda con valor por defecto conservador (no añadir nada sin decisión
-expresa) y no bloquea nada.
+**Nueva pregunta abierta para el dueño (§6): búsqueda acento-insensible de la ficha de alumno.**
+Requisito 4 de T-12 pide literalmente que la búsqueda por nombre/apellidos sea acento-insensible;
+hoy no lo es (mismo motivo que T-11: sin la extensión `unaccent` no hay forma de pedírselo a
+PostgREST, y esta tarea no puede instalar extensiones ni migrar el esquema). Queda con valor por
+defecto conservador (búsqueda literal, sin acentos) y no bloquea nada.
 
 **Aviso de proceso, vigente desde 2026-08-27:** una sesión no debe arrancar sin `git pull`, y el
 registro debe empujarse en cuanto se escribe. Esta sesión empezó con `git pull` limpio sobre
-`1f8ee4a` (T-10 + P-01 + la pasada del auditor de esta mañana), sin colisión.
+`5e4ac64` (T-11 + la pasada del auditor de esta mañana), sin colisión.
 
-**Siguiente tarea: T-12 (ficha de alumno: datos, centro y baja lógica).** Su spec está en el cuerpo
-de `HOJA_DE_RUTA.md`; no lleva migración propia (`Migración: No`, la tabla `alumno` ya existe desde
-`001_esquema_inicial`) y no depende de que el dueño confirme `002`/`003`, igual que T-11.
+**Siguiente tarea: T-13 (personas de referencia del alumno).** Su spec está en el cuerpo de
+`HOJA_DE_RUTA.md`; no lleva migración propia (`Migración: No`, la tabla `persona_referencia` ya
+existe desde `001_esquema_inicial`) y no depende de que el dueño confirme `002`/`003`, igual que
+T-11/T-12.
 
 ---
 
@@ -92,7 +104,7 @@ de `HOJA_DE_RUTA.md`; no lleva migración propia (`Migración: No`, la tabla `al
 | T-09 | Autenticación y los tres roles | COMPLETADA | 2026-08-27 | `student`/rol desconocido sin acceso, sin llamada de datos extra; login, logout, renovación proactiva, recuperación de contraseña completa; bloqueo humano aparte (crear el primer `administrator`) en fila #3 de §3. Su ampliación (bloqueo de cuenta) es P-01, ver más abajo |
 | T-10 | Autorización: políticas RLS de los tres roles | BLOQUEADA — pendiente aplicar migración `002` y después `003` | 2026-08-28 | Migración `003_politicas_rls` (renumerada de `002`: P-01 se intercaló antes, ver §7). Código y tests completos; matriz en `DECISIONES_TECNICAS.md` |
 | T-11 | Catálogo de centros de estudios | COMPLETADA | 2026-08-28 | Sin migración: `centro_estudios` y su `unique(nombre)` exacto ya viven en `001_esquema_inicial`. Dominio (`src/dominio/centrosEstudios.ts`), datos (`src/datos/centrosEstudios.ts`) y pantalla standalone (`src/ui/pantallaCentros.ts`, sin enrutar hasta T-16) con 32 tests nuevos (365 en total, antes 333). Detalle en `HISTORIAL_SESIONES.md` de hoy |
-| T-12 | Ficha de alumno: datos, centro y baja lógica | PENDIENTE | — | — |
+| T-12 | Ficha de alumno: datos, centro y baja lógica | COMPLETADA | 2026-08-28 | Sin migración: `alumno` ya existe con todas sus columnas desde `001_esquema_inicial`. Dominio (`src/dominio/alumno.ts`), datos (`src/datos/alumnos.ts`, leyendo de la vista `alumno_ficha` de T-10) y pantalla standalone solo-administrator (`src/ui/pantallaFichaAlumno.ts`, sin enrutar hasta T-16) con 43 tests nuevos (408 en total, antes 365). Búsqueda no acento-insensible (pregunta abierta en §6, mismo motivo que T-11). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-13 | Personas de referencia del alumno | PENDIENTE | — | 0..N, solo `administrator` |
 | T-14 | Avatar del alumno (Supabase Storage) | PENDIENTE | — | Migración `004_bucket_avatares` (renumerada de `003`: T-10 ocupó ese número, ver §7). Sus políticas de `storage.objects` ya existen desde `003_politicas_rls`; esta tarea solo crea el bucket. Bucket privado; límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md`. Debe completar los casos OMITIDOS del bucket en `db/pruebas_rls.sql` |
 | T-15 | Slots de horario y no-retroactividad | PENDIENTE | — | — |
@@ -191,6 +203,7 @@ de `HOJA_DE_RUTA.md`; no lleva migración propia (`Migración: No`, la tabla `al
 | 5 | **¿Cómo se implementa el bloqueo tras tres contraseñas falladas (respuesta a #4), y qué significa exactamente que "el administrador renueve la contraseña"?** El problema no es programarlo, es dónde se aplica: el inicio de sesión va del navegador directo a GoTrue, y **no hay backend propio** (§0.2), así que un contador en el cliente no impide que alguien llame a GoTrue por su cuenta con `curl` — sería disuasión, no un control de seguridad. Lo que sí se aplica de verdad es la base de datos: un usuario marcado como bloqueado no lee nada aunque su token sea válido, porque lo niegan las políticas de T-10. Y hay un riesgo nuevo que no existía: si el contador va por email y lo puede tocar quien no ha iniciado sesión, cualquiera que conozca el correo de un profesor puede dejarlo fuera antes de una clase. Sobre la renovación: la spec de T-09 (requisito 2) ya resuelve el caso por la vía en la que **el administrador nunca conoce la contraseña de nadie** — dispara el correo de recuperación, que funciona con la clave anónima, y el profesor se pone la suya; que el administrador **fije** una contraseña exigiría la clave `service_role` en el navegador, que está prohibida, o un backend, que hoy no existe. | T-09 | | **Tres decisiones, 2026-08-27:** (1) **Bloqueo en la base de datos y aplicado por RLS, hasta que lo levante el administrador.** Los fallos se cuentan en la base de datos; un usuario bloqueado no lee **nada** aunque su token sea válido, porque lo niegan las políticas. Es control real, no cosmético. El dueño acepta explícitamente la contrapartida: quien conozca el email de un profesor puede dejarlo fuera, y el desbloqueo es manual. (2) **Renovar la contraseña = disparar el correo de recuperación** (`POST /auth/v1/recover`, clave anónima): el administrador pulsa un botón y el profesor se pone la suya. **El administrador no conoce la contraseña de nadie, nunca**, y el stack no cambia. Queda descartado que el administrador fije una contraseña: exigiría `service_role` en el navegador o un backend. (3) **El bloqueo alcanza a todos los roles, administrador incluido**, y la vía de escape es el **editor SQL del panel, que solo tiene el dueño** — la misma lógica que el arranque manual. Hay que documentar la consulta exacta en `DEVELOPERS.md`. |
 | 6 | *(numerada #5 por la sesión de T-09; renumerada a #6 al resolver el merge, porque el #5 ya estaba usado por la pregunta del bloqueo)* T-09 no ha podido comprobar en el panel del proyecto `dev` (sin salida de red a `supabase.com`, misma limitación que T-06/T-07/T-08) dos cosas de **Authentication** que afectan directamente a si el flujo de recuperación de contraseña que ya está programado funciona de verdad para un profesor real: (a) si la **confirmación de email** está activada — un usuario creado desde el panel podría quedar sin confirmar y no poder iniciar sesión, un fallo que parece un error de código y no lo es (requisito 3 de T-09); y (b) si hace falta configurar un **SMTP propio**, porque el servidor de correo por defecto de Supabase tiene un límite bajo en el plan gratuito y no es apto para uso real con varios profesores. Pide al dueño revisar **Authentication → Email Templates** / **Authentication → Providers** (confirmación de email) y **Authentication → SMTP Settings** antes de repartir el acceso a profesores reales. No bloquea nada mientras tanto: el código funciona igual, solo el correo de recuperación podría no llegar o el alta podría quedar a medias hasta que se revise. | T-09 | |
 | 7 | El catálogo de centros de estudios (T-11) hoy solo guarda `nombre` y `activo`, tal como pedía literalmente su spec. ¿Interesa en algún momento guardar algún dato adicional del centro reglado — dirección, teléfono o persona de contacto del centro (no del alumno) — para, por ejemplo, poder llamar al colegio? No es un dato personal de un menor ni de una persona de referencia (sería del centro como institución), pero sigue siendo una decisión de producto, no algo que el agente deba añadir "porque sería útil" (§0.2 lo prohíbe expresamente sin decisión tuya). Mientras no haya respuesta, el catálogo se queda con los dos campos de la spec y esto no bloquea nada. | T-11 | |
+| 8 | El requisito 4 de T-12 pide literalmente que la búsqueda de la ficha de alumno por nombre/apellidos sea **acento-insensible**. Hoy no lo es: usa `ilike` de PostgREST (ampliado a tres columnas con un `or`), exactamente la misma limitación — y por el mismo motivo — que la búsqueda del catálogo de centros en T-11 (pregunta ya cerrada allí sin necesitar respuesta porque la spec de T-11 no lo exigía; aquí sí lo exige literalmente, aunque el criterio de aceptación enumerado de T-12 no incluye ningún caso de prueba que lo ejerza). Hacerlo de verdad exigiría instalar la extensión `unaccent` de Postgres o añadir una columna generada e indexada con el nombre sin acentos — ambas cosas son DDL, y T-12 tiene `Migración: No`. ¿Quieres que se abra una migración futura (`unaccent` o columna generada) solo para esto, o basta con la búsqueda literal actual? Mientras no haya respuesta, la búsqueda se queda como está (literal, sin acentos) y esto no bloquea nada. | T-12 | |
 
 ---
 
@@ -204,3 +217,4 @@ de `HOJA_DE_RUTA.md`; no lleva migración propia (`Migración: No`, la tabla `al
 | 2026-08-27 | T-09 / T-10 | **T-09 pasa a necesitar migración, y su spec dice `Migración: No`.** El bloqueo acordado se aplica en la base de datos, así que hace falta DDL sobre `perfil` (marca de bloqueo y conteo de intentos) más las RPC que lo mantienen y lo levantan. Eso es un fichero `db/NNN_*.sql` nuevo, con su fila en §3 para que lo aplique el dueño, y obliga a decidir la numeración: si el bloqueo va en `002`, la migración de políticas RLS de T-10 (`002_politicas_rls` en la hoja de ruta) pasa a `003`. Además, las políticas de T-10 tendrán que incluir la condición de "no bloqueado" en **todas** las tablas, no solo en `perfil`: es ahí donde el bloqueo se hace efectivo | Consecuencia directa de la respuesta del dueño a #4 y de la decisión (1) de #5, el 2026-08-27. Se registra aquí para que la sesión de T-09 no lo descubra a mitad y para que T-10 no escriba sus políticas sin esa condición |
 | 2026-08-25 | — | **Excepción puntual a la inmutabilidad de `HOJA_DE_RUTA.md`:** el dueño editó el documento 41 minutos después de crearlo, para ajustar el protocolo de §0.1 y el cuerpo de la tarea T-07, pese a que la cabecera se declara "DOCUMENTO INMUTABLE… no se modifica nunca" | Respuesta del dueño a la pregunta #3 de §6, el 2026-08-27: la cabecera se mantiene literal y **cada edición suya se documenta aquí como excepción puntual**, en vez de relajar la declaración. Origen: hallazgo #1 de `auditoriacontinua.md`, que queda resuelto |
 | 2026-08-28 | T-10 / T-14 | **Renumeración en cadena de las migraciones posteriores a T-10, por segunda vez el mismo día.** La hoja de ruta original llamaba `003_bucket_avatares` a la migración de T-14 (ya corregida una vez de `002` a `003` por la intercalación de P-01, ver la fila anterior de este mismo §7 del 2026-08-27). Como la migración de T-10 (`002_politicas_rls` en el original) ocupa ahora el número `003`, la de T-14 se recorre una posición más y pasa a `004_bucket_avatares`. T-10 además escribe ya, en su propia migración `003`, las políticas RLS del bucket `avatares` sobre `storage.objects` (válidas aunque el bucket todavía no exista) — T-14 solo tendrá que crear el bucket en sí | Consecuencia directa de la numeración de P-01 (fila anterior) al llegar a la migración de T-10. Anotado aquí, en `db/003_politicas_rls.sql`, en `db/MODELO.md` y en la fila de T-14 de §1 para que esa sesión no lo descubra a mitad |
+| 2026-08-28 | T-12 | **Requisito 4 no cumplido literalmente: la búsqueda no es acento-insensible.** La spec pide "la búsqueda encuentra por cualquiera de las tres partes, acento-insensible"; la implementación usa `ilike` (ampliado a tres columnas con `or`), que no lo es. Instalar `unaccent` o añadir una columna generada e indexada es DDL, y T-12 tiene `Migración: No` — no hay forma de cumplirlo sin una migración. El criterio de aceptación enumerado de T-12 no incluye ningún caso de prueba sobre esto (a diferencia del criterio 2 de T-11, que sí prueba el duplicado acento-insensible) | Limitación técnica real, no una omisión: documentada en `DECISIONES_TECNICAS.md` y abierta como pregunta #8 de §6 para que el dueño decida si merece una migración futura |

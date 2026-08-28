@@ -71,6 +71,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   Desde T-11: `centrosEstudios.ts` — `normalizarNombreCentro`/`buscarCentroDuplicado`, comparación de
   nombres acento-insensible y sin distinguir mayúsculas para detectar duplicados en el catálogo, sin
   tocar la base de datos (el `unique` de `centro_estudios.nombre` sigue siendo exacto a propósito).
+  Desde T-12: `alumno.ts` — `normalizarNombrePersona`/`normalizarTelefonoAlumno` y los dos regex de
+  validación (email, teléfono español), EXACTOS a los `CHECK` de `001_esquema_inicial` para que un
+  valor válido en cliente lo sea también en la base de datos; `nombreCompletoAlumno` (única función
+  que compone el nombre para mostrar) y `compararAlumnosParaOrden` (orden a la española con
+  `localeCompare('es', { sensitivity: 'base' })`, no por puntos de código Unicode).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -92,10 +97,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `peticionHttp.ts` (T-08) — `peticionAutenticada`, compartida por `postgrest.ts` y
     `almacenamiento.ts`: cabeceras de autenticación, traducción de fallo de red y de respuesta no
     exitosa. Cada cliente añade sus propias cabeceras/cuerpo por encima.
-  - `postgrest.ts` (T-08) — `crearClientePostgrest(opciones)`: `cliente.desde<T>('tabla').eq(...)
-    .seleccionar('columnas')` (o `.insertar`/`.actualizar`/`.eliminar`) y `cliente.rpc(nombre,
-    parametros)`. Subconjunto documentado en la cabecera del propio fichero y en
-    `DECISIONES_TECNICAS.md`.
+  - `postgrest.ts` (T-08, ampliado en T-12) — `crearClientePostgrest(opciones)`: `cliente
+    .desde<T>('tabla').eq(...).seleccionar('columnas')` (o `.insertar`/`.actualizar`/`.eliminar`) y
+    `cliente.rpc(nombre, parametros)`. Desde T-12: `orIlike(columnas, patron)` (un `ilike` sobre
+    varias columnas a la vez, unidas con `or`) y `opciones.representar` en `insertar`/`actualizar`
+    (`false` pide `Prefer: return=minimal` en vez del `return=representation` por defecto).
+    Subconjunto documentado en la cabecera del propio fichero y en `DECISIONES_TECNICAS.md`.
   - `almacenamiento.ts` (T-08) — `crearClienteAlmacenamiento(opciones)`: `subir`, `eliminar`,
     `urlFirmada`, `urlFirmadasEnLote` (esta última en una única petición HTTP, nunca un bucle —
     T-19 lo necesita así). Endpoints de Storage asumidos, sin poder verificarse contra
@@ -117,6 +124,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     y la edición de nombre comprueban antes el duplicado acento-insensible
     (`src/dominio/centrosEstudios.ts`) y, si lo hay, devuelven `{ tipo: 'duplicado', existente }` en
     vez de intentar la escritura. Sin `DELETE`: la baja es siempre `activo = false`.
+  - `alumnos.ts` (T-12) — `listarAlumnos`/`obtenerAlumno`/`crearAlumno`/`editarAlumno`/
+    `darDeBajaAlumno`/`reactivarAlumno` sobre `postgrest.ts`. Lee siempre de la vista `alumno_ficha`
+    (T-10, no la tabla base) con el centro embebido (`*,centro:centro_estudios(id,nombre)`), y
+    escribe contra la tabla base con `{ representar: false }` porque el `RETURNING` de un
+    `INSERT`/`UPDATE` normal fallaría al intentar devolver `email_alumno`/`telefono_alumno` (esas
+    columnas solo están concedidas a través de la vista, nunca en la tabla base — ver
+    `DECISIONES_TECNICAS.md`); genera el `id` en el cliente antes de insertar para poder releer la
+    ficha completa después. `darDeBajaAlumno` recibe un `Reloj` inyectado para `baja_en`, nunca lee
+    la hora del sistema directamente. Sin `DELETE`: la baja es siempre `activo = false`.
 
   ### Configuración del cliente (`config.js`)
 
@@ -214,6 +230,14 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     baja pide confirmación mostrando cuántos alumnos activos apuntan al centro (sin impedirla: siguen
     siendo válidos después). El alta/edición de nombre nunca inserta un duplicado acento-insensible:
     ofrece el existente (`src/dominio/centrosEstudios.ts` + `src/datos/centrosEstudios.ts`).
+  - `pantallaFichaAlumno.ts` (T-12) — `mostrarPantallaFichaAlumno(contenedor, deps)`: ficha de
+    alumno (listar con filtro/búsqueda/paginado, crear, editar, dar de baja con motivo opcional,
+    reactivar). Standalone y testeada por su cuenta, todavía **sin enrutar**, igual que
+    `pantallaCentros.ts`, hasta T-16. **Enteramente de `administrator`**: si `puedeGestionarFichaAlumno`
+    (`permisosUi.ts`) da `false` (cualquier otro rol) la pantalla no llama a ningún dato y solo
+    muestra un aviso de acceso — a diferencia de `pantallaCentros.ts`, aquí no hay ni lectura para
+    `teacher` (esa vista, con otras columnas, es de T-19/T-22). El nombre completo y el orden de la
+    lista usan `src/dominio/alumno.ts` (`nombreCompletoAlumno`/`compararAlumnosParaOrden`).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin
