@@ -37,6 +37,46 @@
 
 ---
 
+### Sesión 2026-08-28 (18) (PM)
+
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código) — **cuarto ciclo del PM: una R-XX nueva añadida**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: cuarto ciclo del PM, añade R-12)
+**Migraciones aplicadas:** ninguna (R-12 queda solo especificada, no implementada — su migración
+`010_calendario_cierres` la escribirá la sesión de desarrollo que la ejecute)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, F-01, spec completa de
+R-12 insertada antes de R-04, dependencia de R-04 ampliada a R-12), `roadmap/SEGUIMIENTO.md` (§1:
+fila nueva de R-12, dependencia anotada en la fila de R-04), `roadmap/HISTORIAL_SESIONES.md` (esta
+entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (es un documento de decisiones técnicas
+de desarrollo, no de especificación de producto; la justificación de R-12 queda en la cabecera de
+`ROADMAP_PRODUCTO.md` y en su propia spec)
+**Hallazgos del auditor atendidos:** ninguno nuevo que convertir. El único hallazgo del registro de
+`auditoriacontinua.md`, #1 (severidad baja, gobernanza documental de `HOJA_DE_RUTA.md`), aparece
+`RESUELTO` desde la propia auditoría de hoy (2026-08-28); no genera ni R-XX ni backlog técnico
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía); nada que
+convertir. Al releer la spec de R-04 (informe mensual) contra el modelo de datos real para preparar
+este ciclo, se detectó que no existe ningún mecanismo para declarar que el centro no da clase un
+periodo (vacaciones, festivos, puentes): sin él, "sesiones esperadas" de R-04 sobrecontaría cualquier
+semana de cierre. Se especifica R-12 (calendario de cierres) en F-01, antes de R-04, y se añade como
+dependencia explícita de R-04. No introduce dato personal nuevo, no toca al rol `student`, no exige
+ninguna cuenta externa ni decisión reservada al dueño — no se abre ninguna pregunta nueva en §6. Se
+revisó el resto de la oleada v1/v2 (R-01 a R-11) sin encontrar ninguna otra laguna de esa magnitud;
+no se añade nada más por prudencia frente a inventar trabajo sin necesidad real
+**Tareas autopropuestas (P-XX):** ninguna (R-12 es una R-XX de producto, no una P-XX de desarrollo)
+**Próximo paso:** el MVP sigue en curso — T-10 bloqueada pendiente de que el dueño aplique `002` y
+`003`, T-14 es la siguiente tarea de la columna vertebral (bloqueada por su propia migración en
+cuanto se escriba) y T-15 no depende de ninguna migración pendiente. Ninguna R-XX, incluida R-12, se
+ejecuta hasta que el MVP (T-00 a T-25) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN (§1 de este
+documento). El siguiente ciclo de PM debe repetir esta misma revisión (hallazgos `ABIERTO` del
+auditor, entradas `nuevo` de `FEEDBACK.md`, respuestas nuevas en §6) y, cuando el MVP esté completo,
+empezar a mover a `roadmap/ROADMAP_HISTORICO.md` la oleada v1 en cuanto esté 100% desplegada
+
+---
+
 ### Sesión 2026-08-28 (17) — T-13
 
 **Tarea(s):** T-13 (Personas de referencia del alumno) — siguiente tarea de §1 tras verificar que

@@ -8,19 +8,22 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-08-27 — tercer ciclo del PM: revisado, **sin cambios de contenido**.
-`FEEDBACK.md` sigue sin entradas `nuevo` que convertir (fila plantilla vacía). El único hallazgo del
-registro de `auditoriacontinua.md` sigue siendo el #1 (severidad baja, higiene documental sobre
-`HOJA_DE_RUTA.md`), que no encaja como mejora de producto ni como deuda técnica de código y ya está
-tratado como pregunta #3 de §6 de `SEGUIMIENTO.md` — el dueño la respondió el 2026-08-27 y el
-hallazgo queda listo para que el auditor lo cierre en su próxima pasada, sin acción del PM. Las
-respuestas del dueño a las preguntas #1 (sin envío automático de avisos por ahora) y #2 (`student`
-sigue sin acceso) confirman, sin modificarlo, el alcance conservador que R-05 y el resto de la
-oleada v1/v2 ya daban por hecho: ningún requisito de R-XX cambia. Desde la pasada anterior el
-desarrollo avanzó T-05 a T-09 (MVP, no roadmap de producto) y el dueño amplió el alcance de T-09
-(bloqueo de cuenta, encolado como P-01 en §5 de `SEGUIMIENTO.md`) — ninguna de las dos cosas es una
-R-XX: la primera es la hoja de ruta inmutable, la segunda es una decisión técnica del dueño sobre una
-tarea ya especificada. **No hay nada nuevo que añadir al roadmap de producto en este ciclo.**
+**Última actualización:** 2026-08-28 — cuarto ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
+reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` no tiene ningún hallazgo
+`ABIERTO`: el único registrado, #1 (severidad baja, gobernanza documental sobre `HOJA_DE_RUTA.md`),
+quedó `RESUELTO` en la auditoría de hoy mismo; no genera trabajo de producto ni de backlog técnico.
+Desde el ciclo anterior (2026-08-27) el desarrollo completó T-10 (bloqueada, pendiente de que el
+dueño aplique `002`/`003`), T-11, T-12 y T-13 — ninguna de las tres primeras tareas del MVP genera
+cambio de roadmap de producto: son la hoja de ruta inmutable. **Se añade una R-XX nueva: R-12
+(calendario de cierres del centro),** detectada al revisar la spec de R-04 (informe mensual) contra
+el modelo de datos real: hoy no existe ningún mecanismo para declarar que el centro no da clase un
+periodo (Navidad, Semana Santa, verano), así que un informe mensual generado con la spec actual de
+R-04 contaría como "sesión esperada y no venida" cualquier tramo de una semana en la que el centro
+estuvo cerrado — un informe que se enseña a una familia estaría mal por un dato que el propio centro
+conoce de antemano. No es una idea nueva de producto sin relación con lo ya especificado: es una
+dependencia que faltaba para que R-04 cumpla lo que ya promete. Se especifica en F-01 (antes de F-02,
+donde vive R-04) y se añade como dependencia explícita de R-04. No introduce ningún dato personal, no
+toca al rol `student`, no requiere ninguna cuenta externa ni decisión reservada al dueño.
 
 ---
 
@@ -70,7 +73,9 @@ real en la que vive la pantalla más usada del producto. Nada de esto añade dat
 ni toca al rol `student`.
 
 - **F-01 — Asistencia completa.** Hoy `asistencia` solo registra entradas: una ausencia y un hueco
-  sin datos se confunden, y no hay hora de salida ni duración real. R-01, R-02, R-03.
+  sin datos se confunden, y no hay hora de salida ni duración real. R-01, R-02, R-03. Se añade R-12
+  (calendario de cierres del centro): sin él, ninguna cuenta de "sesiones esperadas" aguas abajo
+  (empezando por R-04) puede ser correcta en una semana de vacaciones.
 - **F-02 — Informes y aviso a familias.** Con ausencias y horas ya registrables, cerrar el círculo
   hacia fuera: el informe que se enseña a una familia y el aviso cuando algo requiere que se
   enteren. R-04, R-05.
@@ -224,8 +229,53 @@ calculada de un registro pasado.
 
 ---
 
+### R-12 — Calendario de cierres del centro (festivos y vacaciones)
+**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`010_calendario_cierres`) · **Depende de:** T-15
+**Origen:** roadmap
+
+**Objetivo:** que un periodo en el que el centro no da clase (Navidad, Semana Santa, un puente,
+cierre estival) quede declarado una sola vez, para que el resto del producto deje de asumir que
+toda semana del calendario tiene clase. Sin esto, R-04 (informe mensual) contaría como "sesión
+esperada y no venida" cualquier tramo de una semana en la que el centro estuvo cerrado, y el
+informe que se enseña a una familia estaría mal por un dato que el propio centro conoce de
+antemano.
+
+**Requisitos:**
+1. `administrator` declara un cierre: fecha de inicio, fecha de fin (inclusive; puede ser un solo
+   día) y motivo breve en texto libre ("Navidad", "Semana Santa", "Puente de diciembre"...). Ningún
+   dato de alumno ni tabla de datos personales.
+2. Operaciones: listar (pasados y futuros), crear, editar y desactivar — sin borrado real, mismo
+   patrón que el catálogo de centros de estudios (T-11): un cierre desactivado deja de contar en
+   cálculos nuevos, pero no desaparece del registro.
+3. Solape: dos cierres que se pisan en fecha se rechazan con aviso, para no duplicar el mismo
+   periodo con motivos distintos.
+4. Función de dominio `esDiaCerrado(fecha)` como **única** vía para consultar si una fecha cae
+   dentro de un cierre vigente — mismo principio que `slotsVigentesEn` (T-15): una sola función,
+   reutilizada por todo lo que necesite saberlo.
+5. **R-04 excluye de "sesiones esperadas" cualquier día que `esDiaCerrado` marque como cerrado**,
+   para cada slot vigente del alumno ese mes.
+6. Un cierre no reescribe nada del histórico ya registrado: si un profesor pasó lista un día que
+   después se declara cerrado por error de fecha, esa asistencia sigue existiendo tal cual,
+   íntegra — el cierre solo afecta al cálculo de "esperadas" de un informe generado **después** de
+   declararlo, nunca a una fila de `asistencia` ya escrita (mismo principio de no-retroactividad de
+   §0.2 aplicado al cálculo, no al registro).
+7. Reservado a `administrator`; `teacher` solo lectura (para saber, si le interesa, si su próxima
+   sesión cae en un cierre).
+8. Gestión sencilla desde el panel del administrador (T-16), con estados vacío, de carga y de
+   error; sin integración con ningún calendario externo (fuera del alcance de esta tarea).
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un cierre que cubre una semana completa hace que el informe mensual
+(R-04) de un alumno con slot recurrente esa semana no cuente esa semana como sesión esperada; un
+cierre solapado con uno existente se rechaza; desactivar un cierre no afecta a un informe ya
+generado (documento estático) pero sí a uno generado después; una asistencia registrada un día
+luego declarado cerrado por error sigue íntegra en el histórico.
+
+---
+
 ### R-04 — Informe mensual por alumno
-**Oleada / Fase:** v1 / F-02 · **Migración:** No · **Depende de:** T-23, R-01, R-02, R-03
+**Oleada / Fase:** v1 / F-02 · **Migración:** No · **Depende de:** T-23, R-01, R-02, R-03, R-12
 **Origen:** roadmap
 
 **Objetivo:** que `administrator` obtenga en un clic el resumen mensual que hoy tendría que
@@ -235,9 +285,10 @@ que se enseña a una familia o se archiva.
 
 **Requisitos:**
 1. Desde la ficha de alumno o desde el histórico (T-23), generar el informe de un mes natural
-   elegido: sesiones esperadas según el horario vigente cada semana de ese mes, entradas
-   registradas, ausencias (justificadas/injustificadas), retroactivos, anuladas (visibles pero no
-   contadas como asistencia), y horas reales acumuladas cuando R-03 tiene datos.
+   elegido: sesiones esperadas según el horario vigente cada semana de ese mes **y excluyendo los
+   días marcados como cierre del centro (R-12, `esDiaCerrado`)**, entradas registradas, ausencias
+   (justificadas/injustificadas), retroactivos, anuladas (visibles pero no contadas como
+   asistencia), y horas reales acumuladas cuando R-03 tiene datos.
 2. Exportable a PDF —generado en cliente sin librería de terceros, con impresión de HTML o
    `canvas` nativo— y a CSV, con cabecera de alumno, centro, mes y fecha de generación.
 3. El cálculo de sesiones esperadas usa los slots vigentes de cada semana del mes (snapshot
