@@ -37,6 +37,56 @@
 
 ---
 
+### Sesión 2026-08-28 (15) — T-11
+
+**Tarea(s):** T-11 (Catálogo de centros de estudios) — siguiente tarea de §1 tras verificar que
+`auditoriacontinua.md` no tenía ningún hallazgo `ABIERTO` de severidad alta (el único hallazgo,
+#1, ya estaba `RESUELTO` desde el 2026-08-28 anterior)
+**Estado resultante:** T-11 **COMPLETADA** — sin migración propia (`Migración: No`): `centro_estudios`
+y su `unique(nombre)` exacto ya existían desde `001_esquema_inicial`, y no depende de que el dueño
+confirme `002_bloqueo_cuenta`/`003_politicas_rls` (mismo razonamiento que ya permitió escribir T-10
+sin esperar a `002`)
+**Commits a `develop`:** el commit de esta sesión (T-11: catálogo de centros de estudios)
+**Migraciones aplicadas:** ninguna (T-11 no lleva migración; las dos que ya estaban en cola —
+`002_bloqueo_cuenta`, `003_politicas_rls` — siguen exactamente igual, sin tocar esta sesión)
+**Propagación a prod pendiente:** sin cambios (no existe `prod` todavía)
+**Archivos creados/modificados:** `src/dominio/centrosEstudios.ts` + su test (nuevo, 6 tests:
+`normalizarNombreCentro`/`nombresDeCentroEquivalentes`/`buscarCentroDuplicado`, comparación de
+nombres acento-insensible sin tocar la base de datos); `src/datos/centrosEstudios.ts` + su test
+(nuevo, 14 tests: `listarCentros`/`crearCentro`/`editarNombreCentro`/
+`contarAlumnosActivosDeCentro`/`desactivarCentro`/`reactivarCentro` sobre `postgrest.ts`, incluida
+la detección de duplicado antes de insertar/editar, el aviso sin bloqueo antes de desactivar, y que
+un `teacher` rechazado por RLS recibe `SinPermiso`); `src/ui/pantallaCentros.ts` + su test (nuevo, 12
+tests: pantalla de gestión con estados de carga/vacío/error, oculta escritura y filtro de estado
+para `teacher` vía `puedeGestionarCentros`, confirmación antes de desactivar con el recuento de
+alumnos afectados); `src/ui/formularios.ts` (ampliado: `crearCampoTexto` admite `tipo: 'text'`,
+reutilizado por la pantalla de centros y por las futuras de T-12/T-13); `roadmap/SEGUIMIENTO.md`
+(§1 T-11 → COMPLETADA, cabecera, nueva pregunta #7 de §6); `roadmap/DECISIONES_TECNICAS.md` (cinco
+filas nuevas, ver abajo); `DEVELOPERS.md` (sección Estructura ampliada con los tres módulos nuevos)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (365 tests, antes 333) · build ✅
+**Health check post-deploy:** no aplica — sin `config.js` desplegado en este entorno de agente
+(mismo estado que sesiones anteriores; el hosting de producción sigue `<pendiente>`)
+**Decisiones tomadas:** cinco filas nuevas en `DECISIONES_TECNICAS.md` fechadas 2026-08-28 (T-11):
+normalización elegida para la detección de duplicados (NFD + retirar marcas combinantes, en memoria,
+sin `unaccent` en Postgres); la búsqueda de `listarCentros` usa `ilike` y no es acento-insensible a
+propósito (solo la detección de duplicados lo es); desactivar avisa en vez de bloquear, sin tocar
+nunca `alumno`; y `pantallaCentros.ts` queda sin enrutar hasta T-16
+**Hallazgos del auditor atendidos:** ninguno nuevo que atender (el único hallazgo del registro, #1,
+seguía `RESUELTO` desde antes de esta sesión)
+**Hallazgos:** ninguno de seguridad. Se confirmó, leyendo `001_esquema_inicial.sql`, que el propio
+comentario de columna de `centro_estudios.nombre` ya dejaba escrito que la detección de duplicados
+acento-insensible es responsabilidad de la aplicación — T-11 solo tenía que cumplir esa promesa ya
+documentada, no decidir de cero dónde vivía
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente tarea de §1 es T-12 (ficha de alumno: datos, centro y baja lógica), sin
+migración propia y sin depender de `002`/`003`. Recordar al llegar a T-12: `DECISIONES_TECNICAS.md`
+ya avisa (fila de T-10) de que escribir contra `alumno` con `Prefer: return=representation` fallará
+para `email_alumno`/`telefono_alumno` — usar `Prefer: return=minimal` y releer de `alumno_ficha` si
+hace falta la ficha completa tras guardar. Las dos migraciones en cola (`002`, `003`) siguen
+pendientes de que el dueño ejecute `npm run migrate`, en ese orden
+
+---
+
 ### Sesión 2026-08-28 (14) — T-10
 
 **Tarea(s):** T-10 (Autorización: políticas RLS de los tres roles) — siguiente tarea de §1 tras

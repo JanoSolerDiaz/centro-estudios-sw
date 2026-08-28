@@ -68,6 +68,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   directa. Desde T-03: `slots.ts` (vigencia de un slot de horario y quién toca ahora) y
   `asistencia.ts` (no-retroactividad y quién puede editar un registro) — versión provisional con
   tipos propios, T-07/T-15/T-17/T-18/T-21 las amplían con los tipos oficiales del esquema real.
+  Desde T-11: `centrosEstudios.ts` — `normalizarNombreCentro`/`buscarCentroDuplicado`, comparación de
+  nombres acento-insensible y sin distinguir mayúsculas para detectar duplicados en el catálogo, sin
+  tocar la base de datos (el `unique` de `centro_estudios.nombre` sigue siendo exacto a propósito).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -109,6 +112,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     fuera de las ocho de T-08 (login con contraseña incorrecta no es lo mismo que "sin sesión").
     Endpoints sin poder verificarse contra documentación en vivo en esta sesión, mismo aviso que
     T-06/T-07/T-08.
+  - `centrosEstudios.ts` (T-11) — `listarCentros`/`crearCentro`/`editarNombreCentro`/
+    `contarAlumnosActivosDeCentro`/`desactivarCentro`/`reactivarCentro` sobre `postgrest.ts`. El alta
+    y la edición de nombre comprueban antes el duplicado acento-insensible
+    (`src/dominio/centrosEstudios.ts`) y, si lo hay, devuelven `{ tipo: 'duplicado', existente }` en
+    vez de intentar la escritura. Sin `DELETE`: la baja es siempre `activo = false`.
 
   ### Configuración del cliente (`config.js`)
 
@@ -197,6 +205,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     login/recuperar, o según `perfil.rol` → un marcador de posición para `administrator`/`teacher`
     (su aplicación real nace en T-16/T-19) o `pantallaSinAcceso` para `student` y cualquier rol
     desconocido (nunca se trata como `teacher`).
+  - `pantallaCentros.ts` (T-11) — `mostrarPantallaCentros(contenedor, deps)`: catálogo de centros de
+    estudios (listar con filtro de estado y búsqueda, crear, editar el nombre, desactivar,
+    reactivar). Standalone y testeada por su cuenta, todavía **sin enrutar** dentro de la aplicación
+    real (`aplicacion.ts` sigue con el marcador de posición de T-09 hasta que T-16 construya el
+    router y la monte). La escritura se oculta para `teacher` con `puedeGestionarCentros`
+    (`permisosUi.ts`) — presentación, no control de acceso: el servidor la rechaza igual por RLS. La
+    baja pide confirmación mostrando cuántos alumnos activos apuntan al centro (sin impedirla: siguen
+    siendo válidos después). El alta/edición de nombre nunca inserta un duplicado acento-insensible:
+    ofrece el existente (`src/dominio/centrosEstudios.ts` + `src/datos/centrosEstudios.ts`).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

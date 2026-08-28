@@ -1,8 +1,10 @@
 /**
  * Helpers de construcción de formularios accesibles en DOM nativo (T-09), reutilizados por las
- * pantallas de autenticación (login, recuperación, nueva contraseña): campo de texto con `label`
- * asociado por `for`/`id`, zona de mensaje anunciable por lectores de pantalla (`role="alert"` o
- * `role="status"`, con foco programático para que el usuario de teclado sepa dónde mirar), y botón.
+ * pantallas de autenticación (login, recuperación, nueva contraseña) y, desde T-11, por las
+ * pantallas de gestión (`tipo: 'text'` en `crearCampoTexto`, para nombres y búsquedas): campo de
+ * texto con `label` asociado por `for`/`id`, zona de mensaje anunciable por lectores de pantalla
+ * (`role="alert"` o `role="status"`, con foco programático para que el usuario de teclado sepa
+ * dónde mirar), y botón.
  * Objetivos táctiles ≥ 44 px (§0.2, "se pasa lista desde un móvil o tablet, de pie") fijados aquí en
  * un solo sitio en vez de repetidos en cada pantalla.
  *
@@ -24,7 +26,7 @@ export function crearCampoTexto(
   documento: Document,
   id: string,
   etiquetaTexto: string,
-  tipo: 'email' | 'password',
+  tipo: 'email' | 'password' | 'text',
   autocomplete: AutoFill,
 ): CampoTexto {
   const contenedor = documento.createElement('div');
