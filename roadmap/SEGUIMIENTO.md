@@ -10,43 +10,49 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-28 (cuarta sesión del día) — **T-12 (ficha de alumno: datos,
-centro y baja lógica) COMPLETADA, sin esperar a que el dueño confirme `002`/`003`.** Sin migración
-propia (`Migración: No` en su spec): `alumno` ya existe con todas sus columnas desde
-`001_esquema_inicial`, incluidas las de contacto y las de baja lógica.
+**Última actualización:** 2026-08-28 (quinta sesión del día) — **T-13 (personas de referencia del
+alumno) COMPLETADA, sin esperar a que el dueño confirme `002`/`003`.** Sin migración propia
+(`Migración: No` en su spec): `persona_referencia` ya existe con todas sus columnas desde
+`001_esquema_inicial`, y sus políticas RLS (solo `administrator`, incluido `DELETE`) ya existen desde
+`003_politicas_rls.sql` (T-10).
 
-**Los seis requisitos de la spec:** (1) `src/datos/alumnos.ts` — `listarAlumnos` (filtro por estado,
-búsqueda y paginado en servidor con `range`/`seleccionarConTotal`), `obtenerAlumno`, `crearAlumno`,
-`editarAlumno`, `darDeBajaAlumno`, `reactivarAlumno`; sin `DELETE` en ningún camino. Las lecturas
-usan la vista `alumno_ficha` (T-10) con el centro embebido (`*,centro:centro_estudios(id,nombre)`).
-(2) Obligatoriedad exacta: `nombre`/`primer_apellido`/`centro_referencia_id` obligatorios,
-`segundo_apellido`/`email_alumno`/`telefono_alumno` opcionales — un alumno con un solo apellido no
-es un error. (3) `src/dominio/alumno.ts` — `normalizarNombrePersona`/`normalizarTelefonoAlumno` y
-los dos regex de validación, EXACTOS a los `CHECK` de `001_esquema_inicial` para que un valor válido
-en cliente lo sea también en la base de datos. (4) `nombreCompletoAlumno` (única función que compone
-el nombre para mostrar) y `compararAlumnosParaOrden` (orden por `primer_apellido`,
-`segundo_apellido`, `nombre`, con `localeCompare('es', { sensitivity: 'base' })` para que "Ábalos"
-ordene antes que "García"); la búsqueda por las tres partes usa un `or` de `ilike` nuevo en el
-cliente de PostgREST (`orIlike`), **no acento-insensible** — misma limitación, documentada con el
-mismo razonamiento, que la búsqueda de T-11 (`Migración: No` impide instalar `unaccent`). (5) La
-baja registra `baja_en` (reloj inyectado, nunca la hora del sistema leída directamente) y
-`motivo_baja` opcional, sin tocar `asistencia` ni `slot_horario` en ningún momento (test explícito de
-que no les llega ninguna petición). (6) Escritura reservada a `administrator` por RLS
-(`003_politicas_rls.sql`, T-10): test de que un `teacher` recibe `SinPermiso`. La pantalla
-(`src/ui/pantallaFichaAlumno.ts`) es **enteramente de `administrator`** — a diferencia de la de T-11,
-un `teacher` no tiene ni lectura aquí, esa vista es de T-19/T-22. **Standalone y sin enrutar**
-todavía, igual que T-11, hasta T-16.
+**Los seis requisitos de la spec:** (1) 0..N personas de referencia por alumno, gestionadas desde la
+propia ficha del alumno — sin pantalla independiente. `src/datos/personasReferencia.ts` añade
+`crearPersonaReferencia`/`editarPersonaReferencia`/`eliminarPersonaReferencia`; la lectura no tiene
+función propia, viaja embebida (ver requisito 5). (2) Obligatoriedad exacta:
+`nombre`/`primer_apellido`/`telefono_referencia` obligatorios, `segundo_apellido`/`email_referencia`
+opcionales — a diferencia de `alumno`, aquí el teléfono es obligatorio porque es la vía de contacto
+real de un menor. (3) Añadir, editar y **eliminar** (borrado real, §0.2: única tabla del sistema sin
+baja lógica); la interfaz pide confirmación explícita con el texto "Esta acción es definitiva y no se
+puede deshacer." antes de borrar. (4) Solo `administrator`, lectura y escritura: la sección de
+personas de referencia de `pantallaFichaAlumno.ts` solo se pinta si `puedeVerPersonasReferencia(rol)`
+(nueva en `dominio/permisosUi.ts`, ya anotada por T-10); un `teacher` que llame a cualquiera de las
+tres funciones de datos recibe `SinPermiso` del servidor, verificado también con un caso nuevo de
+`teacher` intentando `INSERT` en `db/pruebas_rls.sql` (el `SELECT` ya existía desde T-10). (5) Se
+traen embebidas al cargar la ficha, en la misma petición: `src/datos/alumnos.ts` amplía el `select`
+de `obtenerAlumno`/`crearAlumno`/`editarAlumno`/`darDeBajaAlumno`/`reactivarAlumno` (todas las
+operaciones sobre un único alumno) con `personas_referencia:persona_referencia(*)` —
+`listarAlumnos` (la lista paginada) se queda sin este embebido a propósito, ver
+`DECISIONES_TECNICAS.md`. (6) Aviso de duplicado (mismo nombre completo y teléfono en el mismo
+alumno) calculado en el cliente con `dominio/personaReferencia.ts`
+(`buscarPersonaReferenciaDuplicada`), sin bloquear el alta — verificado con un test de que la
+creación se llama igual aunque haya coincidencia. (7) Las dos preguntas abiertas (campo `relacion` y
+si exigir al menos una vía de contacto) quedan anotadas en §6, sin responder: se permiten 0 personas
+y ningún contacto, tal como pidió el dueño.
 
-**Pieza técnica no anticipada por la spec, resuelta según lo que T-10 ya había dejado anotado el
-mismo día:** `email_alumno`/`telefono_alumno` solo se conceden por columna a través de la vista
-`alumno_ficha`, nunca en la tabla base, así que un `INSERT`/`UPDATE` normal con
-`Prefer: return=representation` fallaría al intentar devolverlas. `alumnos.ts` genera el `id` en el
-cliente, escribe con `Prefer: return=minimal` (`OpcionesEscritura.representar`, ampliación nueva de
-`postgrest.ts`) y siempre relee `alumno_ficha`. Detalle completo en `DECISIONES_TECNICAS.md`.
+**Reutilización deliberada de T-12, no duplicación:** los `CHECK` de
+`persona_referencia.email_referencia`/`telefono_referencia` son EXACTAMENTE los mismos regex que los
+de `alumno.email_alumno`/`telefono_alumno`, así que `dominio/personaReferencia.ts` reexporta las
+funciones de `dominio/alumno.ts` en vez de copiar los regex. A diferencia de `alumnos.ts` (que fuerza
+`Prefer: return=minimal` porque `email_alumno`/`telefono_alumno` solo se conceden vía la vista
+`alumno_ficha`), `personasReferencia.ts` sí puede pedir `Prefer: return=representation` por defecto:
+`persona_referencia` concede todas sus columnas a `authenticated` en la tabla base, sin ninguna vista
+de por medio. Detalle completo de ambas decisiones en `DECISIONES_TECNICAS.md`.
 
-**43 tests nuevos (408 en total, antes 365): 10 de dominio, 20 de datos (17 de la ficha de alumno +
-3 de las dos ampliaciones de `postgrest.ts`, `orIlike` y `representar`), 13 de UI.** Detalle completo
-en la sesión de hoy en `HISTORIAL_SESIONES.md` y las decisiones nuevas en `DECISIONES_TECNICAS.md`.
+**21 tests nuevos (429 en total, antes 408): 7 de dominio (`personaReferencia.test.ts`), 9 de datos
+(`personasReferencia.test.ts`), 5 de UI (`pantallaFichaAlumno.test.ts`, ampliado con la sección de
+personas de referencia dentro de cada fila).** Detalle completo en la sesión de hoy en
+`HISTORIAL_SESIONES.md` y las decisiones nuevas en `DECISIONES_TECNICAS.md`.
 
 **Pendiente de sesiones anteriores, sin cambios hoy — dos migraciones en cola, en orden:**
 `002_bloqueo_cuenta` (P-01, fila 4 de §3) y, después de esa, `003_politicas_rls` (T-10, fila 5 de §3).
@@ -54,20 +60,16 @@ El runner aplica en orden numérico: no tiene sentido intentar `003` sin `002` p
 haber ningún `teacher` en `dev`, así que `npm run probar-rls` solo podrá ejercitar esa parte de la
 matriz cuando exista uno (T-24, o uno de prueba creado a mano por el dueño).
 
-**Nueva pregunta abierta para el dueño (§6): búsqueda acento-insensible de la ficha de alumno.**
-Requisito 4 de T-12 pide literalmente que la búsqueda por nombre/apellidos sea acento-insensible;
-hoy no lo es (mismo motivo que T-11: sin la extensión `unaccent` no hay forma de pedírselo a
-PostgREST, y esta tarea no puede instalar extensiones ni migrar el esquema). Queda con valor por
-defecto conservador (búsqueda literal, sin acentos) y no bloquea nada.
-
 **Aviso de proceso, vigente desde 2026-08-27:** una sesión no debe arrancar sin `git pull`, y el
 registro debe empujarse en cuanto se escribe. Esta sesión empezó con `git pull` limpio sobre
-`5e4ac64` (T-11 + la pasada del auditor de esta mañana), sin colisión.
+`ef176ef` (T-12 + P-01 + T-10/T-11, ver §1), sin colisión.
 
-**Siguiente tarea: T-13 (personas de referencia del alumno).** Su spec está en el cuerpo de
-`HOJA_DE_RUTA.md`; no lleva migración propia (`Migración: No`, la tabla `persona_referencia` ya
-existe desde `001_esquema_inicial`) y no depende de que el dueño confirme `002`/`003`, igual que
-T-11/T-12.
+**Siguiente tarea: T-14 (avatar del alumno, Supabase Storage).** Su spec está en el cuerpo de
+`HOJA_DE_RUTA.md`; **lleva migración propia** (`004_bucket_avatares`, renumerada — ver §7 de
+2026-08-28): crea el bucket privado en sí, ya que sus políticas de `storage.objects` se escribieron
+en `003_politicas_rls.sql` (T-10). La siguiente sesión debe escribir esa migración, empujarla,
+marcar T-14 BLOQUEADA en §1 con su fila en §3, y pasar a T-15 (slots de horario, `Migración: No`,
+depende solo de T-12) mientras el dueño la aplica.
 
 ---
 
@@ -105,7 +107,7 @@ T-11/T-12.
 | T-10 | Autorización: políticas RLS de los tres roles | BLOQUEADA — pendiente aplicar migración `002` y después `003` | 2026-08-28 | Migración `003_politicas_rls` (renumerada de `002`: P-01 se intercaló antes, ver §7). Código y tests completos; matriz en `DECISIONES_TECNICAS.md` |
 | T-11 | Catálogo de centros de estudios | COMPLETADA | 2026-08-28 | Sin migración: `centro_estudios` y su `unique(nombre)` exacto ya viven en `001_esquema_inicial`. Dominio (`src/dominio/centrosEstudios.ts`), datos (`src/datos/centrosEstudios.ts`) y pantalla standalone (`src/ui/pantallaCentros.ts`, sin enrutar hasta T-16) con 32 tests nuevos (365 en total, antes 333). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | COMPLETADA | 2026-08-28 | Sin migración: `alumno` ya existe con todas sus columnas desde `001_esquema_inicial`. Dominio (`src/dominio/alumno.ts`), datos (`src/datos/alumnos.ts`, leyendo de la vista `alumno_ficha` de T-10) y pantalla standalone solo-administrator (`src/ui/pantallaFichaAlumno.ts`, sin enrutar hasta T-16) con 43 tests nuevos (408 en total, antes 365). Búsqueda no acento-insensible (pregunta abierta en §6, mismo motivo que T-11). Detalle en `HISTORIAL_SESIONES.md` de hoy |
-| T-13 | Personas de referencia del alumno | PENDIENTE | — | 0..N, solo `administrator` |
+| T-13 | Personas de referencia del alumno | COMPLETADA | 2026-08-28 | Sin migración: `persona_referencia` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/personaReferencia.ts`), datos (`src/datos/personasReferencia.ts`) y gestión embebida en `src/ui/pantallaFichaAlumno.ts` (sin pantalla propia, por spec) con 21 tests nuevos (429 en total, antes 408). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-14 | Avatar del alumno (Supabase Storage) | PENDIENTE | — | Migración `004_bucket_avatares` (renumerada de `003`: T-10 ocupó ese número, ver §7). Sus políticas de `storage.objects` ya existen desde `003_politicas_rls`; esta tarea solo crea el bucket. Bucket privado; límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md`. Debe completar los casos OMITIDOS del bucket en `db/pruebas_rls.sql` |
 | T-15 | Slots de horario y no-retroactividad | PENDIENTE | — | — |
 | T-16 | Interfaz de gestión del administrador | PENDIENTE | — | Centros, ficha completa y horarios |
@@ -204,6 +206,8 @@ T-11/T-12.
 | 6 | *(numerada #5 por la sesión de T-09; renumerada a #6 al resolver el merge, porque el #5 ya estaba usado por la pregunta del bloqueo)* T-09 no ha podido comprobar en el panel del proyecto `dev` (sin salida de red a `supabase.com`, misma limitación que T-06/T-07/T-08) dos cosas de **Authentication** que afectan directamente a si el flujo de recuperación de contraseña que ya está programado funciona de verdad para un profesor real: (a) si la **confirmación de email** está activada — un usuario creado desde el panel podría quedar sin confirmar y no poder iniciar sesión, un fallo que parece un error de código y no lo es (requisito 3 de T-09); y (b) si hace falta configurar un **SMTP propio**, porque el servidor de correo por defecto de Supabase tiene un límite bajo en el plan gratuito y no es apto para uso real con varios profesores. Pide al dueño revisar **Authentication → Email Templates** / **Authentication → Providers** (confirmación de email) y **Authentication → SMTP Settings** antes de repartir el acceso a profesores reales. No bloquea nada mientras tanto: el código funciona igual, solo el correo de recuperación podría no llegar o el alta podría quedar a medias hasta que se revise. | T-09 | |
 | 7 | El catálogo de centros de estudios (T-11) hoy solo guarda `nombre` y `activo`, tal como pedía literalmente su spec. ¿Interesa en algún momento guardar algún dato adicional del centro reglado — dirección, teléfono o persona de contacto del centro (no del alumno) — para, por ejemplo, poder llamar al colegio? No es un dato personal de un menor ni de una persona de referencia (sería del centro como institución), pero sigue siendo una decisión de producto, no algo que el agente deba añadir "porque sería útil" (§0.2 lo prohíbe expresamente sin decisión tuya). Mientras no haya respuesta, el catálogo se queda con los dos campos de la spec y esto no bloquea nada. | T-11 | |
 | 8 | El requisito 4 de T-12 pide literalmente que la búsqueda de la ficha de alumno por nombre/apellidos sea **acento-insensible**. Hoy no lo es: usa `ilike` de PostgREST (ampliado a tres columnas con un `or`), exactamente la misma limitación — y por el mismo motivo — que la búsqueda del catálogo de centros en T-11 (pregunta ya cerrada allí sin necesitar respuesta porque la spec de T-11 no lo exigía; aquí sí lo exige literalmente, aunque el criterio de aceptación enumerado de T-12 no incluye ningún caso de prueba que lo ejerza). Hacerlo de verdad exigiría instalar la extensión `unaccent` de Postgres o añadir una columna generada e indexada con el nombre sin acentos — ambas cosas son DDL, y T-12 tiene `Migración: No`. ¿Quieres que se abra una migración futura (`unaccent` o columna generada) solo para esto, o basta con la búsqueda literal actual? Mientras no haya respuesta, la búsqueda se queda como está (literal, sin acentos) y esto no bloquea nada. | T-12 | |
+| 9 | Requisito 7 de T-13: ¿interesa añadir un campo `relacion` a `persona_referencia` (padre / madre / tutor / otro), para poder mostrarlo en la ficha y, más adelante, en el aviso de ausencia (R-05, "Sr./Sra. [apellido], tutor de...")? Es una columna nueva, DDL, y T-13 tiene `Migración: No` — no se puede añadir sin una migración futura. Mientras no haya respuesta, `persona_referencia` se queda con las columnas exactas de su spec (sin `relacion`) y esto no bloquea nada. | T-13 | |
+| 10 | Requisito 7 de T-13: ¿debe exigirse que un alumno tenga **al menos una vía de contacto** — su propio email o teléfono, o al menos una persona de referencia con teléfono — antes de poder guardarlo, o se permite un alumno sin ningún contacto en absoluto (caso hoy permitido: `email_alumno`/`telefono_alumno` opcionales en T-12, y 0 personas de referencia válido en T-13)? Es una regla de negocio nueva que tocaría tanto `alumnos.ts` como `personasReferencia.ts`, no algo que el agente deba imponer sin decisión del dueño. Mientras no haya respuesta, se permiten 0 vías de contacto (tal como pidió el dueño explícitamente para T-13) y esto no bloquea nada. | T-12 / T-13 | |
 
 ---
 

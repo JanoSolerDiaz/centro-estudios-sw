@@ -253,6 +253,7 @@ begin
   if v_alumno_id is null then
     perform pg_temp.omitir('persona_referencia / administrator INSERT', 'no se creó el alumno de prueba (sección 2)');
     perform pg_temp.omitir('persona_referencia / teacher SELECT (debe fallar)', 'no se creó el alumno de prueba');
+    perform pg_temp.omitir('persona_referencia / teacher INSERT (debe fallar)', 'no se creó el alumno de prueba');
     return;
   end if;
 
@@ -286,6 +287,27 @@ begin
       -- Si además no hubiera GRANT de tabla en absoluto, fallaría con un error real: también cuenta
       -- como "prohibido" cumplido.
       perform pg_temp.registrar('persona_referencia / teacher SELECT (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- Requisito 4 de T-13: "un teacher no ve estos datos en ninguna pantalla ni por consulta
+  -- directa" cubre lectura Y escritura. A diferencia del SELECT, un INSERT que viola RLS siempre
+  -- lanza un error (no hay forma de que Postgres inserte una fila "en silencio" y luego la oculte),
+  -- así que aquí no hace falta comprobar el recuento de filas: basta con que la excepción salte.
+  if not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('persona_referencia / teacher INSERT (debe fallar)', 'no hay teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      insert into public.persona_referencia (alumno_id, nombre, primer_apellido, telefono_referencia)
+        values (v_alumno_id, 'Intento', 'Teacher', '600000001');
+      perform pg_temp.registrar(
+        'persona_referencia / teacher INSERT (debe fallar)', 'prohibido', false,
+        'el INSERT se ejecutó sin lanzar ningún error, y debería haberlo hecho'
+      );
+    exception when others then
+      perform pg_temp.registrar('persona_referencia / teacher INSERT (debe fallar)', 'prohibido', true, sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;

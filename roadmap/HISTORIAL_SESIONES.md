@@ -37,6 +37,62 @@
 
 ---
 
+### Sesión 2026-08-28 (17) — T-13
+
+**Tarea(s):** T-13 (Personas de referencia del alumno) — siguiente tarea de §1 tras verificar que
+`auditoriacontinua.md` no tenía ningún hallazgo `ABIERTO` de severidad alta (el único hallazgo, #1,
+seguía `RESUELTO` desde antes de esta sesión)
+**Estado resultante:** T-13 **COMPLETADA** — sin migración propia (`Migración: No`): tanto
+`persona_referencia` como sus políticas RLS (solo `administrator`, incluido `DELETE`) ya existían
+desde `001_esquema_inicial`/`003_politicas_rls.sql` (T-10), y no depende de que el dueño confirme
+`002_bloqueo_cuenta`/`003_politicas_rls` (mismo razonamiento que T-10/T-11/T-12)
+**Commits a `develop`:** el commit de esta sesión (T-13: personas de referencia del alumno)
+**Migraciones aplicadas:** ninguna (T-13 no lleva migración; las dos que ya estaban en cola —
+`002_bloqueo_cuenta`, `003_politicas_rls` — siguen exactamente igual, sin tocar esta sesión)
+**Propagación a prod pendiente:** sin cambios (no existe `prod` todavía)
+**Archivos creados/modificados:** `src/dominio/personaReferencia.ts` + su test (nuevo, 7 tests:
+`buscarPersonaReferenciaDuplicada` acento-insensible sobre nombre completo y exacta sobre teléfono,
+sin bloquear el alta; reexporta `normalizarTelefonoAlumno`/`emailAlumnoValido`/`telefonoAlumnoValido`
+de `dominio/alumno.ts` bajo alias propios en vez de duplicar los regex); `src/datos/personasReferencia.ts`
++ su test (nuevo, 9 tests: `crearPersonaReferencia`/`editarPersonaReferencia`/`eliminarPersonaReferencia`
+sobre `postgrest.ts`, teléfono obligatorio a diferencia del de `alumno`, `Prefer: return=representation`
+por defecto —sin la mitigación de T-12, ver `DECISIONES_TECNICAS.md`—, borrado real sin baja lógica,
+`SinPermiso` para un `teacher`); `src/datos/alumnos.ts` + su test (ampliado: nuevo tipo
+`AlumnoConCentroYPersonas`, `SELECT_FICHA_COMPLETA` con `personas_referencia:persona_referencia(*)`
+embebido en `obtenerAlumno`/`crearAlumno`/`editarAlumno`/`darDeBajaAlumno`/`reactivarAlumno` —nunca en
+`listarAlumnos`—, `primeraFilaOFalla` generalizada); `src/ui/pantallaFichaAlumno.ts` + su test
+(ampliado, 5 tests nuevos: sección de personas de referencia dentro de cada fila del alumno —abrir/
+cerrar, añadir con aviso de duplicado sin bloquear, editar en línea, eliminar con confirmación
+explícita "Esta acción es definitiva y no se puede deshacer."—, cargada con `deps.obtenerAlumno(id)`);
+`db/pruebas_rls.sql` (nuevo caso: `teacher` intentando `INSERT` en `persona_referencia`, que debe
+lanzar un error — el `SELECT` ya existía desde T-10, pero el criterio de aceptación de T-13 pide
+"ni leer ni escribir"); `roadmap/SEGUIMIENTO.md` (§1 T-13 → COMPLETADA, cabecera, dos preguntas
+nuevas #9/#10 de §6); `roadmap/DECISIONES_TECNICAS.md` (seis filas nuevas, ver abajo)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (429 tests, antes 408) · build ✅
+**Health check post-deploy:** no aplica — sin `config.js` desplegado en este entorno de agente
+(mismo estado que sesiones anteriores; el hosting de producción sigue `<pendiente>`)
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md` fechadas 2026-08-28 (T-13): la
+reexportación de las funciones de `dominio/alumno.ts` en vez de duplicar los regex; el aviso de
+duplicado calculado en el cliente en vez de un índice único (la spec pide explícitamente "avisar, sin
+bloquear"); el embebido de personas de referencia limitado a las operaciones de un único alumno, sin
+tocar `listarAlumnos`; por qué `personasReferencia.ts` sí puede pedir `return=representation` por
+defecto (a diferencia de `alumnos.ts`); y el caso nuevo de `teacher` INSERT en `db/pruebas_rls.sql`
+**Hallazgos del auditor atendidos:** ninguno nuevo que atender (el único hallazgo del registro, #1,
+seguía `RESUELTO` desde antes de esta sesión)
+**Hallazgos:** ninguno de seguridad. Se confirmó, leyendo `003_politicas_rls.sql`, que las políticas
+de `persona_referencia` que T-10 dejó escritas (`for all` bajo `es_administrator()`, sin ninguna
+política para `teacher`/`student`) eran exactamente las que esta tarea necesitaba, sin tener que
+tocarlas
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente tarea de §1 es T-14 (avatar del alumno, Supabase Storage), que **sí lleva
+migración propia** (`004_bucket_avatares`): la siguiente sesión debe escribir esa migración,
+empujarla a `develop`, abrir su fila en §3 y marcar T-14 BLOQUEADA en §1, y después seguir con T-15
+(slots de horario, `Migración: No`, depende solo de T-12) mientras el dueño la aplica. Dos preguntas
+abiertas nuevas para el dueño en §6, #9 (campo `relacion` en personas de referencia) y #10 (exigir al
+menos una vía de contacto por alumno) — ninguna bloquea nada
+
+---
+
 ### Sesión 2026-08-28 (16) — T-12
 
 **Tarea(s):** T-12 (Ficha de alumno: datos, centro y baja lógica) — siguiente tarea de §1 tras

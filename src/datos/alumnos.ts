@@ -22,7 +22,7 @@
 
 import type { ClientePostgrest } from './postgrest.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
-import type { Alumno, CentroEstudios } from '../dominio/tipos.ts';
+import type { Alumno, CentroEstudios, PersonaReferencia } from '../dominio/tipos.ts';
 import {
   normalizarNombrePersona,
   normalizarTelefonoAlumno,
@@ -54,6 +54,16 @@ export interface AlumnoConCentro extends Alumno {
   readonly centro: Pick<CentroEstudios, 'id' | 'nombre'>;
 }
 
+/** `AlumnoConCentro` con sus personas de referencia embebidas (T-13, requisito 5: "se traen
+ * embebidas al cargar la ficha, en la misma petición, para que editar un alumno no sean tres
+ * viajes"). Es lo que devuelven todas las operaciones sobre un único alumno (`obtenerAlumno`,
+ * `crearAlumno`, `editarAlumno`, `darDeBajaAlumno`, `reactivarAlumno`); `listarAlumnos` sigue
+ * devolviendo `AlumnoConCentro` a secas, sin este embebido — la lista paginada no necesita las
+ * personas de referencia de cada fila, solo la ficha abierta de una en una. */
+export interface AlumnoConCentroYPersonas extends AlumnoConCentro {
+  readonly personas_referencia: readonly PersonaReferencia[];
+}
+
 export interface ResultadoListarAlumnos {
   readonly alumnos: readonly AlumnoConCentro[];
   readonly totalAproximado: number | null;
@@ -71,6 +81,10 @@ export interface DatosAlumno {
 const TABLA = 'alumno';
 const VISTA_FICHA = 'alumno_ficha';
 const SELECT_CON_CENTRO = '*,centro:centro_estudios(id,nombre)';
+/** Usado solo por `leerFichaPorId` (una operación sobre un único alumno), nunca por `listarAlumnos`
+ * (T-13, requisito 5). El nombre embebido, `personas_referencia`, es el que PostgREST expone de la
+ * relación inversa de `persona_referencia.alumno_id`; no es una columna real de `alumno_ficha`. */
+const SELECT_FICHA_COMPLETA = '*,centro:centro_estudios(id,nombre),personas_referencia:persona_referencia(*)';
 const PAGINA_POR_DEFECTO = 20;
 
 function nombreRequeridoOFalla(valorEntrada: string, etiqueta: string): string {
@@ -133,16 +147,19 @@ function prepararValoresAlumno(datos: DatosAlumno): Record<string, unknown> {
   };
 }
 
-function primeraFilaOFalla(filas: readonly AlumnoConCentro[]): AlumnoConCentro {
-  const [alumno] = filas;
-  if (!alumno) {
+function primeraFilaOFalla<T>(filas: readonly T[]): T {
+  const [fila] = filas;
+  if (!fila) {
     throw new ErrorDelServidor('El servidor no ha devuelto el alumno esperado.');
   }
-  return alumno;
+  return fila;
 }
 
-async function leerFichaPorId(cliente: ClientePostgrest, id: string): Promise<AlumnoConCentro> {
-  const filas = await cliente.desde<AlumnoConCentro>(VISTA_FICHA).eq('id', id).seleccionar(SELECT_CON_CENTRO);
+async function leerFichaPorId(cliente: ClientePostgrest, id: string): Promise<AlumnoConCentroYPersonas> {
+  const filas = await cliente
+    .desde<AlumnoConCentroYPersonas>(VISTA_FICHA)
+    .eq('id', id)
+    .seleccionar(SELECT_FICHA_COMPLETA);
   return primeraFilaOFalla(filas);
 }
 
@@ -182,11 +199,11 @@ export async function listarAlumnos(
   return { alumnos: [...filas].sort(compararAlumnosParaOrden), totalAproximado };
 }
 
-export async function obtenerAlumno(cliente: ClientePostgrest, id: string): Promise<AlumnoConCentro> {
+export async function obtenerAlumno(cliente: ClientePostgrest, id: string): Promise<AlumnoConCentroYPersonas> {
   return leerFichaPorId(cliente, id);
 }
 
-export async function crearAlumno(cliente: ClientePostgrest, datos: DatosAlumno): Promise<AlumnoConCentro> {
+export async function crearAlumno(cliente: ClientePostgrest, datos: DatosAlumno): Promise<AlumnoConCentroYPersonas> {
   const valores = prepararValoresAlumno(datos);
   const id = crypto.randomUUID();
   await cliente.desde<Alumno>(TABLA).insertar({ id, ...valores }, { representar: false });
@@ -197,7 +214,7 @@ export async function editarAlumno(
   cliente: ClientePostgrest,
   id: string,
   datos: DatosAlumno,
-): Promise<AlumnoConCentro> {
+): Promise<AlumnoConCentroYPersonas> {
   const valores = prepararValoresAlumno(datos);
   await cliente.desde<Alumno>(TABLA).eq('id', id).actualizar(valores, { representar: false });
   return leerFichaPorId(cliente, id);
@@ -211,7 +228,7 @@ export async function darDeBajaAlumno(
   reloj: Reloj,
   id: string,
   motivo?: string,
-): Promise<AlumnoConCentro> {
+): Promise<AlumnoConCentroYPersonas> {
   const motivoNormalizado = motivo?.trim();
   await cliente
     .desde<Alumno>(TABLA)
@@ -229,7 +246,7 @@ export async function darDeBajaAlumno(
 
 /** Reactiva al alumno: `activo = true`, y se limpian `baja_en`/`motivo_baja` (una nueva baja futura
  * registrará su propio instante, no el de la baja anterior). */
-export async function reactivarAlumno(cliente: ClientePostgrest, id: string): Promise<AlumnoConCentro> {
+export async function reactivarAlumno(cliente: ClientePostgrest, id: string): Promise<AlumnoConCentroYPersonas> {
   await cliente
     .desde<Alumno>(TABLA)
     .eq('id', id)

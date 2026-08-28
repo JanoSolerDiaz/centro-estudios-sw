@@ -76,6 +76,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   valor válido en cliente lo sea también en la base de datos; `nombreCompletoAlumno` (única función
   que compone el nombre para mostrar) y `compararAlumnosParaOrden` (orden a la española con
   `localeCompare('es', { sensitivity: 'base' })`, no por puntos de código Unicode).
+  Desde T-13: `personaReferencia.ts` — reexporta la normalización/validación de `alumno.ts` (mismos
+  regex que los `CHECK` de `persona_referencia`, no duplicados) y añade
+  `buscarPersonaReferenciaDuplicada` (mismo nombre completo, acento-insensible, y mismo teléfono, que
+  otra persona de referencia ya existente del mismo alumno): es un aviso, no un bloqueo, calculado en
+  el cliente contra las personas ya cargadas.
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -124,15 +129,26 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     y la edición de nombre comprueban antes el duplicado acento-insensible
     (`src/dominio/centrosEstudios.ts`) y, si lo hay, devuelven `{ tipo: 'duplicado', existente }` en
     vez de intentar la escritura. Sin `DELETE`: la baja es siempre `activo = false`.
-  - `alumnos.ts` (T-12) — `listarAlumnos`/`obtenerAlumno`/`crearAlumno`/`editarAlumno`/
-    `darDeBajaAlumno`/`reactivarAlumno` sobre `postgrest.ts`. Lee siempre de la vista `alumno_ficha`
-    (T-10, no la tabla base) con el centro embebido (`*,centro:centro_estudios(id,nombre)`), y
-    escribe contra la tabla base con `{ representar: false }` porque el `RETURNING` de un
-    `INSERT`/`UPDATE` normal fallaría al intentar devolver `email_alumno`/`telefono_alumno` (esas
-    columnas solo están concedidas a través de la vista, nunca en la tabla base — ver
-    `DECISIONES_TECNICAS.md`); genera el `id` en el cliente antes de insertar para poder releer la
-    ficha completa después. `darDeBajaAlumno` recibe un `Reloj` inyectado para `baja_en`, nunca lee
-    la hora del sistema directamente. Sin `DELETE`: la baja es siempre `activo = false`.
+  - `alumnos.ts` (T-12, ampliado en T-13) — `listarAlumnos`/`obtenerAlumno`/`crearAlumno`/
+    `editarAlumno`/`darDeBajaAlumno`/`reactivarAlumno` sobre `postgrest.ts`. Lee siempre de la vista
+    `alumno_ficha` (T-10, no la tabla base) con el centro embebido
+    (`*,centro:centro_estudios(id,nombre)`), y escribe contra la tabla base con
+    `{ representar: false }` porque el `RETURNING` de un `INSERT`/`UPDATE` normal fallaría al
+    intentar devolver `email_alumno`/`telefono_alumno` (esas columnas solo están concedidas a través
+    de la vista, nunca en la tabla base — ver `DECISIONES_TECNICAS.md`); genera el `id` en el
+    cliente antes de insertar para poder releer la ficha completa después. `darDeBajaAlumno` recibe
+    un `Reloj` inyectado para `baja_en`, nunca lee la hora del sistema directamente. Sin `DELETE`: la
+    baja es siempre `activo = false`. Desde T-13, todas las operaciones sobre un único alumno
+    devuelven `AlumnoConCentroYPersonas` (embebe también `personas_referencia:persona_referencia(*)`
+    en el mismo `select`); `listarAlumnos` sigue devolviendo `AlumnoConCentro` sin ese embebido.
+  - `personasReferencia.ts` (T-13) — `crearPersonaReferencia`/`editarPersonaReferencia`/
+    `eliminarPersonaReferencia` sobre `postgrest.ts`. Sin función de lectura propia: las personas de
+    referencia viajan embebidas en la ficha del alumno (`alumnos.ts`, arriba). `telefono_referencia`
+    es obligatorio (a diferencia del teléfono del propio alumno); `eliminarPersonaReferencia` es
+    borrado real, sin baja lógica — única tabla del sistema donde eso está permitido (§0.2). A
+    diferencia de `alumnos.ts`, sí pide `Prefer: return=representation` (el valor por defecto):
+    `persona_referencia` concede todas sus columnas a `authenticated` en la tabla base, sin ninguna
+    vista de por medio que las reparta de otro modo por rol.
 
   ### Configuración del cliente (`config.js`)
 
@@ -230,14 +246,20 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     baja pide confirmación mostrando cuántos alumnos activos apuntan al centro (sin impedirla: siguen
     siendo válidos después). El alta/edición de nombre nunca inserta un duplicado acento-insensible:
     ofrece el existente (`src/dominio/centrosEstudios.ts` + `src/datos/centrosEstudios.ts`).
-  - `pantallaFichaAlumno.ts` (T-12) — `mostrarPantallaFichaAlumno(contenedor, deps)`: ficha de
-    alumno (listar con filtro/búsqueda/paginado, crear, editar, dar de baja con motivo opcional,
-    reactivar). Standalone y testeada por su cuenta, todavía **sin enrutar**, igual que
+  - `pantallaFichaAlumno.ts` (T-12, ampliada en T-13) — `mostrarPantallaFichaAlumno(contenedor, deps)`:
+    ficha de alumno (listar con filtro/búsqueda/paginado, crear, editar, dar de baja con motivo
+    opcional, reactivar). Standalone y testeada por su cuenta, todavía **sin enrutar**, igual que
     `pantallaCentros.ts`, hasta T-16. **Enteramente de `administrator`**: si `puedeGestionarFichaAlumno`
     (`permisosUi.ts`) da `false` (cualquier otro rol) la pantalla no llama a ningún dato y solo
     muestra un aviso de acceso — a diferencia de `pantallaCentros.ts`, aquí no hay ni lectura para
     `teacher` (esa vista, con otras columnas, es de T-19/T-22). El nombre completo y el orden de la
-    lista usan `src/dominio/alumno.ts` (`nombreCompletoAlumno`/`compararAlumnosParaOrden`).
+    lista usan `src/dominio/alumno.ts` (`nombreCompletoAlumno`/`compararAlumnosParaOrden`). Desde
+    T-13, cada fila tiene un botón "Personas de referencia" (visible solo si
+    `puedeVerPersonasReferencia`) que pide la ficha completa con `deps.obtenerAlumno(id)` y despliega
+    una sección con las personas ya cargadas: añadir (con aviso de duplicado sin bloquear, calculado
+    con `dominio/personaReferencia.ts` contra lo ya cargado), editar en línea y eliminar (pide
+    confirmación explícita, "Esta acción es definitiva y no se puede deshacer.", antes del borrado
+    real). No hay pantalla independiente de personas de referencia, por spec.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

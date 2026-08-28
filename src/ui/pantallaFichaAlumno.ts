@@ -11,18 +11,28 @@
  * `alumno_ficha`). `puedeGestionarFichaAlumno` decide aquí solo si se pinta la pantalla o un aviso
  * de acceso: es presentación, no control — el servidor rechaza igual cualquier escritura de un rol
  * sin permiso (`003_politicas_rls.sql`).
+ *
+ * T-13 añade, dentro de cada fila, la gestión de personas de referencia del alumno: no hay pantalla
+ * independiente (requisito 1 de su spec). Al pulsar "Personas de referencia" se pide la ficha
+ * completa con `deps.obtenerAlumno(id)`, que las trae embebidas en la misma petición (requisito 5);
+ * añadir, editar y eliminar son operaciones propias sobre `persona_referencia` que, al terminar,
+ * vuelven a pedir esa misma ficha para refrescar la sección. El aviso de posible duplicado
+ * (requisito 6) se calcula en el cliente contra las personas ya cargadas, sin bloquear el alta.
  */
 
-import type { Rol, CentroEstudios } from '../dominio/tipos.ts';
-import { puedeGestionarFichaAlumno } from '../dominio/permisosUi.ts';
+import type { Rol, CentroEstudios, PersonaReferencia } from '../dominio/tipos.ts';
+import { puedeGestionarFichaAlumno, puedeVerPersonasReferencia } from '../dominio/permisosUi.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
+import { buscarPersonaReferenciaDuplicada, normalizarTelefonoReferencia } from '../dominio/personaReferencia.ts';
 import type {
   AlumnoConCentro,
+  AlumnoConCentroYPersonas,
   DatosAlumno,
   FiltroEstadoAlumno,
   OpcionesListarAlumnos,
   ResultadoListarAlumnos,
 } from '../datos/alumnos.ts';
+import type { DatosPersonaReferencia } from '../datos/personasReferencia.ts';
 import { crearCampoTexto, crearZonaMensaje, crearBoton } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
@@ -34,6 +44,11 @@ export interface DependenciasPantallaFichaAlumno {
   editarAlumno(id: string, datos: DatosAlumno): Promise<AlumnoConCentro>;
   darDeBajaAlumno(id: string, motivo?: string): Promise<AlumnoConCentro>;
   reactivarAlumno(id: string): Promise<AlumnoConCentro>;
+  /** T-13: la ficha completa, con las personas de referencia embebidas. */
+  obtenerAlumno(id: string): Promise<AlumnoConCentroYPersonas>;
+  crearPersonaReferencia(alumnoId: string, datos: DatosPersonaReferencia): Promise<PersonaReferencia>;
+  editarPersonaReferencia(id: string, datos: DatosPersonaReferencia): Promise<PersonaReferencia>;
+  eliminarPersonaReferencia(id: string): Promise<void>;
 }
 
 const POR_PAGINA = 20;
@@ -129,6 +144,77 @@ function crearCampoFormulario(
   );
 }
 
+interface CamposFormularioPersonaReferencia {
+  readonly nombre: HTMLInputElement;
+  readonly primerApellido: HTMLInputElement;
+  readonly segundoApellido: HTMLInputElement;
+  readonly telefono: HTMLInputElement;
+  readonly email: HTMLInputElement;
+}
+
+function leerFormularioPersona(campos: CamposFormularioPersonaReferencia): DatosPersonaReferencia {
+  return {
+    nombre: campos.nombre.value,
+    primer_apellido: campos.primerApellido.value,
+    segundo_apellido: campos.segundoApellido.value,
+    telefono_referencia: campos.telefono.value,
+    email_referencia: campos.email.value,
+  };
+}
+
+function limpiarFormularioPersona(campos: CamposFormularioPersonaReferencia): void {
+  campos.nombre.value = '';
+  campos.primerApellido.value = '';
+  campos.segundoApellido.value = '';
+  campos.telefono.value = '';
+  campos.email.value = '';
+}
+
+function rellenarFormularioPersona(campos: CamposFormularioPersonaReferencia, persona: PersonaReferencia): void {
+  campos.nombre.value = persona.nombre;
+  campos.primerApellido.value = persona.primer_apellido;
+  campos.segundoApellido.value = persona.segundo_apellido ?? '';
+  campos.telefono.value = persona.telefono_referencia;
+  campos.email.value = persona.email_referencia ?? '';
+}
+
+function crearCampoFormularioPersona(
+  documento: Document,
+  contenedor: HTMLElement,
+  campos: CamposFormularioPersonaReferencia,
+  prefijo: string,
+): void {
+  const nombreCampo = crearCampoTexto(documento, `${prefijo}-nombre`, 'Nombre', 'text', 'off');
+  const primerApellidoCampo = crearCampoTexto(documento, `${prefijo}-primer-apellido`, 'Primer apellido', 'text', 'off');
+  const segundoApellidoCampo = crearCampoTexto(
+    documento,
+    `${prefijo}-segundo-apellido`,
+    'Segundo apellido (opcional)',
+    'text',
+    'off',
+  );
+  segundoApellidoCampo.input.required = false;
+  const telefonoCampo = crearCampoTexto(documento, `${prefijo}-telefono`, 'Teléfono', 'text', 'off');
+  const emailCampo = crearCampoTexto(documento, `${prefijo}-email`, 'Email (opcional)', 'email', 'off');
+  emailCampo.input.required = false;
+
+  Object.assign(campos, {
+    nombre: nombreCampo.input,
+    primerApellido: primerApellidoCampo.input,
+    segundoApellido: segundoApellidoCampo.input,
+    telefono: telefonoCampo.input,
+    email: emailCampo.input,
+  });
+
+  contenedor.append(
+    nombreCampo.contenedor,
+    primerApellidoCampo.contenedor,
+    segundoApellidoCampo.contenedor,
+    telefonoCampo.contenedor,
+    emailCampo.contenedor,
+  );
+}
+
 export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: DependenciasPantallaFichaAlumno): void {
   contenedor.textContent = '';
   const documento = contenedor.ownerDocument;
@@ -150,6 +236,15 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
   let pagina = 0;
   let idEnEdicion: string | null = null;
   let idConfirmandoBaja: string | null = null;
+
+  // T-13: sección de personas de referencia, abierta para como mucho un alumno a la vez.
+  let idExpandidoPersonas: string | null = null;
+  let cargandoPersonas = false;
+  let errorPersonas = '';
+  let personasDelExpandido: readonly PersonaReferencia[] = [];
+  let idPersonaEnEdicion: string | null = null;
+  let idPersonaConfirmandoEliminar: string | null = null;
+  let avisoDuplicadoPersona = '';
 
   const titulo = documento.createElement('h1');
   titulo.textContent = 'Ficha de alumno';
@@ -176,6 +271,176 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
       cargando = false;
       pintar();
     }
+  }
+
+  /** Pide la ficha completa de `alumnoId` (personas de referencia embebidas, requisito 5 de T-13) y
+   * la usa para refrescar la sección abierta de ese alumno: se llama tanto al abrir la sección como
+   * tras cualquier alta, edición o borrado de una de sus personas de referencia. */
+  async function cargarPersonas(alumnoId: string): Promise<void> {
+    cargandoPersonas = true;
+    errorPersonas = '';
+    pintar();
+    try {
+      const ficha = await deps.obtenerAlumno(alumnoId);
+      personasDelExpandido = ficha.personas_referencia;
+    } catch (error) {
+      errorPersonas = mensajeAmigable(error);
+    } finally {
+      cargandoPersonas = false;
+      pintar();
+    }
+  }
+
+  function pintarFilaPersona(alumnoId: string, persona: PersonaReferencia): HTMLElement {
+    const fila = documento.createElement('div');
+
+    if (idPersonaEnEdicion === persona.id) {
+      const formEdicion = documento.createElement('form');
+      const campos = {} as CamposFormularioPersonaReferencia;
+      crearCampoFormularioPersona(documento, formEdicion, campos, `persona-editar-${persona.id}`);
+      rellenarFormularioPersona(campos, persona);
+      const botonGuardar = crearBoton(documento, 'Guardar');
+      const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+      botonCancelar.addEventListener('click', () => {
+        idPersonaEnEdicion = null;
+        pintar();
+      });
+      formEdicion.addEventListener('submit', (evento) => {
+        evento.preventDefault();
+        void (async () => {
+          try {
+            await deps.editarPersonaReferencia(persona.id, leerFormularioPersona(campos));
+            idPersonaEnEdicion = null;
+            await cargarPersonas(alumnoId);
+          } catch (error) {
+            errorPersonas = mensajeAmigable(error);
+            pintar();
+          }
+        })();
+      });
+      formEdicion.append(botonGuardar, botonCancelar);
+      fila.append(formEdicion);
+      return fila;
+    }
+
+    const nombreEl = documento.createElement('span');
+    // `nombreCompletoAlumno` compone "nombre + apellidos" con las mismas tres columnas que tiene
+    // `PersonaReferencia` (nombre/primer_apellido/segundo_apellido): es la única función del
+    // dominio que compone ese texto (T-12, requisito 4) y reutilizarla evita un segundo criterio de
+    // composición para las personas de referencia.
+    nombreEl.textContent = nombreCompletoAlumno(persona);
+    const telefonoEl = documento.createElement('span');
+    telefonoEl.textContent = persona.telefono_referencia;
+    fila.append(nombreEl, telefonoEl);
+    if (persona.email_referencia) {
+      const emailEl = documento.createElement('span');
+      emailEl.textContent = persona.email_referencia;
+      fila.append(emailEl);
+    }
+
+    const botonEditar = crearBoton(documento, 'Editar', 'button');
+    botonEditar.addEventListener('click', () => {
+      idPersonaEnEdicion = persona.id;
+      pintar();
+    });
+    fila.append(botonEditar);
+
+    if (idPersonaConfirmandoEliminar === persona.id) {
+      const avisoDefinitivo = documento.createElement('p');
+      avisoDefinitivo.textContent = 'Esta acción es definitiva y no se puede deshacer.';
+      const botonConfirmar = crearBoton(documento, 'Confirmar eliminación', 'button');
+      botonConfirmar.addEventListener('click', () => {
+        void (async () => {
+          try {
+            await deps.eliminarPersonaReferencia(persona.id);
+            idPersonaConfirmandoEliminar = null;
+            await cargarPersonas(alumnoId);
+          } catch (error) {
+            errorPersonas = mensajeAmigable(error);
+            pintar();
+          }
+        })();
+      });
+      const botonCancelarEliminar = crearBoton(documento, 'Cancelar', 'button');
+      botonCancelarEliminar.addEventListener('click', () => {
+        idPersonaConfirmandoEliminar = null;
+        pintar();
+      });
+      fila.append(avisoDefinitivo, botonConfirmar, botonCancelarEliminar);
+    } else {
+      const botonEliminar = crearBoton(documento, 'Eliminar', 'button');
+      botonEliminar.addEventListener('click', () => {
+        idPersonaConfirmandoEliminar = persona.id;
+        pintar();
+      });
+      fila.append(botonEliminar);
+    }
+
+    return fila;
+  }
+
+  function pintarSeccionPersonas(alumnoId: string): HTMLElement {
+    const seccion = documento.createElement('div');
+
+    if (cargandoPersonas) {
+      const cargandoEl = documento.createElement('p');
+      cargandoEl.textContent = 'Cargando personas de referencia…';
+      seccion.append(cargandoEl);
+      return seccion;
+    }
+
+    const zonaErrorPersonas = crearZonaMensaje(documento, 'alert');
+    zonaErrorPersonas.textContent = errorPersonas;
+    seccion.append(zonaErrorPersonas);
+
+    if (avisoDuplicadoPersona) {
+      const zonaAviso = crearZonaMensaje(documento, 'status');
+      zonaAviso.textContent = avisoDuplicadoPersona;
+      seccion.append(zonaAviso);
+    }
+
+    if (personasDelExpandido.length === 0) {
+      const vacioEl = documento.createElement('p');
+      vacioEl.textContent = 'Este alumno no tiene ninguna persona de referencia.';
+      seccion.append(vacioEl);
+    } else {
+      for (const persona of personasDelExpandido) {
+        seccion.append(pintarFilaPersona(alumnoId, persona));
+      }
+    }
+
+    const formAlta = documento.createElement('form');
+    const camposAlta = {} as CamposFormularioPersonaReferencia;
+    crearCampoFormularioPersona(documento, formAlta, camposAlta, `persona-nueva-${alumnoId}`);
+    const botonAnadir = crearBoton(documento, 'Añadir persona de referencia');
+    formAlta.append(botonAnadir);
+    formAlta.addEventListener('submit', (evento) => {
+      evento.preventDefault();
+      void (async () => {
+        const datos = leerFormularioPersona(camposAlta);
+        // Requisito 6 de T-13: avisar de un posible duplicado (mismo nombre completo y teléfono en
+        // este mismo alumno) sin bloquear el alta — se calcula contra lo ya cargado, en el cliente,
+        // y el alta sigue adelante exista o no coincidencia.
+        const telefonoNormalizado = normalizarTelefonoReferencia(datos.telefono_referencia);
+        avisoDuplicadoPersona = buscarPersonaReferenciaDuplicada(
+          { ...datos, telefono_referencia: telefonoNormalizado },
+          personasDelExpandido,
+        )
+          ? 'Ya existe una persona de referencia con el mismo nombre y teléfono para este alumno.'
+          : '';
+        try {
+          await deps.crearPersonaReferencia(alumnoId, datos);
+          limpiarFormularioPersona(camposAlta);
+          await cargarPersonas(alumnoId);
+        } catch (error) {
+          errorPersonas = mensajeAmigable(error);
+          pintar();
+        }
+      })();
+    });
+    seccion.append(formAlta);
+
+    return seccion;
   }
 
   function pintarFila(alumno: AlumnoConCentro): HTMLElement {
@@ -272,6 +537,29 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
         })();
       });
       fila.append(botonReactivar);
+    }
+
+    if (puedeVerPersonasReferencia(deps.rol)) {
+      const abierta = idExpandidoPersonas === alumno.id;
+      const botonPersonas = crearBoton(documento, abierta ? 'Ocultar personas de referencia' : 'Personas de referencia', 'button');
+      botonPersonas.addEventListener('click', () => {
+        if (idExpandidoPersonas === alumno.id) {
+          idExpandidoPersonas = null;
+          personasDelExpandido = [];
+          pintar();
+          return;
+        }
+        idExpandidoPersonas = alumno.id;
+        idPersonaEnEdicion = null;
+        idPersonaConfirmandoEliminar = null;
+        avisoDuplicadoPersona = '';
+        void cargarPersonas(alumno.id);
+      });
+      fila.append(botonPersonas);
+
+      if (abierta) {
+        fila.append(pintarSeccionPersonas(alumno.id));
+      }
     }
 
     return fila;

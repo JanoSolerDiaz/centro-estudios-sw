@@ -12,7 +12,7 @@ import {
   reactivarAlumno,
 } from './alumnos.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
-import type { AlumnoConCentro } from './alumnos.ts';
+import type { AlumnoConCentro, AlumnoConCentroYPersonas } from './alumnos.ts';
 
 const GARCIA: AlumnoConCentro = {
   id: 'a1',
@@ -32,6 +32,12 @@ const GARCIA: AlumnoConCentro = {
   actualizado_en: '2026-01-01T00:00:00Z',
   centro: { id: 'c1', nombre: 'IES Cervantes' },
 };
+
+/** Con las personas de referencia embebidas (T-13): la forma que devuelven de verdad
+ * `obtenerAlumno`/`crearAlumno`/`editarAlumno`/`darDeBajaAlumno`/`reactivarAlumno`, todas operan
+ * sobre un único alumno y por eso traen `personas_referencia` en la misma petición — a diferencia
+ * de `listarAlumnos`, que sigue devolviendo `GARCIA` (`AlumnoConCentro`) a secas. */
+const GARCIA_CON_PERSONAS: AlumnoConCentroYPersonas = { ...GARCIA, personas_referencia: [] };
 
 function crearCliente(manejador: Parameters<typeof crearFetchSimulado>[0]) {
   return crearClientePostgrest({
@@ -90,19 +96,24 @@ void test('listarAlumnos({ busqueda }) usa un único or=(...) sobre nombre y los
   );
 });
 
-void test('obtenerAlumno lee una fila de alumno_ficha filtrada por id', async () => {
+void test('obtenerAlumno lee una fila de alumno_ficha filtrada por id, con las personas de referencia embebidas en la misma petición', async () => {
   const peticiones: PeticionSimulada[] = [];
   const cliente = crearCliente((peticion) => {
     peticiones.push(peticion);
-    return { estado: 200, cuerpo: [GARCIA] };
+    return { estado: 200, cuerpo: [GARCIA_CON_PERSONAS] };
   });
 
   const alumno = await obtenerAlumno(cliente, 'a1');
 
-  assert.deepEqual(alumno, GARCIA);
+  assert.deepEqual(alumno, GARCIA_CON_PERSONAS);
+  assert.equal(peticiones.length, 1, 'la ficha completa se carga en una sola petición');
   const url = new URL(peticiones[0]?.url ?? '');
   assert.equal(url.pathname, '/rest/v1/alumno_ficha');
   assert.equal(url.searchParams.get('id'), 'eq.a1');
+  assert.equal(
+    url.searchParams.get('select'),
+    '*,centro:centro_estudios(id,nombre),personas_referencia:persona_referencia(*)',
+  );
 });
 
 void test('crearAlumno inserta con un id generado en el cliente, Prefer return=minimal, y relee la ficha', async () => {
@@ -112,7 +123,7 @@ void test('crearAlumno inserta con un id generado en el cliente, Prefer return=m
     if (peticion.metodo === 'POST') {
       return { estado: 201, cuerpo: undefined };
     }
-    return { estado: 200, cuerpo: [GARCIA] };
+    return { estado: 200, cuerpo: [GARCIA_CON_PERSONAS] };
   });
 
   const alumno = await crearAlumno(cliente, {
@@ -121,7 +132,7 @@ void test('crearAlumno inserta con un id generado en el cliente, Prefer return=m
     centro_referencia_id: 'c1',
   });
 
-  assert.deepEqual(alumno, GARCIA);
+  assert.deepEqual(alumno, GARCIA_CON_PERSONAS);
   const insercion = peticiones.find((p) => p.metodo === 'POST');
   assert.ok(insercion);
   assert.equal(insercion.cabeceras.prefer, 'return=minimal');

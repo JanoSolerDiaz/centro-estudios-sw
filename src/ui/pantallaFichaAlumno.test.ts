@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { mostrarPantallaFichaAlumno, type DependenciasPantallaFichaAlumno } from './pantallaFichaAlumno.ts';
 import { SinPermiso } from '../datos/erroresDominio.ts';
-import type { CentroEstudios } from '../dominio/tipos.ts';
-import type { AlumnoConCentro, OpcionesListarAlumnos } from '../datos/alumnos.ts';
+import type { CentroEstudios, PersonaReferencia } from '../dominio/tipos.ts';
+import type { AlumnoConCentro, AlumnoConCentroYPersonas, OpcionesListarAlumnos } from '../datos/alumnos.ts';
 
 const CENTRO: CentroEstudios = {
   id: 'c1',
@@ -33,6 +33,20 @@ const GARCIA: AlumnoConCentro = {
   centro: { id: 'c1', nombre: 'IES Cervantes' },
 };
 
+const GARCIA_CON_PERSONAS: AlumnoConCentroYPersonas = { ...GARCIA, personas_referencia: [] };
+
+const TUTOR: PersonaReferencia = {
+  id: 'pr1',
+  alumno_id: 'a1',
+  nombre: 'Juan',
+  primer_apellido: 'García',
+  segundo_apellido: null,
+  email_referencia: null,
+  telefono_referencia: '600000000',
+  creado_en: '2026-01-01T00:00:00Z',
+  actualizado_en: '2026-01-01T00:00:00Z',
+};
+
 function crearContenedorDePruebas(): HTMLElement {
   const dom = new JSDOM('<!doctype html><body><div id="app"></div></body>');
   const contenedor = dom.window.document.querySelector<HTMLElement>('#app');
@@ -52,6 +66,10 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaFichaAlumno> = {
     editarAlumno: overrides.editarAlumno ?? noImplementado('editarAlumno'),
     darDeBajaAlumno: overrides.darDeBajaAlumno ?? noImplementado('darDeBajaAlumno'),
     reactivarAlumno: overrides.reactivarAlumno ?? noImplementado('reactivarAlumno'),
+    obtenerAlumno: overrides.obtenerAlumno ?? noImplementado('obtenerAlumno'),
+    crearPersonaReferencia: overrides.crearPersonaReferencia ?? noImplementado('crearPersonaReferencia'),
+    editarPersonaReferencia: overrides.editarPersonaReferencia ?? noImplementado('editarPersonaReferencia'),
+    eliminarPersonaReferencia: overrides.eliminarPersonaReferencia ?? noImplementado('eliminarPersonaReferencia'),
     ...overrides,
   };
 }
@@ -353,4 +371,186 @@ void test('pulsar "Siguiente" pide la página siguiente a listarAlumnos', async 
   await esperarMicrotareas();
 
   assert.deepEqual(paginasRecibidas, [0, 1]);
+});
+
+void test('pulsar "Personas de referencia" pide la ficha completa y pinta a las personas ya existentes', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const idsPedidos: string[] = [];
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      listarAlumnos: () => resultadoListado([GARCIA]),
+      obtenerAlumno: (id) => {
+        idsPedidos.push(id);
+        return Promise.resolve({ ...GARCIA_CON_PERSONAS, personas_referencia: [TUTOR] });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonPersonas = Array.from(contenedor.querySelectorAll('button')).find(
+    (b) => b.textContent === 'Personas de referencia',
+  );
+  assert.ok(botonPersonas);
+  botonPersonas.click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(idsPedidos, ['a1']);
+  assert.match(contenedor.textContent, /Juan García/);
+  assert.match(contenedor.textContent, /600000000/);
+});
+
+void test('un alumno sin ninguna persona de referencia muestra el mensaje explícito', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      listarAlumnos: () => resultadoListado([GARCIA]),
+      obtenerAlumno: () => Promise.resolve(GARCIA_CON_PERSONAS),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonPersonas = Array.from(contenedor.querySelectorAll('button')).find(
+    (b) => b.textContent === 'Personas de referencia',
+  );
+  botonPersonas?.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /no tiene ninguna persona de referencia/);
+});
+
+void test('añadir una persona de referencia llama a crearPersonaReferencia y recarga la sección', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const datosRecibidos: unknown[] = [];
+  let vecesObtenido = 0;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      listarAlumnos: () => resultadoListado([GARCIA]),
+      obtenerAlumno: () => {
+        vecesObtenido += 1;
+        return Promise.resolve({
+          ...GARCIA_CON_PERSONAS,
+          personas_referencia: vecesObtenido === 1 ? [] : [TUTOR],
+        });
+      },
+      crearPersonaReferencia: (alumnoId, datos) => {
+        datosRecibidos.push({ alumnoId, datos });
+        return Promise.resolve(TUTOR);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonPersonas = Array.from(contenedor.querySelectorAll('button')).find(
+    (b) => b.textContent === 'Personas de referencia',
+  );
+  botonPersonas?.click();
+  await esperarMicrotareas();
+
+  const nombre = contenedor.querySelector<HTMLInputElement>('#persona-nueva-a1-nombre');
+  const primerApellido = contenedor.querySelector<HTMLInputElement>('#persona-nueva-a1-primer-apellido');
+  const telefono = contenedor.querySelector<HTMLInputElement>('#persona-nueva-a1-telefono');
+  const formulario = nombre?.closest('form');
+  const ventana = contenedor.ownerDocument.defaultView;
+  assert.ok(nombre && primerApellido && telefono && formulario && ventana);
+
+  nombre.value = 'Juan';
+  primerApellido.value = 'García';
+  telefono.value = '600000000';
+  formulario.dispatchEvent(new ventana.Event('submit', { cancelable: true, bubbles: true }));
+  await esperarMicrotareas();
+
+  assert.equal(datosRecibidos.length, 1);
+  assert.equal((datosRecibidos[0] as { alumnoId: string }).alumnoId, 'a1');
+  assert.match(contenedor.textContent, /Juan García/);
+});
+
+void test('añadir una persona con el mismo nombre y teléfono que otra ya existente avisa sin bloquear', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let vecesCreado = 0;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      listarAlumnos: () => resultadoListado([GARCIA]),
+      obtenerAlumno: () => Promise.resolve({ ...GARCIA_CON_PERSONAS, personas_referencia: [TUTOR] }),
+      crearPersonaReferencia: () => {
+        vecesCreado += 1;
+        return Promise.resolve(TUTOR);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonPersonas = Array.from(contenedor.querySelectorAll('button')).find(
+    (b) => b.textContent === 'Personas de referencia',
+  );
+  botonPersonas?.click();
+  await esperarMicrotareas();
+
+  const nombre = contenedor.querySelector<HTMLInputElement>('#persona-nueva-a1-nombre');
+  const primerApellido = contenedor.querySelector<HTMLInputElement>('#persona-nueva-a1-primer-apellido');
+  const telefono = contenedor.querySelector<HTMLInputElement>('#persona-nueva-a1-telefono');
+  const formulario = nombre?.closest('form');
+  const ventana = contenedor.ownerDocument.defaultView;
+  assert.ok(nombre && primerApellido && telefono && formulario && ventana);
+
+  nombre.value = 'Juan';
+  primerApellido.value = 'García';
+  telefono.value = '600000000';
+  formulario.dispatchEvent(new ventana.Event('submit', { cancelable: true, bubbles: true }));
+  await esperarMicrotareas();
+
+  assert.equal(vecesCreado, 1, 'el aviso no debe bloquear el alta');
+  assert.match(contenedor.textContent, /Ya existe una persona de referencia/);
+});
+
+void test('eliminar una persona de referencia pide confirmación explícita y definitiva antes de borrar', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let vecesEliminado = 0;
+  let vecesObtenido = 0;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      listarAlumnos: () => resultadoListado([GARCIA]),
+      obtenerAlumno: () => {
+        vecesObtenido += 1;
+        return Promise.resolve({
+          ...GARCIA_CON_PERSONAS,
+          personas_referencia: vecesObtenido === 1 ? [TUTOR] : [],
+        });
+      },
+      eliminarPersonaReferencia: (id) => {
+        vecesEliminado += 1;
+        assert.equal(id, 'pr1');
+        return Promise.resolve();
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonPersonas = Array.from(contenedor.querySelectorAll('button')).find(
+    (b) => b.textContent === 'Personas de referencia',
+  );
+  botonPersonas?.click();
+  await esperarMicrotareas();
+
+  const botonEliminar = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Eliminar');
+  assert.ok(botonEliminar);
+  botonEliminar.click();
+  await esperarMicrotareas();
+
+  assert.equal(vecesEliminado, 0, 'no debe borrar antes de confirmar');
+  assert.match(contenedor.textContent, /definitiva y no se puede deshacer/);
+
+  const botonConfirmar = Array.from(contenedor.querySelectorAll('button')).find(
+    (b) => b.textContent === 'Confirmar eliminación',
+  );
+  assert.ok(botonConfirmar);
+  botonConfirmar.click();
+  await esperarMicrotareas();
+
+  assert.equal(vecesEliminado, 1);
+  assert.match(contenedor.textContent, /no tiene ninguna persona de referencia/);
 });
