@@ -43,7 +43,7 @@
 
 | #ID | Fecha | Área | Severidad | Estado | Resumen | Tarea / origen |
 |-----|-------|------|-----------|--------|---------|----------------|
-| #1 | 2026-08-26 | Gobernanza documental | baja | ABIERTO | `HOJA_DE_RUTA.md` se declara en su cabecera "DOCUMENTO INMUTABLE" ("Este archivo NO se modifica nunca") pero fue editado 41 minutos después de crearse — commit `4c05189`, mismo día 2026-08-25, autoría del propio dueño —, cambiando tanto el protocolo de §0.1 (que el propio documento sí permite cambiar al dueño) como el cuerpo de la tarea T-07 (que el documento declara inmutable sin excepción explícita para nadie, ni siquiera el dueño). No hay riesgo de dato ni de seguridad: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento como referencia. Es un aviso de higiene documental para que la excepción del dueño quede escrita si se pretende que exista, no una alerta operativa. | `roadmap/HOJA_DE_RUTA.md`, commit `4c05189` |
+| #1 | 2026-08-26 | Gobernanza documental | baja | RESUELTO (2026-08-28) | `HOJA_DE_RUTA.md` se declara en su cabecera "DOCUMENTO INMUTABLE" ("Este archivo NO se modifica nunca") pero fue editado 41 minutos después de crearse — commit `4c05189`, mismo día 2026-08-25, autoría del propio dueño —, cambiando tanto el protocolo de §0.1 (que el propio documento sí permite cambiar al dueño) como el cuerpo de la tarea T-07 (que el documento declara inmutable sin excepción explícita para nadie, ni siquiera el dueño). No hay riesgo de dato ni de seguridad: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento como referencia. **Resuelto:** el dueño respondió la pregunta #3 de §6 de `SEGUIMIENTO.md` el 2026-08-27 — la cabecera se mantiene literal, sin añadir ninguna excepción, y cada edición suya se documenta como excepción puntual en §7, que ya recoge así las dos ediciones del 2026-08-25. `git log -- roadmap/HOJA_DE_RUTA.md` confirma que no ha habido ninguna edición nueva desde entonces. | `roadmap/HOJA_DE_RUTA.md`, commit `4c05189`; cierre en `roadmap/SEGUIMIENTO.md` §6 pregunta #3 y §7 |
 
 ---
 
@@ -52,6 +52,142 @@
 > Cada pasada: fecha, hallazgos y conclusiones. Append, la más reciente arriba. Prestar
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
+
+### Auditoría 2026-08-28
+
+**Alcance real de esta pasada — avance sustancial desde la anterior, todavía sin RLS de producto.**
+Desde la auditoría 2026-08-27 (que cerró con FASE A completa, T-00 a T-04) el repositorio ha
+completado T-05 a T-09: monitorización de errores, límites de abuso y robustez, el modelo de datos
+completo con su runner de migraciones (`001_esquema_inicial` aplicada y verificada en `dev`), el
+cliente propio de PostgREST/Storage, y autenticación con los tres roles. `git log` confirma que no
+hubo ninguna auditoría intermedia entre esa fecha y esta, así que esta pasada cubre las cinco tareas
+de un tirón. **T-10 (políticas RLS de los tres roles) sigue `PENDIENTE`**, y con ella siguen sin
+existir todavía la práctica totalidad de los puntos de control de seguridad de producto de este
+documento (aislamiento de `asistencia`, bucket de avatares, superficie de columnas del `teacher`,
+personas de referencia): nacen en T-10/T-14 y no se fabrica ningún hallazgo sobre funcionalidad que
+no existe. Lo que sí existe — autenticación, cliente de datos, monitorización, límites de abuso y el
+esquema con sus triggers e inmutabilidad — se ha auditado con el mismo rigor que el andamiaje de
+FASE A en la pasada anterior, porque es exactamente donde vive hoy el riesgo real del proyecto.
+
+**Metodología: verificación directa contra código y SQL reales, no contra lo que dicen los
+documentos.** Se hizo `git checkout develop && git pull` (limpio, sin conflicto, 31 commits nuevos
+desde la última pasada), `npm ci`, y se ejecutaron en vivo los cuatro comandos de verificación de
+§0.1: `npm run typecheck`, `npm run lint`, `npm test` y `npm run build`. **Los cuatro en verde — 297
+tests, 0 fallos.** Se confirmó además contra la API de GitHub Actions que los 13 runs de CI en
+`develop`, incluido el del commit actual (`855f95c`), terminaron `completed`/`success` sin
+excepción.
+
+Para cubrir T-05 a T-09 con la misma profundidad que exige este proyecto sin agotar una sola pasada
+secuencial, se delegó la lectura línea a línea en tres subagentes independientes, cada uno con
+instrucción explícita de citar fichero y línea y de no inventar hallazgos para rellenar su informe:
+uno para T-05 (monitorización de errores) y T-06 (límites de abuso); otro para T-07 (esquema SQL y
+runner de migraciones); otro para T-08 (cliente PostgREST/Storage) y T-09 (autenticación y roles).
+Los tres ejecutaron o confirmaron la suite de tests correspondiente en vivo, no solo leyeron el
+código. Ninguno encontró una discrepancia de severidad alta o media entre lo que
+`DECISIONES_TECNICAS.md`/la hoja de ruta prometen y lo que el código hace de verdad. Resumen de lo
+verificado punto por punto:
+
+- **Logger y scrubbing (T-02/T-05):** `depurarContexto` (`src/nucleo/registro.ts`) filtra de verdad
+  por nombre de campo y por forma del valor (JWT, cadena opaca), recursivamente en objetos y arrays
+  anidados, confirmado leyendo el código y ejecutando sus tests. `informadorErrores.ts` no deja
+  ninguna promesa de `enviar` sin capturar y un fallo de envío nunca provoca una segunda llamada —
+  verificado con los dos tests que fuerzan el fallo (rechazo asíncrono y excepción síncrona) y
+  comprueban `llamadas === 1` sin `unhandledRejection`. `evento_error` tiene RLS habilitada sin
+  política de lectura todavía, tal como documenta su propio comentario en el SQL — correcto para
+  hoy, la política de `administrator` nace en T-10.
+- **Límites de abuso (T-06):** el limitador de tasa usa el reloj inyectado, nunca `Date.now()`
+  directo; la protección de doble toque deduplica una carrera real, no una llamada en bucle (el test
+  controla a mano cuándo resuelve la operación subyacente); el retroceso exponencial usa el
+  `Temporizador` inyectado, sin esperas reales, con la progresión exacta verificada
+  (`[1000, 2000, 3000, 3000]`); `mensajesAbuso.ts` nunca expone `error.message` crudo de Postgres,
+  con un test que inyecta un mensaje técnico real y comprueba su ausencia. Valoración honesta de la
+  suite (no solo "está verde"): es sustancial, no tautológica — el único test relativamente trivial
+  es el de `temporizador.ts`, razonable porque el módulo no tiene lógica de negocio propia.
+- **Esquema y runner de migraciones (T-07), el bloque de mayor riesgo de esta pasada:** las siete
+  guardas de contenido del runner (`DROP TABLE`, `DROP SCHEMA`, `TRUNCATE`,
+  `DISABLE ROW LEVEL SECURITY`, `DROP POLICY` sin su `CREATE POLICY`, `DELETE` sobre `asistencia`,
+  `UPDATE`/`DELETE` sobre `asistencia_historial`) tienen cada una su test que la dispara de verdad,
+  no solo código que "parece" tenerla. La inmutabilidad por hash aborta si el fichero ya aplicado
+  cambió. La salvaguarda de `prod` exige `--entorno=prod` **y** `PERMITIR_PROD=1` con comparación
+  estricta. Las siete tablas nuevas de `001_esquema_inicial.sql` tienen **todas**
+  `enable row level security`, **todas** empiezan por `revoke all` antes de conceder nada, y **ninguna**
+  concede `TRUNCATE`/`REFERENCES`/`TRIGGER` a `anon`/`authenticated` (el único `grant` a esos roles en
+  todo el fichero es `execute` sobre la RPC `registrar_evento_error`, no un privilegio de tabla) — el
+  fallo que ya ocurrió una vez en el bootstrap (`000b_arreglo_permisos.sql`) no se ha reintroducido.
+  El trigger `BEFORE UPDATE` de `asistencia` aborta si se toca `registrado_en`, `profesor_id` o
+  `peticion_id`, y fija `actualizado_en`/`actualizado_por` él mismo; el `AFTER UPDATE` escribe la fila
+  anterior en `asistencia_historial`. Las revocaciones sobre `asistencia` y `asistencia_historial` son
+  incluso más estrictas de lo exigido: ni `service_role` tiene `INSERT`/`UPDATE`/`DELETE` directo, solo
+  `SELECT`. El test estático que parsea el SQL real y el test de fuga de secretos (que compila `dist/`
+  de verdad dentro del propio test) pasan hoy contra el repositorio real. **Sin hallazgo.**
+- **Cliente de datos y autenticación (T-08/T-09):** el codificador de valores de filtro escapa
+  comillas, comas, `%` y paréntesis en dos capas antes de `encodeURIComponent`, con tests para cada
+  caso. `urlFirmadasEnLote` hace una sola petición HTTP para N rutas, verificado contando llamadas al
+  doble de `fetch` — nota de contexto, no hallazgo: `src/datos/almacenamiento.ts` ya existe porque el
+  cliente de Storage era parte explícita del alcance de **T-08** (su requisito 3, no de T-14, que
+  sigue tratando la creación del bucket, sus políticas y el procesado de imagen); no hay adelanto de
+  alcance. `errorDeRespuesta` traduce correctamente cada código HTTP a su error de dominio; el
+  `message` crudo de Postgres sobrevive en el objeto de error en memoria (para depuración/logs, ya
+  depurado por `depurarContexto`), pero `mensajeAmigable` — el único punto que compone texto para la
+  interfaz — nunca lo lee, confirmado por grep sobre `src/ui/**`. La sesión persiste solo el
+  `refresh_token` en `sessionStorage`, nunca el `access_token`; la renovación es estrictamente
+  proactiva (`renovarAlAbrirPasarLista`), sin ningún interceptor reactivo a un `401` en los clientes
+  de datos. Un perfil `activo = false` no entra aunque las credenciales sean correctas. Un `student` o
+  un rol desconocido llegan a la pantalla sin acceso con **una sola** llamada de datos (cargar su
+  propio perfil) y nunca más — hay un test que lo dice literalmente. Login y recuperación de
+  contraseña responden igual exista o no la cuenta, verificado en dos capas (cliente GoTrue y
+  pantalla). Ningún test ni log contiene una contraseña o token en claro. **Confirmado como ausente,
+  correctamente:** ningún rastro del bloqueo de cuenta al tercer intento fallido (P-01) — es la tarea
+  que arranca hoy mismo, 2026-08-28, por decisión del dueño, y su ausencia hasta ahora es lo esperado,
+  no una omisión.
+- **Secretos:** repetido el barrido sobre el estado nuevo del repositorio (31 commits): ningún
+  access token, contraseña ni clave `service_role` en claro en ningún fichero — solo el nombre del
+  rol `service_role` en comentarios y documentación, uso legítimo. `.env.ejemplo` y
+  `config.ejemplo.js` documentan las variables sin valores. `.gitignore` cubre `.env.local`, `.env` y
+  `config.js`; ninguno de los tres está trackeado. `git status` limpio. **Sin hallazgo.**
+- **Stack:** `package.json` no declara `dependencies` en absoluto (ni siquiera un objeto vacío) y
+  `devDependencies` es exactamente la lista cerrada de §0.2 más las herramientas de ESLint que la
+  acompañan (`@eslint/js`, `typescript-eslint`) — ningún framework, ningún SDK de Supabase. **Sin
+  hallazgo.**
+
+**Coherencia entre lo decidido y lo ejecutado:** `DECISIONES_TECNICAS.md` registra 30 filas nuevas
+desde la pasada anterior (T-05 a T-09), todas con alternativas consideradas, y ninguna contradice
+§0.2. Varias se contrastaron contra el código real y no solo contra su propio texto (el patrón de
+`Reloj`/`Temporizador` inyectados, la separación de `almacenSesion.ts` en `sessionStorage`, la
+ausencia de interceptor reactivo a `401`), y todas coincidieron. `SEGUIMIENTO.md` §1 tiene T-00 a
+T-09 `COMPLETADA` y T-10 en adelante `PENDIENTE`, consistente con lo que hay en el repositorio.
+§7 (desviaciones) registra correctamente las dos ampliaciones reales de alcance: la del bloqueo de
+cuenta acordada por el dueño el 2026-08-27 (que arrastra la numeración de migraciones de T-10 y
+exige la condición "no bloqueado" en sus políticas — anotado con claridad para que la sesión de T-10
+no lo pase por alto) y la excepción documental de `HOJA_DE_RUTA.md`. §3 (bloqueos) tiene sus tres
+filas resueltas y verificadas, no solo dadas por hechas: la migración `001` con `esquema_version()`
+= `1`, `000b_arreglo_permisos.sql` confirmado con el barrido de privilegios en vivo, y el primer
+`administrator` confirmado por el dueño. El ciclo de PM del 2026-08-27 (tercero) revisó el roadmap de
+producto sin introducir ningún dato personal nuevo ni tocar al rol `student`, y correctamente no
+generó ninguna R-XX nueva porque las respuestas del dueño a las preguntas #1 y #2 de §6 solo
+confirmaban el alcance ya conservador que la oleada v1/v2 daba por hecho.
+
+**Cierre del hallazgo #1 (higiene documental, severidad baja):** el dueño respondió la pregunta #3
+de §6 el 2026-08-27 — la cabecera de `HOJA_DE_RUTA.md` se mantiene literal y cada edición suya se
+documenta como excepción puntual en §7, que ya recoge así las dos ediciones del 2026-08-25.
+`git log -- roadmap/HOJA_DE_RUTA.md` confirma que no ha habido ninguna edición nueva desde la pasada
+anterior. Se marca **RESUELTO** en el registro de arriba.
+
+**Ningún hallazgo nuevo esta pasada.** No por falta de búsqueda — se ejecutó la suite completa en
+vivo, se leyó línea a línea el código de T-05 a T-09 y el SQL de `001_esquema_inicial.sql` con tres
+subagentes independientes instruidos explícitamente para no fabricar hallazgos, se repitió el barrido
+de secretos, se confirmaron los 13 runs de CI en GitHub y se contrastó cada decisión técnica relevante
+contra el código real — sino porque el estado del repositorio coincide, punto por punto, con lo que
+la documentación dice que hay.
+
+**Conclusión:** T-00 a T-09 están completas y son sólidas. El runner de migraciones y el esquema
+SQL de T-07 —el bloque de mayor riesgo de esta pasada, porque es el primer código que toca DDL real
+sobre datos de menores— cumplen sus invariantes con margen (revocaciones más estrictas de lo exigido
+en `asistencia`/`asistencia_historial`). La autenticación cierra correctamente el rol `student` y no
+revela existencia de cuentas. No hay ningún hallazgo de seguridad pendiente de atender antes de
+seguir. La próxima auditoría con sustancia real de seguridad de producto llega con **T-10** (políticas
+RLS de los tres roles, previsiblemente ya con la ampliación de P-01 integrada) y **T-14** (bucket de
+avatares), que es cuando nacen la mayoría de los puntos de control permanentes de este documento.
 
 ### Auditoría 2026-08-27
 
