@@ -37,6 +37,51 @@
 
 ---
 
+### Sesión 2026-08-29 (PM)
+
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código) — **quinto ciclo del PM: ninguna R-XX nueva,
+dos entradas de backlog técnico registradas**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: quinto ciclo del PM — sin R-XX nueva,
+backlog técnico P-02/P-03 desde auditoría)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (§5: P-02 y P-03 nuevas, deuda técnica no
+urgente con `origen: auditoría #3`/`#4`), `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada con el
+resultado de este ciclo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (no aplica a un ciclo de PM sin cambio
+de arquitectura)
+**Hallazgos del auditor atendidos:** se revisaron los tres hallazgos `ABIERTO` de la pasada de
+`auditoriacontinua.md` del 2026-08-29. **#2** (severidad alta, cobertura de escritura de
+`db/pruebas_rls.sql`) es de autorización/calidad de pruebas: por protocolo (§0 de `HOJA_DE_RUTA.md`)
+lo atiende el programador como P-XX urgente en cuanto arranque su siguiente sesión, así que no
+genera ninguna R-XX ni entrada de backlog aquí — se confirma que sigue trazado en el registro de
+hallazgos y no se duplica. **#3** (severidad baja, `avatar_ruta` de más en el `select` de
+`listarAlumnos`) y **#4** (severidad baja, frase residual de `db/MODELO.md`) no son mejoras de
+producto: se registran como **P-02** y **P-03** en §5 de `SEGUIMIENTO.md`, con `origen: auditoría
+#3`/`#4`, marcadas sin urgencia para que el programador las ejecute cuando la tarea en curso esté
+terminada o bloqueada
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía); nada que
+convertir. Se revisó el estado completo de las oleadas v1/v2 (R-01 a R-12) contra el objetivo de
+producto y contra el estado real del desarrollo (T-10 sigue bloqueada pendiente de `002`/`003`; T-14
+es la siguiente tarea de la cola) sin encontrar ninguna laguna nueva ni dependencia que faltara,
+a diferencia del ciclo anterior (que detectó la ausencia de R-12). No se inventa ninguna R-XX sin
+necesidad real detectada. Ninguna oleada está 100% desplegada todavía (v1 no ha arrancado: espera al
+MVP completo), así que no hay nada que mover a `ROADMAP_HISTORICO.md` esta vez
+**Tareas autopropuestas (P-XX):** P-02 y P-03 registradas (ver arriba), ninguna ejecutada por este
+ciclo (el PM no programa)
+**Próximo paso:** el desarrollo sigue en T-14 (avatar del alumno, bloqueada por su migración
+`004_bucket_avatares` hasta que el dueño aplique `002`/`003` y esta nueva) como siguiente tarea de
+cola, y el programador debe atender el hallazgo #2 (severidad alta) como P-XX urgente antes de esa
+tarea, según protocolo. El siguiente ciclo de PM debe: revisar si el dueño respondió alguna pregunta
+de §6 (en particular la #5/#6/#7/#8/#9/#10, todas abiertas) para ajustar el roadmap en consecuencia,
+comprobar si `FEEDBACK.md` tiene entradas `nuevo` que convertir, y revisar si algún hallazgo nuevo del
+auditor requiere una R-XX o una entrada de backlog
+
+---
+
 ### Sesión 2026-08-28 (18) (PM)
 
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap

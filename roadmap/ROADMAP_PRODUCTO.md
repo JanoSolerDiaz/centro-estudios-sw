@@ -8,22 +8,25 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-08-28 — cuarto ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
-reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` no tiene ningún hallazgo
-`ABIERTO`: el único registrado, #1 (severidad baja, gobernanza documental sobre `HOJA_DE_RUTA.md`),
-quedó `RESUELTO` en la auditoría de hoy mismo; no genera trabajo de producto ni de backlog técnico.
-Desde el ciclo anterior (2026-08-27) el desarrollo completó T-10 (bloqueada, pendiente de que el
-dueño aplique `002`/`003`), T-11, T-12 y T-13 — ninguna de las tres primeras tareas del MVP genera
-cambio de roadmap de producto: son la hoja de ruta inmutable. **Se añade una R-XX nueva: R-12
-(calendario de cierres del centro),** detectada al revisar la spec de R-04 (informe mensual) contra
-el modelo de datos real: hoy no existe ningún mecanismo para declarar que el centro no da clase un
-periodo (Navidad, Semana Santa, verano), así que un informe mensual generado con la spec actual de
-R-04 contaría como "sesión esperada y no venida" cualquier tramo de una semana en la que el centro
-estuvo cerrado — un informe que se enseña a una familia estaría mal por un dato que el propio centro
-conoce de antemano. No es una idea nueva de producto sin relación con lo ya especificado: es una
-dependencia que faltaba para que R-04 cumpla lo que ya promete. Se especifica en F-01 (antes de F-02,
-donde vive R-04) y se añade como dependencia explícita de R-04. No introduce ningún dato personal, no
-toca al rol `student`, no requiere ninguna cuenta externa ni decisión reservada al dueño.
+**Última actualización:** 2026-08-29 — quinto ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
+reales (fila plantilla vacía): nada que convertir, tal como en el ciclo anterior. `auditoriacontinua.md`
+registra su pasada del mismo día con tres hallazgos: #2 (severidad alta, cobertura de escritura de
+`db/pruebas_rls.sql`) es de autorización/calidad de pruebas, no de producto ni de arquitectura — lo
+atiende el programador como P-XX urgente en cuanto arranque la siguiente sesión de desarrollo (§0
+de `HOJA_DE_RUTA.md`), así que no genera ninguna R-XX ni entrada de backlog aquí, solo se confirma
+que sigue trazado; #3 y #4 (ambos severidad baja, minimización de datos y gobernanza documental) no
+son mejoras de producto — son deuda técnica menor sin impacto funcional — y se registran como P-02 y
+P-03 en §5 de `SEGUIMIENTO.md` con `origen: auditoría #N`, para que no se pierdan sin inflar el
+roadmap de producto con algo que no lo es. Desde el ciclo anterior (2026-08-28) el desarrollo no ha
+completado ninguna T-XX ni R-XX nueva (T-10 sigue bloqueada pendiente de `002`/`003`; T-14 es la
+siguiente en cola) y no ha surgido ningún hallazgo de producto/arquitectura ni ninguna dependencia
+que faltara, a diferencia del ciclo anterior (que añadió R-12). **No se añade ninguna R-XX nueva en
+este ciclo:** las oleadas v1 y v2 ya cubren, con la R-12 del ciclo anterior, el hueco real detectado
+hasta ahora entre el MVP y el objetivo de producto; inventar una R-XX sin una necesidad real
+detectada violaría la instrucción de no generar trabajo por generarlo. Ninguna oleada está
+100% desplegada todavía (v1 ni siquiera ha arrancado: espera a que el MVP T-00–T-25 esté
+COMPLETADA/DESPLEGADA EN PRODUCCIÓN, ver §1 de `SEGUIMIENTO.md`), así que no hay nada que mover a
+`ROADMAP_HISTORICO.md` esta vez.
 
 ---
 
