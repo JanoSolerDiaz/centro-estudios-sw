@@ -44,6 +44,9 @@
 | #ID | Fecha | Área | Severidad | Estado | Resumen | Tarea / origen |
 |-----|-------|------|-----------|--------|---------|----------------|
 | #1 | 2026-08-26 | Gobernanza documental | baja | RESUELTO (2026-08-28) | `HOJA_DE_RUTA.md` se declara en su cabecera "DOCUMENTO INMUTABLE" ("Este archivo NO se modifica nunca") pero fue editado 41 minutos después de crearse — commit `4c05189`, mismo día 2026-08-25, autoría del propio dueño —, cambiando tanto el protocolo de §0.1 (que el propio documento sí permite cambiar al dueño) como el cuerpo de la tarea T-07 (que el documento declara inmutable sin excepción explícita para nadie, ni siquiera el dueño). No hay riesgo de dato ni de seguridad: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento como referencia. **Resuelto:** el dueño respondió la pregunta #3 de §6 de `SEGUIMIENTO.md` el 2026-08-27 — la cabecera se mantiene literal, sin añadir ninguna excepción, y cada edición suya se documenta como excepción puntual en §7, que ya recoge así las dos ediciones del 2026-08-25. `git log -- roadmap/HOJA_DE_RUTA.md` confirma que no ha habido ninguna edición nueva desde entonces. | `roadmap/HOJA_DE_RUTA.md`, commit `4c05189`; cierre en `roadmap/SEGUIMIENTO.md` §6 pregunta #3 y §7 |
+| #2 | 2026-08-29 | Autorización (RLS) / calidad de la batería de pruebas | alta | ABIERTO | `db/pruebas_rls.sql` (T-10, requisito 5 de su spec: "batería de aislamiento ejecutable") no contiene ni una sola sentencia `UPDATE`, `DELETE` ni `TRUNCATE` en sus 552 líneas — confirmado por `grep -i` sobre el fichero completo, cero coincidencias: solo ejercita `INSERT` y `SELECT`. Consecuencia concreta: ninguna política `UPDATE` (`slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`) tiene un caso que la ejercite, ni en su rama "debe fallar" (teacher) ni en la "debe funcionar" (administrator); y `persona_referencia_admin_todo` — la única política `for all` del esquema, y la que gobierna la única tabla con `DELETE` real — solo se prueba en su rama `INSERT`: nadie ha comprobado, ni en SQL estático ni en ejecución real, que bloquee un `UPDATE`/`DELETE` de un `teacher` ni que los permita a `administrator`. Tampoco se intenta nunca un `TRUNCATE` por `authenticated`, pese a ser el privilegio que el propio proyecto señala como el más peligroso (ya causó el incidente de `000b_arreglo_permisos.sql`). Lectura directa de `003_politicas_rls.sql` confirma que las políticas están escritas de forma correcta y simétrica (idéntica condición booleana en `USING` y `WITH CHECK`, válida por diseño para las cuatro operaciones a la vez), así que no hay indicio de vulnerabilidad activa hoy — pero la propia batería que debía demostrarlo, no lo demuestra, y hoy tampoco puede ejecutarse contra `dev` en ningún caso (sin `teacher` de prueba, con `002`/`003` todavía sin aplicar). Dado que este proyecto exige explícitamente no conformarse con "está verde" cuando la cobertura de la lógica crítica es superficial, se registra como severidad alta: debe cerrarse — añadiendo los casos que faltan de `UPDATE`/`DELETE` por tabla y un intento de `TRUNCATE` por `authenticated` — antes de dar T-10 por verificada en ejecución, no solo en SQL estático. | `db/pruebas_rls.sql`; políticas afectadas en `db/003_politicas_rls.sql` (`persona_referencia_admin_todo`, `slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`); origen: auditoría #2 |
+| #3 | 2026-08-29 | Minimización de datos | baja | ABIERTO | `src/datos/alumnos.ts`: el `select` de `listarAlumnos` (constante `SELECT_CON_CENTRO`) incluye `avatar_ruta` en el payload de red del listado de administrator, aunque `pantallaFichaAlumno.ts` no lo pinta en ninguna fila de esa lista hoy. No es una fuga real — el único consumidor de esa función es la pantalla de `administrator`, que ya tiene acceso legítimo a esa columna, y RLS reduce a cero filas la misma consulta para cualquier otro rol — pero es superficie de más que conviene recortar cuando T-14/T-19 le den un uso real al avatar, para no arrastrar el hábito a un listado que algún día podría compartirse con `teacher`. | `src/datos/alumnos.ts` (`SELECT_CON_CENTRO`, `listarAlumnos`); origen: auditoría #2 |
+| #4 | 2026-08-29 | Gobernanza documental | baja | ABIERTO | `db/MODELO.md` línea 194 sigue diciendo, en la sección de `evento_error`, que su lectura tiene "política todavía por escribir (T-10)" — nota que no se actualizó cuando T-10 escribió de verdad `evento_error_admin_leer` en `003_politicas_rls.sql`. El resto del propio documento (línea 221 en adelante, "Políticas RLS por rol") y la matriz de `DECISIONES_TECNICAS.md` sí están al día y son correctos; es una única frase residual, sin ningún impacto funcional ni de seguridad. | `db/MODELO.md:194`; origen: auditoría #2 |
 
 ---
 
@@ -52,6 +55,169 @@
 > Cada pasada: fecha, hallazgos y conclusiones. Append, la más reciente arriba. Prestar
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
+
+### Auditoría 2026-08-29
+
+**Alcance real de esta pasada — el proyecto sale de la "fase de andamiaje" y toca por primera vez
+producto real, aunque todavía sin RLS aplicada en la base de datos.** Desde la auditoría anterior
+(2026-08-28, que cerró con T-10 `BLOQUEADA — pendiente aplicar 002/003`) el repositorio ha
+completado seis commits: P-01 (bloqueo de cuenta), T-10 (políticas RLS de los tres roles, sigue
+`BLOQUEADA` en `dev` porque el dueño todavía no ha aplicado `002_bloqueo_cuenta.sql` ni
+`003_politicas_rls.sql`), T-11 (catálogo de centros), T-12 (ficha de alumno, datos/centro/baja
+lógica) y T-13 (personas de referencia), más un cuarto ciclo de PM que añadió R-12 (calendario de
+cierres) al roadmap de producto. Es la primera vez que existe código real de negocio sobre datos de
+un alumno menor — hasta ahora solo existía el andamiaje (FASE A) y las piezas de infraestructura
+(T-05 a T-09). Importante para interpretar el resto de esta pasada: `db/APLICADAS.md` confirma que
+en `dev` solo está aplicado `001_esquema_inicial` (con las siete tablas nuevas en RLS habilitada y
+**cero políticas**, es decir, cerradas por defecto); `002` y `003` siguen sin aplicar. Todo lo que
+esta pasada audita de T-10/T-11/T-12/T-13 es código **listo y correcto sobre el papel, todavía
+latente en la base de datos real** — no hay ninguna ventana de exposición real hoy, porque nadie
+—ni siquiera `administrator`— puede tocar estas tablas por la API hasta que el dueño aplique las dos
+migraciones pendientes (filas 4 y 5 de §3 de `SEGUIMIENTO.md`).
+
+**Metodología.** `git checkout develop && git pull` limpio (6 commits nuevos desde `8bbc35d`).
+Se delegó la verificación en cuatro subagentes independientes en paralelo, cada uno con instrucción
+explícita de citar fichero y línea, ejecutar comandos reales en vez de solo leer código, y no
+fabricar hallazgos para rellenar su informe: uno para la suite completa y el barrido de secretos/CI,
+uno para P-01 + T-10 (SQL de bloqueo de cuenta y RLS, más `db/pruebas_rls.sql`), uno para T-11 + T-12
+(catálogo de centros y ficha de alumno), y uno para T-13 + el cuarto ciclo de PM (personas de
+referencia y R-12). Además, el propio auditor leyó directamente y por completo `db/001_esquema_inicial.sql`,
+`db/002_bloqueo_cuenta.sql`, `db/003_politicas_rls.sql`, `db/pruebas_rls.sql`, la matriz rol × tabla ×
+operación de `DECISIONES_TECNICAS.md`, `src/dominio/permisosUi.ts`, las guardas del runner de
+migraciones y `.github/workflows/ci.yml`, para no depender por completo de los subagentes en las
+piezas de mayor riesgo — y verificó por su cuenta, con `grep`, el hallazgo de severidad alta que
+reportó uno de ellos (ver más abajo) antes de darlo por bueno.
+
+**Verificación directa: los cuatro comandos de §0.1 en verde, con números exactos.** `npm ci` (130
+paquetes, 0 vulnerabilidades), `npm run typecheck`, `npm run lint`, `npm run build`: los cuatro en
+verde. `npm test`: **429 tests, 429 pass, 0 fail** (antes 297, +132 desde la pasada anterior, cifra
+que coincide exactamente con las sumas que reclaman `SEGUIMIENTO.md`/`HISTORIAL_SESIONES.md` para
+P-01+T-10+T-11+T-12+T-13). CI de GitHub Actions en `develop`: 20 runs, todos `success`, incluido el
+del commit actual (`ac25439`). `git status` limpio antes y después de esta pasada.
+
+**Secretos y stack — sin hallazgo, repetido el barrido sobre el estado nuevo.** Ningún access
+token, contraseña ni clave `service_role` en claro en el repositorio, en `package-lock.json` ni en
+`dist/`: solo el nombre del rol en SQL/documentación (legítimo), JWT de prueba en tests que no
+decodifican a nada real, y contraseñas de semilla de desarrollo (`herramientas/semilla/`), no
+credenciales reales. `package.json` sigue sin `dependencies` en absoluto; `devDependencies` es
+exactamente la misma lista de siempre (ESLint + TypeScript + jsdom + tipos) — ningún framework, sin
+`@supabase/supabase-js`. Las guardas de contenido del runner (`herramientas/migraciones/guardas.ts`)
+y la salvaguarda de `prod` (`entorno.ts`) no se han tocado desde T-07: siguen intactas, verificado
+por `git log` sobre esos ficheros.
+
+**El esquema y las políticas RLS de esta pasada, punto por punto:**
+
+- **`002_bloqueo_cuenta.sql` (P-01) y `gestorSesion.ts` — sin hallazgo.** El conteo de intentos
+  fallidos ocurre en el servidor (`registrar_intento_fallido`, `SECURITY DEFINER`, llamable por
+  `anon`); un login correcto nunca lo llama ni resetea el contador (evita la carrera con el
+  requisito de T-09 de una sola llamada de datos al autenticar). `rol_actual()` exige `not bloqueado`
+  además de `activo`, así que toda política de T-10 que use `es_administrator()`/`es_teacher()`
+  hereda la condición sin repetirla. `CuentaBloqueada` solo se dispara **después** de que GoTrue ya
+  validó la contraseña correcta, así que no abre ninguna vía nueva de enumeración de cuentas sobre
+  la ya existente `CredencialesInvalidas`. `admin_desbloquear_usuario` comprueba `es_administrator()`
+  ella misma (defensa en profundidad real, no solo RLS) y nunca fija ni conoce una contraseña — solo
+  dispara el correo de recuperación, tal como decidió el dueño. El bloqueo alcanza también al
+  `administrator`, con la vía de escape documentada en `DEVELOPERS.md` (editor SQL del panel, solo
+  el dueño) — contrapartida aceptada explícitamente por el dueño el 2026-08-27.
+- **`003_politicas_rls.sql` (T-10) — el SQL en sí, correcto y coherente con la matriz.** Las siete
+  tablas de `001_esquema_inicial` reciben exactamente las políticas que documenta la matriz rol ×
+  tabla × operación de `DECISIONES_TECNICAS.md`, verificada línea por línea contra el fichero real:
+  ninguna política nueva menciona a `student`; la única en todo el sistema para ese rol sigue siendo
+  `perfil_leer_propio` del bootstrap. La solución a "un `teacher` no debe leer
+  `email_alumno`/`telefono_alumno` ni con una consulta directa" es sólida: la tabla base concede a
+  `authenticated` solo columnas de identificación (leer las de contacto ahí falla con un error real
+  para cualquiera, `administrator` incluido) y una vista aparte, `alumno_ficha`, con su propio filtro
+  `es_administrator()` escrito a mano (no delega en la RLS de la tabla base, que un propietario con
+  privilegios plenos saltaría), es el único camino para leerlas. `persona_referencia` sigue sin
+  ninguna política ni GRANT para `teacher` — cierre por ausencia, no por regla explícita, que es
+  exactamente el patrón correcto. El bucket `avatares` tiene sus cuatro políticas de `administrator`
+  más la ampliación acotada del `teacher` (solo alumnos `activo = true`), sin ninguna política para
+  `anon` ni `student`, escritas ya aunque T-14 no haya creado el bucket todavía.
+- **Hallazgo de severidad alta — `db/pruebas_rls.sql` no ejercita ninguna operación de escritura
+  salvo `INSERT`.** Ver #2 del registro de arriba. Verificado personalmente por el auditor con
+  `grep -ni "update\|delete\|truncate" db/pruebas_rls.sql`: cero coincidencias en las 552 líneas del
+  fichero. La política `for all` de `persona_referencia` (la única con `DELETE` real) y las tres
+  políticas `UPDATE` de `centro_estudios`/`alumno`/`slot_horario` no tienen ningún caso, ni positivo
+  ni negativo, que las ejercite; tampoco se intenta nunca un `TRUNCATE` por `authenticated`. La
+  lectura directa de `003_politicas_rls.sql` no muestra ninguna asimetría en esas políticas (misma
+  condición en `USING`/`WITH CHECK` para las cuatro operaciones), así que no hay indicio de que el
+  SQL en sí esté mal — pero la batería que el requisito 5 de T-10 promete como "ejecutable" no prueba
+  hoy ni un tercio de la matriz de escritura, y es exactamente el tipo de laguna que este proyecto
+  pide tratar como severidad alta cuando la cobertura de la lógica crítica resulta superficial. El
+  propio script es honesto al respecto (usa `pg_temp.omitir(...)` en vez de fingir cobertura, y
+  documenta que ni siquiera se ha podido ejecutar contra `dev` todavía), lo cual mitiga que sea un
+  intento de aparentar seguridad, pero no cierra el hallazgo: debe completarse antes de dar T-10 por
+  verificada en ejecución.
+- **`herramientas/migraciones/politicasRls.test.ts` — sustancial, no cosmético.** Parsea el
+  contenido real de `003_politicas_rls.sql` (no un doble) y hace aserciones concretas: cada una de
+  las siete tablas tiene al menos una política nueva, ninguna política menciona a `student` ni
+  compara `rol_actual()` a mano, el `GRANT` de columnas de `alumno` para `authenticated` no incluye
+  las de contacto, no existe un `GRANT SELECT` sin restricción de columnas que las exponga por la
+  puerta de atrás, `alumno_ficha` filtra por `es_administrator()`, y ninguna política del bucket
+  `avatares` concede nada a `anon`. Es la comprobación estática que sí existe hoy y compensa en parte
+  — pero no sustituye — el hallazgo #2 de arriba, porque comprueba la forma del SQL, no su
+  comportamiento en ejecución.
+- **T-11/T-12 — sin hallazgo de seguridad; dos observaciones menores de higiene (#3 y #4 del
+  registro).** `src/datos/alumnos.ts` lee siempre de `alumno_ficha` (nunca de la tabla base) para
+  cualquier operación de lectura, y usa `Prefer: return=minimal` + relectura para evitar el
+  `RETURNING` sobre columnas de contacto en la escritura — exactamente lo que documenta
+  `DECISIONES_TECNICAS.md`. La baja lógica de alumno y de centro son `UPDATE`, nunca `DELETE`
+  (verificado también por un test que confirma que el módulo no exporta ninguna función
+  `eliminar*`/`borrar*`). `pantallaFichaAlumno.ts` es enteramente de `administrator`: un `teacher`
+  que la monte ve un mensaje de acceso denegado sin disparar ninguna petición de datos. 77 tests
+  (T-11+T-12) ejecutados en vivo, todos en verde, con casos de frontera reales (duplicados
+  acento-insensibles, orden a la española, `SinPermiso` del servidor, ausencia de columnas de
+  contacto). Única cosa a mejorar, sin ser un riesgo real: `avatar_ruta` viaja en el payload de
+  `listarAlumnos` sin que la pantalla lo use todavía (#3), y una frase de `db/MODELO.md` quedó
+  desactualizada al cerrar T-10 (#4).
+- **T-13 — sin hallazgo.** Verificado explícitamente, en tres capas (tipos de dominio, capa de
+  datos, esquema SQL real), que el campo `relacion` — sugerido en la pregunta #9 de §6 de
+  `SEGUIMIENTO.md`, sin responder todavía por el dueño — **no** se ha colado en el código: sería una
+  violación grave de §0.2 si lo hubiera hecho sin decisión del dueño, y no ha ocurrido. El borrado es
+  un `DELETE` real (única tabla del sistema con esa propiedad), con confirmación explícita en la
+  interfaz ("Esta acción es definitiva y no se puede deshacer."). El aviso de duplicado es solo eso,
+  un aviso en cliente, sin bloquear el alta. 16 tests de dominio/datos más 5 de UI, todos en verde.
+- **Cuarto ciclo de PM (R-12) — sin hallazgo.** La nueva entrada del roadmap de producto no
+  introduce ningún dato personal, no amplía el rol `student`, no añade dependencias de runtime, y su
+  dependencia cruzada con R-04 está anotada correctamente en los dos sentidos. Es una adición
+  justificada (sin ella, R-04 contaría mal las semanas de vacaciones del centro), no una ampliación
+  de alcance por iniciativa propia.
+
+**Coherencia entre lo decidido y lo ejecutado.** Las 21 filas nuevas de `DECISIONES_TECNICAS.md`
+desde la pasada anterior (P-01, T-10, T-11, T-12, T-13) se contrastaron contra el SQL y el código
+reales, no solo contra su propio texto, y coinciden en todos los casos revisados. `SEGUIMIENTO.md`
+§1 tiene P-01/T-11/T-12/T-13 `COMPLETADA` y T-10 `BLOQUEADA — pendiente aplicar 002/003`, consistente
+con `db/APLICADAS.md`. §7 (desviaciones) recoge las cinco desviaciones reales encontradas en el
+código de esta pasada (bloqueo de cuenta ampliando T-09, la renumeración en cadena de migraciones
+—dos veces—, la excepción documental de `HOJA_DE_RUTA.md`, y la búsqueda no acento-insensible de
+T-12): no se ha encontrado ninguna desviación real sin anotar ahí. §6 no tiene ninguna pregunta
+pendiente resuelta unilateralmente en el código — en particular, la pregunta #9 sobre `relacion`
+sigue sin respuesta y el campo sigue sin existir, tal como debe ser mientras tanto.
+
+**Puntos de control permanentes de este documento — estado de esta pasada.** La mayoría siguen sin
+poder auditarse en ejecución real porque `002`/`003` no están aplicadas en `dev` (escritura solo por
+RPC, inmutabilidad de `registrado_en`, rastro de cambios, pertenencia en la edición, hora del
+servidor: sus RPC de escritura son T-18/T-21, todavía `PENDIENTE`). Los que sí tienen algo real que
+auditar hoy — rol `student` cerrado, privilegios de tabla, superficie de columnas del `teacher`,
+alcance de los datos personales, RLS completa, bucket de avatares acotado a `administrator`/`teacher`
+sobre activos — se han comprobado contra el SQL real y dan resultado correcto, con la salvedad del
+hallazgo #2 (la batería que debe demostrarlo en ejecución tiene una laguna real, aunque el SQL en sí
+esté bien).
+
+**Conclusión.** El ciclo P-01/T-10/T-11/T-12/T-13 es sólido en el fondo: el diseño de la vista
+`alumno_ficha`, el cierre por ausencia de `persona_referencia` y `student`, y el bloqueo de cuenta
+aplicado en base de datos están bien pensados y bien escritos, y ninguno de los cuatro subagentes
+independientes ni la lectura directa del auditor encontraron una sola discrepancia entre lo
+documentado y lo implementado en el SQL o en el cliente. El único hallazgo de peso de esta pasada
+(#2, severidad alta) no es que algo esté mal, sino que la prueba que debía demostrar que está bien —
+`db/pruebas_rls.sql`— no cubre la mitad de las operaciones de la matriz de autorización, justo en el
+ciclo que más lo necesita porque es el primero que toca datos reales de menores. Se recomienda
+cerrarlo antes de que el dueño aplique `002`/`003` y ejecute `npm run probar-rls` por primera vez,
+para que esa primera ejecución real sea también la primera cobertura completa. La próxima auditoría
+con sustancia de seguridad de producto adicional llega con T-14 (bucket de avatares, que además debe
+completar los casos hoy `OMITIDO` de `db/pruebas_rls.sql` por falta de bucket) y con la aplicación
+real de `002`/`003` en `dev`, momento en el que corresponde volver a ejecutar `npm run probar-rls` y
+confirmar en esta misma auditoría que el resultado en vivo coincide con lo que el SQL promete.
 
 ### Auditoría 2026-08-28
 
