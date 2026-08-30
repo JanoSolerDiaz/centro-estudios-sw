@@ -8,23 +8,25 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-08-29 — quinto ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
-reales (fila plantilla vacía): nada que convertir, tal como en el ciclo anterior. `auditoriacontinua.md`
-registra su pasada del mismo día con tres hallazgos: #2 (severidad alta, cobertura de escritura de
-`db/pruebas_rls.sql`) es de autorización/calidad de pruebas, no de producto ni de arquitectura — lo
-atiende el programador como P-XX urgente en cuanto arranque la siguiente sesión de desarrollo (§0
-de `HOJA_DE_RUTA.md`), así que no genera ninguna R-XX ni entrada de backlog aquí, solo se confirma
-que sigue trazado; #3 y #4 (ambos severidad baja, minimización de datos y gobernanza documental) no
-son mejoras de producto — son deuda técnica menor sin impacto funcional — y se registran como P-02 y
-P-03 en §5 de `SEGUIMIENTO.md` con `origen: auditoría #N`, para que no se pierdan sin inflar el
-roadmap de producto con algo que no lo es. Desde el ciclo anterior (2026-08-28) el desarrollo no ha
-completado ninguna T-XX ni R-XX nueva (T-10 sigue bloqueada pendiente de `002`/`003`; T-14 es la
-siguiente en cola) y no ha surgido ningún hallazgo de producto/arquitectura ni ninguna dependencia
-que faltara, a diferencia del ciclo anterior (que añadió R-12). **No se añade ninguna R-XX nueva en
-este ciclo:** las oleadas v1 y v2 ya cubren, con la R-12 del ciclo anterior, el hueco real detectado
-hasta ahora entre el MVP y el objetivo de producto; inventar una R-XX sin una necesidad real
-detectada violaría la instrucción de no generar trabajo por generarlo. Ninguna oleada está
-100% desplegada todavía (v1 ni siquiera ha arrancado: espera a que el MVP T-00–T-25 esté
+**Última actualización:** 2026-08-30 — sexto ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
+reales (fila plantilla vacía, sin cambios desde el ciclo anterior): nada que convertir.
+`auditoriacontinua.md` registra su pasada del mismo día (2026-08-30), que confirma que **no ha
+entrado código nuevo desde el ciclo anterior** (un único commit desde `86d8395`, y es del PM, no de
+desarrollo: `git diff` contra `db/` y `src/` vacío) y reevalúa los tres hallazgos `ABIERTO` sin
+cambio: #2 (severidad alta, cobertura de escritura de `db/pruebas_rls.sql`) sigue sin corregirse —
+sigue siendo autorización/calidad de pruebas, no producto ni arquitectura, así que lo atiende el
+programador como P-XX urgente en cuanto arranque su siguiente sesión (§0 de `HOJA_DE_RUTA.md`); #3 y
+#4 (severidad baja) siguen `ABIERTO` en el código pero ya tienen su seguimiento correcto como P-02 y
+P-03 en §5 de `SEGUIMIENTO.md` desde el ciclo anterior — no hay hallazgo nuevo que registrar ni
+ningún cambio de severidad o estado que justifique tocar el backlog otra vez. Desde el ciclo anterior
+(2026-08-29) el desarrollo sigue sin completar ninguna T-XX ni R-XX nueva (T-10 sigue bloqueada
+pendiente de `002`/`003`; T-14 sigue siendo la siguiente en cola) y no ha surgido ningún hallazgo de
+producto/arquitectura ni ninguna dependencia que faltara. **No se añade ninguna R-XX nueva en este
+ciclo, por segunda vez consecutiva:** las oleadas v1 y v2 siguen cubriendo el hueco real detectado
+entre el MVP y el objetivo de producto; sin desarrollo nuevo, sin feedback nuevo y sin hallazgo de
+producto nuevo, no hay ninguna señal real que justifique ampliar el roadmap — inventar una R-XX en
+estas condiciones sería generar trabajo por generarlo, exactamente lo que se prohíbe. Ninguna oleada
+está 100% desplegada todavía (v1 ni siquiera ha arrancado: espera a que el MVP T-00–T-25 esté
 COMPLETADA/DESPLEGADA EN PRODUCCIÓN, ver §1 de `SEGUIMIENTO.md`), así que no hay nada que mover a
 `ROADMAP_HISTORICO.md` esta vez.
 
