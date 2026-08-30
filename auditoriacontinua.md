@@ -45,8 +45,8 @@
 |-----|-------|------|-----------|--------|---------|----------------|
 | #1 | 2026-08-26 | Gobernanza documental | baja | RESUELTO (2026-08-28) | `HOJA_DE_RUTA.md` se declara en su cabecera "DOCUMENTO INMUTABLE" ("Este archivo NO se modifica nunca") pero fue editado 41 minutos después de crearse — commit `4c05189`, mismo día 2026-08-25, autoría del propio dueño —, cambiando tanto el protocolo de §0.1 (que el propio documento sí permite cambiar al dueño) como el cuerpo de la tarea T-07 (que el documento declara inmutable sin excepción explícita para nadie, ni siquiera el dueño). No hay riesgo de dato ni de seguridad: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento como referencia. **Resuelto:** el dueño respondió la pregunta #3 de §6 de `SEGUIMIENTO.md` el 2026-08-27 — la cabecera se mantiene literal, sin añadir ninguna excepción, y cada edición suya se documenta como excepción puntual en §7, que ya recoge así las dos ediciones del 2026-08-25. `git log -- roadmap/HOJA_DE_RUTA.md` confirma que no ha habido ninguna edición nueva desde entonces. | `roadmap/HOJA_DE_RUTA.md`, commit `4c05189`; cierre en `roadmap/SEGUIMIENTO.md` §6 pregunta #3 y §7 |
 | #2 | 2026-08-29 | Autorización (RLS) / calidad de la batería de pruebas | alta | ABIERTO | `db/pruebas_rls.sql` (T-10, requisito 5 de su spec: "batería de aislamiento ejecutable") no contiene ni una sola sentencia `UPDATE`, `DELETE` ni `TRUNCATE` en sus 552 líneas — confirmado por `grep -i` sobre el fichero completo, cero coincidencias: solo ejercita `INSERT` y `SELECT`. Consecuencia concreta: ninguna política `UPDATE` (`slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`) tiene un caso que la ejercite, ni en su rama "debe fallar" (teacher) ni en la "debe funcionar" (administrator); y `persona_referencia_admin_todo` — la única política `for all` del esquema, y la que gobierna la única tabla con `DELETE` real — solo se prueba en su rama `INSERT`: nadie ha comprobado, ni en SQL estático ni en ejecución real, que bloquee un `UPDATE`/`DELETE` de un `teacher` ni que los permita a `administrator`. Tampoco se intenta nunca un `TRUNCATE` por `authenticated`, pese a ser el privilegio que el propio proyecto señala como el más peligroso (ya causó el incidente de `000b_arreglo_permisos.sql`). Lectura directa de `003_politicas_rls.sql` confirma que las políticas están escritas de forma correcta y simétrica (idéntica condición booleana en `USING` y `WITH CHECK`, válida por diseño para las cuatro operaciones a la vez), así que no hay indicio de vulnerabilidad activa hoy — pero la propia batería que debía demostrarlo, no lo demuestra, y hoy tampoco puede ejecutarse contra `dev` en ningún caso (sin `teacher` de prueba, con `002`/`003` todavía sin aplicar). Dado que este proyecto exige explícitamente no conformarse con "está verde" cuando la cobertura de la lógica crítica es superficial, se registra como severidad alta: debe cerrarse — añadiendo los casos que faltan de `UPDATE`/`DELETE` por tabla y un intento de `TRUNCATE` por `authenticated` — antes de dar T-10 por verificada en ejecución, no solo en SQL estático. | `db/pruebas_rls.sql`; políticas afectadas en `db/003_politicas_rls.sql` (`persona_referencia_admin_todo`, `slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`); origen: auditoría #2 |
-| #3 | 2026-08-29 | Minimización de datos | baja | ABIERTO | `src/datos/alumnos.ts`: el `select` de `listarAlumnos` (constante `SELECT_CON_CENTRO`) incluye `avatar_ruta` en el payload de red del listado de administrator, aunque `pantallaFichaAlumno.ts` no lo pinta en ninguna fila de esa lista hoy. No es una fuga real — el único consumidor de esa función es la pantalla de `administrator`, que ya tiene acceso legítimo a esa columna, y RLS reduce a cero filas la misma consulta para cualquier otro rol — pero es superficie de más que conviene recortar cuando T-14/T-19 le den un uso real al avatar, para no arrastrar el hábito a un listado que algún día podría compartirse con `teacher`. | `src/datos/alumnos.ts` (`SELECT_CON_CENTRO`, `listarAlumnos`); origen: auditoría #2 |
-| #4 | 2026-08-29 | Gobernanza documental | baja | ABIERTO | `db/MODELO.md` línea 194 sigue diciendo, en la sección de `evento_error`, que su lectura tiene "política todavía por escribir (T-10)" — nota que no se actualizó cuando T-10 escribió de verdad `evento_error_admin_leer` en `003_politicas_rls.sql`. El resto del propio documento (línea 221 en adelante, "Políticas RLS por rol") y la matriz de `DECISIONES_TECNICAS.md` sí están al día y son correctos; es una única frase residual, sin ningún impacto funcional ni de seguridad. | `db/MODELO.md:194`; origen: auditoría #2 |
+| #3 | 2026-08-29 | Minimización de datos | baja | ABIERTO | `src/datos/alumnos.ts`: el `select` de `listarAlumnos` (constante `SELECT_CON_CENTRO`) incluye `avatar_ruta` en el payload de red del listado de administrator, aunque `pantallaFichaAlumno.ts` no lo pinta en ninguna fila de esa lista hoy. No es una fuga real — el único consumidor de esa función es la pantalla de `administrator`, que ya tiene acceso legítimo a esa columna, y RLS reduce a cero filas la misma consulta para cualquier otro rol — pero es superficie de más que conviene recortar cuando T-14/T-19 le den un uso real al avatar, para no arrastrar el hábito a un listado que algún día podría compartirse con `teacher`. | `src/datos/alumnos.ts` (`SELECT_CON_CENTRO`, `listarAlumnos`); origen: auditoría #2; seguimiento: P-02 en `SEGUIMIENTO.md` §5 (registrada por el PM el 2026-08-29) |
+| #4 | 2026-08-29 | Gobernanza documental | baja | ABIERTO | `db/MODELO.md` línea 194 sigue diciendo, en la sección de `evento_error`, que su lectura tiene "política todavía por escribir (T-10)" — nota que no se actualizó cuando T-10 escribió de verdad `evento_error_admin_leer` en `003_politicas_rls.sql`. El resto del propio documento (línea 221 en adelante, "Políticas RLS por rol") y la matriz de `DECISIONES_TECNICAS.md` sí están al día y son correctos; es una única frase residual, sin ningún impacto funcional ni de seguridad. | `db/MODELO.md:194`; origen: auditoría #2; seguimiento: P-03 en `SEGUIMIENTO.md` §5 (registrada por el PM el 2026-08-29) |
 
 ---
 
@@ -55,6 +55,88 @@
 > Cada pasada: fecha, hallazgos y conclusiones. Append, la más reciente arriba. Prestar
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
+
+### Auditoría 2026-08-30
+
+**Alcance real de esta pasada — un único commit desde la anterior, y es de PM, no de desarrollo.**
+`git log 86d8395..HEAD` muestra un solo commit nuevo, `962ca37` ("quinto ciclo del PM — sin R-XX
+nueva, backlog técnico P-02/P-03 desde auditoría"), y `git diff 86d8395 HEAD --stat` confirma que
+solo toca tres ficheros de `roadmap/` (`HISTORIAL_SESIONES.md`, `ROADMAP_PRODUCTO.md`,
+`SEGUIMIENTO.md`); `git diff 86d8395 HEAD -- db/ src/` no devuelve ninguna línea. Es decir: **ni una
+sola línea de SQL ni de código de aplicación ha cambiado desde la auditoría de ayer.** No ha corrido
+ninguna sesión de programador entre pasadas. Por eso esta auditoría es deliberadamente breve y no
+delega en subagentes: no hay superficie nueva que dividir, y repetir la lectura línea a línea de
+`003_politicas_rls.sql`/`db/pruebas_rls.sql` de ayer sobre un fichero bit a bit idéntico no añadiría
+nada — se limita a (a) reverificar en vivo que el estado sigue siendo el que se dio por bueno ayer,
+y (b) auditar la coherencia del propio ciclo de PM, que es el único contenido nuevo real.
+
+**Verificación directa, aunque el alcance sea pequeño.** `git checkout develop && git pull` limpio
+(1 commit nuevo desde `86d8395`). `npm ci` (130 paquetes, 0 vulnerabilidades). Los cuatro comandos de
+§0.1 en verde: `npm run typecheck`, `npm run lint`, `npm run build`, y `npm test` — **429 tests, 429
+pass, 0 fail**, la misma cifra exacta que ayer, coherente con que no ha entrado código nuevo. CI de
+GitHub Actions en `develop`: 22 runs totales, todos `completed`/`success`, incluido el del commit
+actual (`962ca37`, run `33269956084`). `git status` limpio antes y después. Repetido el barrido de
+secretos sobre `dist/` recién construido con `grep` de `service_role`/`SUPABASE_ACCESS_TOKEN`/
+`password`: solo coincidencias legítimas (nombres de campo de formulario, el propio patrón de
+`depurarContexto` que busca esas palabras, cabeceras de GoTrue) — ningún secreto real. `grep -ni
+"truncate" db/*.sql` solo encuentra el comentario de `000b_arreglo_permisos.sql` que documenta el
+incidente ya corregido, ninguna concesión nueva. `grep -ni "student" db/*.sql` no encuentra ninguna
+política nueva para ese rol, solo las menciones ya auditadas (el `check` de `perfil.rol`, la política
+`perfil_leer_propio`, comentarios y el barrido de `db/pruebas_rls.sql`).
+
+**Hallazgo #2 (severidad alta, cobertura de escritura de `db/pruebas_rls.sql`) — reevaluado, sigue
+`ABIERTO`, sin cambio.** Confirmado con `git diff 86d8395 HEAD -- db/pruebas_rls.sql` (vacío) y con
+`grep -ni "update\|delete\|truncate" db/pruebas_rls.sql` (0 coincidencias, igual que ayer) que el
+fichero es bit a bit el mismo: la batería sigue sin ejercitar ningún `UPDATE`/`DELETE`/`TRUNCATE`, y
+las políticas `UPDATE` de `centro_estudios`/`alumno`/`slot_horario` y la `for all` de
+`persona_referencia` siguen sin un solo caso que las pruebe en ejecución. No se marca `RESUELTO`
+porque no hay commit de programador que lo haya tocado — sería fabricar un cierre que el código no
+respalda. El ciclo de PM de ayer (`962ca37`) trató este hallazgo correctamente: no generó ninguna
+R-XX ni entrada de backlog para él, dejándolo trazado en este registro para que el programador lo
+atienda como P-XX urgente por protocolo (§0.3 de `HOJA_DE_RUTA.md`) en cuanto arranque su siguiente
+sesión — es la decisión correcta, no una omisión, y se confirma aquí que sigue siendo así.
+
+**Hallazgos #3 y #4 (severidad baja) — reevaluados, siguen `ABIERTO` en el código, pero ahora con
+seguimiento correcto en el backlog.** Ninguno de los dos se ha corregido todavía (`avatar_ruta` sigue
+en `SELECT_CON_CENTRO` de `src/datos/alumnos.ts`; la línea 194 de `db/MODELO.md` sigue sin
+actualizar), así que se mantienen `ABIERTO` aquí — no serían deuda técnica real si un documento
+aparte los diera ya por cerrados sin que el código cambiara. Lo que sí es nuevo y correcto: el quinto
+ciclo del PM (`962ca37`) los convirtió en **P-02** y **P-03** de §5 de `SEGUIMIENTO.md`, cada uno con
+`origen: auditoría #N` citando el hallazgo exacto, marcados sin urgencia y a la espera de que el
+programador los ejecute cuando la tarea en curso lo permita — el mecanismo de trazabilidad que exige
+la cabecera de este documento funcionando como debe. Se añade la referencia cruzada en la columna
+"Tarea / origen" del registro de arriba para que quede en un solo sitio.
+
+**Coherencia del ciclo de PM — sin hallazgo.** Se leyó el diff completo de `962ca37` contra
+`ROADMAP_PRODUCTO.md`, `SEGUIMIENTO.md` e `HISTORIAL_SESIONES.md`: los tres relatan exactamente el
+mismo hecho (ninguna R-XX nueva, P-02/P-03 registradas, `FEEDBACK.md` sin entradas `nuevo`), sin
+contradicción entre ellos ni con este documento. No se ha tocado `DECISIONES_TECNICAS.md` ni
+`HOJA_DE_RUTA.md` (confirmado con `git diff 86d8395 HEAD` sobre ambos, vacío) — correcto, un ciclo de
+PM sin cambio de arquitectura no genera decisiones técnicas, y la hoja de ruta sigue sin ninguna
+edición desde que el dueño cerró el hallazgo #1. No inventar una R-XX nueva cuando no hay laguna real
+detectada es exactamente la disciplina que este documento pide, y el ciclo lo dice explícitamente en
+su propio texto en vez de generar trabajo por generarlo. §1 de `SEGUIMIENTO.md` sigue con T-10
+`BLOQUEADA — pendiente aplicar 002/003` y `db/APLICADAS.md` sigue mostrando solo `001` aplicada en
+`dev`: coherente, nadie ha aplicado nada desde ayer. §3 (bloqueos) mantiene sus filas 4 y 5
+`PENDIENTE` sin cambio.
+
+**Puntos de control permanentes — sin novedad respecto a la pasada de ayer**, porque ni el esquema ni
+el código de aplicación han cambiado: la reevaluación en vivo de esta pasada (secretos, `TRUNCATE`,
+`student`, CI, suite completa) no encuentra ninguna diferencia con lo ya validado en profundidad el
+2026-08-29, y no se repite aquí la lectura línea a línea de `003_politicas_rls.sql` que aquella pasada
+ya hizo sobre el mismo fichero.
+
+**Conclusión.** Nada que reportar más allá de confirmar que el estado sigue siendo el que se dejó
+ayer: cero código nuevo, los cuatro comandos de verificación y la suite completa en verde con la
+misma cifra exacta de tests, CI verde, sin secretos, sin `TRUNCATE` nuevo, sin política nueva para
+`student`. El único movimiento real de esta pasada es de gobernanza del propio backlog, y es
+correcto: el hallazgo de severidad alta (#2) sigue abierto porque nadie lo ha corregido todavía —no
+por descuido, sino porque no ha corrido ninguna sesión de programador—, y los dos hallazgos menores
+(#3, #4) ya tienen su tarea de seguimiento (P-02, P-03) trazada en `SEGUIMIENTO.md` §5. La próxima
+auditoría con sustancia real llega en cuanto el programador cierre el hallazgo #2 (ampliando
+`db/pruebas_rls.sql` con los casos de `UPDATE`/`DELETE`/`TRUNCATE` que faltan) o el dueño aplique
+`002`/`003` en `dev`, lo que ocurra primero — cualquiera de los dos es el momento de volver a ejecutar
+`npm run probar-rls` y contrastar el resultado real contra lo que el SQL promete.
 
 ### Auditoría 2026-08-29
 
