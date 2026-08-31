@@ -53,6 +53,17 @@ create temporary table _resultados_prueba_rls (
   detalle    text
 ) on commit drop;
 
+-- `registrar` y `omitir` se llaman con el rol YA cambiado a `authenticated` (lo hace
+-- `pg_temp.impersonar`), y una tabla temporal no concede nada a otros roles por defecto. Sin
+-- estos grants, el primer registro bajo impersonación aborta el script entero: ocurre dentro
+-- del manejador `exception when others`, donde ya no queda nada que lo capture, y la Management
+-- API devuelve 400 sin una sola fila de resultados. El grant sobre la secuencia es necesario
+-- porque `orden` es `serial`: sin `usage` el INSERT sigue fallando. `anon` va incluido para
+-- cuando se use `pg_temp.impersonar_anon()`. No debilita nada de lo que se prueba: es andamiaje
+-- de test, sobre una tabla temporal, dentro de una transacción que termina en `rollback`.
+grant insert, select on _resultados_prueba_rls to authenticated, anon;
+grant usage, select on sequence _resultados_prueba_rls_orden_seq to authenticated, anon;
+
 create temporary table _fixture_usuarios (
   rol text primary key,
   id  uuid
