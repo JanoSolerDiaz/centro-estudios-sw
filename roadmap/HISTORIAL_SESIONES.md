@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-08-31
+**Tarea(s):** P-04 (urgente, §0.3)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** `<pendiente de este commit>` — "P-04 (urgente): completa la cobertura de UPDATE/DELETE/TRUNCATE de db/pruebas_rls.sql"
+**Migraciones aplicadas:** ninguna (este cambio no toca ninguna migración; `db/pruebas_rls.sql` no es una migración, es la batería de aislamiento de T-10)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (amplía las secciones 1–4 con `UPDATE`; añade `UPDATE`/`DELETE` a la sección 3; añade la sección 8 nueva de `TRUNCATE`; renumera "Resultado final" de 8 a 9), `roadmap/DECISIONES_TECNICAS.md`, `roadmap/SEGUIMIENTO.md` (§1 cabecera y §5, fila P-04), `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (429/429, sin cambio: `db/pruebas_rls.sql` no forma parte de `npm test`, exige conexión real) · build ✅
+**Health check post-deploy:** no aplica — sin cambio de código de aplicación ni de esquema, no hay deploy que comprobar
+**Decisiones tomadas:** fila `2026-08-31 | P-04 (urgente)` de `DECISIONES_TECNICAS.md` — verificar `UPDATE`/`DELETE` prohibidos con `ROW_COUNT = 0` en vez de esperar una excepción, porque RLS excluye la fila del `USING` en silencio, no lanza error (a diferencia de `INSERT`, que sí lo hace vía `WITH CHECK`)
+**Hallazgos del auditor atendidos:** #2 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-08-29) — implementado el código que lo cierra; la marca `RESUELTO` la pone el auditor en su próxima pasada, no esta sesión, porque `auditoriacontinua.md` es de escritura exclusiva del agente Auditor
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** P-04 registrada y ejecutada en la misma sesión (urgencia, §0.3) — ver §5 de `SEGUIMIENTO.md`
+**Próximo paso:** retomar la cola normal desde T-14 (avatar del alumno, Supabase Storage — lleva migración propia `004_bucket_avatares`)
+
+---
+
 ### Sesión 2026-08-30 (PM)
 
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
