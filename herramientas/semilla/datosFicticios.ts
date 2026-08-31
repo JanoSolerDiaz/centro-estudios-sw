@@ -25,6 +25,15 @@ export const USUARIOS_SEMILLA: readonly UsuarioSemilla[] = [
     rol: 'teacher',
   },
   {
+    // Segundo profesor. No es decorativo: la batería de aislamiento (`npm run probar-rls`) tiene
+    // un caso —que un profesor NO vea el slot de otro— que se omite en silencio mientras solo
+    // haya uno, y esa es la aserción más importante del producto. Ver P-07 en SEGUIMIENTO.md.
+    email: 'profesora.semilla@gestoracademia.test',
+    password: 'Semilla-Profesora-1!',
+    nombre: 'Profesora Semilla',
+    rol: 'teacher',
+  },
+  {
     email: 'alumno.semilla@gestoracademia.test',
     password: 'Semilla-Alumno-1!',
     nombre: 'Alumno Semilla',

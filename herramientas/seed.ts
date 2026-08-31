@@ -13,6 +13,7 @@ import { cargarEnvLocal } from './cargarEnvLocal.ts';
 import { crearClienteAdmin } from './semilla/clienteAdmin.ts';
 import { ALUMNOS_SEMILLA, CENTROS_SEMILLA, USUARIOS_SEMILLA, generarPersonasReferencia } from './semilla/datosFicticios.ts';
 import { resolverCredencialesSemilla } from './semilla/entorno.ts';
+import { sembrarUsuarios } from './semilla/usuarios.ts';
 
 function entornoDesdeArgv(argv: readonly string[]): 'dev' | 'prod' {
   const arg = argv.find((valor) => valor.startsWith('--entorno='));
@@ -38,23 +39,26 @@ async function main(): Promise<void> {
 
   const cliente = crearClienteAdmin(credenciales.url, credenciales.serviceRoleKey);
 
+  // Los usuarios van ANTES del marcador de idempotencia y al margen de él: ese marcador protege
+  // las filas de datos, que sí se duplicarían, pero no a los usuarios. Cuando iban detrás, añadir
+  // un usuario a USUARIOS_SEMILLA no servía de nada —la siguiente ejecución veía el centro y se
+  // iba sin crearlo—, que es justo lo que dejó a la batería de RLS sin un segundo profesor.
+  const resumenUsuarios = await sembrarUsuarios(cliente, USUARIOS_SEMILLA, (mensaje) => {
+    console.log(mensaje);
+  });
+  console.log(
+    `seed: usuarios — ${String(resumenUsuarios.creados)} creado(s), ` +
+      `${String(resumenUsuarios.omitidos)} ya existente(s) o rechazado(s).`,
+  );
+
   const primerCentro = CENTROS_SEMILLA[0];
   if (!primerCentro) {
     throw new Error('seed: CENTROS_SEMILLA está vacío, no hay marcador de idempotencia que comprobar.');
   }
   const yaSembrado = await cliente.consultar('centro_estudios', `nombre=eq.${encodeURIComponent(primerCentro.nombre)}`);
   if (yaSembrado.length > 0) {
-    console.log(`seed: "${primerCentro.nombre}" ya existe, la semilla parece aplicada. No se hace nada más.`);
+    console.log(`seed: "${primerCentro.nombre}" ya existe; las filas de datos no se vuelven a sembrar.`);
     return;
-  }
-
-  for (const usuario of USUARIOS_SEMILLA) {
-    const id = await cliente.crearUsuario(usuario.email, usuario.password, usuario.nombre);
-    // El trigger del bootstrap crea el perfil como 'student'; lo subimos si hace falta.
-    if (usuario.rol !== 'student') {
-      await cliente.actualizarRolPerfil(id, usuario.rol);
-    }
-    console.log(`seed: usuario ${usuario.email} (${usuario.rol}) creado`);
   }
 
   const centrosInsertados = await cliente.insertar(

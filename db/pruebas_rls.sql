@@ -76,6 +76,18 @@ insert into _fixture_usuarios (rol, id) values
                        offset 1 limit 1)),
   ('student',       (select id from public.perfil where rol = 'student'      and activo and not bloqueado limit 1));
 
+-- Ids de los datos que la propia prueba crea. Las secciones se enlazan por id y NUNCA por una
+-- clave natural: la 1b renombra el centro de prueba para ejercitar la política de UPDATE, así que
+-- cualquier búsqueda posterior por su nombre original devuelve NULL y desactiva EN SILENCIO las
+-- secciones 2, 3 y 4 — con la batería reportando igualmente 0 fallidas (P-08). Mismos grants que
+-- la tabla de resultados, y por el mismo motivo: se escribe estando impersonado.
+create temporary table _fixture_datos (
+  clave text primary key,
+  id    uuid
+) on commit drop;
+
+grant insert, select, update on _fixture_datos to authenticated, anon;
+
 -- Impersona al usuario `p_rol` de _fixture_usuarios como PostgREST lo haría en una petición real:
 -- fija `request.jwt.claims` con su `sub` y cambia el rol de Postgres a `authenticated`. Si no hay
 -- ningún usuario con ese rol en este entorno, deja la sesión sin impersonar (el llamante debe
@@ -130,6 +142,19 @@ begin
 end;
 $$;
 
+create or replace function pg_temp.recordar_dato(p_clave text, p_id uuid) returns void
+language plpgsql as $$
+begin
+  insert into _fixture_datos (clave, id) values (p_clave, p_id)
+    on conflict (clave) do update set id = excluded.id;
+end;
+$$;
+
+create or replace function pg_temp.dato(p_clave text) returns uuid
+language sql stable as $$
+  select id from _fixture_datos where clave = p_clave;
+$$;
+
 reset role;
 
 
@@ -149,6 +174,7 @@ begin
       insert into public.centro_estudios (nombre) values ('__prueba_rls__centro_admin')
         returning id into v_id;
       perform pg_temp.registrar('centro_estudios / administrator INSERT', 'permitido', v_id is not null);
+      perform pg_temp.recordar_dato('centro_admin', v_id);
     exception when others then
       perform pg_temp.registrar('centro_estudios / administrator INSERT', 'permitido', false, sqlerrm);
     end;
@@ -180,7 +206,7 @@ declare
   v_centro_id uuid;
   v_filas     integer;
 begin
-  select id into v_centro_id from public.centro_estudios where nombre = '__prueba_rls__centro_admin';
+  v_centro_id := pg_temp.dato('centro_admin');
   if v_centro_id is null then
     perform pg_temp.omitir('centro_estudios / administrator UPDATE', 'no se creó el centro de prueba (sección 1)');
     perform pg_temp.omitir('centro_estudios / teacher UPDATE (debe fallar)', 'no se creó el centro de prueba (sección 1)');
@@ -229,7 +255,7 @@ declare
   v_alumno_id  uuid;
   v_email      text;
 begin
-  select id into v_centro_id from public.centro_estudios where nombre = '__prueba_rls__centro_admin';
+  v_centro_id := pg_temp.dato('centro_admin');
   if v_centro_id is null then
     perform pg_temp.omitir('alumno / administrator INSERT', 'no se pudo crear el centro de prueba (ver sección 1)');
     perform pg_temp.omitir('alumno / teacher lee columnas de contacto (debe fallar)', 'depende del alumno de prueba, no creado');
@@ -243,6 +269,7 @@ begin
         values ('Prueba', 'RLS', v_centro_id, 'prueba.rls@example.invalid')
         returning id into v_alumno_id;
       perform pg_temp.registrar('alumno / administrator INSERT', 'permitido', v_alumno_id is not null);
+      perform pg_temp.recordar_dato('alumno_prueba', v_alumno_id);
     exception when others then
       perform pg_temp.registrar('alumno / administrator INSERT', 'permitido', false, sqlerrm);
     end;
@@ -310,7 +337,7 @@ declare
   v_alumno_id uuid;
   v_filas     integer;
 begin
-  select id into v_alumno_id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS';
+  v_alumno_id := pg_temp.dato('alumno_prueba');
   if v_alumno_id is null then
     perform pg_temp.omitir('alumno / administrator UPDATE', 'no se creó el alumno de prueba (sección 2)');
     perform pg_temp.omitir('alumno / teacher UPDATE (debe fallar)', 'no se creó el alumno de prueba (sección 2)');
@@ -357,7 +384,7 @@ declare
   v_pr_id     uuid;
   v_filas     integer;
 begin
-  select id into v_alumno_id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS';
+  v_alumno_id := pg_temp.dato('alumno_prueba');
   if v_alumno_id is null then
     perform pg_temp.omitir('persona_referencia / administrator INSERT', 'no se creó el alumno de prueba (sección 2)');
     perform pg_temp.omitir('persona_referencia / teacher SELECT (debe fallar)', 'no se creó el alumno de prueba');
@@ -499,7 +526,7 @@ declare
   v_teacher_id uuid;
   v_slot_id    uuid;
 begin
-  select id into v_alumno_id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS';
+  v_alumno_id := pg_temp.dato('alumno_prueba');
   select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
 
   if v_alumno_id is null or v_teacher_id is null then
@@ -514,6 +541,7 @@ begin
         values (v_alumno_id, v_teacher_id, 1, '16:00', '17:00', current_date)
         returning id into v_slot_id;
       perform pg_temp.registrar('slot_horario / administrator INSERT', 'permitido', v_slot_id is not null);
+      perform pg_temp.recordar_dato('slot_prueba', v_slot_id);
     exception when others then
       perform pg_temp.registrar('slot_horario / administrator INSERT', 'permitido', false, sqlerrm);
     end;
@@ -566,9 +594,7 @@ declare
   v_slot_id uuid;
   v_filas   integer;
 begin
-  select id into v_slot_id from public.slot_horario
-   where alumno_id = (select id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS')
-   limit 1;
+  v_slot_id := pg_temp.dato('slot_prueba');
   if v_slot_id is null then
     perform pg_temp.omitir('slot_horario / administrator UPDATE', 'no se creó el slot de prueba (sección 4)');
     perform pg_temp.omitir('slot_horario / teacher UPDATE (debe fallar)', 'no se creó el slot de prueba (sección 4)');
@@ -700,7 +726,7 @@ begin
     return;
   end if;
 
-  select id into v_alumno_id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS';
+  v_alumno_id := pg_temp.dato('alumno_prueba');
 
   -- No se sube ningún fichero real desde este script (el procesado de imagen es de cliente, T-14):
   -- solo se comprueba si YA hay algún objeto bajo una ruta de alumno activo/inactivo real para
