@@ -10,15 +10,33 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-31 — **P-04 (urgente, §0.3) IMPLEMENTADA: cierra el hallazgo #2 de
+**Última actualización:** 2026-08-31 (tercera sesión del día) — **T-15 (slots de horario)
+COMPLETADA.** Sin migración propia (`Migración: No`): `slot_horario` y sus políticas RLS (T-10) ya
+existen. `src/dominio/slotHorario.ts` (vigencia en una fecha dada, solape de horario, cálculo de la
+fecha de cierre al versionar) y `src/datos/slotsHorario.ts` (listar/crear/modificar/cesar,
+escritura solo `administrator` por RLS) con 24 tests nuevos (460 en total, antes 436). El solape del
+mismo alumno bloquea el alta/edición; el del mismo profesor con un alumno distinto solo avisa
+(`avisoSolapeProfesor`, sin bloquear — un profesor puede tener varios alumnos a la vez). La edición
+versiona: cierra la versión vigente el día antes de la fecha de efecto y crea una nueva, sin tocar
+la anterior. **T-16 pasa a BLOQUEADA** (depende de que T-14 escriba el resto de su alcance —el
+bucket ya está migrado pero el procesado de imagen y la subida siguen sin código—, ver su fila en
+§1); la cola sigue por **T-17** (motor de propuesta, depende solo de T-15).
+
+**Sesión previa del mismo día — T-14 (avatar del alumno), solo la migración.** `db/004_bucket_avatares.sql`
+escrita y empujada: crea el bucket privado `avatares` (`allowed_mime_types = image/webp`,
+`file_size_limit` 2 MiB); sus políticas ya existían desde `003_politicas_rls.sql` (T-10). T-14 pasa
+a **BLOQUEADA — pendiente aplicar migración `004`** (fila 6 de §3). El resto del alcance de T-14
+(procesado de imagen en el cliente, ruta determinista, firma en lote, monograma) sigue sin escribir.
+7 tests estáticos nuevos en `herramientas/migraciones/bucketAvatares.test.ts`.
+
+**Sesión previa del mismo día — P-04 (urgente, §0.3) IMPLEMENTADA: cierra el hallazgo #2 de
 `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-08-29).** `db/pruebas_rls.sql` no
 ejercitaba ningún `UPDATE`/`DELETE`/`TRUNCATE`; ahora añade los `UPDATE` que faltaban para
 `centro_estudios`/`alumno`/`slot_horario`, `UPDATE`+`DELETE` para `persona_referencia` (única política
 `for all` del esquema), y un barrido de `TRUNCATE` por `administrator`/`teacher` sobre las ocho tablas
 de `public`. Atendida antes de la cola normal, según manda el protocolo para hallazgos `ABIERTO` de
 severidad alta. Detalle en `DECISIONES_TECNICAS.md` y en §5 de este documento (P-04). El auditor
-cerrará el hallazgo #2 en su próxima pasada (no lo toca el programador). Se retoma después la cola
-normal desde T-14.
+cerrará el hallazgo #2 en su próxima pasada (no lo toca el programador).
 
 **Sesión previa — 2026-08-28 (quinta sesión del día):** **T-13 (personas de referencia del
 alumno) COMPLETADA, sin esperar a que el dueño confirme `002`/`003`.** Sin migración propia
@@ -72,18 +90,23 @@ matriz cuando exista uno (T-24, o uno de prueba creado a mano por el dueño).
 
 **Aviso de proceso, vigente desde 2026-08-27:** una sesión no debe arrancar sin `git pull`, y el
 registro debe empujarse en cuanto se escribe. Esta sesión empezó con `git pull` limpio sobre
-`ef176ef` (T-12 + P-01 + T-10/T-11, ver §1), sin colisión.
+`b0e4719` (auditoría del día, ver `auditoriacontinua.md`), sin colisión.
 
-**T-14 pasó a BLOQUEADA el 2026-08-31** (misma sesión que P-04): `004_bucket_avatares.sql` ya está
-escrita y empujada (fila 6 de §3), con sus comprobaciones estáticas propias
-(`herramientas/migraciones/bucketAvatares.test.ts`, 7 tests). Solo crea el bucket privado en sí; sus
-políticas de `storage.objects` ya existían desde `003_politicas_rls.sql` (T-10). El resto del alcance
-de T-14 (procesado de imagen en el cliente, ruta determinista, firma en lote, monograma) queda
-latente hasta que el dueño aplique `004` — no se ha escrito todavía.
+**T-14 pasó a BLOQUEADA el 2026-08-31:** `004_bucket_avatares.sql` ya está escrita y empujada (fila 6
+de §3), con sus comprobaciones estáticas propias (`herramientas/migraciones/bucketAvatares.test.ts`,
+7 tests). Solo crea el bucket privado en sí; sus políticas de `storage.objects` ya existían desde
+`003_politicas_rls.sql` (T-10). El resto del alcance de T-14 (procesado de imagen en el cliente, ruta
+determinista, firma en lote, monograma) queda latente hasta que el dueño aplique `004` — no se ha
+escrito todavía.
 
-**Siguiente tarea: T-15 (slots de horario por defecto).** Su spec está en el cuerpo de
-`HOJA_DE_RUTA.md`; `Migración: No`, depende solo de T-12 (COMPLETADA), así que no está bloqueada por
-`004`.
+**T-15 se completó el mismo día, sin esperar a `004`** (`Migración: No`, depende solo de T-12,
+COMPLETADA): ver detalle en la cabecera de arriba. **T-16 pasa a BLOQUEADA** por dependencia de
+código (no de migración: sin fila en §3) porque su requisito 2 exige el bloque de avatar de la ficha,
+que T-14 todavía no ha escrito.
+
+**Siguiente tarea: T-17 (motor de propuesta "quién toca ahora").** Su spec está en el cuerpo de
+`HOJA_DE_RUTA.md`; depende solo de T-15 (COMPLETADA). Tiene una pregunta abierta ya prevista (zona
+horaria y ventana de tolerancia, §6) que esa sesión debe abrir si aún no tiene respuesta.
 
 ---
 
@@ -123,9 +146,9 @@ latente hasta que el dueño aplique `004` — no se ha escrito todavía.
 | T-12 | Ficha de alumno: datos, centro y baja lógica | COMPLETADA | 2026-08-28 | Sin migración: `alumno` ya existe con todas sus columnas desde `001_esquema_inicial`. Dominio (`src/dominio/alumno.ts`), datos (`src/datos/alumnos.ts`, leyendo de la vista `alumno_ficha` de T-10) y pantalla standalone solo-administrator (`src/ui/pantallaFichaAlumno.ts`, sin enrutar hasta T-16) con 43 tests nuevos (408 en total, antes 365). Búsqueda no acento-insensible (pregunta abierta en §6, mismo motivo que T-11). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-13 | Personas de referencia del alumno | COMPLETADA | 2026-08-28 | Sin migración: `persona_referencia` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/personaReferencia.ts`), datos (`src/datos/personasReferencia.ts`) y gestión embebida en `src/ui/pantallaFichaAlumno.ts` (sin pantalla propia, por spec) con 21 tests nuevos (429 en total, antes 408). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-14 | Avatar del alumno (Supabase Storage) | BLOQUEADA — pendiente aplicar migración `004` | 2026-08-31 | Migración `004_bucket_avatares` escrita y empujada (fila 6 de §3): crea el bucket privado en sí, con lista blanca `image/webp` y límite de 2 MiB en la propia configuración del bucket. Sus políticas de `storage.objects` ya existen desde `003_politicas_rls` (T-10). El resto del alcance de T-14 (procesado de imagen en el cliente, ruta `alumno/{alumno_id}/{uuid}/`, firma en lote, monograma, límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md`, y completar los casos OMITIDOS del bucket en `db/pruebas_rls.sql`) sigue sin escribir: se retoma en cuanto el dueño aplique `004` |
-| T-15 | Slots de horario y no-retroactividad | PENDIENTE | — | — |
-| T-16 | Interfaz de gestión del administrador | PENDIENTE | — | Centros, ficha completa y horarios |
-| T-17 | Motor de propuesta "quién toca ahora" | PENDIENTE | — | — |
+| T-15 | Slots de horario por defecto: asignación, edición y no-retroactividad | COMPLETADA | 2026-08-31 | Sin migración: `slot_horario` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/slotHorario.ts`: vigencia, solape, versionado) y datos (`src/datos/slotsHorario.ts`: listar/crear/modificar/cesar) con 24 tests nuevos (460 en total, antes 436). El solape del mismo alumno bloquea; el del mismo profesor con otro alumno solo avisa (`avisoSolapeProfesor`). Sin restricción `EXCLUDE` en base de datos (`Migración: No`, limitación conocida en `DECISIONES_TECNICAS.md`). Sin pantalla propia — la construye T-16 |
+| T-16 | Interfaz de gestión del administrador | BLOQUEADA — depende de que T-14 escriba el resto de su alcance | 2026-08-31 | Depende de T-13 (COMPLETADA), T-14 (solo la migración `004` está escrita; el procesado de imagen en el cliente y la subida de avatar siguen sin escribir) y T-15 (COMPLETADA). El requisito 2 de T-16 exige la ficha con su bloque de avatar ("subir, sustituir, quitar"), así que no tiene sentido construir esta pantalla hasta que T-14 tenga algo real que montar. No es un bloqueo de migración (sin fila en §3): es una dependencia de código pendiente de otra tarea, se retoma en cuanto T-14 complete su alcance |
+| T-17 | Motor de propuesta "quién toca ahora" | PENDIENTE | — | Depende solo de T-15 (COMPLETADA). Pregunta abierta pendiente: zona horaria y ventana de tolerancia (§6) |
 | T-18 | Alta de asistencia (RPC `registrar_asistencia`) | PENDIENTE | — | Migración `004_rpc_registrar_asistencia`; límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
 | T-19 | Pantalla de pasar lista | PENDIENTE | — | — |
 | T-20 | Alumno extra: listado completo y selección manual | PENDIENTE | — | — |

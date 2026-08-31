@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-08-31 (3)
+**Tarea(s):** T-15 (slots de horario por defecto: asignación, edición y no-retroactividad)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** `<pendiente de este commit>` — "T-15: slots de horario (vigencia, solape, versionado por edición)"
+**Migraciones aplicadas:** ninguna. No escrita: T-15 tiene `Migración: No` — `slot_horario` y sus políticas RLS (T-10) ya existían
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/dominio/slotHorario.ts` (nuevo), `src/dominio/slotHorario.test.ts` (nuevo, 14 tests), `src/datos/slotsHorario.ts` (nuevo), `src/datos/slotsHorario.test.ts` (nuevo, 10 tests), `roadmap/DECISIONES_TECNICAS.md`, `roadmap/SEGUIMIENTO.md` (§1 T-15 COMPLETADA, T-16 BLOQUEADA, cabecera)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (460/460: 436 + 24 nuevos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** cuatro filas `2026-08-31 | T-15` de `DECISIONES_TECNICAS.md` — módulo de dominio nuevo en vez de migrar `slots.ts` (T-17); solape del alumno validado en cliente sin restricción `EXCLUDE` (`Migración: No`); orden cerrar-antes-que-crear en la edición versionada; cómo se cubre el criterio de aceptación sin una RPC de asistencia real (T-18 no existe todavía)
+**Hallazgos del auditor atendidos:** ninguno (ya atendido el #2 en la primera sesión del día)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-16 queda BLOQUEADA por dependencia de código (no de migración) hasta que T-14 escriba el procesado de imagen y la subida de avatar. La cola continúa por **T-17** (motor de propuesta "quién toca ahora", depende solo de T-15 — COMPLETADA), que debe abrir o confirmar la pregunta de zona horaria/ventana de tolerancia (§6)
+
+---
+
 ### Sesión 2026-08-31 (2)
 **Tarea(s):** T-14 (avatar del alumno, Supabase Storage) — solo la migración; el resto queda BLOQUEADA
 **Estado resultante:** BLOQUEADA — pendiente aplicar migración `004`
