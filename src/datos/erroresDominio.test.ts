@@ -11,7 +11,9 @@ import {
   ErrorDelServidor,
   FicheroDemasiadoGrande,
   TipoDeFicheroNoPermitido,
+  REINTENTAR_MS_POR_DEFECTO_LIMITE_SERVIDOR,
 } from './erroresDominio.ts';
+import { ErrorLimiteAlcanzado } from '../nucleo/limitadorTasa.ts';
 
 function respuesta(estado: number, cuerpo?: unknown): Response {
   return new Response(cuerpo === undefined ? null : JSON.stringify(cuerpo), { status: estado });
@@ -39,6 +41,12 @@ void test('errorDeRespuesta traduce 400 y 422 a ErrorDeValidacion', async () => 
 void test('errorDeRespuesta traduce 413 a FicheroDemasiadoGrande y 415 a TipoDeFicheroNoPermitido', async () => {
   assert.ok((await errorDeRespuesta(respuesta(413))) instanceof FicheroDemasiadoGrande);
   assert.ok((await errorDeRespuesta(respuesta(415))) instanceof TipoDeFicheroNoPermitido);
+});
+
+void test('errorDeRespuesta traduce 429 a ErrorLimiteAlcanzado (T-18, límite de tasa del servidor)', async () => {
+  const error = await errorDeRespuesta(respuesta(429));
+  assert.ok(error instanceof ErrorLimiteAlcanzado);
+  assert.equal(error.reintentarEnMs, REINTENTAR_MS_POR_DEFECTO_LIMITE_SERVIDOR);
 });
 
 void test('errorDeRespuesta traduce cualquier 5xx a ErrorDelServidor', async () => {

@@ -4,15 +4,14 @@
 > mantiene al día en cada migración (§0.4 de `HOJA_DE_RUTA.md`). El SQL exacto vive en `db/NNN_*.sql`;
 > este documento es el mapa, no la fuente de verdad — ante cualquier duda, el SQL manda.
 >
-> Estado actual: `000`/`000b` (bootstrap manual del dueño) + `001_esquema_inicial` (T-07,
-> **aplicado y verificado** en `dev`, `esquema_version()` = `1`) + `002_bloqueo_cuenta` (P-01,
-> escrito y testeado, **pendiente de que el dueño lo aplique** con `npm run migrate`) +
-> `003_politicas_rls` (T-10, escrito y testeado —estáticamente y con `db/pruebas_rls.sql`—,
-> **pendiente de que el dueño aplique primero `002` y después esta**, en ese orden — ver §3 de
-> `roadmap/SEGUIMIENTO.md`). Hasta que se aplique `003`, cada tabla de abajo (salvo `perfil`) tiene
-> la seguridad activada pero cerrada a cal y canto — nadie entra por la API, ni siquiera
-> `administrator`. La matriz completa rol × tabla × operación vive en `roadmap/DECISIONES_TECNICAS.md`
-> (sección final, fuera del registro append-only).
+> Estado actual (corregido 2026-08-31, sesión de T-18 — este párrafo llevaba desactualizado varias
+> sesiones, ver `db/APLICADAS.md` que sí se mantuvo al día): `000`/`000b` (bootstrap manual del
+> dueño) + `001_esquema_inicial` + `002_bloqueo_cuenta` + `003_politicas_rls` + `004_bucket_avatares`,
+> los cuatro **aplicados y verificados** en `dev` (`esquema_version()` = `4`, `npm run probar-rls` en
+> verde). `005_rpc_registrar_asistencia` (T-18) está escrita y testeada —estáticamente y con
+> `db/pruebas_rls.sql`—, **pendiente de que el dueño la aplique** con `npm run migrate` (fila nueva
+> en §3 de `roadmap/SEGUIMIENTO.md`). La matriz completa rol × tabla × operación vive en
+> `roadmap/DECISIONES_TECNICAS.md` (sección final, fuera del registro append-only).
 
 ## Diagrama de relaciones (texto)
 
@@ -157,9 +156,9 @@ ausencia, ya anulada, etc.).
 
 **Es editable (`UPDATE`) pero nunca se borra.** Decisión expresa del dueño (2026-08-25): quien se
 equivoca al pasar lista debe poder arreglarlo, y anular es un estado, no una desaparición. Toda
-escritura pasa por una RPC `SECURITY DEFINER` (`registrar_asistencia`/`actualizar_asistencia`,
-T-18/T-21, todavía no escritas): el `INSERT` y el `UPDATE` directos sobre la tabla están revocados
-para cualquier rol de la API, incluido `service_role`.
+escritura pasa por una RPC `SECURITY DEFINER` (`registrar_asistencia`, T-18, escrita;
+`actualizar_asistencia`, T-21, todavía no escrita): el `INSERT` y el `UPDATE` directos sobre la
+tabla están revocados para cualquier rol de la API, incluido `service_role`.
 
 ### `asistencia_historial`
 
@@ -192,6 +191,54 @@ sin rutas de avatar, sin tokens) antes de guardarse.
 Se escribe únicamente a través de la RPC `registrar_evento_error(p_origen, p_mensaje, p_pila,
 p_contexto)`, que fija ella misma `registrado_en` y `registrado_por` — el contrato que fijó T-05.
 La lectura queda reservada a `administrator` (política `evento_error_admin_leer`, `003_politicas_rls.sql`, T-10).
+
+### `limite_tasa`
+
+Infraestructura, no dato de negocio: contador de operaciones por clave y ventana fija (T-06,
+primera RPC real a la que se conecta — 60 operaciones por profesor y minuto, ver
+`roadmap/DECISIONES_TECNICAS.md`). Nunca se lee ni se escribe por PostgREST: RLS habilitada sin
+ninguna política y `revoke all` a `anon`/`authenticated`/`service_role`, igual que las tablas
+anteriores. Solo la alcanza `aplicar_limite_tasa(clave, maximo, ventana_segundos)`, `SECURITY
+DEFINER`, llamada desde dentro de `registrar_asistencia` (T-18) y, más adelante, de
+`actualizar_asistencia` (T-21) — nunca directamente desde la API.
+
+| Campo | Tipo | Obligatorio | Qué es |
+|---|---|---|---|
+| `clave` | texto | sí, clave primaria | `'asistencia:' \|\| profesor_id`, hoy la única forma en uso. |
+| `ventana_inicio` | fecha y hora | sí | Inicio de la ventana fija actual (se reinicia sola al expirar). |
+| `contador` | entero | sí | Operaciones contadas dentro de la ventana actual. |
+
+## `registrar_asistencia` (`005_rpc_registrar_asistencia.sql`, T-18)
+
+Única vía de alta de `asistencia` — el `INSERT` directo está revocado (ver arriba). `SECURITY
+DEFINER`: fija ella misma `registrado_en` (`now()` del servidor) y `profesor_id` (`auth.uid()`, o
+el profesor indicado por un `administrator`, nunca al revés); el snapshot del slot
+(`slot_dia_semana`/`slot_hora_inicio`/`slot_hora_fin`/`slot_asignatura_o_grupo`) se lee de
+`slot_horario` en el momento de registrar, nunca lo envía el cliente. `es_retroactivo` se calcula
+con la misma fórmula exacta que el `CHECK asistencia_retroactivo_coherente` de `001_esquema_inicial`
+(más de 300 segundos de diferencia entre `ocurrido_en` y `registrado_en`) — esa restricción, ya
+aplicada e inmutable, es la fuente de verdad.
+
+**Validaciones, en orden:** (1) quién llama y en nombre de quién — solo `administrator` puede pasar
+`p_profesor_id` para registrar por otro; un `teacher` sin ese parámetro registra con su propia
+identidad; cualquier otro rol (incluido `student`) se rechaza; (2) límite de abuso de T-06 (60/profesor/minuto,
+vía `aplicar_limite_tasa`); (3) `ocurrido_en` no puede estar en el futuro ni superar 7 días hacia
+atrás (`VENTANA_RETROACTIVA_MAXIMA_DIAS`, valor conservador de partida, pregunta abierta #12 de §6
+de `SEGUIMIENTO.md`); (4) el alumno existe y está activo; (5) el `origen` es coherente con
+`slot_id` (`slot` lo exige, `manual` lo prohíbe) y, si es `slot`, que pertenezca al profesor que
+registra, al alumno indicado, y esté vigente en la fecha local (`Europe/Madrid`, misma constante de
+T-17) del registro.
+
+**Duplicados (requisito 4 de T-18, decisión por defecto — pregunta abierta #12 de §6):** un segundo
+registro del MISMO alumno en el MISMO slot y día se rechaza, mediante una restricción `unique`
+parcial de verdad (`asistencia_uq_alumno_slot_dia_valida`, sobre `(alumno_id, slot_id, fecha local)`
+donde `estado = 'valida'` y `slot_id is not null`) — no una comprobación a mano, para que también
+proteja contra dos llamadas concurrentes. Un `peticion_id` repetido choca por su parte con
+`asistencia_peticion_id_unico` (ya existente desde `001_esquema_inicial`): la propia línea de la
+tabla `asistencia` de arriba ya lo explica ("el segundo intento choca con la restricción `unique`
+en vez de crear una fila repetida") — **no** hay una comprobación de idempotencia que devuelva en
+silencio la fila ya creada; un reintento con el mismo `peticion_id` recibe un error de conflicto,
+igual que el duplicado de negocio.
 
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 
@@ -276,7 +323,7 @@ deja datos de prueba en la base pase lo que pase.
 
 ## Qué falta (a propósito, para T-11 y siguientes)
 
-- Las RPC `registrar_asistencia` y `actualizar_asistencia`: T-18/T-21.
+- La RPC `actualizar_asistencia`: T-21.
 - El campo `relacion` en `persona_referencia` y si debe exigirse al menos una vía de contacto por
   alumno: preguntas abiertas para el dueño (§6 de `SEGUIMIENTO.md`), no se han añadido sin su
   decisión.

@@ -688,7 +688,8 @@ begin
 
   perform pg_temp.impersonar('student');
   foreach v_tabla in array array[
-    'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial', 'evento_error'
+    'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
+    'evento_error', 'limite_tasa'
   ]
   loop
     begin
@@ -756,6 +757,10 @@ begin
     v_alumno_inactivo := null;
   end;
 
+  -- Recordado por id (no solo por la variable local de este bloque) para que la sección 7b
+  -- (T-18, registrar_asistencia) pueda reutilizar el mismo alumno dado de baja sin crear otro.
+  perform pg_temp.recordar_dato('alumno_inactivo', v_alumno_inactivo);
+
   if v_alumno_inactivo is not null then
     v_ruta_activo := 'alumno/' || v_alumno_activo::text || '/prueba-rls/avatar-mini.webp';
     v_ruta_inactivo := 'alumno/' || v_alumno_inactivo::text || '/prueba-rls/avatar-mini.webp';
@@ -815,6 +820,220 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 7b. registrar_asistencia (T-18, db/005_rpc_registrar_asistencia.sql) —
+--     la única vía de alta de asistencia. Reutiliza los fixtures ya
+--     creados por las secciones 2 (alumno_prueba), 4 (slot_prueba, del
+--     'teacher') y 7 (alumno_inactivo): ninguno se vuelve a crear aquí.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id       uuid := pg_temp.dato('alumno_prueba');
+  v_alumno_inactivo uuid := pg_temp.dato('alumno_inactivo');
+  v_slot_id         uuid := pg_temp.dato('slot_prueba');
+  v_teacher_id      uuid;
+  v_fila            public.asistencia%rowtype;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+
+  if v_alumno_id is null or not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('registrar_asistencia / teacher registra en vivo (manual)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / teacher registra por slot', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / mismo peticion_id repetido (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / alumno inactivo (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / slot de otro profesor (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / teacher no puede registrar en nombre de otro (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / administrator registra en nombre de teacher', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / ocurrido_en en el futuro (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / origen "slot" sin slot_id (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / registro retroactivo marca es_retroactivo', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / ventana retroactiva máxima excedida (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_asistencia / student no puede llamar (debe fallar)', 'falta el alumno o el teacher de prueba');
+    return;
+  end if;
+
+  -- En vivo, origen manual.
+  perform pg_temp.impersonar('teacher');
+  begin
+    select public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid()
+    ) into v_fila;
+    perform pg_temp.registrar(
+      'registrar_asistencia / teacher registra en vivo (manual)', 'permitido',
+      v_fila.profesor_id = v_teacher_id and v_fila.es_retroactivo = false and v_fila.slot_id is null
+    );
+  exception when others then
+    perform pg_temp.registrar('registrar_asistencia / teacher registra en vivo (manual)', 'permitido', false, sqlerrm);
+  end;
+
+  -- Registro retroactivo (2 horas atrás): debe marcar es_retroactivo, y seguir aceptándose.
+  begin
+    select public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid(),
+      p_ocurrido_en => now() - interval '2 hours'
+    ) into v_fila;
+    perform pg_temp.registrar(
+      'registrar_asistencia / registro retroactivo marca es_retroactivo', 'permitido', v_fila.es_retroactivo = true
+    );
+  exception when others then
+    perform pg_temp.registrar('registrar_asistencia / registro retroactivo marca es_retroactivo', 'permitido', false, sqlerrm);
+  end;
+
+  -- Ventana retroactiva máxima excedida (30 días): debe rechazarse.
+  begin
+    perform public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid(),
+      p_ocurrido_en => now() - interval '30 days'
+    );
+    perform pg_temp.registrar(
+      'registrar_asistencia / ventana retroactiva máxima excedida (debe fallar)', 'prohibido', false, 'se insertó sin error'
+    );
+  exception when others then
+    perform pg_temp.registrar('registrar_asistencia / ventana retroactiva máxima excedida (debe fallar)', 'prohibido', true, sqlerrm);
+  end;
+
+  -- ocurrido_en en el futuro: debe rechazarse.
+  begin
+    perform public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid(),
+      p_ocurrido_en => now() + interval '1 hour'
+    );
+    perform pg_temp.registrar('registrar_asistencia / ocurrido_en en el futuro (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar('registrar_asistencia / ocurrido_en en el futuro (debe fallar)', 'prohibido', true, sqlerrm);
+  end;
+
+  -- origen "slot" sin slot_id: debe rechazarse.
+  begin
+    perform public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => gen_random_uuid());
+    perform pg_temp.registrar('registrar_asistencia / origen "slot" sin slot_id (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar('registrar_asistencia / origen "slot" sin slot_id (debe fallar)', 'prohibido', true, sqlerrm);
+  end;
+
+  -- alumno inactivo: debe rechazarse.
+  if v_alumno_inactivo is null then
+    perform pg_temp.omitir('registrar_asistencia / alumno inactivo (debe fallar)', 'no se creó el alumno dado de baja (sección 7)');
+  else
+    begin
+      perform public.registrar_asistencia(p_alumno_id => v_alumno_inactivo, p_origen => 'manual', p_peticion_id => gen_random_uuid());
+      perform pg_temp.registrar('registrar_asistencia / alumno inactivo (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar('registrar_asistencia / alumno inactivo (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+  end if;
+
+  -- teacher intenta registrar en nombre de otro profesor: debe rechazarse (no depende de que exista teacher2).
+  begin
+    perform public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid(), p_profesor_id => gen_random_uuid()
+    );
+    perform pg_temp.registrar('registrar_asistencia / teacher no puede registrar en nombre de otro (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar('registrar_asistencia / teacher no puede registrar en nombre de otro (debe fallar)', 'prohibido', true, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- Por slot: origen='slot', slot_prueba (del 'teacher'), mismo alumno del slot.
+  if v_slot_id is null then
+    perform pg_temp.omitir('registrar_asistencia / teacher registra por slot', 'no se creó el slot de prueba (sección 4)');
+    perform pg_temp.omitir('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', 'no se creó el slot de prueba (sección 4)');
+    perform pg_temp.omitir('registrar_asistencia / mismo peticion_id repetido (debe fallar)', 'no se creó el slot de prueba (sección 4)');
+  else
+    declare
+      v_peticion_original uuid := gen_random_uuid();
+    begin
+      perform pg_temp.impersonar('teacher');
+      begin
+        select public.registrar_asistencia(
+          p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => v_peticion_original, p_slot_id => v_slot_id
+        ) into v_fila;
+        perform pg_temp.registrar(
+          'registrar_asistencia / teacher registra por slot', 'permitido',
+          v_fila.slot_id = v_slot_id and v_fila.slot_dia_semana = 1
+        );
+      exception when others then
+        perform pg_temp.registrar('registrar_asistencia / teacher registra por slot', 'permitido', false, sqlerrm);
+      end;
+
+      -- Segundo registro del MISMO alumno en el MISMO slot el MISMO día, con un peticion_id
+      -- distinto: choca con asistencia_uq_alumno_slot_dia_valida (requisito 4 de T-18).
+      begin
+        perform public.registrar_asistencia(
+          p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => gen_random_uuid(), p_slot_id => v_slot_id
+        );
+        perform pg_temp.registrar('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', 'prohibido', false, 'se insertó sin error');
+      exception when others then
+        perform pg_temp.registrar('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', 'prohibido', true, sqlerrm);
+      end;
+
+      -- Mismo peticion_id que el primer registro exitoso: choca con asistencia_peticion_id_unico.
+      begin
+        perform public.registrar_asistencia(
+          p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => v_peticion_original
+        );
+        perform pg_temp.registrar('registrar_asistencia / mismo peticion_id repetido (debe fallar)', 'prohibido', false, 'se insertó sin error');
+      exception when others then
+        perform pg_temp.registrar('registrar_asistencia / mismo peticion_id repetido (debe fallar)', 'prohibido', true, sqlerrm);
+      end;
+
+      perform pg_temp.dejar_de_impersonar();
+    end;
+  end if;
+
+  -- slot de otro profesor: slot_prueba pertenece a 'teacher', no a 'teacher2'.
+  if v_slot_id is null or not pg_temp.hay_fixture('teacher2') then
+    perform pg_temp.omitir('registrar_asistencia / slot de otro profesor (debe fallar)', 'no hay slot de prueba o un segundo teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher2');
+    begin
+      perform public.registrar_asistencia(
+        p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => gen_random_uuid(), p_slot_id => v_slot_id
+      );
+      perform pg_temp.registrar('registrar_asistencia / slot de otro profesor (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar('registrar_asistencia / slot de otro profesor (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- administrator registra EN NOMBRE de 'teacher' (requisito 2 de T-18).
+  if not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('registrar_asistencia / administrator registra en nombre de teacher', 'no hay administrator en este entorno');
+  else
+    perform pg_temp.impersonar('administrator');
+    begin
+      select public.registrar_asistencia(
+        p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid(), p_profesor_id => v_teacher_id
+      ) into v_fila;
+      perform pg_temp.registrar(
+        'registrar_asistencia / administrator registra en nombre de teacher', 'permitido', v_fila.profesor_id = v_teacher_id
+      );
+    exception when others then
+      perform pg_temp.registrar('registrar_asistencia / administrator registra en nombre de teacher', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- student: sin acceso alguno (§0.2), tampoco a esta RPC.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('registrar_asistencia / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid());
+      perform pg_temp.registrar('registrar_asistencia / student no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar('registrar_asistencia / student no puede llamar (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 8. TRUNCATE por authenticated — debe fallar en TODAS las tablas del
 --    esquema, para CUALQUIER rol de aplicación (administrator incluido):
 --    es un privilegio de tabla que RLS no filtra en absoluto (`TRUNCATE`
@@ -833,7 +1052,7 @@ declare
 begin
   foreach v_tabla in array array[
     'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario',
-    'asistencia', 'asistencia_historial', 'evento_error'
+    'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa'
   ]
   loop
     foreach v_rol in array array['administrator', 'teacher']

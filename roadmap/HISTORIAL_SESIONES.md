@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-08-31 (7)
+**Tarea(s):** T-18 (alta de asistencia, RPC `registrar_asistencia`)
+**Estado resultante:** BLOQUEADA — pendiente aplicar migración `005`
+**Commits a `develop`:** `<pendiente de este commit>` — "T-18: alta de asistencia (RPC registrar_asistencia), migración 005"
+**Migraciones aplicadas:** ninguna por esta sesión (§0.1: el agente nunca aplica DDL). `db/005_rpc_registrar_asistencia.sql` escrita y empujada, fila 7 de §3 abierta para el dueño
+**Propagación a prod pendiente:** ninguna todavía (T-25); `005` se añadirá a la columna `prod` vacía de `db/APLICADAS.md` cuando el dueño la aplique en `dev`
+**Archivos creados/modificados:** `db/005_rpc_registrar_asistencia.sql` (nuevo: tabla `limite_tasa` + `aplicar_limite_tasa`, función `registrar_asistencia`, índice único parcial de duplicado), `herramientas/migraciones/rpcRegistrarAsistencia.test.ts` (nuevo, 13 tests estáticos), `src/dominio/asistencia.ts` (reescrito sobre el tipo oficial `Rol`: `origenCoherente`, `ocurridoEnValido`, `puedeRegistrarEnNombreDeOtro`, más la corrección de `MARGEN_RETROACTIVIDAD_MS`), `src/dominio/asistencia.test.ts` (ampliado), `src/datos/asistencia.ts` (nuevo: `registrarAsistencia`), `src/datos/asistencia.test.ts` (nuevo, 12 tests), `src/datos/erroresDominio.ts` (`errorDeRespuesta` traduce `429` a `ErrorLimiteAlcanzado`), `src/datos/erroresDominio.test.ts` (ampliado), `db/pruebas_rls.sql` (sección 7 recuerda `alumno_inactivo` por id; nueva sección 7b con 13 comprobaciones sobre la RPC real; `limite_tasa` añadida a los barridos de `student`/`TRUNCATE`), `db/MODELO.md` (nuevas secciones `limite_tasa`/`registrar_asistencia`, cabecera de estado corregida), `roadmap/DECISIONES_TECNICAS.md` (11 filas nuevas + 2 filas corregidas de la matriz estática), `roadmap/SEGUIMIENTO.md` (cabecera, §1 T-18, §3 fila 7, §6 preguntas #12/#13, §7 renumeración)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (599/599; baseline verificado con `git stash -u` contra el commit de partida: 565/565, +34 netos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** once filas `2026-08-31` (T-18) de `DECISIONES_TECNICAS.md` — renumeración de la migración a `005`; corrección de `MARGEN_RETROACTIVIDAD_MS` (60 000 → 300 000 ms, para coincidir con el `CHECK` ya aplicado de `001`); `es_retroactivo` calculado con la fórmula exacta del `CHECK`, no con la lectura literal de la spec; duplicado de negocio resuelto con una restricción `unique` parcial de verdad, no un `SELECT` previo; límite de tasa de T-06 conectado por primera vez (`limite_tasa`/`aplicar_limite_tasa`, genérico y reutilizable por T-21); límite contado sobre el profesor que registra, no sobre quien llama; `429` traducido a `ErrorLimiteAlcanzado` (misma clase de T-06, sin ampliar la taxonomía cerrada de T-08) con el aviso de incertidumbre sobre el SQLSTATE `PT429`; `VENTANA_RETROACTIVA_MAXIMA_DIAS` como constante distinta de `VENTANA_EDICION_TEACHER_DIAS` de T-21; vigencia del slot validada contra la fecha local del propio `ocurrido_en`, no `current_date`
+**Hallazgos del auditor atendidos:** ninguno nuevo (el hallazgo #2 sigue cerrado por P-04 desde antes de esta sesión, a la espera de que el auditor lo confirme en su próxima pasada)
+**Hallazgos:** corrección de bookkeeping (no un hallazgo de auditoría): `MARGEN_RETROACTIVIDAD_MS` de la versión provisional de T-03 no coincidía con el `CHECK` ya aplicado de `001_esquema_inicial.sql` — ver decisiones arriba
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-18 queda **BLOQUEADA — pendiente aplicar migración `005`** (fila 7 de §3). T-19 (pantalla de pasar lista) depende de T-18 y de T-16 (ambas con su código escrito, T-18 solo pendiente de aplicarse): la siguiente sesión revisa si el dueño ya aplicó `005`; si no, revisa preguntas abiertas de §6 (#12/#13, nuevas de esta sesión) o cualquier deuda técnica pendiente (P-05/P-06/P-07(a), sin urgencia) antes de intentar avanzar en algo que no dependa de la migración
+
+---
+
 ### Sesión 2026-08-31 (6)
 **Tarea(s):** T-16 (interfaz de gestión del administrador)
 **Estado resultante:** COMPLETADA

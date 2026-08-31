@@ -10,11 +10,107 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-31 (sexta sesión del día) — **T-16 (interfaz de gestión del
-administrador) COMPLETADA.** Ningún hallazgo `ABIERTO` de severidad alta nuevo en `auditoriacontinua.md`
-(el hallazgo #2, ya atendido por P-04, solo espera a que el auditor lo reevalúe en su próxima pasada).
-Sin migración propia (`Migración: No`); sus tres dependencias (T-13, T-14, T-15) ya estaban
-`COMPLETADA`.
+**Última actualización:** 2026-08-31 (séptima sesión del día) — **T-18 (alta de asistencia, RPC
+`registrar_asistencia`) escrita y testeada; pasa a BLOQUEADA — pendiente aplicar migración `005`.**
+Ningún hallazgo `ABIERTO` de severidad alta nuevo en `auditoriacontinua.md` (el hallazgo #2 sigue
+igual que en la sesión anterior: ya atendido por P-04, solo espera a que el auditor lo reevalúe).
+
+**Por qué T-18 y no otra cosa:** siguiente tarea de la cola tras T-16/T-17 (ambas `COMPLETADA`); su
+única dependencia, T-17 (motor "quién toca ahora"), está `COMPLETADA` desde la sesión anterior del
+mismo día. `Migración: Sí` en su spec (llamada `004_rpc_registrar_asistencia` en la hoja de ruta
+original) — siguiendo el protocolo de §0.1: el SQL se escribe, se empuja y se abre su fila en §3;
+esta sesión no espera a que el dueño la aplique porque toda la suite corre contra dobles, sin red.
+
+**Migración `005_rpc_registrar_asistencia.sql` (renumerada — ver más abajo):** dos piezas. (1)
+`limite_tasa` + `aplicar_limite_tasa(clave, maximo, ventana_segundos)`: el mecanismo genérico de
+T-06 (60 operaciones por profesor y minuto, contrato del 2026-08-27) conectado por primera vez a
+una RPC real; tabla de infraestructura, RLS habilitada sin políticas, sin GRANT a ningún rol —
+T-21 reutilizará la misma función para `actualizar_asistencia`. (2) `registrar_asistencia(...)`,
+`SECURITY DEFINER`: fija ella misma `registrado_en` (`now()`) y `profesor_id` (`auth.uid()`, o el
+profesor indicado por un `administrator` vía `p_profesor_id` — requisito 2, único caso en que se
+acepta ese parámetro); el snapshot del slot (`slot_dia_semana`/`slot_hora_inicio`/`slot_hora_fin`/
+`slot_asignatura_o_grupo`) se lee de `slot_horario` en el momento de registrar, nunca del cliente;
+`es_retroactivo` se calcula con la fórmula EXACTA del `CHECK asistencia_retroactivo_coherente` de
+`001_esquema_inicial` (300 segundos), no con una interpretación distinta de la spec (ver
+`DECISIONES_TECNICAS.md`: ese `CHECK`, ya aplicado, es la fuente de verdad). Valida, en orden: quién
+llama y en nombre de quién; el límite de abuso; que `ocurrido_en` no esté en el futuro ni supere 7
+días hacia atrás (`VENTANA_RETROACTIVA_MAXIMA_DIAS`, conservador, pregunta abierta nueva #12 de §6);
+que el alumno exista y esté activo; que el `origen` sea coherente con `slot_id` y, si es `slot`,
+que pertenezca al profesor que registra, al alumno indicado, y esté vigente en la fecha LOCAL
+(`Europe/Madrid`, misma constante de T-17) del propio registro, no en la de hoy — para que un
+registro retroactivo se valide contra la vigencia del día en que de verdad ocurrió.
+
+**Duplicados (requisito 4, decisión por defecto — pregunta abierta nueva #13 de §6):** un segundo
+registro del MISMO alumno en el MISMO slot y día se rechaza mediante una restricción `unique`
+PARCIAL de verdad (`asistencia_uq_alumno_slot_dia_valida`), no una comprobación a mano dentro de la
+función — así protege también contra dos llamadas concurrentes, sin la carrera que tendría un
+`select ... where not exists` antes del `INSERT`. Un `peticion_id` repetido choca por su parte con
+la restricción `asistencia_peticion_id_unico` ya existente desde `001_esquema_inicial` (tal como ya
+preveía `db/MODELO.md` desde T-07): **no** hay idempotencia silenciosa que devuelva la fila ya
+creada, un reintento con el mismo `peticion_id` recibe un error de conflicto igual que el duplicado
+de negocio — las dos formas de duplicado llegan al cliente como `Conflicto` (409), indistinguibles
+entre sí, y no hace falta que lo sean.
+
+**Corrección de bookkeeping encontrada al reescribir `src/dominio/asistencia.ts`** (T-03 lo dejó
+como versión provisional, a sustituir "cuando T-18/T-21 escriban la real", tal como su propio
+comentario preveía): la constante `MARGEN_RETROACTIVIDAD_MS` valía `60_000` (1 minuto) pero el
+`CHECK` ya aplicado exige 300 segundos — corregida a `300_000`. No rompía ningún test previo
+(nada la usaba todavía fuera de sus propios tests, que la referenciaban simbólicamente, nunca por
+su valor literal), pero habría producido un `es_retroactivo` de cliente que nunca coincidiera con
+el que la base de datos fija de verdad. Añade también, en el mismo módulo: `origenCoherente`,
+`ocurridoEnValido` y `puedeRegistrarEnNombreDeOtro` — la versión de dominio, pura y con tests
+exhaustivos, de las mismas reglas que la RPC aplica en SQL.
+
+**`src/datos/asistencia.ts` (nuevo):** `registrarAsistencia`, el único punto de llamada a la RPC.
+No genera `peticionId` por su cuenta (a diferencia de `avatarAlumno.ts` con su `uuid` de subida):
+es responsabilidad de quien llama (la pantalla de pasar lista, T-19, junto con
+`proteccionDobleToque` de T-06) generarlo una vez y REUTILIZARLO en un reintento genuino, o la
+protección de idempotencia de la base de datos no protege nada. El límite de cliente de T-06 se
+cuenta sobre el profesor que de verdad registra (`profesorId` si un `administrator` registra en
+nombre de otro, si no `usuarioId`), nunca sobre quien llama, mismo criterio que la RPC.
+
+**`src/datos/erroresDominio.ts` amplía `errorDeRespuesta`** para traducir un `429` (límite de tasa
+del servidor) a `ErrorLimiteAlcanzado` — la MISMA clase que T-06 ya usa para el límite de cliente,
+reutilizada en vez de añadir una novena clase a la taxonomía cerrada de ocho de T-08. El SQLSTATE
+`PT429` usado en la RPC para forzar ese código HTTP no se ha podido verificar contra documentación
+en vivo en esta sesión (sin salida de red a hosts externos, mismo aviso que T-07/T-08 con sus
+propios endpoints); degradación segura si no se cumple: la operación se sigue rechazando igual (el
+límite se aplica dentro de la RPC, antes del `INSERT`), solo cambiaría a qué clase de error de
+dominio lo traduce el cliente.
+
+**34 tests nuevos (599 en total, antes 565, verificado con `git stash -u` contra el commit de
+partida):** 10 de dominio (`asistencia.test.ts`, reescrito: `origenCoherente`, `ocurridoEnValido`
+—futuro rechazado, límite exacto de la ventana, ventana configurable—, `puedeRegistrarEnNombreDeOtro`,
+más la corrección de `MARGEN_RETROACTIVIDAD_MS`), 12 de datos (`asistencia.test.ts` nuevo: cuerpo
+exacto de la RPC en vivo/retroactivo/por slot/en nombre de otro, que nunca viaja `registrado_en`
+como parámetro, traducción de cada error del servidor a su clase tipada, y el límite de cliente
+contado sobre el profesor correcto), 1 de `erroresDominio.test.ts` (429 → `ErrorLimiteAlcanzado`) y
+11 estáticos nuevos en `herramientas/migraciones/rpcRegistrarAsistencia.test.ts` (mismo patrón que
+`bucketAvatares.test.ts`: privilegios explícitos de `limite_tasa`, `SECURITY DEFINER` de las dos
+funciones, `GRANT EXECUTE` de `registrar_asistencia` exactamente a `authenticated`, ningún parámetro
+`p_registrado_en`, fórmula de `es_retroactivo` con 300 segundos, existencia del índice de
+duplicado). **`db/pruebas_rls.sql` amplía su sección 7 (recuerda `alumno_inactivo` por id, para
+reutilizarlo) y añade la sección 7b, nueva:** 13 comprobaciones que ejercitan la RPC de verdad
+—reutilizando los fixtures ya existentes de `alumno_prueba`/`slot_prueba`/`alumno_inactivo`, sin
+crear ninguno nuevo— cubriendo el criterio de aceptación completo de T-18: en vivo, retroactivo,
+ventana retroactiva excedida, futuro, origen incoherente, alumno inactivo, slot de otro profesor,
+duplicado mismo alumno+slot+día, mismo `peticion_id` repetido, `teacher` registrando en nombre de
+otro, `administrator` registrando en nombre de `teacher`, y `student` sin acceso. `limite_tasa` se
+añade también al barrido obligatorio de `student` (sección 6) y al de `TRUNCATE` (sección 8).
+
+**Migración renumerada: `005_rpc_registrar_asistencia.sql`, no `004` como decía la hoja de ruta
+original.** `004` ya lo ocupa `004_bucket_avatares.sql` (T-14), consecuencia de la renumeración en
+cadena que arrastró P-01 el 2026-08-28. La hoja de ruta es inmutable (§0.1): la corrección queda
+aquí, en `DECISIONES_TECNICAS.md` y en la cabecera del propio fichero SQL, no editándola. Efecto en
+cadena para cuando llegue T-21: su migración (`005_rpc_actualizar_asistencia` en la hoja de ruta
+original) pasará a ser `006_rpc_actualizar_asistencia.sql`.
+
+**T-18 pasa a BLOQUEADA — pendiente aplicar migración `005`** (fila nueva de §3). El código que
+consumirá `registrar_asistencia` (la pantalla de pasar lista, T-19) se escribe y se testea igual,
+contra dobles, y queda latente hasta que exista la RPC real en `dev` — la siguiente sesión sigue
+con lo que no dependa de esta migración si lo hay, o retoma T-19 en cuanto el dueño confirme `005`.
+
+---
 
 **Requisito 1 (base de frontend reutilizable):** cuatro piezas nuevas, ninguna con librería de
 terceros (§0.2). `src/nucleo/router.ts` — `analizarRuta`/`hashDeRuta` (puras) + `crearRouter(objetivo)`
@@ -289,7 +385,7 @@ pantallas del requisito 2.
 | T-15 | Slots de horario por defecto: asignación, edición y no-retroactividad | COMPLETADA | 2026-08-31 | Sin migración: `slot_horario` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/slotHorario.ts`: vigencia, solape, versionado) y datos (`src/datos/slotsHorario.ts`: listar/crear/modificar/cesar) con 24 tests nuevos (460 en total, antes 436). El solape del mismo alumno bloquea; el del mismo profesor con otro alumno solo avisa (`avisoSolapeProfesor`). Sin restricción `EXCLUDE` en base de datos (`Migración: No`, limitación conocida en `DECISIONES_TECNICAS.md`). Sin pantalla propia — la construye T-16 |
 | T-16 | Interfaz de gestión del administrador | COMPLETADA | 2026-08-31 | Sin migración: sus tres dependencias (T-13, T-14, T-15) ya estaban completas. Base de frontend reutilizable nueva (`nucleo/router.ts`, `ui/dom.ts`, `nucleo/almacenEstado.ts`, `formularios.crearMensajeErrorCampo`). `pantallaCentros.ts` (T-11) por fin enrutada; `pantallaFichaAlumno.ts` de T-12/T-13 dividida en `pantallaListadoAlumnos.ts` (nueva) + una `pantallaFichaAlumno.ts` reescrita como pantalla completa de cuatro bloques aislados (datos, avatar, personas de referencia, horario), cada uno con su propio montaje y `pintar()`. Nuevo `datos/profesores.ts` para el selector de horario. La aplicación real solo se monta para `administrator` (decisión documentada); `teacher` sigue con el marcador de posición de T-09. 53 tests nuevos (565 en total, antes 512) |
 | T-17 | Motor de propuesta "quién toca ahora" | COMPLETADA | 2026-08-31 | Sin migración: depende solo de T-15 (COMPLETADA). `dominio/slots.ts` reescrito (sustituye la versión provisional de T-03) con zona horaria real (`Intl`, `Europe/Madrid` por defecto) y ventana de tolerancia; `datos/slotsHorario.ts` añade `listarSlotsDeProfesorConAlumno` (una petición, alumno embebido en columnas restringidas). 33 tests nuevos netos (477 en total, antes 460). Pregunta abierta #11 en §6 (valores por defecto de zona horaria y tolerancia, sin bloquear) |
-| T-18 | Alta de asistencia (RPC `registrar_asistencia`) | PENDIENTE | — | Migración `004_rpc_registrar_asistencia`; límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
+| T-18 | Alta de asistencia (RPC `registrar_asistencia`) | BLOQUEADA — pendiente aplicar migración `005` | 2026-08-31 | Migración `005_rpc_registrar_asistencia.sql` (renumerada, ver §7); código y tests completos (dominio, datos, estáticos y `db/pruebas_rls.sql`), latente hasta que se aplique. Límite de 60 operaciones por profesor y minuto conectado por primera vez (`limite_tasa`/`aplicar_limite_tasa`) |
 | T-19 | Pantalla de pasar lista | PENDIENTE | — | — |
 | T-20 | Alumno extra: listado completo y selección manual | PENDIENTE | — | — |
 | T-21 | Revisar y modificar los registros por slot | PENDIENTE | — | Migración `005_rpc_actualizar_asistencia`; límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
@@ -337,6 +433,7 @@ pantallas del requisito 2.
 | 4 | Aplicar la migración `002_bloqueo_cuenta` en `dev` | P-01 | ~~`git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `2`~~ | **RESUELTA 2026-08-31** — aplicada por el dueño con `npm run migrate`. **Verificada:** `esquema_version()` devuelve `3`, número que cubre esta migración y la de la fila 5: el runner aplica en orden numérico y aborta al primer error, así que un `3` en el ledger implica que `002` entró antes que `003`. **Anotada en `db/APLICADAS.md` (hash `1c3f8c8aff62`) y P-01 sacada de `BLOQUEADA` en §5** — hecho el 2026-08-31, sesión de T-14 (3) |
 | 5 | Aplicar la migración `003_politicas_rls` en `dev`, **después** de la fila 4 | T-10 | ~~`git pull` y `npm run migrate` en local (aplica en orden numérico: no hace nada si `002` sigue pendiente). Al terminar, comprobar que `esquema_version()` devuelve `3`. Opcional pero recomendado: ejecutar también `npm run probar-rls` y revisar que no haya ninguna fila `FALLO`~~ | **RESUELTA 2026-08-31 — migración aplicada Y políticas verificadas en ejecución, sin salvedades.** `esquema_version()` = `3`. `npm run probar-rls` contra `dev`: **51 comprobaciones, 3 omitidas, 0 fallidas**, y las tres omisiones son del bucket de avatares, que no existe hasta T-14 (fila 6). Queda probado contra la base real lo que hasta hoy solo estaba en SQL estático: que un `teacher` lee las columnas de identificación de un alumno pero **no** `email_alumno` (requisito 4 de T-12/T-13, punto de control permanente del auditor); que **un profesor no ve el slot de otro** (`slot_horario / teacher2 no lee el ajeno`), que es la aserción de aislamiento sobre la que se sostiene todo el modelo multi-profesor; que la política `for all` de `persona_referencia` bloquea al profesor en SELECT, INSERT, UPDATE y DELETE y permite las cuatro al administrador; que el `student` no lee ninguna de las siete tablas; que `TRUNCATE` está denegado en las ocho para ambos roles; y que `asistencia` rechaza el INSERT directo incluso al administrador. Llegar aquí exigió arreglar la batería **tres veces el mismo día**: el `grant` de `_resultados_prueba_rls` (sin él no arrancaba), **P-08** (una regresión que desactivaba diez comprobaciones en silencio) y **P-07(b)** (la semilla no creaba un segundo profesor, así que el aislamiento entre profesores no podía probarse nunca). Ninguno de los tres lo encontró nadie leyendo el código: los tres salieron de ejecutar. **T-10 pasada de `BLOQUEADA` a `COMPLETADA` en §1, y anotada en `db/APLICADAS.md` (hash `4e4c50a92dab`)** — hecho el 2026-08-31, sesión de T-14 (3): el motivo del bloqueo llevaba resuelto desde esta misma verificación, sin que ninguna sesión posterior lo hubiera anotado |
 | 6 | Aplicar la migración `004_bucket_avatares` en `dev`, **después** de las filas 4 y 5 | T-14 | ~~`git pull` y `npm run migrate` en local (aplica en orden numérico: no hace nada si `002`/`003` siguen pendientes). Al terminar, comprobar que `esquema_version()` devuelve `4`~~ | **RESUELTA 2026-08-31** — aplicada por el dueño con `npm run migrate`. **Verificada:** `esquema_version()` devuelve `4`, y `npm run probar-rls` confirma que la protección de escritura del bucket funciona contra la base real: `avatares / teacher escribe (debe fallar)` queda bloqueado por una **política RLS** sobre `storage.objects` (*new row violates row-level security policy*), no por un GRANT. Las omisiones de la batería bajan de 3 a 2. **Las dos que quedan cambian de motivo, no desaparecen**: ya no es que falte el bucket, es que está vacío — nadie ha subido todavía ningún avatar, así que las dos comprobaciones de **lectura** (que un profesor vea el avatar de un alumno activo y **no** el de uno dado de baja) siguen sin ejercitarse, y no se desbloquean solas. Ver **P-09** (implementada 2026-08-31, sesión de T-14 (3): la sección 7 ya crea sus propios fixtures y no depende de un avatar real). **Anotada en `db/APLICADAS.md` (hash `1065196e1662`)** |
+| 7 | Aplicar la migración `005_rpc_registrar_asistencia` en `dev`, **después** de las filas 4, 5 y 6 | T-18 | `git pull` y `npm run migrate` en local (aplica en orden numérico: no hace nada si `002`/`003`/`004` siguen pendientes). Al terminar, comprobar que `esquema_version()` devuelve `5`. Opcional pero recomendado: ejecutar también `npm run probar-rls` y revisar la nueva sección 7b (`registrar_asistencia`), que ejercita la RPC de verdad — en vivo, retroactivo, ventana excedida, futuro, alumno inactivo, slot de otro profesor, los dos tipos de duplicado, registrar en nombre de otro, y que `student` sigue sin acceso | PENDIENTE |
 
 ---
 
@@ -396,6 +493,8 @@ pantallas del requisito 2.
 | 9 | Requisito 7 de T-13: ¿interesa añadir un campo `relacion` a `persona_referencia` (padre / madre / tutor / otro), para poder mostrarlo en la ficha y, más adelante, en el aviso de ausencia (R-05, "Sr./Sra. [apellido], tutor de...")? Es una columna nueva, DDL, y T-13 tiene `Migración: No` — no se puede añadir sin una migración futura. Mientras no haya respuesta, `persona_referencia` se queda con las columnas exactas de su spec (sin `relacion`) y esto no bloquea nada. | T-13 | |
 | 10 | Requisito 7 de T-13: ¿debe exigirse que un alumno tenga **al menos una vía de contacto** — su propio email o teléfono, o al menos una persona de referencia con teléfono — antes de poder guardarlo, o se permite un alumno sin ningún contacto en absoluto (caso hoy permitido: `email_alumno`/`telefono_alumno` opcionales en T-12, y 0 personas de referencia válido en T-13)? Es una regla de negocio nueva que tocaría tanto `alumnos.ts` como `personasReferencia.ts`, no algo que el agente deba imponer sin decisión del dueño. Mientras no haya respuesta, se permiten 0 vías de contacto (tal como pidió el dueño explícitamente para T-13) y esto no bloquea nada. | T-12 / T-13 | |
 | 11 | Requisitos 2 y 4 de T-17: la zona horaria del centro y la ventana de tolerancia antes del inicio de un slot son configurables, pero el cliente no tiene bundler ni acceso a variables de entorno (§0.2: solo `config.js` expone `SUPABASE_URL`/`SUPABASE_ANON_KEY`) — así que hoy son constantes de dominio, no lectura de `ZONA_HORARIA_CENTRO` de `.env.ejemplo`. Valores elegidos, conservadores: `Europe/Madrid` (única zona horaria de todos los centros del sistema; si algún día hay centros en otro huso, dejaría de ser una constante única) y 10 minutos de tolerancia antes de `hora_inicio` (ni tan corto que un profesor puntual se quede sin propuesta, ni tan largo que aparezca la clase siguiente mientras dura la anterior). Ambas funciones (`instanteLocal`, `alumnosPropuestos`) ya las reciben como parámetro opcional, así que cambiar el valor es una constante, no una migración ni una reescritura. ¿Confirma el dueño estos dos valores, o prefiere otros? Mientras no haya respuesta, se usan los conservadores y esto no bloquea nada. | T-17 | |
+| 12 | Requisito 4 de T-18: un segundo registro del mismo alumno en el mismo slot y día se rechaza con un error identificable — implementado ya así, con una restricción `unique` parcial de verdad (`asistencia_uq_alumno_slot_dia_valida`, `db/005_rpc_registrar_asistencia.sql`), acotada a `estado = 'valida'` (anular un registro libera el hueco) y solo para `origen = 'slot'` (una clase extra manual no tiene esta restricción). ¿Confirma el dueño que "rechazar" es el comportamiento deseado, o preferiría en algún caso permitir un segundo registro del mismo alumno el mismo día (p. ej. si el profesor quiere anotar dos tramos separados de la misma clase)? Mientras no haya respuesta, se rechaza (comportamiento literal de la spec) y esto no bloquea nada — revertirlo, si hiciera falta, sería una migración nueva que sustituya el índice por uno menos estricto, nunca editar `005`. | T-18 | |
+| 13 | Requisito 1 de T-18 ("valida que [`ocurrido_en`] no está en el futuro ni más allá de la ventana permitida hacia atrás"): la ventana elegida es de 7 días (`VENTANA_RETROACTIVA_MAXIMA_DIAS`, `src/dominio/asistencia.ts`), el mismo valor conservador que `VENTANA_EDICION_TEACHER_DIAS` de T-21 pero una constante DISTINTA (son dos preguntas de negocio distintas que hoy solo coinciden en cifra por casualidad, ver `DECISIONES_TECNICAS.md`). ¿Confirma el dueño 7 días para poder REGISTRAR una asistencia olvidada, o prefiere otro plazo? Es una constante en dos sitios (la RPC y el dominio de cliente, hoy sincronizadas a mano — cambiarla exige tocar los dos), no una migración de esquema. Mientras no haya respuesta, se usa el valor conservador y esto no bloquea nada. | T-18 | |
 
 ---
 
@@ -411,3 +510,4 @@ pantallas del requisito 2.
 | 2026-08-28 | T-10 / T-14 | **Renumeración en cadena de las migraciones posteriores a T-10, por segunda vez el mismo día.** La hoja de ruta original llamaba `003_bucket_avatares` a la migración de T-14 (ya corregida una vez de `002` a `003` por la intercalación de P-01, ver la fila anterior de este mismo §7 del 2026-08-27). Como la migración de T-10 (`002_politicas_rls` en el original) ocupa ahora el número `003`, la de T-14 se recorre una posición más y pasa a `004_bucket_avatares`. T-10 además escribe ya, en su propia migración `003`, las políticas RLS del bucket `avatares` sobre `storage.objects` (válidas aunque el bucket todavía no exista) — T-14 solo tendrá que crear el bucket en sí | Consecuencia directa de la numeración de P-01 (fila anterior) al llegar a la migración de T-10. Anotado aquí, en `db/003_politicas_rls.sql`, en `db/MODELO.md` y en la fila de T-14 de §1 para que esa sesión no lo descubra a mitad |
 | 2026-08-28 | T-12 | **Requisito 4 no cumplido literalmente: la búsqueda no es acento-insensible.** La spec pide "la búsqueda encuentra por cualquiera de las tres partes, acento-insensible"; la implementación usa `ilike` (ampliado a tres columnas con `or`), que no lo es. Instalar `unaccent` o añadir una columna generada e indexada es DDL, y T-12 tiene `Migración: No` — no hay forma de cumplirlo sin una migración. El criterio de aceptación enumerado de T-12 no incluye ningún caso de prueba sobre esto (a diferencia del criterio 2 de T-11, que sí prueba el duplicado acento-insensible) | Limitación técnica real, no una omisión: documentada en `DECISIONES_TECNICAS.md` y abierta como pregunta #8 de §6 para que el dueño decida si merece una migración futura |
 | 2026-08-31 | T-14 | **Criterio de aceptación no cumplido literalmente: "una imagen de 4000 px produce una derivada de 512 px y otra de 96 px, ambas WebP y sin EXIF" no se comprueba con píxeles reales ni con un fichero WebP real.** `jsdom` no implementa `createImageBitmap` ni un `<canvas>` que rasterice de verdad, y añadir el paquete nativo `canvas` de npm solo para este test habría sido una dependencia pesada para verificar algo que ni siquiera sería el mismo decodificador que un navegador real. Se testea en su lugar: la geometría del recorte (pura, con test completo), la orquestación (qué tamaños se piden, en qué orden, con qué tipo MIME) contra una fábrica de procesado de imagen de mentira, y se documenta la eliminación de EXIF como garantía de la propia plataforma (repintar sobre un `canvas` nuevo nunca copia metadatos del origen) | Documentado en `DECISIONES_TECNICAS.md`. Mismo criterio que T-08/`postgrest.ts` (no se testea el `fetch` real, solo el doble): la implementación real (`crearFabricaProcesadoImagenNavegador`) solo la ejercita un navegador real, cuando T-16 la monte en una pantalla |
+| 2026-08-31 | T-18 | **Renumeración de la migración de T-18: `005_rpc_registrar_asistencia.sql`, no `004_rpc_registrar_asistencia` como decía la hoja de ruta original.** `004` ya lo ocupa `004_bucket_avatares.sql` (T-14), consecuencia de la renumeración en cadena de la fila anterior de este mismo §7 (2026-08-28). Efecto en cadena: la migración de T-21 (`005_rpc_actualizar_asistencia` en el original) pasará a ser `006_rpc_actualizar_asistencia.sql` | Consecuencia directa de la renumeración ya arrastrada por T-10/T-14. Anotado aquí, en `DECISIONES_TECNICAS.md`, en la cabecera del propio `005_rpc_registrar_asistencia.sql` y en la fila de T-18 de §1, para que la sesión de T-21 no lo descubra a mitad |

@@ -65,9 +65,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   ninguna función de aquí lee la hora del sistema directamente (`new Date()`/`Date.now()`); reciben
   un `Reloj` (`src/nucleo/reloj.ts`) como parámetro. Se comprueba automáticamente con
   `src/dominio/disciplinaReloj.test.ts`, que recorre el filesystem y falla si aparece una lectura
-  directa. Desde T-03: `slots.ts` (vigencia de un slot de horario y quién toca ahora) y
-  `asistencia.ts` (no-retroactividad y quién puede editar un registro) — versión provisional con
-  tipos propios, T-07/T-15/T-17/T-18/T-21 las amplían con los tipos oficiales del esquema real.
+  directa. `slots.ts` (motor "quién toca ahora": zona horaria real vía `Intl`, ventana de
+  tolerancia, reescrito por completo en T-17 sobre el tipo oficial `SlotHorario`) y `asistencia.ts`
+  (no-retroactividad, coherencia de origen/slot_id, ventana retroactiva máxima, quién puede
+  registrar en nombre de otro y quién puede editar un registro — reescrito por completo en T-18
+  sobre el tipo oficial `Rol`) nacieron en T-03 como versión provisional con tipos propios; ambas
+  quedan ya sobre los tipos oficiales del esquema real (`src/dominio/tipos.ts`). Falta por escribir
+  la parte de `asistencia.ts` que sea propia de T-21 (ventana de edición ya está: `VENTANA_EDICION_TEACHER_DIAS`).
   Desde T-11: `centrosEstudios.ts` — `normalizarNombreCentro`/`buscarCentroDuplicado`, comparación de
   nombres acento-insensible y sin distinguir mayúsculas para detectar duplicados en el catálogo, sin
   tocar la base de datos (el `unique` de `centro_estudios.nombre` sigue siendo exacto a propósito).
@@ -152,6 +156,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     diferencia de `alumnos.ts`, sí pide `Prefer: return=representation` (el valor por defecto):
     `persona_referencia` concede todas sus columnas a `authenticated` en la tabla base, sin ninguna
     vista de por medio que las reparta de otro modo por rol.
+  - `asistencia.ts` (T-18) — `registrarAsistencia(deps, usuarioId, entrada)`: único punto de llamada
+    a la RPC `registrar_asistencia` (`cliente.rpc(...)`, nunca un `INSERT` directo — revocado). No
+    genera `peticionId`: es responsabilidad de quien llama (T-19, junto con `proteccionDobleToque`
+    de T-06) generarlo una vez y reutilizarlo en un reintento genuino, o la idempotencia de la base
+    de datos no protege nada. El límite de cliente de T-06 (opcional) se cuenta sobre el profesor
+    que de verdad registra (`profesorId` si un `administrator` registra en nombre de otro; si no,
+    `usuarioId`), nunca sobre quien llama.
 
   ### Configuración del cliente (`config.js`)
 
@@ -182,8 +193,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `limitadorTasa.ts` (T-06) — `crearLimitadorTasa({ maximo, ventanaMs, reloj })`: contador por
     clave y ventana fija, con `Reloj` inyectado; lanza `ErrorLimiteAlcanzado` (error identificable,
     con `reintentarEnMs`) al superar el máximo. Pieza de cliente para defensa en profundidad — el
-    límite autoritativo vive en la futura RPC de PostgreSQL (T-14/T-18/T-21); ver el contrato
-    recomendado en `DECISIONES_TECNICAS.md`.
+    límite autoritativo vive en la RPC de PostgreSQL: conectado desde T-14 (subida de avatar) y,
+    desde T-18, también en `registrar_asistencia` (`limite_tasa`/`aplicar_limite_tasa`,
+    `db/005_rpc_registrar_asistencia.sql`); `src/datos/erroresDominio.ts` traduce un `429` del
+    servidor a esta misma clase. Ver el contrato recomendado en `DECISIONES_TECNICAS.md`.
   - `proteccionDobleToque.ts` (T-06) — `crearProtectorDobleToque(operacion)`: mientras una llamada
     esté en curso, cualquier llamada adicional recibe la misma promesa en vez de disparar una
     segunda ejecución (protección contra doble toque en escrituras no idempotentes).
