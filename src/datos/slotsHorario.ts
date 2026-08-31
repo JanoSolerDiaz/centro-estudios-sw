@@ -15,6 +15,11 @@
  * de que ninguna vea el conflicto de la otra) — aceptable porque quien escribe horarios es siempre
  * `administrator` en una única sesión de gestión, nunca una operación de alta frecuencia como pasar
  * lista.
+ *
+ * `listarSlotsDeProfesorConAlumno` (T-17) es distinta de las demás: es de lectura para `teacher`
+ * (además de `administrator`, por la misma política `slot_horario_teacher_leer_propios` de
+ * `003_politicas_rls.sql`) y trae el alumno embebido en la misma petición para el motor de
+ * propuesta de `dominio/slots.ts`.
  */
 
 import type { ClientePostgrest } from './postgrest.ts';
@@ -25,9 +30,19 @@ import {
   fechaSoloDiaUtc,
   type DatosHorarioSlot,
 } from '../dominio/slotHorario.ts';
+import type { SlotConAlumno } from '../dominio/slots.ts';
 import { ErrorDeValidacion, ErrorDelServidor } from './erroresDominio.ts';
 
 const TABLA = 'slot_horario';
+/** Solo las columnas de `alumno` que `003_politicas_rls.sql` concede a `authenticated`
+ * (`id, nombre, primer_apellido, segundo_apellido, avatar_ruta, activo`) — nunca
+ * `email_alumno`/`telefono_alumno`/`centro_referencia_id`. Un `*` en el embebido fallaría con
+ * "permission denied" para un `teacher` (y también para `administrator`, que comparte el mismo
+ * `GRANT` de columna en la tabla base): la lista explícita es la única forma de que el embebido
+ * funcione para los dos roles a la vez, y además es exactamente lo que necesita T-17/T-19 (avatar
+ * y nombre, nunca contacto — mismo criterio de superficie mínima que `avatares_teacher_leer_...`
+ * en `003_politicas_rls.sql`). */
+const SELECT_CON_ALUMNO = '*,alumno:alumno(id,nombre,primer_apellido,segundo_apellido,avatar_ruta,activo)';
 
 export interface DatosNuevoSlot {
   readonly alumno_id: string;
@@ -85,6 +100,17 @@ export async function listarSlotsDeAlumno(cliente: ClientePostgrest, alumnoId: s
     .eq('alumno_id', alumnoId)
     .order('vigente_desde', { descendente: true })
     .seleccionar();
+}
+
+/** Todos los slots de un profesor (cualquier vigencia, pasada o presente) con su alumno embebido,
+ * en una única petición a PostgREST (requisito 5 de T-17: "la pantalla abra rápido con la conexión
+ * de un aula"). El motor de propuesta (`dominio/slots.ts`, `alumnosPropuestos`) filtra por vigencia
+ * y por alumno activo sobre este resultado — esta función no filtra nada más que el profesor. */
+export async function listarSlotsDeProfesorConAlumno(
+  cliente: ClientePostgrest,
+  profesorId: string,
+): Promise<readonly SlotConAlumno[]> {
+  return cliente.desde<SlotConAlumno>(TABLA).eq('profesor_id', profesorId).seleccionar(SELECT_CON_ALUMNO);
 }
 
 async function slotsAbiertosDe(cliente: ClientePostgrest, columna: 'alumno_id' | 'profesor_id', id: string) {

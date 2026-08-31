@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-08-31 (4)
+**Tarea(s):** T-17 (motor de propuesta "quién toca ahora")
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** `<pendiente de este commit>` — "T-17: motor de propuesta quién toca ahora (zona horaria real, tolerancia)"
+**Migraciones aplicadas:** ninguna. No escrita: T-17 tiene `Migración: No` — depende solo de T-15 (COMPLETADA)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/dominio/slots.ts` (reescrito por completo: sustituye la versión provisional camelCase/UTC de T-03 por el motor real sobre el tipo oficial `SlotHorario`), `src/dominio/slots.test.ts` (reescrito, 24 tests: batería completa del criterio de aceptación de T-17 más `instanteLocal` en aislamiento), `src/dominio/slotHorario.ts` (exporta `minutosDesdeMedianoche`, antes privada, reutilizada por `slots.ts`; comentarios de cabecera actualizados), `src/datos/slotsHorario.ts` (nueva `listarSlotsDeProfesorConAlumno`, una petición con el alumno embebido en columnas restringidas), `src/datos/slotsHorario.test.ts` (1 test nuevo), `roadmap/DECISIONES_TECNICAS.md` (siete filas nuevas), `roadmap/SEGUIMIENTO.md` (§1 T-17 COMPLETADA, cabecera, pregunta abierta #11 en §6)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (477/477: 460 + 17 nuevos netos, 24 nuevos en `slots.test.ts` menos 8 sustituidos de la versión provisional, más 1 en `slotsHorario.test.ts`) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** siete filas `2026-08-31 | T-17` de `DECISIONES_TECNICAS.md` — reescritura de `slots.ts` en el mismo fichero en vez de un módulo nuevo; traducción de instante UTC a día/hora local con `Intl.DateTimeFormat`/`formatToParts`/`hourCycle: 'h23'`, sin librería nueva; zona horaria y tolerancia como parámetros opcionales con constantes de dominio por defecto, no variables de entorno (el cliente no tiene bundler); tipo `AlumnoParaPropuesta` restringido a las columnas que la tabla base concede a `authenticated`, no `Alumno` completo; resultado como unión discriminada de tres formas (`en_curso`/`proximo`/`sin_clases_hoy`); `listarSlotsDeProfesorConAlumno` trae todas las versiones y filtra vigencia en el cliente reutilizando `slotVigenteEn` de T-15
+**Hallazgos del auditor atendidos:** ninguno (hallazgo #2, severidad alta, sigue en manos del programador desde la sesión de P-04; sin cambio en esta sesión)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-18 (alta de asistencia, RPC `registrar_asistencia`), depende solo de T-17 (COMPLETADA) pero tiene `Migración: Sí` (`004_rpc_registrar_asistencia`) — la siguiente sesión escribe el SQL, lo empuja a `develop`, abre su fila en §3 y marca T-18 BLOQUEADA, escribiendo mientras tanto el cliente latente contra dobles como marca el protocolo. Pregunta abierta #11 de §6 (zona horaria y tolerancia de T-17) queda para que el dueño la confirme cuando pueda, sin bloquear nada
+
+---
+
 ### Sesión 2026-08-31 (3)
 **Tarea(s):** T-15 (slots de horario por defecto: asignación, edición y no-retroactividad)
 **Estado resultante:** COMPLETADA

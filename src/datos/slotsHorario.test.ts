@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
-import { listarSlotsDeAlumno, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
 import { ErrorDeValidacion } from './erroresDominio.ts';
 import type { SlotHorario } from '../dominio/tipos.ts';
 
@@ -270,4 +270,33 @@ void test('cesarSlot hace PATCH de vigente_hasta filtrado por id, sin crear ning
   const url = new URL(peticion.url);
   assert.equal(url.searchParams.get('id'), 'eq.s1');
   assert.equal((peticion.cuerpo as Record<string, unknown>).vigente_hasta, '2026-06-01');
+});
+
+void test('listarSlotsDeProfesorConAlumno hace una única petición, filtrada por profesor, con el alumno embebido en columnas restringidas', async () => {
+  const alumnoEmbebido = {
+    id: 'alumno-1',
+    nombre: 'Ana',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    avatar_ruta: null,
+    activo: true,
+  };
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [{ ...SLOT_VIGENTE, alumno: alumnoEmbebido }] };
+  });
+
+  const slots = await listarSlotsDeProfesorConAlumno(cliente, 'profesor-1');
+
+  assert.equal(peticiones.length, 1); // requisito 5 de T-17: una sola petición a PostgREST
+  assert.deepEqual(slots, [{ ...SLOT_VIGENTE, alumno: alumnoEmbebido }]);
+  const url = new URL(peticiones[0]?.url ?? '');
+  assert.equal(url.pathname, '/rest/v1/slot_horario');
+  assert.equal(url.searchParams.get('profesor_id'), 'eq.profesor-1');
+  const select = url.searchParams.get('select') ?? '';
+  assert.match(select, /^\*,alumno:alumno\(/);
+  // Nunca las columnas de contacto: un teacher no puede leerlas ni con esta consulta directa
+  // (003_politicas_rls.sql, requisito 4 de T-10, punto de control permanente de auditoriacontinua.md).
+  assert.doesNotMatch(select, /email_alumno|telefono_alumno|centro_referencia_id/);
 });

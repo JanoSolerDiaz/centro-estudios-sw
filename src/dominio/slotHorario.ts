@@ -1,9 +1,10 @@
 /**
  * Lógica pura de slots de horario (T-15): vigencia en un instante dado, detección de solape de
  * horario y el cálculo de fechas que exige el versionado por vigencia. Opera sobre el tipo oficial
- * `SlotHorario` de `dominio/tipos.ts` (campos `snake_case`, tal como los devuelve PostgREST), no
- * sobre el tipo provisional camelCase de `dominio/slots.ts` (T-03/T-17: motor de "quién toca
- * ahora", una responsabilidad distinta que sigue latente hasta esa tarea).
+ * `SlotHorario` de `dominio/tipos.ts` (campos `snake_case`, tal como los devuelve PostgREST). El
+ * motor de "quién toca ahora" (día de la semana y hora local del centro, ventana de tolerancia)
+ * vive en `dominio/slots.ts` (T-17), que reutiliza `slotVigenteEn` y `minutosDesdeMedianoche` de
+ * aquí en vez de duplicar la vigencia por fecha.
  *
  * Nada de esto lee la hora del sistema directamente: toda fecha llega por parámetro (guardia
  * automática en `disciplinaReloj.test.ts`).
@@ -20,7 +21,9 @@ export interface DatosHorarioSlot {
   readonly hora_fin: string;
 }
 
-function minutosDesdeMedianoche(horaHHMM: string): number {
+/** `HH:MM` a minutos desde medianoche. Compartida con `dominio/slots.ts` (T-17: la hora local del
+ * centro también llega en este formato, vía `instanteLocal`), única fuente de este cálculo. */
+export function minutosDesdeMedianoche(horaHHMM: string): number {
   const [horasTexto, minutosTexto] = horaHHMM.split(':');
   return Number(horasTexto) * 60 + Number(minutosTexto);
 }
@@ -51,7 +54,8 @@ export function buscarSlotSolapado(
 }
 
 /** ¿Está vigente `slot` en `fecha`? Solo mira `vigente_desde`/`vigente_hasta` (ambos límites
- * inclusivos), nunca día ni hora — para eso está `dominio/slots.ts` (`slotActivoEnInstante`, T-17). */
+ * inclusivos), nunca día ni hora — para eso está `dominio/slots.ts` (`slotActivoEnInstante`, T-17,
+ * que llama a esta función como parte de su comprobación). */
 export function slotVigenteEn(slot: SlotHorario, fecha: Date): boolean {
   if (fecha < new Date(slot.vigente_desde)) {
     return false;
