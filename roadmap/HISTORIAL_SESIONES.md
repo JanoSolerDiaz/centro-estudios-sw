@@ -37,6 +37,57 @@
 
 ---
 
+### Sesión 2026-08-31 (3)
+**Tarea(s):** T-15 (slots de horario por defecto: asignación, edición y no-retroactividad)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** `<pendiente de este commit>` — "T-15: slots de horario (vigencia, solape, versionado por edición)"
+**Migraciones aplicadas:** ninguna. No escrita: T-15 tiene `Migración: No` — `slot_horario` y sus políticas RLS (T-10) ya existían
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/dominio/slotHorario.ts` (nuevo), `src/dominio/slotHorario.test.ts` (nuevo, 14 tests), `src/datos/slotsHorario.ts` (nuevo), `src/datos/slotsHorario.test.ts` (nuevo, 10 tests), `roadmap/DECISIONES_TECNICAS.md`, `roadmap/SEGUIMIENTO.md` (§1 T-15 COMPLETADA, T-16 BLOQUEADA, cabecera)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (460/460: 436 + 24 nuevos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** cuatro filas `2026-08-31 | T-15` de `DECISIONES_TECNICAS.md` — módulo de dominio nuevo en vez de migrar `slots.ts` (T-17); solape del alumno validado en cliente sin restricción `EXCLUDE` (`Migración: No`); orden cerrar-antes-que-crear en la edición versionada; cómo se cubre el criterio de aceptación sin una RPC de asistencia real (T-18 no existe todavía)
+**Hallazgos del auditor atendidos:** ninguno (ya atendido el #2 en la primera sesión del día)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** T-16 queda BLOQUEADA por dependencia de código (no de migración) hasta que T-14 escriba el procesado de imagen y la subida de avatar. La cola continúa por **T-17** (motor de propuesta "quién toca ahora", depende solo de T-15 — COMPLETADA), que debe abrir o confirmar la pregunta de zona horaria/ventana de tolerancia (§6)
+
+---
+
+### Sesión 2026-08-31 (2)
+**Tarea(s):** T-14 (avatar del alumno, Supabase Storage) — solo la migración; el resto queda BLOQUEADA
+**Estado resultante:** BLOQUEADA — pendiente aplicar migración `004`
+**Commits a `develop`:** `<pendiente de este commit>` — "T-14: migración 004_bucket_avatares (crea el bucket privado; sus políticas ya existían desde 003)"
+**Migraciones aplicadas:** ninguna. Migración **escrita**: `db/004_bucket_avatares.sql` (crea el bucket privado `avatares`, `allowed_mime_types = image/webp`, `file_size_limit = 2 MiB`). Fila 6 de §3 de `SEGUIMIENTO.md` abierta para que el dueño la aplique con `npm run migrate`
+**Propagación a prod pendiente:** ninguna (T-25)
+**Archivos creados/modificados:** `db/004_bucket_avatares.sql` (nuevo), `herramientas/migraciones/bucketAvatares.test.ts` (nuevo, 7 tests estáticos, mismo patrón que `esquemaInicial.test.ts`/`bloqueoCuenta.test.ts`/`politicasRls.test.ts`), `db/MODELO.md`, `roadmap/DECISIONES_TECNICAS.md`, `roadmap/SEGUIMIENTO.md` (§1 T-14 a BLOQUEADA, §3 fila 6, cabecera)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (436/436: 429 + los 7 nuevos de `bucketAvatares.test.ts`) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** fila `2026-08-31 | T-14` de `DECISIONES_TECNICAS.md` — lista blanca del bucket restringida a `image/webp` (el cliente solo sube derivadas ya recodificadas, nunca el original del móvil) y límite de 2 MiB
+**Hallazgos del auditor atendidos:** ninguno (la sesión anterior del mismo día ya atendió el #2, ver arriba)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el resto del alcance de T-14 (procesado de imagen en el cliente, ruta determinista, firma en lote, monograma, límite de subidas) sigue **sin escribir**: se retoma cuando el dueño aplique `004` y confirme en §3. Mientras tanto, la cola normal continúa por **T-15** (slots de horario, `Migración: No`, depende solo de T-12)
+
+---
+
+### Sesión 2026-08-31
+**Tarea(s):** P-04 (urgente, §0.3)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** `<pendiente de este commit>` — "P-04 (urgente): completa la cobertura de UPDATE/DELETE/TRUNCATE de db/pruebas_rls.sql"
+**Migraciones aplicadas:** ninguna (este cambio no toca ninguna migración; `db/pruebas_rls.sql` no es una migración, es la batería de aislamiento de T-10)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (amplía las secciones 1–4 con `UPDATE`; añade `UPDATE`/`DELETE` a la sección 3; añade la sección 8 nueva de `TRUNCATE`; renumera "Resultado final" de 8 a 9), `roadmap/DECISIONES_TECNICAS.md`, `roadmap/SEGUIMIENTO.md` (§1 cabecera y §5, fila P-04), `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (429/429, sin cambio: `db/pruebas_rls.sql` no forma parte de `npm test`, exige conexión real) · build ✅
+**Health check post-deploy:** no aplica — sin cambio de código de aplicación ni de esquema, no hay deploy que comprobar
+**Decisiones tomadas:** fila `2026-08-31 | P-04 (urgente)` de `DECISIONES_TECNICAS.md` — verificar `UPDATE`/`DELETE` prohibidos con `ROW_COUNT = 0` en vez de esperar una excepción, porque RLS excluye la fila del `USING` en silencio, no lanza error (a diferencia de `INSERT`, que sí lo hace vía `WITH CHECK`)
+**Hallazgos del auditor atendidos:** #2 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-08-29) — implementado el código que lo cierra; la marca `RESUELTO` la pone el auditor en su próxima pasada, no esta sesión, porque `auditoriacontinua.md` es de escritura exclusiva del agente Auditor
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** P-04 registrada y ejecutada en la misma sesión (urgencia, §0.3) — ver §5 de `SEGUIMIENTO.md`
+**Próximo paso:** retomar la cola normal desde T-14 (avatar del alumno, Supabase Storage — lleva migración propia `004_bucket_avatares`)
+
+---
+
 ### Sesión 2026-08-30 (PM)
 
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap

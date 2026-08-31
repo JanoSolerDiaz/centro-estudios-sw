@@ -171,6 +171,55 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 1b. centro_estudios — UPDATE: la política centro_estudios_admin_actualizar
+--     no tenía ningún caso que la ejercitara (hallazgo #2 de auditoriacontinua.md)
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_centro_id uuid;
+  v_filas     integer;
+begin
+  select id into v_centro_id from public.centro_estudios where nombre = '__prueba_rls__centro_admin';
+  if v_centro_id is null then
+    perform pg_temp.omitir('centro_estudios / administrator UPDATE', 'no se creó el centro de prueba (sección 1)');
+    perform pg_temp.omitir('centro_estudios / teacher UPDATE (debe fallar)', 'no se creó el centro de prueba (sección 1)');
+    return;
+  end if;
+
+  if pg_temp.hay_fixture('administrator') then
+    perform pg_temp.impersonar('administrator');
+    begin
+      update public.centro_estudios set nombre = '__prueba_rls__centro_admin_editado' where id = v_centro_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('centro_estudios / administrator UPDATE', 'permitido', v_filas = 1);
+    exception when others then
+      perform pg_temp.registrar('centro_estudios / administrator UPDATE', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  else
+    perform pg_temp.omitir('centro_estudios / administrator UPDATE', 'no hay administrator en este entorno');
+  end if;
+
+  if not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('centro_estudios / teacher UPDATE (debe fallar)', 'no hay teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      update public.centro_estudios set nombre = '__prueba_rls__centro_teacher_intento' where id = v_centro_id;
+      get diagnostics v_filas = row_count;
+      -- Bajo RLS, "prohibido" en un UPDATE se manifiesta como cero filas afectadas, no como un
+      -- error: la política de administrator excluye la fila del USING antes de tocarla.
+      perform pg_temp.registrar('centro_estudios / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
+    exception when others then
+      perform pg_temp.registrar('centro_estudios / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 2. alumno — incluye el barrido de columnas de contacto (requisito 4)
 -- ---------------------------------------------------------------------
 
@@ -252,6 +301,53 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 2b. alumno — UPDATE: la política alumno_admin_actualizar no tenía ningún
+--     caso que la ejercitara (hallazgo #2 de auditoriacontinua.md)
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id uuid;
+  v_filas     integer;
+begin
+  select id into v_alumno_id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS';
+  if v_alumno_id is null then
+    perform pg_temp.omitir('alumno / administrator UPDATE', 'no se creó el alumno de prueba (sección 2)');
+    perform pg_temp.omitir('alumno / teacher UPDATE (debe fallar)', 'no se creó el alumno de prueba (sección 2)');
+    return;
+  end if;
+
+  if pg_temp.hay_fixture('administrator') then
+    perform pg_temp.impersonar('administrator');
+    begin
+      update public.alumno set segundo_apellido = 'Editado' where id = v_alumno_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('alumno / administrator UPDATE', 'permitido', v_filas = 1);
+    exception when others then
+      perform pg_temp.registrar('alumno / administrator UPDATE', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  else
+    perform pg_temp.omitir('alumno / administrator UPDATE', 'no hay administrator en este entorno');
+  end if;
+
+  if not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('alumno / teacher UPDATE (debe fallar)', 'no hay teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      update public.alumno set segundo_apellido = 'Intruso' where id = v_alumno_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('alumno / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
+    exception when others then
+      perform pg_temp.registrar('alumno / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 3. persona_referencia — barrido obligatorio del teacher (requisito 5)
 -- ---------------------------------------------------------------------
 
@@ -259,6 +355,7 @@ do $$
 declare
   v_alumno_id uuid;
   v_pr_id     uuid;
+  v_filas     integer;
 begin
   select id into v_alumno_id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS';
   if v_alumno_id is null then
@@ -321,6 +418,73 @@ begin
       perform pg_temp.registrar('persona_referencia / teacher INSERT (debe fallar)', 'prohibido', true, sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- UPDATE y DELETE: persona_referencia_admin_todo es la única política `for
+  -- all` de todo el esquema y no tenía ningún caso, ni positivo ni negativo,
+  -- que la ejercitara en esas dos operaciones (hallazgo #2 de
+  -- auditoriacontinua.md). DELETE es además la única tabla del sistema con
+  -- borrado real (§0.2), así que es la que más lo necesitaba.
+  if v_pr_id is null then
+    perform pg_temp.omitir('persona_referencia / administrator UPDATE', 'no se creó la persona de referencia de prueba');
+    perform pg_temp.omitir('persona_referencia / teacher UPDATE (debe fallar)', 'no se creó la persona de referencia de prueba');
+    perform pg_temp.omitir('persona_referencia / teacher DELETE (debe fallar)', 'no se creó la persona de referencia de prueba');
+    perform pg_temp.omitir('persona_referencia / administrator DELETE', 'no se creó la persona de referencia de prueba');
+    return;
+  end if;
+
+  if pg_temp.hay_fixture('administrator') then
+    perform pg_temp.impersonar('administrator');
+    begin
+      update public.persona_referencia set telefono_referencia = '600000099' where id = v_pr_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('persona_referencia / administrator UPDATE', 'permitido', v_filas = 1);
+    exception when others then
+      perform pg_temp.registrar('persona_referencia / administrator UPDATE', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  else
+    perform pg_temp.omitir('persona_referencia / administrator UPDATE', 'no hay administrator en este entorno');
+  end if;
+
+  if not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('persona_referencia / teacher UPDATE (debe fallar)', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('persona_referencia / teacher DELETE (debe fallar)', 'no hay teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      update public.persona_referencia set telefono_referencia = '600000098' where id = v_pr_id;
+      get diagnostics v_filas = row_count;
+      -- Igual que en el SELECT de arriba: bajo RLS, "prohibido" en un UPDATE/DELETE de una
+      -- política `for all` se manifiesta como cero filas afectadas, no como un error.
+      perform pg_temp.registrar('persona_referencia / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
+    exception when others then
+      perform pg_temp.registrar('persona_referencia / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+
+    begin
+      delete from public.persona_referencia where id = v_pr_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('persona_referencia / teacher DELETE (debe fallar)', 'prohibido', v_filas = 0);
+    exception when others then
+      perform pg_temp.registrar('persona_referencia / teacher DELETE (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- DELETE real por administrator: cierra el barrido de la única política `for all` del esquema.
+  if pg_temp.hay_fixture('administrator') then
+    perform pg_temp.impersonar('administrator');
+    begin
+      delete from public.persona_referencia where id = v_pr_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('persona_referencia / administrator DELETE', 'permitido', v_filas = 1);
+    exception when others then
+      perform pg_temp.registrar('persona_referencia / administrator DELETE', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  else
+    perform pg_temp.omitir('persona_referencia / administrator DELETE', 'no hay administrator en este entorno');
   end if;
 end $$;
 
@@ -386,6 +550,57 @@ begin
       perform pg_temp.registrar('slot_horario / teacher2 no lee el ajeno (debe fallar)', 'prohibido', not v_visto2);
     exception when others then
       perform pg_temp.registrar('slot_horario / teacher2 no lee el ajeno (debe fallar)', 'prohibido', true, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 4b. slot_horario — UPDATE: la política slot_horario_admin_actualizar no
+--     tenía ningún caso que la ejercitara (hallazgo #2 de auditoriacontinua.md)
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_slot_id uuid;
+  v_filas   integer;
+begin
+  select id into v_slot_id from public.slot_horario
+   where alumno_id = (select id from public.alumno where nombre = 'Prueba' and primer_apellido = 'RLS')
+   limit 1;
+  if v_slot_id is null then
+    perform pg_temp.omitir('slot_horario / administrator UPDATE', 'no se creó el slot de prueba (sección 4)');
+    perform pg_temp.omitir('slot_horario / teacher UPDATE (debe fallar)', 'no se creó el slot de prueba (sección 4)');
+    return;
+  end if;
+
+  if pg_temp.hay_fixture('administrator') then
+    perform pg_temp.impersonar('administrator');
+    begin
+      update public.slot_horario set hora_fin = '18:00' where id = v_slot_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('slot_horario / administrator UPDATE', 'permitido', v_filas = 1);
+    exception when others then
+      perform pg_temp.registrar('slot_horario / administrator UPDATE', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  else
+    perform pg_temp.omitir('slot_horario / administrator UPDATE', 'no hay administrator en este entorno');
+  end if;
+
+  if not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('slot_horario / teacher UPDATE (debe fallar)', 'no hay teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      update public.slot_horario set hora_fin = '19:00' where id = v_slot_id;
+      get diagnostics v_filas = row_count;
+      -- Un teacher SÍ tiene GRANT de UPDATE sobre esta tabla (compartido con administrator vía
+      -- `authenticated`); lo que lo excluye es el USING de la política, no la falta de privilegio.
+      perform pg_temp.registrar('slot_horario / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
+    exception when others then
+      perform pg_temp.registrar('slot_horario / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -553,7 +768,52 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
--- 8. Resultado final — lo único que ve `herramientas/probarRls.ts`.
+-- 8. TRUNCATE por authenticated — debe fallar en TODAS las tablas del
+--    esquema, para CUALQUIER rol de aplicación (administrator incluido):
+--    es un privilegio de tabla que RLS no filtra en absoluto (`TRUNCATE`
+--    ignora las políticas por completo), así que lo que se comprueba es la
+--    ausencia del GRANT, no una condición de `es_administrator()`. Ya
+--    ocurrió una vez en el arranque (`perfil`, corregido en
+--    `000b_arreglo_permisos.sql`): es el fallo más grave que puede tener
+--    este proyecto (hallazgo #2 de auditoriacontinua.md, era el único caso
+--    que esta batería no ejercitaba en absoluto).
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_tabla text;
+  v_rol   text;
+begin
+  foreach v_tabla in array array[
+    'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario',
+    'asistencia', 'asistencia_historial', 'evento_error'
+  ]
+  loop
+    foreach v_rol in array array['administrator', 'teacher']
+    loop
+      if not pg_temp.hay_fixture(v_rol) then
+        perform pg_temp.omitir(
+          format('%s TRUNCATE %s (debe fallar)', v_rol, v_tabla), format('no hay %s en este entorno', v_rol)
+        );
+        continue;
+      end if;
+      perform pg_temp.impersonar(v_rol);
+      begin
+        execute format('truncate public.%I', v_tabla);
+        perform pg_temp.registrar(
+          format('%s TRUNCATE %s (debe fallar)', v_rol, v_tabla), 'prohibido', false, 'se truncó sin error'
+        );
+      exception when others then
+        perform pg_temp.registrar(format('%s TRUNCATE %s (debe fallar)', v_rol, v_tabla), 'prohibido', true, sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end loop;
+  end loop;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.
 -- ---------------------------------------------------------------------
