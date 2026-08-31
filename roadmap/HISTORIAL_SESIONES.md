@@ -37,6 +37,48 @@
 
 ---
 
+### Sesión 2026-08-31 (PM)
+
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código) — **séptimo ciclo del PM: ninguna R-XX nueva,
+ninguna entrada de backlog nueva, sin cambios de estado**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: séptimo ciclo del PM — revisión contra
+el avance de T-10 a T-18, sin R-XX nueva)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada con el
+resultado de este ciclo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (no aplica a un ciclo de PM sin cambio
+de arquitectura)
+**Hallazgos del auditor atendidos:** se revisó el registro completo de `auditoriacontinua.md`. Los
+cuatro hallazgos registrados ya tienen tarea de seguimiento: #1 `RESUELTO`; #2 (severidad alta,
+cobertura de escritura de `db/pruebas_rls.sql`) sigue `ABIERTO` en el registro del auditor pero ya lo
+cerró el programador como **P-04 urgente** el 2026-08-31 (`IMPLEMENTADA`, §5 de `SEGUIMIENTO.md`), a
+la espera de que la próxima pasada del auditor lo reevalúe y lo cierre — no genera trabajo nuevo de
+este ciclo; #3 y #4 (severidad baja) los cerró el programador como **P-02/P-03**, ambas `RESUELTA`.
+Ningún hallazgo del auditor queda sin tarea de seguimiento
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía); nada que
+convertir. A diferencia de los dos ciclos anteriores sí hubo desarrollo real desde la última revisión
+(2026-08-30): T-10 a T-17 pasaron a `COMPLETADA` y T-18 quedó escrita y `BLOQUEADA — pendiente
+aplicar migración 005`. Revisadas las doce R-XX de las oleadas v1/v2 contra ese avance — en
+particular contra los valores concretos que fijaron T-17 (zona horaria y tolerancia, pregunta #11 de
+§6) y T-18 (ventana retroactiva y política de duplicado, preguntas #12/#13) — sin encontrar ninguna
+inconsistencia con lo ya especificado en R-01, R-03 y R-06, las que más de cerca tocan esas
+decisiones. El avance es progreso hacia dependencias que las R-XX ya tenían anotadas, no una señal de
+que falte algo nuevo por especificar: no se añade ninguna R-XX este ciclo. Ninguna oleada está 100%
+desplegada (v1 no ha arrancado, espera a que el MVP esté completo), así que no hay nada que mover a
+`ROADMAP_HISTORICO.md`
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el desarrollo sigue con T-18 `BLOQUEADA` (pendiente de que el dueño aplique `005`,
+fila 7 de §3 de `SEGUIMIENTO.md`) y T-19 (pantalla de pasar lista) como siguiente tarea de código en
+cuanto se desbloquee o, mientras tanto, cualquier trabajo que no dependa de la migración. El próximo
+ciclo de PM debe repetir esta misma revisión (feedback, hallazgos del auditor, progreso de
+desarrollo) y solo tocar el roadmap de producto si aparece una señal real — no antes.
+
+---
+
 ### Sesión 2026-08-31 (7)
 **Tarea(s):** T-18 (alta de asistencia, RPC `registrar_asistencia`)
 **Estado resultante:** BLOQUEADA — pendiente aplicar migración `005`

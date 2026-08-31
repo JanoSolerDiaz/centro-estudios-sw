@@ -8,25 +8,31 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-08-30 — sexto ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
-reales (fila plantilla vacía, sin cambios desde el ciclo anterior): nada que convertir.
-`auditoriacontinua.md` registra su pasada del mismo día (2026-08-30), que confirma que **no ha
-entrado código nuevo desde el ciclo anterior** (un único commit desde `86d8395`, y es del PM, no de
-desarrollo: `git diff` contra `db/` y `src/` vacío) y reevalúa los tres hallazgos `ABIERTO` sin
-cambio: #2 (severidad alta, cobertura de escritura de `db/pruebas_rls.sql`) sigue sin corregirse —
-sigue siendo autorización/calidad de pruebas, no producto ni arquitectura, así que lo atiende el
-programador como P-XX urgente en cuanto arranque su siguiente sesión (§0 de `HOJA_DE_RUTA.md`); #3 y
-#4 (severidad baja) siguen `ABIERTO` en el código pero ya tienen su seguimiento correcto como P-02 y
-P-03 en §5 de `SEGUIMIENTO.md` desde el ciclo anterior — no hay hallazgo nuevo que registrar ni
-ningún cambio de severidad o estado que justifique tocar el backlog otra vez. Desde el ciclo anterior
-(2026-08-29) el desarrollo sigue sin completar ninguna T-XX ni R-XX nueva (T-10 sigue bloqueada
-pendiente de `002`/`003`; T-14 sigue siendo la siguiente en cola) y no ha surgido ningún hallazgo de
-producto/arquitectura ni ninguna dependencia que faltara. **No se añade ninguna R-XX nueva en este
-ciclo, por segunda vez consecutiva:** las oleadas v1 y v2 siguen cubriendo el hueco real detectado
-entre el MVP y el objetivo de producto; sin desarrollo nuevo, sin feedback nuevo y sin hallazgo de
-producto nuevo, no hay ninguna señal real que justifique ampliar el roadmap — inventar una R-XX en
-estas condiciones sería generar trabajo por generarlo, exactamente lo que se prohíbe. Ninguna oleada
-está 100% desplegada todavía (v1 ni siquiera ha arrancado: espera a que el MVP T-00–T-25 esté
+**Última actualización:** 2026-08-31 — séptimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía, sin cambios desde el ciclo anterior): nada que convertir.
+`auditoriacontinua.md` no registra ningún hallazgo nuevo: su pasada más reciente (2026-08-31,
+temprano, antes de las sesiones de desarrollo de ese mismo día) reevalúa los cuatro hallazgos del
+registro — #1 ya `RESUELTO`; #2 (severidad alta, cobertura de escritura de `db/pruebas_rls.sql`)
+sigue `ABIERTO` en el registro del auditor, pero ya lo cerró el programador el mismo día como **P-04
+urgente** (§5 de `SEGUIMIENTO.md`, `IMPLEMENTADA`) — queda a la espera de que la próxima pasada del
+auditor lo reevalúe y lo marque `RESUELTO`, no de ninguna acción de este ciclo; #3 y #4 (severidad
+baja) también los cerró el programador el mismo día como **P-02/P-03**, `RESUELTA` ambas. Ningún
+hallazgo del auditor queda sin tarea de seguimiento: no hay nada que convertir en este ciclo.
+
+A diferencia de los dos ciclos anteriores, **sí ha habido desarrollo real desde la última revisión**:
+T-10 a T-17 pasaron a `COMPLETADA` y T-18 (alta de asistencia, RPC `registrar_asistencia`) quedó
+escrita y `BLOQUEADA — pendiente aplicar migración 005` (§1 de `SEGUIMIENTO.md`). Revisadas las doce
+R-XX de las oleadas v1 y v2 contra ese progreso — en particular contra las decisiones concretas que
+fijaron T-17 (zona horaria `Europe/Madrid` y tolerancia de 10 min, pregunta abierta #11 de §6) y T-18
+(ventana retroactiva de 7 días y política de duplicado por slot+día+alumno, preguntas abiertas #12 y
+#13) — sin encontrar ninguna inconsistencia: las dependencias que cada R-XX ya declaraba (T-13, T-15,
+T-17, T-18, T-21...) siguen siendo las correctas, y ninguna decisión tomada en T-17/T-18 contradice
+ni estrecha el alcance de R-01, R-03 o R-06, que son las que más de cerca las tocan. **No se añade
+ninguna R-XX nueva en este ciclo:** el hueco real entre el MVP y el objetivo de producto lo siguen
+cubriendo las R-XX ya especificadas, y el avance de esta semana es progreso hacia las dependencias
+que ya tenían anotadas (T-18 en particular desbloquea, en cuanto se aplique la migración `005`, el
+trabajo de R-01/R-03/R-06), no una señal de que falte algo nuevo por especificar. Ninguna oleada está
+100% desplegada todavía (v1 ni siquiera ha arrancado: espera a que el MVP T-00–T-25 esté
 COMPLETADA/DESPLEGADA EN PRODUCCIÓN, ver §1 de `SEGUIMIENTO.md`), así que no hay nada que mover a
 `ROADMAP_HISTORICO.md` esta vez.
 
