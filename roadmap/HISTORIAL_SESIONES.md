@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-08-31 (6)
+**Tarea(s):** T-16 (interfaz de gestión del administrador)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** `<pendiente de este commit>` — "T-16: interfaz de gestión del administrador (router, listado de alumnos, ficha completa con avatar/personas/horario)"
+**Migraciones aplicadas:** ninguna (`Migración: No`)
+**Propagación a prod pendiente:** ninguna (T-25)
+**Archivos creados/modificados:** `src/nucleo/router.ts` (nuevo), `src/nucleo/router.test.ts` (nuevo, 12 tests), `src/nucleo/almacenEstado.ts` (nuevo), `src/nucleo/almacenEstado.test.ts` (nuevo, 6 tests), `src/ui/dom.ts` (nuevo), `src/ui/dom.test.ts` (nuevo, 5 tests), `src/ui/formularios.ts` (`crearMensajeErrorCampo`), `src/ui/formularios.test.ts` (nuevo, 3 tests), `src/datos/profesores.ts` (nuevo), `src/datos/profesores.test.ts` (nuevo, 2 tests), `src/ui/pantallaListadoAlumnos.ts` (nuevo), `src/ui/pantallaListadoAlumnos.test.ts` (nuevo, 9 tests), `src/ui/pantallaFichaAlumno.ts` (reescrito por completo), `src/ui/pantallaFichaAlumno.test.ts` (reescrito por completo), `src/ui/aplicacion.ts` (router + `mostrarAppAdministrador`, raíz de composición), `src/ui/aplicacion.test.ts` (6 tests nuevos de la app real de administrator), `src/ui/main.ts` (construye `ClientePostgrest`/`ClienteAlmacenamiento`/fábrica de imagen/limitador y los pasa como `appAdministrador`), `DEVELOPERS.md`, `roadmap/DECISIONES_TECNICAS.md` (9 filas nuevas), `roadmap/SEGUIMIENTO.md` (cabecera, §1 T-16)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (565/565; baseline verificado con `git stash -u` contra el commit de partida: 512/512, +53 netos) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** nueve filas `2026-08-31` (T-16) de `DECISIONES_TECNICAS.md` — router por `hash` propio; alcance restringido a `administrator` (título literal de la tarea); división de `pantallaFichaAlumno.ts` en listado + ficha completa; aislamiento de los cuatro bloques por función de montaje independiente (requisito 5); `crearAlmacenEstado` usado solo donde aporta (el listado, no los bloques ya aislados de la ficha); `datos/profesores.ts` sobre una política ya existente desde el bootstrap; validación de cliente de horas de horario; clave del lote de `obtenerUrlAvatar` por `rutaBase`, no por `alumnoId`
+**Hallazgos del auditor atendidos:** ninguno nuevo (el hallazgo #2 sigue cerrado por P-04 desde antes de esta sesión, a la espera de que el auditor lo confirme en su próxima pasada)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la cola de T-XX sigue por **T-18** (alta de asistencia, RPC `registrar_asistencia`), que tiene `Migración: Sí` — la siguiente sesión escribe el SQL, lo empuja, abre su fila en §3 y pasa a BLOQUEADA, avanzando mientras tanto a lo que no dependa de esa migración si lo hay (T-19/T-20/T-21/T-22 dependen todos de T-18, así que probablemente no hay nada más que hacer en paralelo salvo revisar preguntas abiertas de §6)
+
+---
+
 ### Sesión 2026-08-31 (5)
 **Tarea(s):** bookkeeping (T-10/P-01/APLICADAS.md) + T-14 (avatar del alumno) + P-09 + P-02 + P-03
 **Estado resultante:** COMPLETADA (T-14, P-09, P-02, P-03); RESUELTA (P-01); COMPLETADA (T-10, corrección de estado)

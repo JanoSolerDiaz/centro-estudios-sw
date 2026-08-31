@@ -1,9 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { iniciarAplicacion } from './aplicacion.ts';
+import { iniciarAplicacion, type DependenciasAppAdministrador } from './aplicacion.ts';
 import type { GestorSesion, EstadoSesion } from '../nucleo/gestorSesion.ts';
 import type { Perfil } from '../dominio/tipos.ts';
+import { crearClientePostgrest } from '../datos/postgrest.ts';
+import { crearFetchSimulado, type PeticionSimulada } from '../datos/pruebas/dobleHttp.ts';
+import type { ClienteAlmacenamiento } from '../datos/almacenamiento.ts';
+import type { FabricaProcesadoImagen } from '../datos/avatarAlumno.ts';
+import { crearRelojFijo } from '../nucleo/reloj.ts';
+import type { ObjetivoRouter } from '../nucleo/router.ts';
 
 function crearContenedorDePruebas(): HTMLElement {
   const dom = new JSDOM('<!doctype html><body><div id="app"></div></body>');
@@ -62,6 +68,84 @@ function crearGestorSesionFalso(estadoInicial: EstadoSesion): {
       }
     },
     restaurarLlamado: () => restaurarLlamado,
+  };
+}
+
+async function esperarMicrotareas(veces = 3): Promise<void> {
+  for (let i = 0; i < veces; i += 1) {
+    await new Promise((resolver) => setTimeout(resolver, 0));
+  }
+}
+
+/** Mismo objetivo de mentira que `router.test.ts`: su `location.hash` dispara `hashchange` al
+ * cambiar, para que `router.navegar()` (los botones de navegación de la app real) se puedan probar
+ * sin `jsdom`. */
+function crearObjetivoRouterDePrueba(hashInicial: string): ObjetivoRouter {
+  let hashActual = hashInicial;
+  const escuchas = new Set<() => void>();
+  return {
+    location: {
+      get hash() {
+        return hashActual;
+      },
+      set hash(valor: string) {
+        hashActual = valor;
+        for (const escucha of escuchas) {
+          escucha();
+        }
+      },
+    },
+    addEventListener: (_tipo, escucha) => {
+      escuchas.add(escucha);
+    },
+    removeEventListener: (_tipo, escucha) => {
+      escuchas.delete(escucha);
+    },
+  };
+}
+
+const ALMACENAMIENTO_NO_IMPLEMENTADO: ClienteAlmacenamiento = {
+  subir: () => Promise.reject(new Error('no se esperaba subir() en este test')),
+  eliminar: () => Promise.reject(new Error('no se esperaba eliminar() en este test')),
+  urlFirmada: () => Promise.reject(new Error('no se esperaba urlFirmada() en este test')),
+  urlFirmadasEnLote: () => Promise.reject(new Error('no se esperaba urlFirmadasEnLote() en este test')),
+};
+
+const FABRICA_IMAGEN_NO_IMPLEMENTADA: FabricaProcesadoImagen = {
+  crearBitmap: () => Promise.reject(new Error('no se esperaba crearBitmap() en este test')),
+  crearLienzo: () => {
+    throw new Error('no se esperaba crearLienzo() en este test');
+  },
+};
+
+/** Construye un `DependenciasAppAdministrador` de pruebas: un `ClientePostgrest` real sobre un
+ * `fetch` simulado (así se reutiliza el cliente de verdad en vez de tener que reimplementar
+ * `ConstructorConsulta`), con almacenamiento/fábrica de imagen que fallan si se llaman —
+ * suficiente para los tests de enrutado, que no tocan avatares. */
+function crearAppAdministradorFalso(
+  manejador: Parameters<typeof crearFetchSimulado>[0],
+  hashInicial = '#/alumnos',
+): { app: DependenciasAppAdministrador; objetivoRouter: ObjetivoRouter; peticiones: PeticionSimulada[] } {
+  const peticiones: PeticionSimulada[] = [];
+  const postgrest = crearClientePostgrest({
+    urlBase: 'https://proyecto.supabase.co',
+    claveAnonima: 'clave-anonima',
+    fetchImpl: crearFetchSimulado((peticion) => {
+      peticiones.push(peticion);
+      return manejador(peticion);
+    }),
+  });
+  const objetivoRouter = crearObjetivoRouterDePrueba(hashInicial);
+  return {
+    app: {
+      objetivoRouter,
+      postgrest,
+      almacenamiento: ALMACENAMIENTO_NO_IMPLEMENTADO,
+      fabricaImagen: FABRICA_IMAGEN_NO_IMPLEMENTADA,
+      reloj: crearRelojFijo(new Date('2026-01-01T00:00:00Z')),
+    },
+    objetivoRouter,
+    peticiones,
   };
 }
 
@@ -163,4 +247,81 @@ void test('rol desconocido: se trata igual que student, nunca como teacher (requ
   iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '' });
 
   assert.match(contenedor.textContent, /todavía no tiene acceso/i);
+});
+
+// --- T-16: la aplicación real de administrator, cuando `appAdministrador` viene informado. ---
+
+void test('administrator con appAdministrador: ruta por defecto es el listado de alumnos, con barra de navegación', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Alumnos/);
+  const botones = Array.from(contenedor.querySelectorAll('button')).map((b) => b.textContent);
+  assert.ok(botones.some((texto) => texto === 'Centros'));
+  assert.ok(botones.some((texto) => texto === 'Alumnos'));
+  assert.ok(botones.some((texto) => texto === 'Cerrar sesión'));
+});
+
+void test('administrator con appAdministrador: hashUrl inicial "#/centros" abre directamente el catálogo de centros', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app, peticiones } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }), '#/centros');
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Centros de estudios/);
+  assert.ok(peticiones.some((p) => new URL(p.url).pathname === '/rest/v1/centro_estudios'));
+});
+
+void test('administrator con appAdministrador: pulsar "Centros" navega sin recargar la sesión', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonCentros = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Centros');
+  assert.ok(botonCentros);
+  botonCentros.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Centros de estudios/);
+  // La cabecera (nav, saludo) sigue siendo la misma: no se ha vuelto a pintar la pantalla de login.
+  assert.match(contenedor.textContent, /Ana Admin/);
+});
+
+void test('administrator con appAdministrador: "Nuevo alumno" navega al alta y "Volver al listado" vuelve', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonNuevo = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Nuevo alumno');
+  assert.ok(botonNuevo);
+  botonNuevo.click();
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /Nuevo alumno/);
+
+  const botonVolver = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Volver al listado');
+  assert.ok(botonVolver);
+  botonVolver.click();
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /No hay ningún alumno/);
+});
+
+void test('administrator sin appAdministrador: sigue viendo la pantalla temporal (compatibilidad)', () => {
+  const contenedor = crearContenedorDePruebas();
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '' });
+
+  assert.match(contenedor.textContent, /todavía está en construcción/i);
 });

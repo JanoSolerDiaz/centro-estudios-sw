@@ -124,6 +124,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     fuera de las ocho de T-08 (login con contraseña incorrecta no es lo mismo que "sin sesión").
     Endpoints sin poder verificarse contra documentación en vivo en esta sesión, mismo aviso que
     T-06/T-07/T-08.
+  - `profesores.ts` (T-16) — `listarProfesoresActivos`: los únicos datos de `perfil` que necesita el
+    selector de profesor del bloque de horario de la ficha de alumno (`id`, `nombre`, `rol=teacher`,
+    `activo=true`). Solo lectura; el alta de usuarios es T-24.
   - `centrosEstudios.ts` (T-11) — `listarCentros`/`crearCentro`/`editarNombreCentro`/
     `contarAlumnosActivosDeCentro`/`desactivarCentro`/`reactivarCentro` sobre `postgrest.ts`. El alta
     y la edición de nombre comprueban antes el duplicado acento-insensible
@@ -214,52 +217,81 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
+  - `router.ts` (T-16) — `analizarRuta(hash)`/`hashDeRuta(ruta)` (puras) y `crearRouter(objetivo)`:
+    router por `hash` de la aplicación de `administrator` (`#/centros`, `#/alumnos`,
+    `#/alumnos/nuevo`, `#/alumnos/<id>`). `objetivo` se inyecta (nunca lee `window` directamente),
+    mismo patrón que `instalarCapturaErrores`.
+  - `almacenEstado.ts` (T-16) — `crearAlmacenEstado(inicial)`: estado mínimo con suscripción
+    (`obtener`/`actualizar`/`suscribir`), mismo contrato que `GestorSesion`. Genérico y sin DOM;
+    usado por `pantallaListadoAlumnos.ts`.
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido para que se puedan testear montando un
   contenedor con `jsdom`. Ninguna función de pantalla toca el `document` global directamente: reciben
   el `Document` como parámetro, normalmente `contenedor.ownerDocument` (T-09). Desde T-05 instala la
   captura global de errores no controlados; desde T-08 el envío remoto es real (lee
   `window.__CONFIG__`); desde T-09 conecta `gestorSesion` real (con `sessionStorage`) y enruta con
-  `aplicacion.ts`. Sin `config.js` (o si falta), sigue cayendo a la pantalla mínima de T-00, sin
-  fallar el arranque.
-  - `formularios.ts` (T-09) — helpers de formulario accesible compartidos por las pantallas de
-    autenticación: `crearCampoTexto`, `crearZonaMensaje` (`role="alert"`/`"status"`, enfocable por
-    programa), `crearBoton`. Objetivos táctiles ≥44px y 16px de fuente (evita el zoom de iOS) fijados
-    aquí, en estilos en línea — el proyecto no tiene todavía ninguna hoja de estilos.
+  `aplicacion.ts`; desde T-16 construye además `ClientePostgrest`/`ClienteAlmacenamiento` reales (con
+  el token de sesión), la fábrica de procesado de imagen del navegador y el limitador de tasa de
+  avatares, y los pasa como `appAdministrador` — la aplicación real de `administrator` solo se monta
+  si esto existe, que en la práctica es siempre que haya `config.js` (mismo `if` que `gestorSesion`).
+  Sin `config.js` (o si falta), sigue cayendo a la pantalla mínima de T-00, sin fallar el arranque.
+  - `formularios.ts` (T-09, ampliado en T-16) — helpers de formulario accesible: `crearCampoTexto`,
+    `crearZonaMensaje` (`role="alert"`/`"status"`, enfocable por programa), `crearBoton`, y desde
+    T-16 `crearMensajeErrorCampo(documento, campo, idError)` (mensaje de error de UN campo concreto,
+    enlazado por `aria-describedby`/`aria-invalid` — distinto de `crearZonaMensaje`, que es un único
+    mensaje para todo el formulario). Objetivos táctiles ≥44px y 16px de fuente (evita el zoom de
+    iOS) fijados aquí, en estilos en línea — el proyecto no tiene todavía ninguna hoja de estilos.
+  - `dom.ts` (T-16) — `crearElemento(documento, etiqueta, opciones, hijos)`: helper de creación de
+    elementos con texto/atributos/hijos en una llamada, siempre por `textContent`/`createElement`
+    (nunca `innerHTML`). Complementa a `formularios.ts` para el resto del marcado de una pantalla
+    (títulos, párrafos, contenedores); usado por `pantallaListadoAlumnos.ts` y la nueva
+    `pantallaFichaAlumno.ts`.
   - `pantallaLogin.ts`, `pantallaRecuperarContrasena.ts`, `pantallaEstablecerContrasenaNueva.ts`,
     `pantallaSinAcceso.ts` (T-09) — una función `mostrarPantallaX(contenedor, deps)` por pantalla,
     con sus dependencias inyectadas (nunca llaman directamente a `gestorSesion.ts`). La de
     recuperación responde igual exista o no la cuenta; la de nueva contraseña valida localmente
     (coincidencia, longitud mínima) antes de gastar una petición; la de sin acceso no hace ninguna
     llamada a datos, solo pinta el `Perfil` que ya le pasan.
-  - `aplicacion.ts` (T-09) — `iniciarAplicacion(contenedor, { gestorSesion, hashUrl })`: el
-    enrutador. Hash de recuperación → pantalla de nueva contraseña; si no, según `EstadoSesion` →
-    login/recuperar, o según `perfil.rol` → un marcador de posición para `administrator`/`teacher`
-    (su aplicación real nace en T-16/T-19) o `pantallaSinAcceso` para `student` y cualquier rol
-    desconocido (nunca se trata como `teacher`).
+  - `aplicacion.ts` (T-09, reescrito en T-16) — `iniciarAplicacion(contenedor, deps)`: el enrutador.
+    Hash de recuperación → pantalla de nueva contraseña; si no, según `EstadoSesion` →
+    login/recuperar, o según `perfil.rol`: `student`/rol desconocido → `pantallaSinAcceso`; `teacher`
+    → sigue con el marcador de posición de T-09 (su aplicación real es T-19/T-22, decisión
+    documentada en `DECISIONES_TECNICAS.md`); `administrator` → la aplicación real de T-16 si
+    `deps.appAdministrador` viene informado (siempre en `main.ts`; ausente y por tanto marcador de
+    posición en cualquier test que no la ejercite). `mostrarAppAdministrador` es también la **raíz de
+    composición**: monta un `crearRouter` propio y conecta las funciones puras de `src/datos/**` con
+    el `ClientePostgrest`/`ClienteAlmacenamiento` reales de `DependenciasAppAdministrador`, para que
+    cada pantalla (`pantallaCentros.ts`, `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`) siga
+    recibiendo solo funciones ya resueltas, nunca un cliente HTTP.
   - `pantallaCentros.ts` (T-11) — `mostrarPantallaCentros(contenedor, deps)`: catálogo de centros de
     estudios (listar con filtro de estado y búsqueda, crear, editar el nombre, desactivar,
-    reactivar). Standalone y testeada por su cuenta, todavía **sin enrutar** dentro de la aplicación
-    real (`aplicacion.ts` sigue con el marcador de posición de T-09 hasta que T-16 construya el
-    router y la monte). La escritura se oculta para `teacher` con `puedeGestionarCentros`
+    reactivar). **Enrutada desde T-16** (`#/centros`, solo dentro de la aplicación de
+    `administrator`: `teacher` sigue sin acceso a la aplicación real, ver `aplicacion.ts`). La
+    escritura se oculta para un hipotético lector no-administrator con `puedeGestionarCentros`
     (`permisosUi.ts`) — presentación, no control de acceso: el servidor la rechaza igual por RLS. La
     baja pide confirmación mostrando cuántos alumnos activos apuntan al centro (sin impedirla: siguen
     siendo válidos después). El alta/edición de nombre nunca inserta un duplicado acento-insensible:
     ofrece el existente (`src/dominio/centrosEstudios.ts` + `src/datos/centrosEstudios.ts`).
-  - `pantallaFichaAlumno.ts` (T-12, ampliada en T-13) — `mostrarPantallaFichaAlumno(contenedor, deps)`:
-    ficha de alumno (listar con filtro/búsqueda/paginado, crear, editar, dar de baja con motivo
-    opcional, reactivar). Standalone y testeada por su cuenta, todavía **sin enrutar**, igual que
-    `pantallaCentros.ts`, hasta T-16. **Enteramente de `administrator`**: si `puedeGestionarFichaAlumno`
-    (`permisosUi.ts`) da `false` (cualquier otro rol) la pantalla no llama a ningún dato y solo
-    muestra un aviso de acceso — a diferencia de `pantallaCentros.ts`, aquí no hay ni lectura para
-    `teacher` (esa vista, con otras columnas, es de T-19/T-22). El nombre completo y el orden de la
-    lista usan `src/dominio/alumno.ts` (`nombreCompletoAlumno`/`compararAlumnosParaOrden`). Desde
-    T-13, cada fila tiene un botón "Personas de referencia" (visible solo si
-    `puedeVerPersonasReferencia`) que pide la ficha completa con `deps.obtenerAlumno(id)` y despliega
-    una sección con las personas ya cargadas: añadir (con aviso de duplicado sin bloquear, calculado
-    con `dominio/personaReferencia.ts` contra lo ya cargado), editar en línea y eliminar (pide
-    confirmación explícita, "Esta acción es definitiva y no se puede deshacer.", antes del borrado
-    real). No hay pantalla independiente de personas de referencia, por spec.
+  - `pantallaListadoAlumnos.ts` (T-16) — `mostrarPantallaListadoAlumnos(contenedor, deps)`: listado
+    de alumnos con búsqueda y filtro por estado, paginado en servidor (`#/alumnos`). Sustituye a la
+    lista con edición en línea que traía `pantallaFichaAlumno.ts` desde T-12: aquí solo se busca y se
+    navega (`irAFicha`/`irANuevoAlumno`, resueltos por el router de `aplicacion.ts`) — la ficha
+    completa vive en su propia pantalla. Enteramente de `administrator`, igual que su predecesora.
+  - `pantallaFichaAlumno.ts` (T-12/T-13, **reescrita por completo en T-16**) —
+    `mostrarPantallaFichaAlumno(contenedor, deps)`: la ficha de un alumno como **pantalla completa**
+    (`#/alumnos/nuevo` o `#/alumnos/<id>`), con cuatro bloques — datos y centro, avatar (T-14),
+    personas de referencia (T-13) y horario (T-15) —, cada uno montado por su propia función
+    `montarBloqueX(contenedorDelBloque, ...)` con su propio estado y su propio `pintar()` que solo
+    toca el DOM de ESE bloque. Es la pieza central del requisito 5 de T-16 ("un fallo al subir el
+    avatar no debe tirar la edición de los datos personales"): como ningún bloque repinta el de otro,
+    un cambio de estado en uno nunca descarta un campo sin guardar en otro. En modo alta
+    (`deps.alumnoId === null`) solo existe el bloque de datos; al crear con éxito,
+    `deps.alCrearAlumno(id)` deja que el router navegue a la ficha ya en modo edición. El bloque de
+    horario muestra la **fecha de efecto** de cada versión y una nota de que editar o cesar un
+    horario no cambia el histórico (requisito 3 de T-16); usa `src/datos/profesores.ts` para el
+    selector de profesor y valida en el cliente, con `crearMensajeErrorCampo`, que la hora de fin sea
+    posterior a la de inicio antes de llamar al servidor. Enteramente de `administrator`. No hay
+    pantalla independiente de personas de referencia ni de avatar, por spec.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

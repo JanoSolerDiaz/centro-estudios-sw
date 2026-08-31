@@ -10,8 +10,68 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-31 (quinta sesión del día) — **T-14 (avatar del alumno) COMPLETADA**,
-más una corrección de bookkeeping pendiente desde la primera sesión del día. Antes de elegir tarea,
+**Última actualización:** 2026-08-31 (sexta sesión del día) — **T-16 (interfaz de gestión del
+administrador) COMPLETADA.** Ningún hallazgo `ABIERTO` de severidad alta nuevo en `auditoriacontinua.md`
+(el hallazgo #2, ya atendido por P-04, solo espera a que el auditor lo reevalúe en su próxima pasada).
+Sin migración propia (`Migración: No`); sus tres dependencias (T-13, T-14, T-15) ya estaban
+`COMPLETADA`.
+
+**Requisito 1 (base de frontend reutilizable):** cuatro piezas nuevas, ninguna con librería de
+terceros (§0.2). `src/nucleo/router.ts` — `analizarRuta`/`hashDeRuta` (puras) + `crearRouter(objetivo)`
+sobre un `hash` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`), inyectado igual que
+`instalarCapturaErrores` (T-05). `src/ui/dom.ts` — `crearElemento`, helper de creación de elementos con
+escapado seguro (siempre `textContent`, nunca `innerHTML`). `src/nucleo/almacenEstado.ts` —
+`crearAlmacenEstado`, estado mínimo con suscripción, mismo contrato que `GestorSesion`. `formularios.ts`
+amplía con `crearMensajeErrorCampo` (mensaje de error de un campo, `aria-describedby`/`aria-invalid`).
+
+**Requisito 2 (las tres pantallas):** `pantallaCentros.ts` (T-11) por fin se enruta, sin cambios de
+código propios. `pantallaFichaAlumno.ts` de T-12/T-13 se **divide en dos**: `pantallaListadoAlumnos.ts`
+(nueva: búsqueda, filtro por estado, paginado, navega — sin edición en línea) y una
+`pantallaFichaAlumno.ts` **reescrita por completo** como pantalla de un único alumno a pantalla
+completa, con sus cuatro bloques — datos y centro, avatar (T-14), personas de referencia (T-13) y
+horario (T-15) —, cada uno montado por su propia función `montarBloqueX(...)` con su propio estado y su
+propio `pintar()` (nunca un `pintar()` de pantalla entera). Modo alta (sin id) solo pinta el bloque de
+datos; al crear con éxito navega a la ficha ya en modo edición.
+
+**Requisito 3 (horario con fecha de efecto):** el bloque de horario lista todas las versiones del
+slot con su `vigente_desde`/`vigente_hasta`, una nota fija de que editar o cesar no cambia el
+histórico, y formularios de alta/edición(versionado)/cese con un campo "Fecha de efecto" explícito.
+Nuevo módulo `src/datos/profesores.ts` (`listarProfesoresActivos`, sobre `perfil_admin_leer_todos`,
+ya aplicada desde el bootstrap — sin migración) para el selector de profesor.
+
+**Requisito 4 (accesible, estados explícitos, honesto ante 403):** cada bloque tiene su propio
+"Cargando…"/mensaje vacío/`zonaError` (`role="alert"`, con `mensajeAmigable`); un `SinPermiso` al
+cargar la ficha se traduce y no rompe la pantalla (test explícito). Objetivos táctiles y campos con
+`label` ya venían de `formularios.ts` (T-09); el bloque de horario valida en el cliente
+(`crearMensajeErrorCampo`) que la hora de fin sea posterior a la de inicio antes de llamar al servidor.
+
+**Requisito 5 (bloques independientes):** es la razón de fondo de la arquitectura de "una función de
+montaje por bloque" del requisito 2 — al no compartir ningún `pintar()`, un fallo en un bloque nunca
+repinta (ni por tanto descarta) los campos sin guardar de otro. Verificado con un test explícito: un
+fallo al subir el avatar no descarta un cambio sin guardar en el nombre del bloque de datos.
+
+**Decisión de alcance, documentada en `DECISIONES_TECNICAS.md`:** la aplicación real que construye el
+router **solo se monta para `administrator`** — el propio título de T-16 es "Interfaz de gestión del
+administrador", y las tres pantallas son ya, por `permisosUi.ts`, contenido exclusivo suyo.
+`teacher` sigue viendo el marcador de posición de T-09 hasta T-19/T-22, sin cambio.
+
+`src/ui/aplicacion.ts` pasa a ser también la raíz de composición: `DependenciasAppAdministrador`
+(nueva, opcional) lleva el `ClientePostgrest`/`ClienteAlmacenamiento` reales, la fábrica de procesado
+de imagen y el limitador de tasa de avatares (contrato de T-06: 20/administrator/hora); `main.ts` los
+construye siempre que hay `config.js` (mismo `if` que `gestorSesion`) y los pasa como
+`appAdministrador`. Sin él (o en cualquier test que no lo pase), `administrator` sigue viendo el
+marcador de posición de T-09 — compatibilidad hacia atrás verificada con un test explícito.
+
+**53 tests nuevos (565 en total, antes 512, verificado con `git stash -u` contra el commit de
+partida):** cubren, entre otros, el criterio de aceptación
+completo de T-16 (alta/edición de alumno, añadir/editar/eliminar persona de referencia, subir/quitar
+avatar, alta/edición/cese de slot, escapado de un nombre con `<script>`, un `403` que no rompe la
+pantalla, y el aislamiento entre bloques).
+
+---
+
+**Sesión previa del mismo día (quinta) — T-14 (avatar del alumno) COMPLETADA**, más una corrección
+de bookkeeping pendiente desde la primera sesión del día. Antes de elegir tarea,
 esta sesión encontró que §3 ya daba las migraciones `002`/`003`/`004` por **RESUELTA** (aplicadas y
 verificadas por el dueño) pero `db/APLICADAS.md` solo tenía la fila `001`, y §1 seguía marcando
 T-10/T-14 como `BLOQUEADA` por un motivo ya resuelto — ninguna de las sesiones de T-15/T-17 lo había
@@ -227,7 +287,7 @@ pantallas del requisito 2.
 | T-13 | Personas de referencia del alumno | COMPLETADA | 2026-08-28 | Sin migración: `persona_referencia` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/personaReferencia.ts`), datos (`src/datos/personasReferencia.ts`) y gestión embebida en `src/ui/pantallaFichaAlumno.ts` (sin pantalla propia, por spec) con 21 tests nuevos (429 en total, antes 408). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-14 | Avatar del alumno (Supabase Storage) | COMPLETADA | 2026-08-31 | Migración `004_bucket_avatares` **aplicada y verificada** en `dev` (fila 6 de §3). Resto del alcance escrito esta sesión: `src/dominio/avatarAlumno.ts` (ruta determinista, geometría del recorte, validación de tipo/tamaño, monograma) y `src/datos/avatarAlumno.ts` (`procesarAvatar` sobre una fábrica de procesado de imagen inyectable, `subirAvatarAlumno` con el orden seguro sube-nuevo→cambia-puntero→borra-viejo, `eliminarAvatarAlumno`, `urlsAvataresEnLote`, límite de tasa de T-06 conectado). 29 tests nuevos (16 dominio + 13 datos). **Desviación documentada en §7:** el procesado real de imagen (`createImageBitmap`/`canvas`) no se testea con píxeles reales — se aísla detrás de `FabricaProcesadoImagen` y se testea la orquestación con una fábrica de mentira; la eliminación de EXIF se argumenta por construcción de la plataforma, no se comprueba con un test. **P-09 implementada en la misma sesión:** `db/pruebas_rls.sql` sección 7 ya no depende de que exista un avatar real subido por la interfaz — crea sus propios fixtures (un alumno dado de baja y dos filas de `storage.objects`) dentro de la transacción de prueba. Sin pantalla propia — la construye T-16, que queda desbloqueada |
 | T-15 | Slots de horario por defecto: asignación, edición y no-retroactividad | COMPLETADA | 2026-08-31 | Sin migración: `slot_horario` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/slotHorario.ts`: vigencia, solape, versionado) y datos (`src/datos/slotsHorario.ts`: listar/crear/modificar/cesar) con 24 tests nuevos (460 en total, antes 436). El solape del mismo alumno bloquea; el del mismo profesor con otro alumno solo avisa (`avisoSolapeProfesor`). Sin restricción `EXCLUDE` en base de datos (`Migración: No`, limitación conocida en `DECISIONES_TECNICAS.md`). Sin pantalla propia — la construye T-16 |
-| T-16 | Interfaz de gestión del administrador | PENDIENTE | — | Dependencias satisfechas: T-13, T-14 y T-15, las tres COMPLETADAS. Es la tarea más grande pendiente (requisito 1: base de frontend reutilizable entera — router por `hash`, helpers de creación segura de elementos, estado con suscripción, componentes de formulario — antes de montar ninguna pantalla) |
+| T-16 | Interfaz de gestión del administrador | COMPLETADA | 2026-08-31 | Sin migración: sus tres dependencias (T-13, T-14, T-15) ya estaban completas. Base de frontend reutilizable nueva (`nucleo/router.ts`, `ui/dom.ts`, `nucleo/almacenEstado.ts`, `formularios.crearMensajeErrorCampo`). `pantallaCentros.ts` (T-11) por fin enrutada; `pantallaFichaAlumno.ts` de T-12/T-13 dividida en `pantallaListadoAlumnos.ts` (nueva) + una `pantallaFichaAlumno.ts` reescrita como pantalla completa de cuatro bloques aislados (datos, avatar, personas de referencia, horario), cada uno con su propio montaje y `pintar()`. Nuevo `datos/profesores.ts` para el selector de horario. La aplicación real solo se monta para `administrator` (decisión documentada); `teacher` sigue con el marcador de posición de T-09. 53 tests nuevos (565 en total, antes 512) |
 | T-17 | Motor de propuesta "quién toca ahora" | COMPLETADA | 2026-08-31 | Sin migración: depende solo de T-15 (COMPLETADA). `dominio/slots.ts` reescrito (sustituye la versión provisional de T-03) con zona horaria real (`Intl`, `Europe/Madrid` por defecto) y ventana de tolerancia; `datos/slotsHorario.ts` añade `listarSlotsDeProfesorConAlumno` (una petición, alumno embebido en columnas restringidas). 33 tests nuevos netos (477 en total, antes 460). Pregunta abierta #11 en §6 (valores por defecto de zona horaria y tolerancia, sin bloquear) |
 | T-18 | Alta de asistencia (RPC `registrar_asistencia`) | PENDIENTE | — | Migración `004_rpc_registrar_asistencia`; límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
 | T-19 | Pantalla de pasar lista | PENDIENTE | — | — |

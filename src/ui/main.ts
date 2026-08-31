@@ -1,5 +1,5 @@
 import { mostrarPantallaInicial } from './pantallaInicial.ts';
-import { iniciarAplicacion } from './aplicacion.ts';
+import { iniciarAplicacion, type DependenciasAppAdministrador } from './aplicacion.ts';
 import { instalarCapturaErrores } from '../nucleo/capturaErrores.ts';
 import { crearInformadorErrores, type EnviadorEventoError } from '../nucleo/informadorErrores.ts';
 import { logger } from '../nucleo/registro.ts';
@@ -8,6 +8,11 @@ import { crearEnviadorEventoError } from '../datos/eventoError.ts';
 import { crearClienteAutenticacion } from '../datos/autenticacion.ts';
 import { crearGestorSesion, type GestorSesion } from '../nucleo/gestorSesion.ts';
 import { crearAlmacenSesionWebStorage } from '../nucleo/almacenSesion.ts';
+import { crearClientePostgrest } from '../datos/postgrest.ts';
+import { crearClienteAlmacenamiento } from '../datos/almacenamiento.ts';
+import { crearFabricaProcesadoImagenNavegador } from '../datos/avatarAlumno.ts';
+import { crearLimitadorTasa } from '../nucleo/limitadorTasa.ts';
+import { relojDelSistema } from '../nucleo/reloj.ts';
 
 declare global {
   interface Window {
@@ -65,11 +70,38 @@ function crearEnviadorEventoErrorSiHayConfiguracion(): EnviadorEventoError | und
 
 instalarCapturaErrores(window, crearInformadorErrores(logger, crearEnviadorEventoErrorSiHayConfiguracion()));
 
+// La aplicación real de administrator (T-16) necesita el mismo par de clientes que ya construye
+// `crearEnviadorEventoErrorSiHayConfiguracion`: solo existe si hay `config.js` desplegado, igual
+// que `gestorSesion` — en la práctica los dos siempre coinciden (ninguno depende de que haya
+// sesión iniciada, solo de que exista configuración de entorno).
+function crearAppAdministradorSiHayConfiguracion(): DependenciasAppAdministrador | undefined {
+  if (!configuracion || !gestorSesion) {
+    return undefined;
+  }
+  const obtenerTokenSesion = () => gestorSesion.obtenerTokenSesion();
+  return {
+    objetivoRouter: window,
+    postgrest: crearClientePostgrest({ urlBase: configuracion.urlBase, claveAnonima: configuracion.claveAnonima, obtenerTokenSesion }),
+    almacenamiento: crearClienteAlmacenamiento({ urlBase: configuracion.urlBase, claveAnonima: configuracion.claveAnonima, obtenerTokenSesion }),
+    fabricaImagen: crearFabricaProcesadoImagenNavegador(),
+    reloj: relojDelSistema,
+    // Contrato de T-06 (ver DECISIONES_TECNICAS.md): 20 subidas de avatar por administrator y hora.
+    limitadorAvatar: crearLimitadorTasa({ maximo: 20, ventanaMs: 60 * 60 * 1000, reloj: relojDelSistema }),
+  };
+}
+
 const contenedorApp = document.querySelector<HTMLDivElement>('#app');
 
 if (contenedorApp) {
   if (gestorSesion) {
-    iniciarAplicacion(contenedorApp, { gestorSesion, hashUrl: window.location.hash });
+    const appAdministrador = crearAppAdministradorSiHayConfiguracion();
+    iniciarAplicacion(contenedorApp, {
+      gestorSesion,
+      hashUrl: window.location.hash,
+      // `exactOptionalPropertyTypes`: omitir la clave, no copiar un valor que podría ser
+      // `undefined` (mismo patrón que `postgrest.ts`/`almacenamiento.ts` con `obtenerTokenSesion`).
+      ...(appAdministrador ? { appAdministrador } : {}),
+    });
   } else {
     mostrarPantallaInicial(contenedorApp);
   }
