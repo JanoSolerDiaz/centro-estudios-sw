@@ -59,12 +59,29 @@ void test('listarAlumnos lee de alumno_ficha con el centro embebido, paginado en
   assert.equal(peticiones.length, 1);
   const url = new URL(peticiones[0]?.url ?? '');
   assert.equal(url.pathname, '/rest/v1/alumno_ficha');
-  assert.equal(url.searchParams.get('select'), '*,centro:centro_estudios(id,nombre)');
+  assert.equal(
+    url.searchParams.get('select'),
+    'id,nombre,primer_apellido,segundo_apellido,centro_referencia_id,email_alumno,telefono_alumno,' +
+      'activo,alta_en,baja_en,motivo_baja,usuario_id,creado_en,actualizado_en,centro:centro_estudios(id,nombre)',
+  );
   const peticion = peticiones[0];
   assert.ok(peticion);
   assert.equal(peticion.cabeceras.range, '5-9');
   assert.deepEqual(resultado.alumnos, [GARCIA]);
   assert.equal(resultado.totalAproximado, 1);
+});
+
+void test('listarAlumnos no pide avatar_ruta (P-02, minimización de datos: la lista no lo pinta)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [GARCIA] };
+  });
+
+  await listarAlumnos(cliente);
+
+  const select = new URL(peticiones[0]?.url ?? '').searchParams.get('select') ?? '';
+  assert.ok(!select.split(',').includes('avatar_ruta'));
 });
 
 void test('listarAlumnos({ estado: "inactivos" }) filtra activo=eq.false', async () => {

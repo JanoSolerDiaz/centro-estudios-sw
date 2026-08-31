@@ -61,10 +61,14 @@ function claveApellido(valor: string | null): string {
   return valor ?? '';
 }
 
+/** Solo las tres columnas que la ordenación necesita: así sirve tanto para un `Alumno` completo
+ * como para un listado que, por minimización de datos (P-02), no trae todas las columnas. */
+export type DatosOrdenAlumno = Pick<Alumno, 'primer_apellido' | 'segundo_apellido' | 'nombre'>;
+
 /** Comparador para `Array.prototype.sort`: ordena por `primer_apellido`, `segundo_apellido` y
  * `nombre` — nunca por el nombre de pila primero (requisito 4 de T-12, "ordenación a la
  * española") — con las tres claves cotejadas de forma acento-insensible. */
-export function compararAlumnosParaOrden(a: Alumno, b: Alumno): number {
+export function compararAlumnosParaOrden(a: DatosOrdenAlumno, b: DatosOrdenAlumno): number {
   return (
     a.primer_apellido.localeCompare(b.primer_apellido, 'es', { sensitivity: 'base' }) ||
     claveApellido(a.segundo_apellido).localeCompare(claveApellido(b.segundo_apellido), 'es', {

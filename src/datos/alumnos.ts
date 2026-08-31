@@ -64,8 +64,14 @@ export interface AlumnoConCentroYPersonas extends AlumnoConCentro {
   readonly personas_referencia: readonly PersonaReferencia[];
 }
 
+/** `AlumnoConCentro` sin `avatar_ruta` (P-02, minimización de datos: `pantallaFichaAlumno.ts` no
+ * pinta ningún avatar en la lista paginada, solo en la ficha abierta de uno en uno — traerla ahí
+ * es superficie de más). Si T-16/T-19 necesitan avatar en un listado en el futuro, es una decisión
+ * de diseño nueva, no un descuido que corregir en este tipo. */
+export type AlumnoListado = Omit<AlumnoConCentro, 'avatar_ruta'>;
+
 export interface ResultadoListarAlumnos {
-  readonly alumnos: readonly AlumnoConCentro[];
+  readonly alumnos: readonly AlumnoListado[];
   readonly totalAproximado: number | null;
 }
 
@@ -80,7 +86,13 @@ export interface DatosAlumno {
 
 const TABLA = 'alumno';
 const VISTA_FICHA = 'alumno_ficha';
-const SELECT_CON_CENTRO = '*,centro:centro_estudios(id,nombre)';
+/** Sin `avatar_ruta` (P-02): columnas explícitas en vez de `*` para el listado paginado — el único
+ * consumidor (`pantallaFichaAlumno.ts`) no pinta ningún avatar en esa lista. `leerFichaPorId` (una
+ * sola fila, la ficha abierta) sigue usando `*` en `SELECT_FICHA_COMPLETA`, donde el avatar sí hace
+ * falta. */
+const SELECT_LISTADO =
+  'id,nombre,primer_apellido,segundo_apellido,centro_referencia_id,email_alumno,telefono_alumno,' +
+  'activo,alta_en,baja_en,motivo_baja,usuario_id,creado_en,actualizado_en,centro:centro_estudios(id,nombre)';
 /** Usado solo por `leerFichaPorId` (una operación sobre un único alumno), nunca por `listarAlumnos`
  * (T-13, requisito 5). El nombre embebido, `personas_referencia`, es el que PostgREST expone de la
  * relación inversa de `persona_referencia.alumno_id`; no es una columna real de `alumno_ficha`. */
@@ -171,7 +183,7 @@ export async function listarAlumnos(
   cliente: ClientePostgrest,
   opciones: OpcionesListarAlumnos = {},
 ): Promise<ResultadoListarAlumnos> {
-  let consulta = cliente.desde<AlumnoConCentro>(VISTA_FICHA);
+  let consulta = cliente.desde<AlumnoListado>(VISTA_FICHA);
   if (opciones.estado === 'activos') {
     consulta = consulta.eq('activo', true);
   } else if (opciones.estado === 'inactivos') {
@@ -189,7 +201,7 @@ export async function listarAlumnos(
     .order('segundo_apellido', { nullsAlFinal: true })
     .order('nombre')
     .range(desde, desde + porPagina - 1)
-    .seleccionarConTotal(SELECT_CON_CENTRO);
+    .seleccionarConTotal(SELECT_LISTADO);
   // El `order=` de arriba ya pide el orden correcto por columna, pero la colación de Postgres del
   // servidor no está garantizada acento-insensible (dependería de configurar el `COLLATE` de la
   // base de datos, fuera del alcance de esta tarea: `Migración: No`). Se reordena la página ya

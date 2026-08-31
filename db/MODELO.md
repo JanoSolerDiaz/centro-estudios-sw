@@ -191,7 +191,7 @@ sin rutas de avatar, sin tokens) antes de guardarse.
 
 Se escribe únicamente a través de la RPC `registrar_evento_error(p_origen, p_mensaje, p_pila,
 p_contexto)`, que fija ella misma `registrado_en` y `registrado_por` — el contrato que fijó T-05.
-La lectura queda reservada a `administrator` (política todavía por escribir, T-10).
+La lectura queda reservada a `administrator` (política `evento_error_admin_leer`, `003_politicas_rls.sql`, T-10).
 
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 
@@ -239,12 +239,14 @@ son solo "una política por celda":
   el bucket lo crea T-14 (`004_bucket_avatares`, renumerada porque esta migración pasó de `002` a
   `003` — ver `db/APLICADAS.md`): una política sobre `bucket_id = 'avatares'` no exige que el bucket
   exista todavía, así que nunca hay una ventana en la que el bucket exista sin RLS en vigor.
-  `004_bucket_avatares.sql` ya está escrita y empujada a `develop` (2026-08-31, P-04): crea el bucket
-  **privado** (`public = false`), con lista blanca de tipo MIME en la propia configuración del
-  bucket — solo `image/webp`, porque el cliente sube únicamente las derivadas ya recodificadas, nunca
-  el fichero original del móvil — y `file_size_limit` de 2 MiB. Pendiente de que el dueño la aplique
-  en `dev` (fila de §3 de `SEGUIMIENTO.md`); el resto del alcance de T-14 (procesado en el cliente,
-  ruta `alumno/{alumno_id}/{uuid}/`, firma en lote, monograma) sigue sin escribir.
+  `004_bucket_avatares.sql` crea el bucket **privado** (`public = false`), con lista blanca de tipo
+  MIME en la propia configuración del bucket — solo `image/webp`, porque el cliente sube únicamente
+  las derivadas ya recodificadas, nunca el fichero original del móvil — y `file_size_limit` de 2 MiB.
+  **Aplicada y verificada en `dev` el 2026-08-31** (`db/APLICADAS.md`, fila `004`). El resto del
+  alcance de T-14 — procesado en el cliente (recorte, dos derivadas WebP, `alumno/{alumno_id}/{uuid}/`),
+  subida con orden seguro (sube lo nuevo → cambia el puntero → borra lo viejo), firma en lote y
+  monograma — está escrito en `src/dominio/avatarAlumno.ts` y `src/datos/avatarAlumno.ts`; falta
+  únicamente el punto de montaje real en una pantalla (T-16).
 
 `db/pruebas_rls.sql`, lanzable con `npm run probar-rls` (el dueño, nunca el agente: exige
 `SUPABASE_ACCESS_TOKEN`), impersona usuarios reales de `perfil` para comprobar cada celda de la

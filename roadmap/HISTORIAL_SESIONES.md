@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-08-31 (5)
+**Tarea(s):** bookkeeping (T-10/P-01/APLICADAS.md) + T-14 (avatar del alumno) + P-09 + P-02 + P-03
+**Estado resultante:** COMPLETADA (T-14, P-09, P-02, P-03); RESUELTA (P-01); COMPLETADA (T-10, corrección de estado)
+**Commits a `develop`:** `<pendiente de este commit>` — "bookkeeping: anota 002/003/004 en APLICADAS.md, T-10 a COMPLETADA; T-14 (avatar del alumno); P-09, P-02, P-03"
+**Migraciones aplicadas:** ninguna nueva. Se ANOTAN en `db/APLICADAS.md` tres migraciones que el dueño ya había aplicado y verificado en sesiones previas del mismo día sin que quedara registrado: `002_bloqueo_cuenta` (hash `1c3f8c8aff62`), `003_politicas_rls` (hash `4e4c50a92dab`), `004_bucket_avatares` (hash `1065196e1662`)
+**Propagación a prod pendiente:** ninguna (T-25)
+**Archivos creados/modificados:** `db/APLICADAS.md` (tres filas nuevas), `db/MODELO.md` (sección de avatares actualizada, P-03), `db/pruebas_rls.sql` (sección 7 reescrita, P-09), `src/dominio/avatarAlumno.ts` (nuevo), `src/dominio/avatarAlumno.test.ts` (nuevo, 16 tests), `src/datos/avatarAlumno.ts` (nuevo), `src/datos/avatarAlumno.test.ts` (nuevo, 13 tests), `src/datos/alumnos.ts` (P-02: `SELECT_LISTADO`, tipo `AlumnoListado`), `src/datos/alumnos.test.ts` (ajustado a la nueva `select`, 1 test nuevo), `src/dominio/alumno.ts` (`compararAlumnosParaOrden` sobre `DatosOrdenAlumno` en vez de `Alumno` completo), `src/ui/pantallaFichaAlumno.ts` (`pintarFila`/`rellenarFormulario` sobre `AlumnoListado`), `roadmap/DECISIONES_TECNICAS.md` (ocho filas nuevas), `roadmap/SEGUIMIENTO.md` (cabecera, §1 T-10/T-14/T-16, §3 filas 4-6, §5 P-01/P-02/P-03/P-09, §7)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (512/512: 477 + 29 de avatarAlumno + 1 de P-02 en `alumnos.test.ts`, neto +35 sobre la cifra de la sesión anterior) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** ocho filas `2026-08-31` de `DECISIONES_TECNICAS.md` — reconciliación de bookkeeping (T-10/APLICADAS.md); `FabricaProcesadoImagen` como frontera inyectable con el navegador real (mismo patrón que `Reloj`/`Temporizador`/`fetchImpl`); EXIF no testeado, argumentado por construcción de la plataforma; orden seguro de escritura del avatar (sube-nuevo→cambia-puntero→borra-viejo); paleta fija de ocho colores para el monograma; P-09 (fixtures propios en `pruebas_rls.sql`); P-02 (`SELECT_LISTADO`/`AlumnoListado`)
+**Hallazgos del auditor atendidos:** ninguno nuevo (el hallazgo #2 sigue cerrado por P-04 desde la primera sesión del día, a la espera de que el auditor lo confirme en su próxima pasada)
+**Hallazgos:** el propio bookkeeping pendiente (T-10/P-01/`APLICADAS.md` desincronizados de §3 desde la primera sesión del día) — no es un hallazgo de seguridad, es un fallo de proceso propio; corregido en esta misma sesión, sin abrir P-XX porque no es una mejora propuesta sino una corrección de un registro ya decidido
+**Tareas autopropuestas (P-XX):** ninguna nueva. P-09 implementada (ya registrada en §5 desde 2026-08-29); P-02 y P-03 implementadas (ya registradas); P-01 pasada a RESUELTA
+**Próximo paso:** T-16 (interfaz de gestión del administrador) — sus tres dependencias (T-13, T-14, T-15) están COMPLETADAS, sin migración propia. Es la tarea más grande de la cola: el requisito 1 exige construir primero la base de frontend reutilizable (router por `hash`, helpers de creación segura de elementos, estado con suscripción, componentes de formulario) antes de montar ninguna de las tres pantallas del requisito 2. Esta sesión no la empieza a propósito, por presupuesto de sesión
+
+---
+
 ### Sesión 2026-08-31 (4)
 **Tarea(s):** T-17 (motor de propuesta "quién toca ahora")
 **Estado resultante:** COMPLETADA

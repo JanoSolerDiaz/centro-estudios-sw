@@ -27,6 +27,7 @@ import { buscarPersonaReferenciaDuplicada, normalizarTelefonoReferencia } from '
 import type {
   AlumnoConCentro,
   AlumnoConCentroYPersonas,
+  AlumnoListado,
   DatosAlumno,
   FiltroEstadoAlumno,
   OpcionesListarAlumnos,
@@ -81,7 +82,7 @@ function limpiarFormulario(campos: CamposFormularioAlumno): void {
   campos.telefono.value = '';
 }
 
-function rellenarFormulario(campos: CamposFormularioAlumno, alumno: AlumnoConCentro): void {
+function rellenarFormulario(campos: CamposFormularioAlumno, alumno: AlumnoListado): void {
   campos.nombre.value = alumno.nombre;
   campos.primerApellido.value = alumno.primer_apellido;
   campos.segundoApellido.value = alumno.segundo_apellido ?? '';
@@ -228,7 +229,7 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
 
   let cargando = true;
   let errorCarga = '';
-  let alumnos: readonly AlumnoConCentro[] = [];
+  let alumnos: readonly AlumnoListado[] = [];
   let totalAproximado: number | null = null;
   let centros: readonly CentroEstudios[] = [];
   let filtroEstado: FiltroEstadoAlumno = 'activos';
@@ -443,7 +444,7 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
     return seccion;
   }
 
-  function pintarFila(alumno: AlumnoConCentro): HTMLElement {
+  function pintarFila(alumno: AlumnoListado): HTMLElement {
     const fila = documento.createElement('div');
 
     if (idEnEdicion === alumno.id) {

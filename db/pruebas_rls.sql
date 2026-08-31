@@ -704,19 +704,26 @@ end $$;
 
 -- ---------------------------------------------------------------------
 -- 7. Bucket avatares (storage.objects) — el bucket lo crea T-14
---    (`004_bucket_avatares`), todavía no aplicada cuando se escribe este
---    script. Las políticas ya existen (003_politicas_rls); lo que no
---    puede probarse hasta entonces es el caso con datos reales. Se deja
---    la comprobación lista y se omite explícitamente si el bucket o los
---    ficheros de prueba no existen todavía — no se fabrica un resultado.
+--    (`004_bucket_avatares`, ya aplicada). Las políticas ya existían desde
+--    `003_politicas_rls`. Lo que se audita aquí es una POLÍTICA sobre la
+--    FILA de `storage.objects`, no los bytes del fichero: en vez de
+--    depender de que alguien haya subido ya un avatar real por la interfaz
+--    (T-16, todavía sin escribir), la propia prueba crea sus dos fixtures
+--    — un alumno activo (reutiliza el de la sección 2) y uno recién dado
+--    de baja, propio de esta sección — e inserta una fila de
+--    `storage.objects` bajo la ruta de cada uno, dentro de la misma
+--    transacción que termina en `rollback` (P-09, hallazgo de cobertura:
+--    "las dos lecturas no se ejercitarán nunca por sí solas").
 -- ---------------------------------------------------------------------
 
 do $$
 declare
-  v_bucket_existe boolean;
-  v_alumno_id     uuid;
-  v_ruta_activo   text;
-  v_ruta_inactivo text;
+  v_bucket_existe   boolean;
+  v_centro_id       uuid;
+  v_alumno_activo   uuid;
+  v_alumno_inactivo uuid;
+  v_ruta_activo     text;
+  v_ruta_inactivo   text;
 begin
   select exists(select 1 from storage.buckets where id = 'avatares') into v_bucket_existe;
   if not v_bucket_existe then
@@ -726,28 +733,42 @@ begin
     return;
   end if;
 
-  v_alumno_id := pg_temp.dato('alumno_prueba');
+  v_centro_id := pg_temp.dato('centro_admin');
+  v_alumno_activo := pg_temp.dato('alumno_prueba');
 
-  -- No se sube ningún fichero real desde este script (el procesado de imagen es de cliente, T-14):
-  -- solo se comprueba si YA hay algún objeto bajo una ruta de alumno activo/inactivo real para
-  -- ejercitar la política; si no lo hay, se omite en vez de fabricar un falso positivo.
-  select name into v_ruta_activo
-    from storage.objects
-   where bucket_id = 'avatares'
-     and exists (
-       select 1 from public.alumno a
-        where a.id::text = (storage.foldername(storage.objects.name))[2] and a.activo
-     )
-   limit 1;
+  if not pg_temp.hay_fixture('administrator') or v_centro_id is null or v_alumno_activo is null then
+    perform pg_temp.omitir('avatares / teacher lee alumno activo', 'no hay administrator o alumno de prueba (secciones 1/2) en este entorno');
+    perform pg_temp.omitir('avatares / teacher lee alumno inactivo (debe fallar)', 'no hay administrator o alumno de prueba (secciones 1/2) en este entorno');
+    perform pg_temp.omitir('avatares / teacher escribe (debe fallar)', 'no hay administrator en este entorno');
+    return;
+  end if;
 
-  select name into v_ruta_inactivo
-    from storage.objects
-   where bucket_id = 'avatares'
-     and exists (
-       select 1 from public.alumno a
-        where a.id::text = (storage.foldername(storage.objects.name))[2] and not a.activo
-     )
-   limit 1;
+  -- Fixtures propios de esta sección (P-09): un segundo alumno YA dado de baja, y una fila de
+  -- `storage.objects` bajo la ruta de cada uno de los dos alumnos. Ambos INSERT los hace el
+  -- `administrator` (única política de escritura del bucket) — nunca se sube ningún fichero real.
+  perform pg_temp.impersonar('administrator');
+
+  begin
+    insert into public.alumno (nombre, primer_apellido, centro_referencia_id, activo, baja_en)
+      values ('PruebaBaja', 'RLS', v_centro_id, false, now())
+      returning id into v_alumno_inactivo;
+  exception when others then
+    v_alumno_inactivo := null;
+  end;
+
+  if v_alumno_inactivo is not null then
+    v_ruta_activo := 'alumno/' || v_alumno_activo::text || '/prueba-rls/avatar-mini.webp';
+    v_ruta_inactivo := 'alumno/' || v_alumno_inactivo::text || '/prueba-rls/avatar-mini.webp';
+    begin
+      insert into storage.objects (bucket_id, name) values ('avatares', v_ruta_activo);
+      insert into storage.objects (bucket_id, name) values ('avatares', v_ruta_inactivo);
+    exception when others then
+      v_ruta_activo := null;
+      v_ruta_inactivo := null;
+    end;
+  end if;
+
+  perform pg_temp.dejar_de_impersonar();
 
   if not pg_temp.hay_fixture('teacher') then
     perform pg_temp.omitir('avatares / teacher lee alumno activo', 'no hay teacher en este entorno');
@@ -759,7 +780,7 @@ begin
   perform pg_temp.impersonar('teacher');
 
   if v_ruta_activo is null then
-    perform pg_temp.omitir('avatares / teacher lee alumno activo', 'no hay ningún avatar de alumno activo todavía');
+    perform pg_temp.omitir('avatares / teacher lee alumno activo', 'no se pudo crear el fixture del alumno dado de baja (ver más arriba)');
   else
     declare v_n integer;
     begin
@@ -771,7 +792,7 @@ begin
   end if;
 
   if v_ruta_inactivo is null then
-    perform pg_temp.omitir('avatares / teacher lee alumno inactivo (debe fallar)', 'no hay ningún avatar de alumno inactivo todavía');
+    perform pg_temp.omitir('avatares / teacher lee alumno inactivo (debe fallar)', 'no se pudo crear el fixture del alumno dado de baja (ver más arriba)');
   else
     declare v_n integer;
     begin
