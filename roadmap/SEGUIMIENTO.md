@@ -10,17 +10,47 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-31 (tercera sesión del día) — **T-15 (slots de horario)
-COMPLETADA.** Sin migración propia (`Migración: No`): `slot_horario` y sus políticas RLS (T-10) ya
-existen. `src/dominio/slotHorario.ts` (vigencia en una fecha dada, solape de horario, cálculo de la
-fecha de cierre al versionar) y `src/datos/slotsHorario.ts` (listar/crear/modificar/cesar,
-escritura solo `administrator` por RLS) con 24 tests nuevos (460 en total, antes 436). El solape del
-mismo alumno bloquea el alta/edición; el del mismo profesor con un alumno distinto solo avisa
-(`avisoSolapeProfesor`, sin bloquear — un profesor puede tener varios alumnos a la vez). La edición
-versiona: cierra la versión vigente el día antes de la fecha de efecto y crea una nueva, sin tocar
-la anterior. **T-16 pasa a BLOQUEADA** (depende de que T-14 escriba el resto de su alcance —el
-bucket ya está migrado pero el procesado de imagen y la subida siguen sin código—, ver su fila en
-§1); la cola sigue por **T-17** (motor de propuesta, depende solo de T-15).
+**Última actualización:** 2026-08-31 (cuarta sesión del día) — **T-17 (motor de propuesta "quién
+toca ahora") COMPLETADA.** Sin migración propia (`Migración: No`), depende solo de T-15
+(COMPLETADA). `src/dominio/slots.ts` reescrito por completo: sustituye la versión provisional de
+T-03 (tipos locales `camelCase`, día/hora en UTC) por la real, sobre el tipo oficial `SlotHorario`
+de `dominio/tipos.ts` y con zona horaria de verdad. `instanteLocal(instante, zonaHoraria)` traduce
+un instante UTC al día ISO y la hora local con `Intl.DateTimeFormat` (`hourCycle: 'h23'`, sin
+librería nueva: el `tz database` ya vive en el runtime) — resuelve los cambios de hora estacionales
+de `Europe/Madrid` correctamente porque `Intl` calcula el desplazamiento real de esa zona para ese
+instante exacto, sin ningún cálculo manual de offset. `slotActivoEnInstante` reutiliza
+`slotVigenteEn` de T-15 (vigencia por fecha) y añade día de la semana + ventana de tolerancia antes
+del inicio (`hora_inicio` inclusiva incluso sin tolerancia, `hora_fin` exclusiva, mismo criterio que
+el resto del dominio). `alumnosPropuestos({ profesorId, instante, slots, tolerancia?, zonaHoraria? })`
+devuelve un resultado explícito de tres formas — nunca una lista vacía sin explicación (requisito 3
+de T-17): `en_curso` (uno o más slots tocan ahora, incluida la tolerancia), `proximo` (nada toca
+ahora pero queda al menos un slot vigente más tarde el mismo día — agrupa los que comparten la hora
+de inicio más cercana, con `minutosHastaInicio`), o `sin_clases_hoy`. `src/datos/slotsHorario.ts`
+añade `listarSlotsDeProfesorConAlumno`: una única petición a PostgREST (requisito 5) con el alumno
+embebido en columnas explícitas (`id,nombre,primer_apellido,segundo_apellido,avatar_ruta,activo` —
+nunca `email_alumno`/`telefono_alumno`/`centro_referencia_id`, que ni `teacher` ni `administrator`
+tienen concedidas en la tabla base para un embebido con `*`, ver `003_politicas_rls.sql`). 33 tests
+nuevos netos (477 en total, antes 460): 24 de dominio (`slots.test.ts`, reescrito con la batería
+completa del criterio de aceptación — dentro del slot, borde de inicio, borde de fin, dentro de la
+tolerancia, fuera de horario, día sin clase, alumno dado de baja, slot cesado, dos slots
+consecutivos, dos slots simultáneos, cambio de hora de primavera y de otoño de 2026, más
+`instanteLocal` en aislamiento) y 1 de datos (`slotsHorario.test.ts`, la petición única y la lista
+de columnas del embebido). **Pregunta abierta nueva #11 en §6** (zona horaria y ventana de
+tolerancia, prevista desde que se abrió esta tarea): valores conservadores por defecto mientras el
+dueño no responda — `Europe/Madrid` y 10 minutos antes del inicio —, ambos parametrizables sin tocar
+el código si cambian. **T-16 sigue BLOQUEADA** (sin cambio, ver su fila en §1); la cola sigue por
+**T-18** (alta de asistencia, RPC `registrar_asistencia`, depende solo de T-17), que tiene
+`Migración: Sí` — la siguiente sesión escribe el SQL, lo empuja, abre su fila en §3 y pasa a
+BLOQUEADA, avanzando mientras tanto a lo que no dependa de esa migración si lo hay.
+
+**Sesión previa del mismo día — T-15 (slots de horario) COMPLETADA.** Sin migración propia
+(`Migración: No`): `slot_horario` y sus políticas RLS (T-10) ya existen. `src/dominio/slotHorario.ts`
+(vigencia en una fecha dada, solape de horario, cálculo de la fecha de cierre al versionar) y
+`src/datos/slotsHorario.ts` (listar/crear/modificar/cesar, escritura solo `administrator` por RLS)
+con 24 tests nuevos (460 en total, antes 436). El solape del mismo alumno bloquea el alta/edición; el
+del mismo profesor con un alumno distinto solo avisa (`avisoSolapeProfesor`, sin bloquear — un
+profesor puede tener varios alumnos a la vez). La edición versiona: cierra la versión vigente el día
+antes de la fecha de efecto y crea una nueva, sin tocar la anterior.
 
 **Sesión previa del mismo día — T-14 (avatar del alumno), solo la migración.** `db/004_bucket_avatares.sql`
 escrita y empujada: crea el bucket privado `avatares` (`allowed_mime_types = image/webp`,
@@ -148,7 +178,7 @@ horaria y ventana de tolerancia, §6) que esa sesión debe abrir si aún no tien
 | T-14 | Avatar del alumno (Supabase Storage) | BLOQUEADA — pendiente aplicar migración `004` | 2026-08-31 | Migración `004_bucket_avatares` escrita y empujada (fila 6 de §3): crea el bucket privado en sí, con lista blanca `image/webp` y límite de 2 MiB en la propia configuración del bucket. Sus políticas de `storage.objects` ya existen desde `003_politicas_rls` (T-10). El resto del alcance de T-14 (procesado de imagen en el cliente, ruta `alumno/{alumno_id}/{uuid}/`, firma en lote, monograma, límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md`, y completar los casos OMITIDOS del bucket en `db/pruebas_rls.sql`) sigue sin escribir: se retoma en cuanto el dueño aplique `004` |
 | T-15 | Slots de horario por defecto: asignación, edición y no-retroactividad | COMPLETADA | 2026-08-31 | Sin migración: `slot_horario` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/slotHorario.ts`: vigencia, solape, versionado) y datos (`src/datos/slotsHorario.ts`: listar/crear/modificar/cesar) con 24 tests nuevos (460 en total, antes 436). El solape del mismo alumno bloquea; el del mismo profesor con otro alumno solo avisa (`avisoSolapeProfesor`). Sin restricción `EXCLUDE` en base de datos (`Migración: No`, limitación conocida en `DECISIONES_TECNICAS.md`). Sin pantalla propia — la construye T-16 |
 | T-16 | Interfaz de gestión del administrador | BLOQUEADA — depende de que T-14 escriba el resto de su alcance | 2026-08-31 | Depende de T-13 (COMPLETADA), T-14 (solo la migración `004` está escrita; el procesado de imagen en el cliente y la subida de avatar siguen sin escribir) y T-15 (COMPLETADA). El requisito 2 de T-16 exige la ficha con su bloque de avatar ("subir, sustituir, quitar"), así que no tiene sentido construir esta pantalla hasta que T-14 tenga algo real que montar. No es un bloqueo de migración (sin fila en §3): es una dependencia de código pendiente de otra tarea, se retoma en cuanto T-14 complete su alcance |
-| T-17 | Motor de propuesta "quién toca ahora" | PENDIENTE | — | Depende solo de T-15 (COMPLETADA). Pregunta abierta pendiente: zona horaria y ventana de tolerancia (§6) |
+| T-17 | Motor de propuesta "quién toca ahora" | COMPLETADA | 2026-08-31 | Sin migración: depende solo de T-15 (COMPLETADA). `dominio/slots.ts` reescrito (sustituye la versión provisional de T-03) con zona horaria real (`Intl`, `Europe/Madrid` por defecto) y ventana de tolerancia; `datos/slotsHorario.ts` añade `listarSlotsDeProfesorConAlumno` (una petición, alumno embebido en columnas restringidas). 33 tests nuevos netos (477 en total, antes 460). Pregunta abierta #11 en §6 (valores por defecto de zona horaria y tolerancia, sin bloquear) |
 | T-18 | Alta de asistencia (RPC `registrar_asistencia`) | PENDIENTE | — | Migración `004_rpc_registrar_asistencia`; límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
 | T-19 | Pantalla de pasar lista | PENDIENTE | — | — |
 | T-20 | Alumno extra: listado completo y selección manual | PENDIENTE | — | — |
@@ -254,6 +284,7 @@ horaria y ventana de tolerancia, §6) que esa sesión debe abrir si aún no tien
 | 8 | El requisito 4 de T-12 pide literalmente que la búsqueda de la ficha de alumno por nombre/apellidos sea **acento-insensible**. Hoy no lo es: usa `ilike` de PostgREST (ampliado a tres columnas con un `or`), exactamente la misma limitación — y por el mismo motivo — que la búsqueda del catálogo de centros en T-11 (pregunta ya cerrada allí sin necesitar respuesta porque la spec de T-11 no lo exigía; aquí sí lo exige literalmente, aunque el criterio de aceptación enumerado de T-12 no incluye ningún caso de prueba que lo ejerza). Hacerlo de verdad exigiría instalar la extensión `unaccent` de Postgres o añadir una columna generada e indexada con el nombre sin acentos — ambas cosas son DDL, y T-12 tiene `Migración: No`. ¿Quieres que se abra una migración futura (`unaccent` o columna generada) solo para esto, o basta con la búsqueda literal actual? Mientras no haya respuesta, la búsqueda se queda como está (literal, sin acentos) y esto no bloquea nada. | T-12 | |
 | 9 | Requisito 7 de T-13: ¿interesa añadir un campo `relacion` a `persona_referencia` (padre / madre / tutor / otro), para poder mostrarlo en la ficha y, más adelante, en el aviso de ausencia (R-05, "Sr./Sra. [apellido], tutor de...")? Es una columna nueva, DDL, y T-13 tiene `Migración: No` — no se puede añadir sin una migración futura. Mientras no haya respuesta, `persona_referencia` se queda con las columnas exactas de su spec (sin `relacion`) y esto no bloquea nada. | T-13 | |
 | 10 | Requisito 7 de T-13: ¿debe exigirse que un alumno tenga **al menos una vía de contacto** — su propio email o teléfono, o al menos una persona de referencia con teléfono — antes de poder guardarlo, o se permite un alumno sin ningún contacto en absoluto (caso hoy permitido: `email_alumno`/`telefono_alumno` opcionales en T-12, y 0 personas de referencia válido en T-13)? Es una regla de negocio nueva que tocaría tanto `alumnos.ts` como `personasReferencia.ts`, no algo que el agente deba imponer sin decisión del dueño. Mientras no haya respuesta, se permiten 0 vías de contacto (tal como pidió el dueño explícitamente para T-13) y esto no bloquea nada. | T-12 / T-13 | |
+| 11 | Requisitos 2 y 4 de T-17: la zona horaria del centro y la ventana de tolerancia antes del inicio de un slot son configurables, pero el cliente no tiene bundler ni acceso a variables de entorno (§0.2: solo `config.js` expone `SUPABASE_URL`/`SUPABASE_ANON_KEY`) — así que hoy son constantes de dominio, no lectura de `ZONA_HORARIA_CENTRO` de `.env.ejemplo`. Valores elegidos, conservadores: `Europe/Madrid` (única zona horaria de todos los centros del sistema; si algún día hay centros en otro huso, dejaría de ser una constante única) y 10 minutos de tolerancia antes de `hora_inicio` (ni tan corto que un profesor puntual se quede sin propuesta, ni tan largo que aparezca la clase siguiente mientras dura la anterior). Ambas funciones (`instanteLocal`, `alumnosPropuestos`) ya las reciben como parámetro opcional, así que cambiar el valor es una constante, no una migración ni una reescritura. ¿Confirma el dueño estos dos valores, o prefiere otros? Mientras no haya respuesta, se usan los conservadores y esto no bloquea nada. | T-17 | |
 
 ---
 

@@ -1,78 +1,238 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearRelojFijo } from '../nucleo/reloj.ts';
-import { slotActivoEnInstante, slotVigente, slotsQueTocanAhora, type SlotHorario } from './slots.ts';
+import {
+  alumnosPropuestos,
+  instanteLocal,
+  slotActivoEnInstante,
+  TOLERANCIA_MINUTOS_POR_DEFECTO,
+  ZONA_HORARIA_CENTRO_POR_DEFECTO,
+  type AlumnoParaPropuesta,
+  type SlotConAlumno,
+} from './slots.ts';
+import type { SlotHorario } from './tipos.ts';
 
-function crearSlot(sobrescribir: Partial<SlotHorario> = {}): SlotHorario {
+function crearAlumno(sobrescribir: Partial<AlumnoParaPropuesta> = {}): AlumnoParaPropuesta {
   return {
-    id: 'slot-1',
-    alumnoId: 'alumno-1',
-    profesorId: 'profesor-1',
-    diaSemana: 3, // miércoles
-    horaInicio: '17:00',
-    horaFin: '18:00',
-    vigenteDesde: new Date('2026-01-01T00:00:00.000Z'),
-    vigenteHasta: null,
+    id: 'alumno-1',
+    nombre: 'Ana',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    avatar_ruta: null,
+    activo: true,
     ...sobrescribir,
   };
 }
 
-void test('slotVigente es falso antes de vigente_desde', () => {
-  const slot = crearSlot({ vigenteDesde: new Date('2026-06-01T00:00:00.000Z') });
-  assert.equal(slotVigente(slot, new Date('2026-05-31T23:59:59.000Z')), false);
+function crearSlot(sobrescribir: Partial<SlotHorario> = {}, alumno: Partial<AlumnoParaPropuesta> = {}): SlotConAlumno {
+  const slot: SlotHorario = {
+    id: 'slot-1',
+    alumno_id: 'alumno-1',
+    profesor_id: 'profesor-1',
+    dia_semana: 3, // miércoles
+    hora_inicio: '17:00',
+    hora_fin: '18:00',
+    asignatura_o_grupo: null,
+    vigente_desde: '2026-01-01',
+    vigente_hasta: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    ...sobrescribir,
+  };
+  return { ...slot, alumno: crearAlumno({ id: slot.alumno_id, ...alumno }) };
+}
+
+// --- instanteLocal: traducción UTC -> día/hora local, incluidos los cambios de hora ------------
+
+void test('instanteLocal usa Europe/Madrid por defecto', () => {
+  // 2026-08-26 es miércoles; en agosto Madrid está en CEST (UTC+2).
+  const resultado = instanteLocal(new Date('2026-08-26T17:30:00.000Z'));
+  assert.deepEqual(resultado, { diaSemana: 3, horaMinuto: '19:30' });
 });
 
-void test('slotVigente es verdadero justo en vigente_desde', () => {
-  const desde = new Date('2026-06-01T00:00:00.000Z');
-  const slot = crearSlot({ vigenteDesde: desde });
-  assert.equal(slotVigente(slot, desde), true);
+void test('instanteLocal admite otra zona horaria explícita', () => {
+  const resultado = instanteLocal(new Date('2026-08-26T17:30:00.000Z'), 'UTC');
+  assert.deepEqual(resultado, { diaSemana: 3, horaMinuto: '17:30' });
 });
 
-void test('slotVigente es verdadero sin vigente_hasta, por lejos que sea el instante', () => {
-  const slot = crearSlot({ vigenteDesde: new Date('2020-01-01T00:00:00.000Z'), vigenteHasta: null });
-  assert.equal(slotVigente(slot, new Date('2099-01-01T00:00:00.000Z')), true);
+void test('instanteLocal resuelve la medianoche como 00:00, no 24:00', () => {
+  const resultado = instanteLocal(new Date('2026-08-25T22:00:00.000Z')); // 00:00 CEST del día siguiente
+  assert.equal(resultado.horaMinuto, '00:00');
+  assert.equal(resultado.diaSemana, 3); // miércoles
 });
 
-void test('slotVigente es falso después de vigente_hasta', () => {
-  const slot = crearSlot({
-    vigenteDesde: new Date('2026-01-01T00:00:00.000Z'),
-    vigenteHasta: new Date('2026-06-30T23:59:59.000Z'),
+void test('instanteLocal aplica el cambio de hora de primavera (CET a CEST, 2026-03-29)', () => {
+  const justoAntes = instanteLocal(new Date('2026-03-29T00:59:00.000Z'));
+  const justoDespues = instanteLocal(new Date('2026-03-29T01:01:00.000Z'));
+  assert.deepEqual(justoAntes, { diaSemana: 7, horaMinuto: '01:59' });
+  assert.deepEqual(justoDespues, { diaSemana: 7, horaMinuto: '03:01' }); // salta de 02:xx a 03:xx
+});
+
+void test('instanteLocal aplica el cambio de hora de otoño (CEST a CET, 2026-10-25)', () => {
+  const justoAntes = instanteLocal(new Date('2026-10-25T00:59:00.000Z'));
+  const justoDespues = instanteLocal(new Date('2026-10-25T01:01:00.000Z'));
+  assert.deepEqual(justoAntes, { diaSemana: 7, horaMinuto: '02:59' });
+  assert.deepEqual(justoDespues, { diaSemana: 7, horaMinuto: '02:01' }); // retrocede de 02:59 a 02:01
+});
+
+// --- slotActivoEnInstante: la batería exacta del criterio de aceptación de T-17 -----------------
+
+void test('slotActivoEnInstante: dentro del slot', () => {
+  const slot = crearSlot({ dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00' });
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T15:30:00.000Z')), true); // 17:30 CEST
+});
+
+void test('slotActivoEnInstante: borde de inicio, inclusivo', () => {
+  const slot = crearSlot({ dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00' });
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T15:00:00.000Z')), true); // 17:00 CEST exacto
+});
+
+void test('slotActivoEnInstante: borde de fin, exclusivo', () => {
+  const slot = crearSlot({ dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00' });
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T16:00:00.000Z')), false); // 18:00 CEST exacto
+});
+
+void test('slotActivoEnInstante: dentro de la tolerancia, antes del inicio', () => {
+  const slot = crearSlot({ dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00' });
+  // 16:55 CEST, 5 minutos antes de las 17:00, dentro de los 10 de tolerancia por defecto.
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T14:55:00.000Z')), true);
+});
+
+void test('slotActivoEnInstante: fuera de horario, más allá de la tolerancia', () => {
+  const slot = crearSlot({ dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00' });
+  // 16:45 CEST, 15 minutos antes: fuera de los 10 de tolerancia por defecto.
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T14:45:00.000Z')), false);
+});
+
+void test('slotActivoEnInstante: la tolerancia es configurable', () => {
+  const slot = crearSlot({ dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00' });
+  const instante = new Date('2026-08-26T14:45:00.000Z'); // 16:45 CEST
+  assert.equal(slotActivoEnInstante(slot, instante, { tolerancia: 20 }), true);
+  assert.equal(slotActivoEnInstante(slot, instante), false); // por defecto, 10
+  assert.equal(TOLERANCIA_MINUTOS_POR_DEFECTO, 10);
+});
+
+void test('slotActivoEnInstante: día distinto (día sin clase ese día de la semana)', () => {
+  const slot = crearSlot({ dia_semana: 3 }); // miércoles
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-27T15:30:00.000Z')), false); // jueves
+});
+
+void test('slotActivoEnInstante: slot cesado (vigente_hasta anterior al instante)', () => {
+  const slot = crearSlot({ vigente_desde: '2026-01-01', vigente_hasta: '2026-06-30' });
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T15:30:00.000Z')), false);
+});
+
+void test('slotActivoEnInstante respeta una zona horaria distinta', () => {
+  const slot = crearSlot({ dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00' });
+  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T17:30:00.000Z'), { zonaHoraria: 'UTC' }), true);
+  assert.equal(
+    slotActivoEnInstante(slot, new Date('2026-08-26T17:30:00.000Z'), { zonaHoraria: ZONA_HORARIA_CENTRO_POR_DEFECTO }),
+    false, // 19:30 CEST, fuera del slot
+  );
+});
+
+// --- alumnosPropuestos: la propuesta completa ----------------------------------------------------
+
+const INSTANTE_BASE = new Date('2026-08-26T15:30:00.000Z'); // miércoles, 17:30 CEST
+
+void test('alumnosPropuestos: en_curso con un único alumno', () => {
+  const slot = crearSlot({}, { id: 'alumno-1' });
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.equal(resultado.tipo, 'en_curso');
+  assert.equal(resultado.alumnos.length, 1);
+  assert.equal(resultado.alumnos[0]?.alumno.id, 'alumno-1');
+});
+
+void test('alumnosPropuestos: dos slots simultáneos del mismo profesor, alumnos distintos', () => {
+  const slotA = crearSlot({ id: 'slot-a', alumno_id: 'alumno-a' }, { id: 'alumno-a' });
+  const slotB = crearSlot({ id: 'slot-b', alumno_id: 'alumno-b' }, { id: 'alumno-b' });
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slotA, slotB] });
+  assert.equal(resultado.tipo, 'en_curso');
+  const ids = resultado.alumnos.map((a) => a.alumno.id).sort();
+  assert.deepEqual(ids, ['alumno-a', 'alumno-b']);
+});
+
+void test('alumnosPropuestos: dos slots consecutivos, el que toca es el que ha empezado', () => {
+  const slotQueTermina = crearSlot(
+    { id: 'slot-termina', alumno_id: 'alumno-a', hora_inicio: '16:00', hora_fin: '17:00' },
+    { id: 'alumno-a' },
+  );
+  const slotQueEmpieza = crearSlot(
+    { id: 'slot-empieza', alumno_id: 'alumno-b', hora_inicio: '17:00', hora_fin: '18:00' },
+    { id: 'alumno-b' },
+  );
+  // 17:00:00 CEST exacto: el primero ya ha terminado (fin exclusivo), el segundo ya ha empezado.
+  const instante = new Date('2026-08-26T15:00:00.000Z');
+  const resultado = alumnosPropuestos({
+    profesorId: 'profesor-1',
+    instante,
+    slots: [slotQueTermina, slotQueEmpieza],
   });
-  assert.equal(slotVigente(slot, new Date('2026-07-01T00:00:00.000Z')), false);
+  assert.equal(resultado.tipo, 'en_curso');
+  assert.deepEqual(resultado.alumnos.map((a) => a.alumno.id), ['alumno-b']);
 });
 
-void test('slotActivoEnInstante exige coincidencia de día de la semana (miércoles = 3)', () => {
-  const slot = crearSlot({ diaSemana: 3 });
-  const miercoles1730 = new Date('2026-08-26T17:30:00.000Z'); // 2026-08-26 es miércoles
-  const jueves1730 = new Date('2026-08-27T17:30:00.000Z');
-
-  assert.equal(slotActivoEnInstante(slot, miercoles1730), true);
-  assert.equal(slotActivoEnInstante(slot, jueves1730), false);
+void test('alumnosPropuestos: alumno dado de baja no aparece aunque su slot toque', () => {
+  const slot = crearSlot({}, { activo: false });
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.equal(resultado.tipo, 'sin_clases_hoy');
 });
 
-void test('slotActivoEnInstante: horaInicio es inclusiva y horaFin es exclusiva', () => {
-  const slot = crearSlot({ diaSemana: 3, horaInicio: '17:00', horaFin: '18:00' });
-
-  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T17:00:00.000Z')), true);
-  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T17:59:00.000Z')), true);
-  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T18:00:00.000Z')), false);
-  assert.equal(slotActivoEnInstante(slot, new Date('2026-08-26T16:59:00.000Z')), false);
+void test('alumnosPropuestos: filtra por profesor, no por cualquier slot de la lista', () => {
+  const slotDeOtro = crearSlot({ profesor_id: 'profesor-2' });
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slotDeOtro] });
+  assert.equal(resultado.tipo, 'sin_clases_hoy');
 });
 
-void test('slotsQueTocanAhora filtra por el instante del reloj inyectado', () => {
-  const slotQueToca = crearSlot({ id: 'toca', diaSemana: 3, horaInicio: '17:00', horaFin: '18:00' });
-  const slotQueNoToca = crearSlot({ id: 'no-toca', diaSemana: 4, horaInicio: '17:00', horaFin: '18:00' });
-  const reloj = crearRelojFijo(new Date('2026-08-26T17:30:00.000Z')); // miércoles 17:30 UTC
-
-  const resultado = slotsQueTocanAhora([slotQueToca, slotQueNoToca], reloj);
-
-  assert.equal(resultado.length, 1);
-  assert.equal(resultado[0]?.id, 'toca');
+void test('alumnosPropuestos: sin ningún slot en curso ni próximo, sin_clases_hoy', () => {
+  const slot = crearSlot({ dia_semana: 1 }); // lunes, no coincide con el miércoles de INSTANTE_BASE
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.deepEqual(resultado, { tipo: 'sin_clases_hoy' });
 });
 
-void test('slotsQueTocanAhora devuelve una lista vacía cuando ningún slot coincide', () => {
-  const slot = crearSlot({ diaSemana: 1 });
-  const reloj = crearRelojFijo(new Date('2026-08-26T17:30:00.000Z')); // miércoles
+void test('alumnosPropuestos: sin nada en curso, propone el más próximo del día con los minutos que faltan', () => {
+  // INSTANTE_BASE = 17:30 CEST; un slot a las 18:00 CEST el mismo día, todavía no ha empezado.
+  const slot = crearSlot({ hora_inicio: '18:00', hora_fin: '19:00' });
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.equal(resultado.tipo, 'proximo');
+  assert.equal(resultado.minutosHastaInicio, 30);
+  assert.equal(resultado.alumnos.length, 1);
+});
 
-  assert.deepEqual(slotsQueTocanAhora([slot], reloj), []);
+void test('alumnosPropuestos: el próximo agrupa los que comparten la hora de inicio más cercana', () => {
+  const slotCercano1 = crearSlot(
+    { id: 'slot-cerca-1', alumno_id: 'alumno-a', hora_inicio: '18:00', hora_fin: '19:00' },
+    { id: 'alumno-a' },
+  );
+  const slotCercano2 = crearSlot(
+    { id: 'slot-cerca-2', alumno_id: 'alumno-b', hora_inicio: '18:00', hora_fin: '19:00' },
+    { id: 'alumno-b' },
+  );
+  const slotLejano = crearSlot(
+    { id: 'slot-lejos', alumno_id: 'alumno-c', hora_inicio: '20:00', hora_fin: '21:00' },
+    { id: 'alumno-c' },
+  );
+  const resultado = alumnosPropuestos({
+    profesorId: 'profesor-1',
+    instante: INSTANTE_BASE,
+    slots: [slotCercano1, slotCercano2, slotLejano],
+  });
+  assert.equal(resultado.tipo, 'proximo');
+  const ids = resultado.alumnos.map((a) => a.alumno.id).sort();
+  assert.deepEqual(ids, ['alumno-a', 'alumno-b']);
+});
+
+void test('alumnosPropuestos: un slot cesado no cuenta como próximo', () => {
+  const slot = crearSlot({ hora_inicio: '18:00', hora_fin: '19:00', vigente_hasta: '2026-06-30' });
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.deepEqual(resultado, { tipo: 'sin_clases_hoy' });
+});
+
+void test('alumnosPropuestos: cambio de hora estacional no rompe la propuesta', () => {
+  // Domingo 2026-03-29: a la 01:00 UTC el reloj local salta de 02:00 CET a 03:00 CEST. Un slot de
+  // 03:00 a 04:00 domingo debe seguir resolviéndose bien justo después del cambio.
+  const slot = crearSlot({ dia_semana: 7, hora_inicio: '03:00', hora_fin: '04:00' }, { id: 'alumno-1' });
+  const justoDespuesDelCambio = new Date('2026-03-29T01:05:00.000Z'); // 03:05 CEST
+  const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: justoDespuesDelCambio, slots: [slot] });
+  assert.equal(resultado.tipo, 'en_curso');
+  assert.equal(resultado.alumnos[0]?.alumno.id, 'alumno-1');
 });
