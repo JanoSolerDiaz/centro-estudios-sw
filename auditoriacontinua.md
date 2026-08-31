@@ -56,6 +56,81 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-08-31
+
+**Alcance real de esta pasada — segundo cero consecutivo de código, un único commit y es de PM.**
+`git log 51dd857..HEAD` (`51dd857` es el commit de la auditoría de ayer) muestra un solo commit
+nuevo, `e211016` ("sexto ciclo del PM — sin cambios de contenido, confirmado que no hay nada nuevo
+que incorporar"), y `git diff 51dd857 HEAD --stat` confirma que solo toca dos ficheros de
+`roadmap/` (`HISTORIAL_SESIONES.md`, `ROADMAP_PRODUCTO.md`); ninguna línea de `db/` ni `src/` ha
+cambiado. Además, `git diff 86d8395 HEAD -- db/pruebas_rls.sql db/003_politicas_rls.sql
+src/datos/alumnos.ts db/MODELO.md` (contra la auditoría de hace dos pasadas, 2026-08-29) devuelve
+cero líneas: estos cuatro ficheros, los que sostienen los hallazgos abiertos y los puntos de
+control más sensibles, son byte a byte idénticos desde hace tres días. Ninguna sesión de
+programador ha corrido desde la del ciclo T-13 (2026-08-28). Por eso esta auditoría vuelve a ser
+breve y no delega en subagentes: no hay superficie nueva que dividir.
+
+**Verificación directa, aunque el alcance sea pequeño.** `git checkout develop && git pull` limpio
+(1 commit nuevo desde `51dd857`). `npm ci` (130 paquetes, 0 vulnerabilidades). Los cuatro comandos
+de §0.1 en verde: `npm run typecheck`, `npm run lint`, `npm run build`, y `npm test` — **429 tests,
+429 pass, 0 fail**, la misma cifra exacta que las dos pasadas anteriores, coherente con que no ha
+entrado código nuevo. CI de GitHub Actions en `develop`: 24 runs totales, todos
+`completed`/`success`, incluido el del commit actual (`e211016`, run `33329848604`). `git status`
+limpio antes y después. Repetido el barrido de secretos sobre `dist/` recién construido con
+`grep -rniE` de `service_role`/`SUPABASE_ACCESS_TOKEN`/contraseñas en claro/JWT: ninguna
+coincidencia real, cero resultado. `grep -ni "truncate" db/*.sql` solo encuentra el comentario de
+`000b_arreglo_permisos.sql` que documenta el incidente ya corregido, ninguna concesión nueva.
+`grep -ni "student" db/*.sql` no encuentra ninguna política nueva para ese rol, solo las menciones
+ya auditadas (el `check` de `perfil.rol`, `perfil_leer_propio`, comentarios y el barrido de
+`db/pruebas_rls.sql`). `db/APLICADAS.md` sigue mostrando solo `001` aplicada en `dev`: T-10 sigue
+`BLOQUEADA` sin que el dueño haya aplicado `002`/`003` todavía.
+
+**Hallazgo #2 (severidad alta, cobertura de escritura de `db/pruebas_rls.sql`) — reevaluado, sigue
+`ABIERTO`, sin cambio.** Confirmado que el fichero es byte a byte el mismo desde la auditoría del
+2026-08-29 (ver diff de alcance arriba): la batería sigue sin ejercitar ningún
+`UPDATE`/`DELETE`/`TRUNCATE`, y las políticas `UPDATE` de `centro_estudios`/`alumno`/`slot_horario`
+y la `for all` de `persona_referencia` siguen sin un solo caso que las pruebe en ejecución. No se
+marca `RESUELTO` porque no hay commit de programador que lo haya tocado. El sexto ciclo de PM
+(`e211016`) trató este hallazgo correctamente: no generó ninguna R-XX ni entrada de backlog nueva
+para él, y no duplicó el rastro ya existente en `SEGUIMIENTO.md` — lo dejó como está, a la espera
+del programador.
+
+**Hallazgos #3 y #4 (severidad baja) — reevaluados, siguen `ABIERTO` en el código, con el mismo
+seguimiento ya trazado.** `avatar_ruta` sigue viajando en el `select` `*` de `SELECT_CON_CENTRO`
+(`src/datos/alumnos.ts:83`, verificado con `grep -n "SELECT_CON_CENTRO\|avatar_ruta"`); la línea 194
+de `db/MODELO.md` sigue sin actualizar. Ninguno de los dos tiene commit de programador desde que se
+abrieron, así que se mantienen `ABIERTO`. Su seguimiento como P-02/P-03 en §5 de `SEGUIMIENTO.md`
+sigue vigente sin necesidad de tocarlo de nuevo, porque nada ha cambiado en su estado.
+
+**Coherencia del ciclo de PM — sin hallazgo.** Se leyó el diff completo de `e211016` contra
+`ROADMAP_PRODUCTO.md` e `HISTORIAL_SESIONES.md`: ambos relatan exactamente el mismo hecho (ninguna
+R-XX nueva, P-02/P-03 sin cambio de estado, `FEEDBACK.md` sin entradas `nuevo` — confirmado
+leyendo el fichero directamente, sigue con solo la fila plantilla vacía), sin contradicción entre
+ellos ni con este documento. `SEGUIMIENTO.md` y `DECISIONES_TECNICAS.md` no se han tocado
+(confirmado con `git diff 51dd857 HEAD` sobre ambos, vacío) — correcto: un ciclo de PM sin cambio
+de arquitectura ni de estado de tareas no genera decisiones técnicas ni movimiento en el registro
+de tareas. `HOJA_DE_RUTA.md` sigue sin ninguna edición desde que el dueño cerró el hallazgo #1. Es
+la segunda vez consecutiva que el ciclo de PM documenta explícitamente "sin cambios de contenido"
+en vez de inventar una R-XX para justificar el ciclo — la disciplina correcta se mantiene, no se ha
+erosionado con la repetición.
+
+**Puntos de control permanentes — sin novedad respecto a la pasada de ayer**, porque ni el esquema
+ni el código de aplicación han cambiado desde hace tres días: la reevaluación en vivo de esta pasada
+(secretos, `TRUNCATE`, `student`, CI, suite completa) no encuentra ninguna diferencia con lo ya
+validado en profundidad el 2026-08-29.
+
+**Conclusión.** Nada que reportar más allá de confirmar que el estado sigue siendo el que se dejó
+hace dos pasadas: cero código nuevo por tercera jornada consecutiva, los cuatro comandos de
+verificación y la suite completa en verde con la misma cifra exacta de tests, CI verde, sin
+secretos, sin `TRUNCATE` nuevo, sin política nueva para `student`. El hallazgo de severidad alta
+(#2) sigue abierto porque nadie lo ha corregido todavía — no por descuido, sino porque no ha
+corrido ninguna sesión de programador desde el ciclo de T-13 —, y los dos hallazgos menores (#3,
+#4) siguen con su tarea de seguimiento (P-02, P-03) trazada y sin necesidad de reescritura. La
+próxima auditoría con sustancia real llega en cuanto el programador cierre el hallazgo #2
+(ampliando `db/pruebas_rls.sql` con los casos de `UPDATE`/`DELETE`/`TRUNCATE` que faltan) o el
+dueño aplique `002`/`003` en `dev`, lo que ocurra primero — cualquiera de los dos es el momento de
+volver a ejecutar `npm run probar-rls` y contrastar el resultado real contra lo que el SQL promete.
+
 ### Auditoría 2026-08-30
 
 **Alcance real de esta pasada — un único commit desde la anterior, y es de PM, no de desarrollo.**
