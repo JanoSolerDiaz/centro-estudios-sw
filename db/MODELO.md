@@ -239,6 +239,12 @@ son solo "una política por celda":
   el bucket lo crea T-14 (`004_bucket_avatares`, renumerada porque esta migración pasó de `002` a
   `003` — ver `db/APLICADAS.md`): una política sobre `bucket_id = 'avatares'` no exige que el bucket
   exista todavía, así que nunca hay una ventana en la que el bucket exista sin RLS en vigor.
+  `004_bucket_avatares.sql` ya está escrita y empujada a `develop` (2026-08-31, P-04): crea el bucket
+  **privado** (`public = false`), con lista blanca de tipo MIME en la propia configuración del
+  bucket — solo `image/webp`, porque el cliente sube únicamente las derivadas ya recodificadas, nunca
+  el fichero original del móvil — y `file_size_limit` de 2 MiB. Pendiente de que el dueño la aplique
+  en `dev` (fila de §3 de `SEGUIMIENTO.md`); el resto del alcance de T-14 (procesado en el cliente,
+  ruta `alumno/{alumno_id}/{uuid}/`, firma en lote, monograma) sigue sin escribir.
 
 `db/pruebas_rls.sql`, lanzable con `npm run probar-rls` (el dueño, nunca el agente: exige
 `SUPABASE_ACCESS_TOKEN`), impersona usuarios reales de `perfil` para comprobar cada celda de la

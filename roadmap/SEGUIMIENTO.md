@@ -74,12 +74,16 @@ matriz cuando exista uno (T-24, o uno de prueba creado a mano por el dueño).
 registro debe empujarse en cuanto se escribe. Esta sesión empezó con `git pull` limpio sobre
 `ef176ef` (T-12 + P-01 + T-10/T-11, ver §1), sin colisión.
 
-**Siguiente tarea: T-14 (avatar del alumno, Supabase Storage).** Su spec está en el cuerpo de
-`HOJA_DE_RUTA.md`; **lleva migración propia** (`004_bucket_avatares`, renumerada — ver §7 de
-2026-08-28): crea el bucket privado en sí, ya que sus políticas de `storage.objects` se escribieron
-en `003_politicas_rls.sql` (T-10). La siguiente sesión debe escribir esa migración, empujarla,
-marcar T-14 BLOQUEADA en §1 con su fila en §3, y pasar a T-15 (slots de horario, `Migración: No`,
-depende solo de T-12) mientras el dueño la aplica.
+**T-14 pasó a BLOQUEADA el 2026-08-31** (misma sesión que P-04): `004_bucket_avatares.sql` ya está
+escrita y empujada (fila 6 de §3), con sus comprobaciones estáticas propias
+(`herramientas/migraciones/bucketAvatares.test.ts`, 7 tests). Solo crea el bucket privado en sí; sus
+políticas de `storage.objects` ya existían desde `003_politicas_rls.sql` (T-10). El resto del alcance
+de T-14 (procesado de imagen en el cliente, ruta determinista, firma en lote, monograma) queda
+latente hasta que el dueño aplique `004` — no se ha escrito todavía.
+
+**Siguiente tarea: T-15 (slots de horario por defecto).** Su spec está en el cuerpo de
+`HOJA_DE_RUTA.md`; `Migración: No`, depende solo de T-12 (COMPLETADA), así que no está bloqueada por
+`004`.
 
 ---
 
@@ -118,7 +122,7 @@ depende solo de T-12) mientras el dueño la aplica.
 | T-11 | Catálogo de centros de estudios | COMPLETADA | 2026-08-28 | Sin migración: `centro_estudios` y su `unique(nombre)` exacto ya viven en `001_esquema_inicial`. Dominio (`src/dominio/centrosEstudios.ts`), datos (`src/datos/centrosEstudios.ts`) y pantalla standalone (`src/ui/pantallaCentros.ts`, sin enrutar hasta T-16) con 32 tests nuevos (365 en total, antes 333). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-12 | Ficha de alumno: datos, centro y baja lógica | COMPLETADA | 2026-08-28 | Sin migración: `alumno` ya existe con todas sus columnas desde `001_esquema_inicial`. Dominio (`src/dominio/alumno.ts`), datos (`src/datos/alumnos.ts`, leyendo de la vista `alumno_ficha` de T-10) y pantalla standalone solo-administrator (`src/ui/pantallaFichaAlumno.ts`, sin enrutar hasta T-16) con 43 tests nuevos (408 en total, antes 365). Búsqueda no acento-insensible (pregunta abierta en §6, mismo motivo que T-11). Detalle en `HISTORIAL_SESIONES.md` de hoy |
 | T-13 | Personas de referencia del alumno | COMPLETADA | 2026-08-28 | Sin migración: `persona_referencia` y sus políticas RLS (T-10) ya existen. Dominio (`src/dominio/personaReferencia.ts`), datos (`src/datos/personasReferencia.ts`) y gestión embebida en `src/ui/pantallaFichaAlumno.ts` (sin pantalla propia, por spec) con 21 tests nuevos (429 en total, antes 408). Detalle en `HISTORIAL_SESIONES.md` de hoy |
-| T-14 | Avatar del alumno (Supabase Storage) | PENDIENTE | — | Migración `004_bucket_avatares` (renumerada de `003`: T-10 ocupó ese número, ver §7). Sus políticas de `storage.objects` ya existen desde `003_politicas_rls`; esta tarea solo crea el bucket. Bucket privado; límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md`. Debe completar los casos OMITIDOS del bucket en `db/pruebas_rls.sql` |
+| T-14 | Avatar del alumno (Supabase Storage) | BLOQUEADA — pendiente aplicar migración `004` | 2026-08-31 | Migración `004_bucket_avatares` escrita y empujada (fila 6 de §3): crea el bucket privado en sí, con lista blanca `image/webp` y límite de 2 MiB en la propia configuración del bucket. Sus políticas de `storage.objects` ya existen desde `003_politicas_rls` (T-10). El resto del alcance de T-14 (procesado de imagen en el cliente, ruta `alumno/{alumno_id}/{uuid}/`, firma en lote, monograma, límite de subidas por administrator y hora — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md`, y completar los casos OMITIDOS del bucket en `db/pruebas_rls.sql`) sigue sin escribir: se retoma en cuanto el dueño aplique `004` |
 | T-15 | Slots de horario y no-retroactividad | PENDIENTE | — | — |
 | T-16 | Interfaz de gestión del administrador | PENDIENTE | — | Centros, ficha completa y horarios |
 | T-17 | Motor de propuesta "quién toca ahora" | PENDIENTE | — | — |
@@ -169,6 +173,7 @@ depende solo de T-12) mientras el dueño la aplica.
 | 3 | Crear el primer usuario `administrator` en `dev` (bloqueo humano de T-09) | T-09 | ~~Crear el usuario en Authentication → Users y promoverlo con el bloque del final de `db/000_bootstrap_perfil.sql`~~ | **RESUELTA 2026-08-27** — hecho y **verificado**: el dueño ejecutó la consulta de comprobación y el único perfil de `dev` tiene `rol = administrator` y `activo = true`, no el `student` por defecto. Se anota el resultado y no la salida literal: nombre y email son datos personales y no van a un documento de registro |
 | 4 | Aplicar la migración `002_bloqueo_cuenta` en `dev` | P-01 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `2` | **PENDIENTE** — añade `intentos_fallidos`/`bloqueado` a `perfil`, redefine `rol_actual()` (misma función, `create or replace`, sigue `security definer`) para exigir `not bloqueado`, y crea las RPC `registrar_intento_fallido`/`admin_desbloquear_usuario`. No borra ni recrea nada existente: es segura de aplicar sobre los datos ya presentes (las dos columnas nacen con sus valores por defecto, `0`/`false`, en todas las filas actuales) |
 | 5 | Aplicar la migración `003_politicas_rls` en `dev`, **después** de la fila 4 | T-10 | `git pull` y `npm run migrate` en local (aplica en orden numérico: no hace nada si `002` sigue pendiente). Al terminar, comprobar que `esquema_version()` devuelve `3`. Opcional pero recomendado: ejecutar también `npm run probar-rls` y revisar que no haya ninguna fila `FALLO` | **PENDIENTE** — añade las políticas RLS de los tres roles a las siete tablas de `001_esquema_inicial` (matriz completa en `DECISIONES_TECNICAS.md`) y las políticas del bucket `avatares` (el bucket en sí lo crea T-14). No borra ni recrea nada existente |
+| 6 | Aplicar la migración `004_bucket_avatares` en `dev`, **después** de las filas 4 y 5 | T-14 | `git pull` y `npm run migrate` en local (aplica en orden numérico: no hace nada si `002`/`003` siguen pendientes). Al terminar, comprobar que `esquema_version()` devuelve `4` | **PENDIENTE** — crea el bucket privado `avatares` (`public = false`, lista blanca `image/webp`, límite de tamaño 2 MiB en la propia configuración del bucket). Sus políticas ya existen desde `003_politicas_rls` (fila 5): esta migración no crea ninguna política nueva, solo el bucket en sí. No borra ni recrea nada existente |
 
 ---
 

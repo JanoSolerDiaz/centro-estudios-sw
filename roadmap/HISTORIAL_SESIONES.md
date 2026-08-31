@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-08-31 (2)
+**Tarea(s):** T-14 (avatar del alumno, Supabase Storage) — solo la migración; el resto queda BLOQUEADA
+**Estado resultante:** BLOQUEADA — pendiente aplicar migración `004`
+**Commits a `develop`:** `<pendiente de este commit>` — "T-14: migración 004_bucket_avatares (crea el bucket privado; sus políticas ya existían desde 003)"
+**Migraciones aplicadas:** ninguna. Migración **escrita**: `db/004_bucket_avatares.sql` (crea el bucket privado `avatares`, `allowed_mime_types = image/webp`, `file_size_limit = 2 MiB`). Fila 6 de §3 de `SEGUIMIENTO.md` abierta para que el dueño la aplique con `npm run migrate`
+**Propagación a prod pendiente:** ninguna (T-25)
+**Archivos creados/modificados:** `db/004_bucket_avatares.sql` (nuevo), `herramientas/migraciones/bucketAvatares.test.ts` (nuevo, 7 tests estáticos, mismo patrón que `esquemaInicial.test.ts`/`bloqueoCuenta.test.ts`/`politicasRls.test.ts`), `db/MODELO.md`, `roadmap/DECISIONES_TECNICAS.md`, `roadmap/SEGUIMIENTO.md` (§1 T-14 a BLOQUEADA, §3 fila 6, cabecera)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (436/436: 429 + los 7 nuevos de `bucketAvatares.test.ts`) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía (`<pendiente>`, T-25)
+**Decisiones tomadas:** fila `2026-08-31 | T-14` de `DECISIONES_TECNICAS.md` — lista blanca del bucket restringida a `image/webp` (el cliente solo sube derivadas ya recodificadas, nunca el original del móvil) y límite de 2 MiB
+**Hallazgos del auditor atendidos:** ninguno (la sesión anterior del mismo día ya atendió el #2, ver arriba)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el resto del alcance de T-14 (procesado de imagen en el cliente, ruta determinista, firma en lote, monograma, límite de subidas) sigue **sin escribir**: se retoma cuando el dueño aplique `004` y confirme en §3. Mientras tanto, la cola normal continúa por **T-15** (slots de horario, `Migración: No`, depende solo de T-12)
+
+---
+
 ### Sesión 2026-08-31
 **Tarea(s):** P-04 (urgente, §0.3)
 **Estado resultante:** COMPLETADA
