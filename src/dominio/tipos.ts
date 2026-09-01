@@ -73,6 +73,20 @@ export interface PersonaReferencia {
 
 export type DiaSemana = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
+/** Etiquetas de interfaz en español, mismo criterio que `ETIQUETA_ROL`: ÚNICA traducción a texto
+ * visible, nunca comparar `dia_semana` contra la etiqueta. Promovida aquí desde
+ * `pantallaFichaAlumno.ts` (T-16) cuando `pantallaRegistrosSlot.ts` (T-21) la necesitó también, para
+ * no duplicarla una segunda vez. */
+export const ETIQUETA_DIA_SEMANA: Readonly<Record<DiaSemana, string>> = {
+  1: 'Lunes',
+  2: 'Martes',
+  3: 'Miércoles',
+  4: 'Jueves',
+  5: 'Viernes',
+  6: 'Sábado',
+  7: 'Domingo',
+};
+
 export interface SlotHorario {
   readonly id: string;
   readonly alumno_id: string;

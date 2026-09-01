@@ -4,7 +4,13 @@ import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.t
 import { crearClientePostgrest } from './postgrest.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { crearLimitadorTasa, ErrorLimiteAlcanzado } from '../nucleo/limitadorTasa.ts';
-import { registrarAsistencia, listarAsistenciaDeHoy } from './asistencia.ts';
+import {
+  registrarAsistencia,
+  listarAsistenciaDeHoy,
+  actualizarAsistencia,
+  listarRegistrosDeSlotYFecha,
+  listarHistorialDeAsistencia,
+} from './asistencia.ts';
 import { Conflicto, ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
 
@@ -240,4 +246,174 @@ void test('listarAsistenciaDeHoy: admite otra zona horaria explícita', async ()
   assert.ok(peticion);
   const url = new URL(peticion.url);
   assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-06-10T00:00:00.000Z"', 'lte."2026-06-10T23:59:59.999Z"']);
+});
+
+void test('actualizarAsistencia llama a la RPC actualizar_asistencia con el cuerpo esperado (solo la nota)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, nota: 'Llegó tarde' } };
+  });
+
+  const fila = await actualizarAsistencia({ postgrest }, 'p1', {
+    asistenciaId: 'as1',
+    nota: 'Llegó tarde',
+    notaProvista: true,
+  });
+
+  assert.ok(peticion);
+  assert.equal(peticion.url, 'https://proyecto.supabase.co/rest/v1/rpc/actualizar_asistencia');
+  assert.equal(peticion.metodo, 'POST');
+  assert.deepEqual(peticion.cuerpo, {
+    p_asistencia_id: 'as1',
+    p_alumno_id: null,
+    p_slot_id: null,
+    p_ocurrido_en: null,
+    p_anular: false,
+    p_motivo_anulacion: null,
+    p_nota: 'Llegó tarde',
+    p_nota_provista: true,
+  });
+  assert.deepEqual(fila, { ...FILA, nota: 'Llegó tarde' });
+});
+
+void test('actualizarAsistencia: sin notaProvista, p_nota viaja null aunque se pase un valor (no se toca la nota)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: FILA };
+  });
+
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', nota: 'no debería enviarse' });
+
+  assert.ok(peticion);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_nota_provista, false);
+});
+
+void test('actualizarAsistencia: anular envía p_anular y p_motivo_anulacion', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, estado: 'anulada', motivo_anulacion: 'Registrado por error' } };
+  });
+
+  const fila = await actualizarAsistencia({ postgrest }, 'p1', {
+    asistenciaId: 'as1',
+    anular: true,
+    motivoAnulacion: 'Registrado por error',
+  });
+
+  assert.ok(peticion);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_anular, true);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_motivo_anulacion, 'Registrado por error');
+  assert.equal(fila.estado, 'anulada');
+});
+
+void test('actualizarAsistencia: anular sin motivo llega como ErrorDeValidacion (400)', async () => {
+  const postgrest = crearCliente(() => ({ estado: 400, cuerpo: { message: 'actualizar_asistencia: anular exige un motivo' } }));
+
+  await assert.rejects(() => actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', anular: true }), ErrorDeValidacion);
+});
+
+void test('actualizarAsistencia: cambiar alumno y ajustar la hora envían sus parámetros, con la fecha en ISO', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: FILA };
+  });
+  const ocurridoEn = new Date('2026-08-30T10:00:00.000Z');
+
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', alumnoId: 'al2', ocurridoEn });
+
+  assert.ok(peticion);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_alumno_id, 'al2');
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_ocurrido_en, ocurridoEn.toISOString());
+});
+
+void test('actualizarAsistencia: cambiar el slot atribuido envía p_slot_id', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, slot_id: 'slot2' } };
+  });
+
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', slotId: 'slot2' });
+
+  assert.ok(peticion);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_slot_id, 'slot2');
+});
+
+void test('un teacher editando el registro de otro profesor, o fuera de la ventana de edición: SinPermiso (403)', async () => {
+  const postgrest = crearCliente(() => ({
+    estado: 403,
+    cuerpo: { message: 'actualizar_asistencia: no puedes modificar un registro de otro profesor' },
+  }));
+
+  await assert.rejects(
+    () => actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', nota: 'x', notaProvista: true }),
+    SinPermiso,
+  );
+});
+
+void test('actualizarAsistencia: el limitador de cliente (T-06) se comprueba con la clave del profesor DUEÑO del registro', () => {
+  const reloj = crearRelojFijo(new Date('2026-08-31T09:00:00.000Z'));
+  const limitador = crearLimitadorTasa({ maximo: 1, ventanaMs: 60_000, reloj });
+  const postgrest = crearCliente(() => ({ estado: 200, cuerpo: FILA }));
+
+  void actualizarAsistencia({ postgrest, limitador }, 'profesor-dueno', { asistenciaId: 'as1', nota: 'x', notaProvista: true });
+
+  assert.throws(() => {
+    limitador.comprobar('asistencia:profesor-dueno');
+  }, ErrorLimiteAlcanzado);
+});
+
+void test('listarRegistrosDeSlotYFecha: una única petición, acotada al slot y al día natural de fecha (cualquier estado)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [FILA, { ...FILA, id: 'as2', estado: 'anulada', motivo_anulacion: 'Registrado por error' }] };
+  });
+
+  // 2026-08-26T12:00Z es mediodía en CEST (UTC+2): el día local va de 2026-08-25T22:00Z a 2026-08-26T22:00Z.
+  const filas = await listarRegistrosDeSlotYFecha(postgrest, 'slot1', new Date('2026-08-26T12:00:00.000Z'));
+
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'GET');
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/asistencia');
+  assert.equal(url.searchParams.get('slot_id'), 'eq.slot1');
+  assert.equal(url.searchParams.get('estado'), null);
+  assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-08-25T22:00:00.000Z"', 'lte."2026-08-26T21:59:59.999Z"']);
+  assert.equal(filas.length, 2);
+});
+
+void test('listarRegistrosDeSlotYFecha: admite otra zona horaria explícita', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  await listarRegistrosDeSlotYFecha(postgrest, 'slot1', new Date('2026-06-10T12:00:00.000Z'), 'UTC');
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-06-10T00:00:00.000Z"', 'lte."2026-06-10T23:59:59.999Z"']);
+});
+
+void test('listarHistorialDeAsistencia: una única petición, acotada al registro y ordenada por cambiado_en ascendente', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  await listarHistorialDeAsistencia(postgrest, 'as1');
+
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'GET');
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/asistencia_historial');
+  assert.equal(url.searchParams.get('asistencia_id'), 'eq.as1');
+  assert.equal(url.searchParams.get('order'), 'cambiado_en.asc');
 });

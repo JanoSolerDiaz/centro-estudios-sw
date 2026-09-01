@@ -118,6 +118,24 @@ export function puedeEditarAsistencia(
   return reloj.ahora().getTime() - registro.registradoEn.getTime() <= limiteMs;
 }
 
+/** ¿Es válido `motivo` para anular un registro (requisito 4 de T-21: "motivo obligatorio")? Rechaza
+ * `null` y una cadena que, una vez recortada, quede vacía — misma condición exacta que la RPC
+ * `actualizar_asistencia` (`db/008_rpc_actualizar_asistencia.sql`: `length(trim(p_motivo_anulacion))
+ * = 0`), para que la interfaz pueda deshabilitar el botón de confirmar antes de que el servidor
+ * tenga que rechazarlo. */
+export function motivoAnulacionValido(motivo: string | null): boolean {
+  return motivo !== null && motivo.trim().length > 0;
+}
+
+/** ¿Tiene sentido ofrecer "cambiar el slot atribuido" (requisito 4 de T-21) sobre `registro`? Solo
+ * un registro de origen `slot` tiene un slot que cambiar — uno `manual` (T-20, alumno extra) no. La
+ * RPC aplica la misma condición exacta (`v_actual.origen <> 'slot'`) y la rechaza si se intenta de
+ * todos modos; esta función es solo para que la interfaz no ofrezca la acción donde no puede
+ * funcionar nunca. */
+export function puedeCambiarSlotAtribuido(registro: Pick<Asistencia, 'origen'>): boolean {
+  return registro.origen === 'slot';
+}
+
 /** Clave de un registro por alumno y slot (T-19, requisito 5: "al abrir, ya se ve quién está
  * registrado hoy en ese slot"), único criterio para cruzar la propuesta (`alumnosPropuestos`,
  * `dominio/slots.ts`) con lo que ya devolvió el servidor — mismas dos columnas que la restricción

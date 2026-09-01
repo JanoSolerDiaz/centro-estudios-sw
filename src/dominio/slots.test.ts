@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   alumnosPropuestos,
+  fechaLocalISO,
   instanteLocal,
   limitesDiaLocal,
   slotActivoEnInstante,
@@ -126,6 +127,24 @@ void test('limitesDiaLocal: admite otra zona horaria explícita (UTC, sin despla
   const { inicioUtc, finUtc } = limitesDiaLocal(new Date('2026-06-10T12:00:00.000Z'), 'UTC');
   assert.equal(inicioUtc.toISOString(), '2026-06-10T00:00:00.000Z');
   assert.equal(finUtc.toISOString(), '2026-06-11T00:00:00.000Z');
+});
+
+// --- fechaLocalISO: valor por defecto del selector de fecha de T-21 -----------------------------
+
+void test('fechaLocalISO: un mediodía cualquiera en CEST (agosto, UTC+2)', () => {
+  assert.equal(fechaLocalISO(new Date('2026-08-26T12:00:00.000Z')), '2026-08-26');
+});
+
+void test('fechaLocalISO: la medianoche local pertenece a su propio día, no al anterior', () => {
+  assert.equal(fechaLocalISO(new Date('2026-08-25T22:00:00.000Z')), '2026-08-26'); // 00:00 CEST del 26
+});
+
+void test('fechaLocalISO: rellena mes y día a dos cifras', () => {
+  assert.equal(fechaLocalISO(new Date('2026-01-05T12:00:00.000Z')), '2026-01-05');
+});
+
+void test('fechaLocalISO: admite otra zona horaria explícita (UTC, sin desplazamiento)', () => {
+  assert.equal(fechaLocalISO(new Date('2026-06-10T23:30:00.000Z'), 'UTC'), '2026-06-10');
 });
 
 // --- slotActivoEnInstante: la batería exacta del criterio de aceptación de T-17 -----------------

@@ -70,8 +70,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   (no-retroactividad, coherencia de origen/slot_id, ventana retroactiva máxima, quién puede
   registrar en nombre de otro y quién puede editar un registro — reescrito por completo en T-18
   sobre el tipo oficial `Rol`) nacieron en T-03 como versión provisional con tipos propios; ambas
-  quedan ya sobre los tipos oficiales del esquema real (`src/dominio/tipos.ts`). Falta por escribir
-  la parte de `asistencia.ts` que sea propia de T-21 (ventana de edición ya está: `VENTANA_EDICION_TEACHER_DIAS`).
+  quedan ya sobre los tipos oficiales del esquema real (`src/dominio/tipos.ts`). Desde T-21,
+  `asistencia.ts` añade `motivoAnulacionValido`/`puedeCambiarSlotAtribuido` (misma condición que
+  valida la RPC `actualizar_asistencia`, para deshabilitar un botón antes de que el servidor tenga
+  que rechazarlo); `puedeEditarAsistencia` (ventana de edición) ya existía desde T-03/T-18 y ahora la
+  consume de verdad `actualizar_asistencia`. `slots.ts` añade `fechaLocalISO` (T-21, valor por
+  defecto de un `<input type="date">`). `tipos.ts` gana `ETIQUETA_DIA_SEMANA` (T-21, promovida desde
+  una constante local de `pantallaFichaAlumno.ts`, mismo criterio que `ETIQUETA_ROL`).
   Desde T-11: `centrosEstudios.ts` — `normalizarNombreCentro`/`buscarCentroDuplicado`, comparación de
   nombres acento-insensible y sin distinguir mayúsculas para detectar duplicados en el catálogo, sin
   tocar la base de datos (el `unique` de `centro_estudios.nombre` sigue siendo exacto a propósito).
@@ -170,7 +175,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     de datos no protege nada. El límite de cliente de T-06 (opcional) se cuenta sobre el profesor
     que de verdad registra (`profesorId` si un `administrator` registra en nombre de otro; si no,
     `usuarioId`), nunca sobre quien llama. `entrada.origen = 'manual'`/`slotId: null`/`nota` es el
-    camino de "alumno extra" (T-20): la misma RPC, sin ningún cambio.
+    camino de "alumno extra" (T-20): la misma RPC, sin ningún cambio. Desde T-21:
+    `actualizarAsistencia(deps, profesorDuenoId, entrada)` — llama a `actualizar_asistencia`
+    (`db/008_rpc_actualizar_asistencia.sql`), la única vía de modificación de un registro ya
+    existente; `entrada.nota`/`entrada.notaProvista` es el único par tri-estado del módulo (sin
+    `notaProvista: true`, `nota` se ignora, para poder vaciarla sin confundirlo con "no tocarla`").
+    `listarRegistrosDeSlotYFecha(cliente, slotId, fecha, zona?)` — registros de un slot en CUALQUIER
+    fecha, cualquier estado (a diferencia de `listarAsistenciaDeHoy`, siempre "hoy" y solo válidos).
+    `listarHistorialDeAsistencia(cliente, asistenciaId)` — lee `asistencia_historial`, solo tiene
+    sentido para `administrator` (única política de lectura sobre esa tabla).
   - `alumnos.ts`, ampliado en T-20 — `buscarAlumnosParaExtra(cliente, texto, señal?)`: llama a la
     RPC `buscar_alumnos_activos` (`db/007_rpc_buscar_alumnos.sql`, `SECURITY DEFINER`), nunca la
     tabla base ni la vista `alumno_ficha` — es la única vía por la que un `teacher` puede saber a
@@ -254,10 +267,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16) — `analizarRuta(hash)`/`hashDeRuta(ruta)` (puras) y `crearRouter(objetivo)`:
-    router por `hash` de la aplicación de `administrator` (`#/centros`, `#/alumnos`,
-    `#/alumnos/nuevo`, `#/alumnos/<id>`). `objetivo` se inyecta (nunca lee `window` directamente),
-    mismo patrón que `instalarCapturaErrores`.
+  - `router.ts` (T-16, ampliado en T-21) — `analizarRuta(hash)`/`hashDeRuta(ruta)` (puras) y
+    `crearRouter(objetivo)`: router por `hash` de la aplicación de `administrator` (`#/centros`,
+    `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`). `objetivo` se inyecta (nunca lee
+    `window` directamente), mismo patrón que `instalarCapturaErrores`. `teacher` no usa este router
+    (ver `mostrarAppProfesor` más abajo).
   - `almacenEstado.ts` (T-16) — `crearAlmacenEstado(inicial)`: estado mínimo con suscripción
     (`obtener`/`actualizar`/`suscribir`), mismo contrato que `GestorSesion`. Genérico y sin DOM;
     usado por `pantallaListadoAlumnos.ts`.
@@ -306,10 +320,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     las funciones puras de `src/datos/**` con el `ClientePostgrest`/`ClienteAlmacenamiento` reales,
     para que cada pantalla siga recibiendo solo funciones ya resueltas, nunca un cliente HTTP.
     `mostrarAppAdministrador` monta además un `crearRouter` propio (`pantallaCentros.ts`,
-    `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`); `mostrarAppProfesor` todavía no tiene
-    router propio — una única pantalla (`pantallaPasarLista.ts`) no necesita enrutar nada, mismo
-    criterio que `pantallaCentros.ts` tampoco lo tuvo hasta que T-16 montó una segunda y tercera
-    pantalla. T-22 ("mi horario") introducirá el router de `teacher` cuando haga falta.
+    `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`, `pantallaRegistrosSlot.ts` desde T-21).
+    `mostrarAppProfesor` sigue sin `hash`/router de verdad, pero desde T-21 ya no es una única
+    pantalla: una navegación local mínima (`crearAlmacenEstado` sobre `'pasar-lista' | 'registros'`,
+    dos botones en la cabecera) alterna entre `pantallaPasarLista.ts` y `pantallaRegistrosSlot.ts`
+    sin perder la sesión ni la cabecera. T-22 ("mi horario") decidirá si a `teacher` le hace falta ya
+    un router de verdad al llegar una TERCERA pantalla.
   - `pantallaCentros.ts` (T-11) — `mostrarPantallaCentros(contenedor, deps)`: catálogo de centros de
     estudios (listar con filtro de estado y búsqueda, crear, editar el nombre, desactivar,
     reactivar). **Enrutada desde T-16** (`#/centros`, solo dentro de la aplicación de
@@ -376,6 +392,24 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     el aborto de "empezar una nueva" surta efecto sin necesitar un `AbortController` propio. Una
     respuesta abortada (`esErrorDeCancelacion`) se ignora en silencio, nunca se pinta como error.
     Nunca pide avatar (requisito 3 de T-20): el tipo `ResultadoBusquedaAlumno` no lo tiene.
+  - `pantallaRegistrosSlot.ts` (T-21) — `mostrarPantallaRegistrosSlot(contenedor, deps)`: consulta y
+    modificación de los registros de UN slot en UN día, para `teacher` (solo lo suyo, sin selector de
+    profesor) y `administrator` (elige profesor, `puedeEditarAsistenciaDeCualquiera`,
+    `permisosUi.ts`) — la RLS de `003_politicas_rls.sql` ya bastaba para la consulta (`SELECT` sobre
+    `asistencia`/`asistencia_historial` desde T-10); la migración `008` solo hacía falta para la
+    modificación. El selector de slot solo ofrece los vigentes en la fecha elegida
+    (`slotVigenteEn`, `dominio/slotHorario.ts`, T-15). Cinco acciones por fila, cada una su propio
+    mini-formulario: nota, hora, slot atribuido (solo si `puedeCambiarSlotAtribuido`), cambiar el
+    alumno (reutiliza `buscar_alumnos_activos` de T-20, con una búsqueda simple, sin el combobox ARIA
+    completo — no había requisito de accesibilidad equivalente que lo justificara) y anular (motivo
+    obligatorio). Anular y cambiar el alumno piden confirmación explícita con el dato viejo y el
+    nuevo a la vista, mismo patrón "confirmando.../Confirmar/Cancelar" que ya usa
+    `pantallaFichaAlumno.ts` para dar de baja o cesar un slot. "Añadir un registro olvidado" es una
+    acción de pantalla (no de fila): llama a `registrar_asistencia` (T-18) con `ocurrido_en`
+    declarado. El historial completo de una fila (`asistencia_historial`) solo se ofrece desplegar
+    para `administrator`, el único rol con política de lectura sobre esa tabla. "Quién registró/
+    modificó" se muestra por fecha, no por nombre — simplificación deliberada, documentada en el
+    propio fichero (`DECISIONES_TECNICAS.md`).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

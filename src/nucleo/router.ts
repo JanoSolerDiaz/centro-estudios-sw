@@ -1,20 +1,22 @@
 /**
  * Router por hash (T-16, requisito 1): sin bundler ni librería de enrutado (§0.2), resuelve qué
  * pantalla mostrar a partir de `location.hash` — `#/centros`, `#/alumnos`, `#/alumnos/nuevo`,
- * `#/alumnos/<id>`. `analizarRuta`/`hashDeRuta` son puras y no tocan el DOM; `crearRouter` recibe su
- * `objetivo` por inyección (nunca lee `window` directamente), mismo patrón que
- * `instalarCapturaErrores` (T-05): así se testea con un objeto de mentira, sin `jsdom`.
+ * `#/alumnos/<id>`, `#/registros` (T-21). `analizarRuta`/`hashDeRuta` son puras y no tocan el DOM;
+ * `crearRouter` recibe su `objetivo` por inyección (nunca lee `window` directamente), mismo patrón
+ * que `instalarCapturaErrores` (T-05): así se testea con un objeto de mentira, sin `jsdom`.
  *
  * Solo enruta la parte de la aplicación de `administrator` (T-16 es "Interfaz de gestión DEL
- * ADMINISTRADOR", ver su título en `HOJA_DE_RUTA.md`); `teacher` sigue con la pantalla temporal de
- * T-09 hasta T-19/T-22 (decisión documentada en `DECISIONES_TECNICAS.md`).
+ * ADMINISTRADOR", ver su título en `HOJA_DE_RUTA.md`); `teacher` tiene su propia navegación, más
+ * simple, dentro de `aplicacion.ts#mostrarAppProfesor` (T-21, sin hash propio todavía — T-22
+ * decidirá si le hace falta uno de verdad al llegar "mi horario").
  */
 
 export type Ruta =
   | { readonly nombre: 'centros' }
   | { readonly nombre: 'alumnos' }
   | { readonly nombre: 'alumno-nuevo' }
-  | { readonly nombre: 'alumno-detalle'; readonly alumnoId: string };
+  | { readonly nombre: 'alumno-detalle'; readonly alumnoId: string }
+  | { readonly nombre: 'registros' };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -32,6 +34,9 @@ export function analizarRuta(hash: string): Ruta {
 
   if (primero === 'centros') {
     return { nombre: 'centros' };
+  }
+  if (primero === 'registros') {
+    return { nombre: 'registros' };
   }
   if (primero === 'alumnos') {
     if (segundo === undefined) {
@@ -57,6 +62,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/alumnos/nuevo';
     case 'alumno-detalle':
       return `#/alumnos/${encodeURIComponent(ruta.alumnoId)}`;
+    case 'registros':
+      return '#/registros';
   }
 }
 

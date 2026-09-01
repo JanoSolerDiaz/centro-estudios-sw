@@ -19,7 +19,7 @@
  * pantalla." y no se dispara ninguna petición de datos.
  */
 
-import type { Rol, CentroEstudios, PersonaReferencia, SlotHorario, DiaSemana } from '../dominio/tipos.ts';
+import { ETIQUETA_DIA_SEMANA, type Rol, type CentroEstudios, type PersonaReferencia, type SlotHorario, type DiaSemana } from '../dominio/tipos.ts';
 import { puedeGestionarFichaAlumno, puedeVerPersonasReferencia, puedeGestionarHorarios } from '../dominio/permisosUi.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
 import { buscarPersonaReferenciaDuplicada, normalizarTelefonoReferencia } from '../dominio/personaReferencia.ts';
@@ -66,16 +66,6 @@ export interface DependenciasPantallaFichaAlumno {
    * a la ficha ya en modo edición — esta pantalla no se reconstruye a sí misma con un id nuevo. */
   alCrearAlumno(alumnoId: string): void;
 }
-
-const ETIQUETA_DIA_SEMANA: Readonly<Record<DiaSemana, string>> = {
-  1: 'Lunes',
-  2: 'Martes',
-  3: 'Miércoles',
-  4: 'Jueves',
-  5: 'Viernes',
-  6: 'Sábado',
-  7: 'Domingo',
-};
 
 // ---------------------------------------------------------------------------------------------
 // Bloque 1: datos personales y centro (y, dentro de él, dar de baja / reactivar).

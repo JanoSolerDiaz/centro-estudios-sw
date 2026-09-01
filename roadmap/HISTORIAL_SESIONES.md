@@ -37,6 +37,61 @@
 
 ---
 
+### Sesión 2026-09-01 (siguiente a "T-20 BLOQUEADA") — T-21: código y tests completos, BLOQUEADA por migración `008`
+
+**Tarea(s):** T-21 (revisar y modificar los registros por slot)
+**Estado resultante:** **T-21 BLOQUEADA — pendiente aplicar migración `008`.** Código y tests
+completos, verificados contra dobles. Sin hallazgo `ABIERTO` de severidad alta en
+`auditoriacontinua.md` al empezar la sesión (los tres siguen siendo de severidad baja) — no hizo
+falta ningún P-XX urgente antes de la cola. Al arrancar, la rama `develop` local de este contenedor
+tenía un historial de 4 commits completamente ajeno (sin ancestro común) al de `origin/develop` —
+artefacto del arranque del entorno, no trabajo real sin empujar: se guardó una referencia de
+respaldo (`backup-local-develop-stale`) y se realineó `develop` local con `origin/develop`
+(`git checkout -B develop origin/develop`) antes de tocar nada
+**Commits a `develop`:** ver commit de esta sesión (`T-21: revisar y modificar los registros por
+slot — RPC actualizar_asistencia y pantalla de registros`)
+**Migraciones aplicadas:** ninguna — `008_rpc_actualizar_asistencia.sql` escrita y empujada,
+pendiente de que el dueño la aplique DESPUÉS de `007` (fila 10 de §3 de `SEGUIMIENTO.md`)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `db/008_rpc_actualizar_asistencia.sql` (nuevo); `db/pruebas_rls.sql`
+(sección 5 ampliada con UPDATE/DELETE directo, sección 8c nueva); `db/APLICADAS.md` (sección
+"Pendiente de aplicar"); `db/MODELO.md` (estado actual hasta `008`, sección nueva de
+`actualizar_asistencia`); `herramientas/migraciones/rpcActualizarAsistencia.test.ts` (nuevo);
+`herramientas/migraciones/pruebasRlsEstatico.test.ts` (ajuste de dos contadores: 4→6 usos de
+`registrar_asistencia`, +6 de `actualizar_asistencia`); `src/dominio/asistencia.ts`
+(`motivoAnulacionValido`, `puedeCambiarSlotAtribuido`) + tests; `src/dominio/slots.ts`
+(`fechaLocalISO`) + tests; `src/dominio/tipos.ts` (`ETIQUETA_DIA_SEMANA`, promovida desde
+`pantallaFichaAlumno.ts`); `src/datos/asistencia.ts` (`actualizarAsistencia`,
+`listarRegistrosDeSlotYFecha`, `listarHistorialDeAsistencia`) + tests; `src/ui/pantallaRegistrosSlot.ts`
++ test (nuevos); `src/nucleo/router.ts` (ruta `#/registros`) + test; `src/ui/aplicacion.ts` (ruta de
+`administrator`, navegación local nueva de `teacher` entre pasar lista y registros) + tests;
+`DEVELOPERS.md`, `roadmap/SEGUIMIENTO.md` (§1 T-21 a BLOQUEADA, §3 fila 10, §6 pregunta #14,
+narrativa), `roadmap/DECISIONES_TECNICAS.md` (ocho filas nuevas + matriz rol×tabla actualizada),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (776, antes 728 — verificado con
+`git stash -u` contra el commit de partida) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía
+(`<pendiente>`, T-25)
+**Decisiones tomadas:** ocho filas nuevas `2026-09-01 | T-21` en `DECISIONES_TECNICAS.md` — el par
+tri-estado `p_nota`/`p_nota_provista`; "cambiar el slot atribuido" nunca cambia `origen`; no
+reutilizar el combobox ARIA completo de T-20 para "cambiar el alumno"; la ventana de edición se
+cuenta desde `registrado_en`, no desde `ocurrido_en`; "quién modificó" se muestra por fecha, no por
+nombre (simplificación documentada); navegación local de `teacher` en vez de adelantar el router de
+T-22; `ETIQUETA_DIA_SEMANA` promovida a `dominio/tipos.ts`; el INSERT directo excepcional de la
+sección 8c de `pruebas_rls.sql` para fabricar un registro "antiguo" (única forma de probar el borde
+de la ventana de 7 días contra una base real, documentada donde ocurre)
+**Hallazgos del auditor atendidos:** ninguno (los tres `ABIERTO` de severidad baja no exigían
+atención urgente esta sesión, ver §0.3)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** cuando el dueño aplique `008` (después de `007`), verificar con
+`npm run migrate -- --estado` (`esquema_version()` = `8`) y `npm run probar-rls` (nueva sección 8c),
+anotar en `db/APLICADAS.md` con el hash real y pasar T-21 de `BLOQUEADA` a `COMPLETADA` en §1. Si no
+hay nada bloqueado, la siguiente tarea de la cola es T-22 ("mi horario" del profesor), que además
+decidirá si `teacher` necesita ya un router de verdad (tercera pantalla)
+
+---
+
 ### Sesión 2026-09-01 (siguiente a "T-19 COMPLETADA") — T-20: código y tests completos, BLOQUEADA por migración `007`
 
 **Tarea(s):** T-20 (alumno extra: listado completo y selección manual)

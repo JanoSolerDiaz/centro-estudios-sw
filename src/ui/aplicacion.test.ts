@@ -411,3 +411,47 @@ void test('teacher sin appProfesor: sigue viendo la pantalla temporal (compatibi
 
   assert.match(contenedor.textContent, /todavía está en construcción/i);
 });
+
+// --- T-21: la pantalla de registros, para administrator (enrutada) y para teacher (nav local). ---
+
+void test('administrator con appAdministrador: "Registros" navega a la pantalla de registros', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonRegistros = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Registros');
+  assert.ok(botonRegistros);
+  botonRegistros.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Registros/);
+  assert.ok(contenedor.querySelector('#registros-profesor')); // administrator elige profesor
+});
+
+void test('teacher con appProfesor: "Registros" alterna a la pantalla de registros sin selector de profesor, y "Pasar lista" vuelve', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  const botonRegistros = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Registros');
+  assert.ok(botonRegistros);
+  botonRegistros.click();
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /No tienes ninguna clase más hoy/);
+  assert.equal(contenedor.querySelector('#registros-profesor'), null); // teacher no elige profesor
+  assert.ok(contenedor.querySelector('#registros-slot'));
+
+  const botonPasarLista = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Pasar lista');
+  assert.ok(botonPasarLista);
+  botonPasarLista.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /No tienes ninguna clase más hoy/);
+});

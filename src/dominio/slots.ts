@@ -123,6 +123,15 @@ function medianocheLocalUtcMs(anio: number, mes: number, dia: number, zonaHorari
   return candidatoMs;
 }
 
+/** `instante` como fecha de calendario `AAAA-MM-DD` en `zonaHoraria` (T-21: valor por defecto del
+ * selector de fecha de `pantallaRegistrosSlot.ts`, con `<input type="date">`, que exige justo este
+ * formato). Mismo criterio de "día" que `limitesDiaLocal`: el día natural del centro, no el de UTC
+ * — a mediodía en `Europe/Madrid` casi nunca coincide con el de UTC, sobre todo de madrugada. */
+export function fechaLocalISO(instante: Date, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): string {
+  const { anio, mes, dia } = fechaLocalCompleta(instante, zonaHoraria);
+  return `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+
 export interface LimitesDiaLocal {
   /** Medianoche local (inclusiva) del día que contiene `instante`, en UTC. */
   readonly inicioUtc: Date;

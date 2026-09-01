@@ -4,13 +4,14 @@
 > mantiene al día en cada migración (§0.4 de `HOJA_DE_RUTA.md`). El SQL exacto vive en `db/NNN_*.sql`;
 > este documento es el mapa, no la fuente de verdad — ante cualquier duda, el SQL manda.
 >
-> Estado actual (corregido 2026-09-01, sesión de T-20): `000`/`000b` (bootstrap manual del dueño) +
+> Estado actual (corregido 2026-09-01, sesión de T-21): `000`/`000b` (bootstrap manual del dueño) +
 > `001_esquema_inicial` + `002_bloqueo_cuenta` + `003_politicas_rls` + `004_bucket_avatares` +
 > `005_rpc_registrar_asistencia` + `006_arreglo_limite_tasa_ambiguo`, las seis **aplicadas y
 > verificadas** en `dev` (`esquema_version()` = `6`, `npm run probar-rls` en verde: 67
-> comprobaciones, 0 omitidas, 0 fallidas). `007_rpc_buscar_alumnos` (T-20) está escrita y testeada
-> —estáticamente y con `db/pruebas_rls.sql`—, **pendiente de que el dueño la aplique** con
-> `npm run migrate` (fila nueva en §3 de `roadmap/SEGUIMIENTO.md`; ver también
+> comprobaciones, 0 omitidas, 0 fallidas). `007_rpc_buscar_alumnos` (T-20) y
+> `008_rpc_actualizar_asistencia` (T-21) están escritas y testeadas —estáticamente y con
+> `db/pruebas_rls.sql`—, **pendientes de que el dueño las aplique en orden** (`007` antes que `008`)
+> con `npm run migrate` (filas 9 y 10 de §3 de `roadmap/SEGUIMIENTO.md`; ver también
 > `db/APLICADAS.md` § "Pendiente de aplicar"). La matriz completa rol × tabla × operación vive en
 > `roadmap/DECISIONES_TECNICAS.md` (sección final, fuera del registro append-only).
 
@@ -157,9 +158,9 @@ ausencia, ya anulada, etc.).
 
 **Es editable (`UPDATE`) pero nunca se borra.** Decisión expresa del dueño (2026-08-25): quien se
 equivoca al pasar lista debe poder arreglarlo, y anular es un estado, no una desaparición. Toda
-escritura pasa por una RPC `SECURITY DEFINER` (`registrar_asistencia`, T-18, escrita;
-`actualizar_asistencia`, T-21, todavía no escrita): el `INSERT` y el `UPDATE` directos sobre la
-tabla están revocados para cualquier rol de la API, incluido `service_role`.
+escritura pasa por una RPC `SECURITY DEFINER` (`registrar_asistencia`, T-18; `actualizar_asistencia`,
+T-21): el `INSERT` y el `UPDATE` directos sobre la tabla están revocados para cualquier rol de la
+API, incluido `service_role`.
 
 ### `asistencia_historial`
 
@@ -200,8 +201,9 @@ primera RPC real a la que se conecta — 60 operaciones por profesor y minuto, v
 `roadmap/DECISIONES_TECNICAS.md`). Nunca se lee ni se escribe por PostgREST: RLS habilitada sin
 ninguna política y `revoke all` a `anon`/`authenticated`/`service_role`, igual que las tablas
 anteriores. Solo la alcanza `aplicar_limite_tasa(clave, maximo, ventana_segundos)`, `SECURITY
-DEFINER`, llamada desde dentro de `registrar_asistencia` (T-18) y, más adelante, de
-`actualizar_asistencia` (T-21) — nunca directamente desde la API.
+DEFINER`, llamada desde dentro de `registrar_asistencia` (T-18) y de `actualizar_asistencia` (T-21),
+con la MISMA clave (`'asistencia:' || profesor_id`, cupo compartido entre alta y edición del mismo
+profesor) — nunca directamente desde la API.
 
 | Campo | Tipo | Obligatorio | Qué es |
 |---|---|---|---|
@@ -260,6 +262,33 @@ subcadena (`ilike`, insensible a mayúsculas, NO acento-insensible — misma lim
 (por defecto 8), defensa en profundidad además del rebote y la cancelación de petición del cliente
 (T-20, requisito 2). Sin conexión con `limite_tasa` de T-06: es una lectura, no una escritura que
 mute datos, y el propio rebote del cliente ya acota la frecuencia real de peticiones.
+
+## `actualizar_asistencia` (`008_rpc_actualizar_asistencia.sql`, T-21)
+
+Única vía de modificación de una fila de `asistencia` ya existente — el `UPDATE` directo está
+revocado (ver arriba). `SECURITY DEFINER`, cinco acciones combinables en una sola llamada:
+
+- **Cambiar el alumno** (`p_alumno_id`): valida que exista y esté activo, igual que el alta.
+- **Ajustar la hora** (`p_ocurrido_en`): mismas reglas que el alta (nunca en el futuro, nunca más de
+  7 días atrás); `es_retroactivo` se recalcula SIEMPRE con la fórmula del `CHECK`, aunque
+  `p_ocurrido_en` no cambie (el alumno o el slot sí podrían haber cambiado en la misma llamada).
+- **Cambiar el slot atribuido** (`p_slot_id`): solo sobre un registro que YA es de origen `slot`
+  (nunca convierte un `manual` en `slot` ni al revés); recalcula el snapshot desde el slot nuevo,
+  con las mismas comprobaciones que el alta (pertenece al mismo profesor, al alumno resultante,
+  vigente en la fecha del registro).
+- **Anular** (`p_anular` + `p_motivo_anulacion`, obligatorio): `estado = 'anulada'`. Sin "desanular".
+- **Editar la nota** (`p_nota` + `p_nota_provista`): el único par de parámetros "tri-estado" del
+  proyecto — sin `p_nota_provista = true`, `p_nota` se ignora, así que enviar `p_nota = null` a
+  secas nunca la vacía por descuido.
+
+**Autorización, antes de tocar nada más:** `administrator` sobre cualquier registro, sin límite
+temporal; `teacher` solo sobre `profesor_id = auth.uid()` y dentro de `VENTANA_EDICION_TEACHER_DIAS`
+(7 días desde `registrado_en` — cuándo se CREÓ la fila, no desde `ocurrido_en`); `student`, nunca.
+`registrado_en`/`profesor_id`/`peticion_id` no son parámetros de esta función: no hay forma de
+pedir cambiarlos, y `asistencia_proteger_inmutables` (trigger de `001`) seguiría abortando si
+alguien lo intentara desde otro sitio. `actualizado_en`/`actualizado_por` los fija ese MISMO trigger
+(`BEFORE UPDATE`), no esta función; la copia en `asistencia_historial` la hace el trigger `AFTER
+UPDATE` (`001`), con la fila tal como estaba justo antes de este `UPDATE`.
 
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 
@@ -344,7 +373,6 @@ deja datos de prueba en la base pase lo que pase.
 
 ## Qué falta (a propósito, para T-11 y siguientes)
 
-- La RPC `actualizar_asistencia`: T-21.
 - El campo `relacion` en `persona_referencia` y si debe exigirse al menos una vía de contacto por
   alumno: preguntas abiertas para el dueño (§6 de `SEGUIMIENTO.md`), no se han añadido sin su
   decisión.

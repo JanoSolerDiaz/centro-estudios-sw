@@ -55,7 +55,19 @@ void test('las comprobaciones que leen la fila devuelta por una RPC expanden sus
     /select\s+public\.registrar_asistencia\(/i,
     'usa `select * into v_fila from public.registrar_asistencia(...)`, no `select public.registrar_asistencia(...) into v_fila`',
   );
-  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.registrar_asistencia\(/g) ?? []).length, 4);
+  // 4 de la sección 7b (T-18) + 2 de la sección 8c (T-21: los dos registros 'manual' de partida que
+  // luego se editan con actualizar_asistencia).
+  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.registrar_asistencia\(/g) ?? []).length, 6);
+
+  assert.doesNotMatch(
+    CONTENIDO,
+    /select\s+public\.actualizar_asistencia\(/i,
+    'usa `select * into v_fila from public.actualizar_asistencia(...)`, no `select public.actualizar_asistencia(...) into v_fila`',
+  );
+  // Sección 8c (T-21): anular con motivo, teacher2 editor rechazado no cuenta (no llega a SELECT),
+  // administrator edita lo de otro, cambiar alumno, cambiar el slot atribuido, administrator sin
+  // límite de ventana — seis usos reales de la fila devuelta.
+  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.actualizar_asistencia\(/g) ?? []).length, 6);
 });
 
 void test('los delimitadores $$ de plpgsql están intactos y emparejados', () => {

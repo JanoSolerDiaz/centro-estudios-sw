@@ -30,6 +30,10 @@ void test('analizarRuta: un hash sin reconocer (ni "centros" ni "alumnos") cae t
   assert.deepEqual(analizarRuta('#/lo-que-sea'), { nombre: 'alumnos' });
 });
 
+void test('analizarRuta: "#/registros" es la pantalla de registros (T-21)', () => {
+  assert.deepEqual(analizarRuta('#/registros'), { nombre: 'registros' });
+});
+
 void test('analizarRuta: funciona igual sin el "#" inicial', () => {
   assert.deepEqual(analizarRuta('/centros'), { nombre: 'centros' });
 });
@@ -40,6 +44,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'alumnos' },
     { nombre: 'alumno-nuevo' },
     { nombre: 'alumno-detalle', alumnoId: 'abc-123' },
+    { nombre: 'registros' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);

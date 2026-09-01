@@ -10,12 +10,111 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-01 (sesión siguiente a "T-19 COMPLETADA") — **T-20 (alumno extra:
-listado completo y selección manual) BLOQUEADA — pendiente aplicar migración `007`.** Su única
-dependencia, T-19, ya estaba `COMPLETADA`. Ningún hallazgo `ABIERTO` de severidad alta en
-`auditoriacontinua.md` al empezar esta sesión (los tres abiertos son de severidad baja, higiene
-documental — ver §0.3, no exigen atención urgente). Todo el código y los tests de T-20 se escriben y
-verifican igual, contra dobles, y quedan latentes hasta que el dueño aplique `007`.
+**Última actualización:** 2026-09-01 (sesión siguiente a "T-20 BLOQUEADA") — **T-21 (revisar y
+modificar los registros por slot) BLOQUEADA — pendiente aplicar migración `008`.** Su única
+dependencia, T-19, ya estaba `COMPLETADA`; T-20 seguía `BLOQUEADA` por `007` (sin relación de
+dependencia con T-21, así que no hacía falta esperarla) y se deja tal cual. Ningún hallazgo
+`ABIERTO` de severidad alta en `auditoriacontinua.md` al empezar esta sesión (los tres abiertos
+siguen siendo de severidad baja, higiene documental — ver §0.3, no exigen atención urgente). Todo el
+código y los tests de T-21 se escriben y verifican igual, contra dobles, y quedan latentes hasta que
+el dueño aplique `008` (que a su vez exige `007` ya aplicada, orden numérico del runner).
+
+**T-21 — Revisar y modificar los registros por slot — código y tests COMPLETOS, BLOQUEADA por la
+migración `008`.** Cierra el ciclo del día a día: una sola pantalla (`pantallaRegistrosSlot.ts`,
+nueva) con selector de slot y fecha —de profesor también, solo para `administrator`
+(`puedeEditarAsistenciaDeCualquiera`, ya existía en `permisosUi.ts` desde T-19)— que consulta los
+registros de ese slot y día y permite corregirlos. La consulta (requisitos 1-3) **no necesitaba
+migración**: `asistencia`/`asistencia_historial` ya tenían `SELECT` concedido a `authenticated` con
+sus políticas de aislamiento desde `003_politicas_rls.sql` (T-10) — la migración `008` es solo para
+la RPC de modificación.
+
+**Migración `008_rpc_actualizar_asistencia.sql`:** RPC `actualizar_asistencia(p_asistencia_id,
+p_alumno_id, p_slot_id, p_ocurrido_en, p_anular, p_motivo_anulacion, p_nota, p_nota_provista)`,
+`SECURITY DEFINER`, única vía de modificación de un registro ya existente (el `UPDATE` directo sigue
+revocado desde `001`). Autorización en servidor (requisito 5): `administrator` sobre cualquiera, sin
+límite temporal; `teacher` solo sobre `profesor_id = auth.uid()` y dentro de `VENTANA_EDICION_TEACHER_DIAS`
+(7 días desde `registrado_en`, no desde `ocurrido_en` — mismo criterio que `puedeEditarAsistencia`,
+ya escrita en `dominio/asistencia.ts` desde T-03/T-18); `student`, nunca. Reutiliza
+`aplicar_limite_tasa()` de `005` con la MISMA clave que `registrar_asistencia`
+(`'asistencia:' || profesor_id`, cupo compartido, decisión ya documentada el 2026-08-31). Cinco
+acciones combinables en una sola llamada: cambiar el alumno (valida activo), ajustar la hora (mismas
+reglas de ventana que el alta), cambiar el slot atribuido (solo sobre un registro de origen `slot`,
+recalcula el snapshot desde el slot nuevo), anular (motivo obligatorio, sin "desanular") y editar la
+nota (único par tri-estado del proyecto: `p_nota_provista` explícito, para poder vaciar la nota sin
+confundirlo con "no tocarla"). `registrado_en`/`profesor_id`/`peticion_id` no son parámetros: no hay
+forma de pedir cambiarlos, y el trigger `asistencia_proteger_inmutables` (001) seguiría abortando
+igual si alguien lo intentara desde otro sitio.
+
+**`db/pruebas_rls.sql` amplía la sección 5 (UPDATE/DELETE directo denegados, incluso a
+administrator) y añade la sección 8c, nueva:** reutiliza `alumno_prueba`/`slot_prueba` (secciones 2
+y 4); crea sus propios registros con `registrar_asistencia` (nunca INSERT directo), con una única
+excepción documentada donde ocurre: un registro "antiguo" (10 días) fabricado con un INSERT directo
+del rol de conexión, sin impersonar a nadie, porque `registrado_en` es siempre `now()` en cualquier
+vía real de la aplicación y no hay otra forma de probar el borde de la ventana de 7 días contra una
+base de datos real. Comprobaciones: nota editada por el propio teacher; anular sin motivo rechazado;
+anular con motivo y la fila sigue existiendo; dos modificaciones dejan dos filas en el historial con
+los valores previos correctos; teacher2 no puede editar lo ajeno; administrator edita lo de
+cualquiera; student sin acceso; cambiar alumno; cambiar el slot atribuido (y a un slot de otro
+profesor, rechazado); cambiar el slot de un registro manual, rechazado; fuera de la ventana de
+edición, rechazado; administrator sin límite de ventana.
+
+**Dominio (`src/dominio/asistencia.ts`):** dos funciones nuevas, `motivoAnulacionValido` y
+`puedeCambiarSlotAtribuido`, misma condición exacta que valida la RPC, para que la interfaz
+deshabilite un botón antes de que el servidor tenga que rechazarlo. `puedeEditarAsistencia` ya
+existía desde T-03/T-18 (provisional entonces, real ahora que T-21 la consume de verdad).
+
+**Datos (`src/datos/asistencia.ts`):** `actualizarAsistencia` (llama a la RPC),
+`listarRegistrosDeSlotYFecha` (consulta por slot y CUALQUIER fecha, cualquier estado — a diferencia
+de `listarAsistenciaDeHoy` de T-19, que siempre es "hoy" y solo válidos) y
+`listarHistorialDeAsistencia` (lectura de `asistencia_historial`, solo tiene sentido para
+`administrator`, único rol con política de lectura sobre esa tabla).
+
+**`src/dominio/slots.ts` añade `fechaLocalISO`** (fecha de calendario `AAAA-MM-DD` en la zona
+horaria del centro, para el valor por defecto de `<input type="date">`). **`ETIQUETA_DIA_SEMANA` se
+promueve de `pantallaFichaAlumno.ts` a `dominio/tipos.ts`** (mismo patrón que `ETIQUETA_ROL`) para
+que `pantallaRegistrosSlot.ts` la reutilice sin duplicarla.
+
+**UI (`src/ui/pantallaRegistrosSlot.ts`, nueva):** selector de profesor (solo `administrator`), slot
+(solo los vigentes en la fecha elegida, `slotVigenteEn` de T-15) y fecha; lista de registros con un
+botón "Editar" por fila que despliega las cinco acciones; "Cambiar el alumno" reutiliza
+`buscar_alumnos_activos` de T-20 (`buscarAlumnosParaExtra`) con una búsqueda simple (sin el
+combobox ARIA completo de T-20: aquí no hay requisito de accesibilidad equivalente, así que no se
+duplica esa pieza); anular y cambiar el alumno exigen confirmación explícita con el dato viejo y el
+nuevo a la vista (requisito 8), mismo patrón "confirmando.../Confirmar/Cancelar" que
+`pantallaFichaAlumno.ts` ya usa para dar de baja o cesar un slot. "Añadir un registro olvidado" es
+una acción de pantalla (no de fila): llama a `registrar_asistencia` (T-18) con `ocurrido_en`
+declarado, para el alumno del slot elegido. El historial completo (requisito 7) solo se ofrece
+desplegar si `puedeEditarAsistenciaDeCualquiera(rol)`.
+
+**Simplificación deliberada, documentada en el propio fichero:** "quién registró" y "quién
+modificó" se muestran por FECHA, no por nombre de usuario — todas las filas de la pantalla comparten
+el mismo profesor (el dueño del slot elegido, inmutable), así que "quién registró" ya es el contexto
+visible; resolver el nombre de quien MODIFICÓ por última vez (que sí podría ser otra persona)
+exigiría una lectura de `perfil` que un `teacher` no puede hacer para un id que no es el suyo.
+
+**Wiring (`src/nucleo/router.ts`, `src/ui/aplicacion.ts`):** nueva ruta `#/registros` en el router
+de `administrator` (con su botón "Registros" en la barra de navegación). `teacher` no tiene router
+propio todavía (T-22 decidirá si hace falta uno de verdad): `mostrarAppProfesor` gana una navegación
+local mínima (`crearAlmacenEstado` sobre `'pasar-lista' | 'registros'`, dos botones) para alternar
+entre pasar lista y esta pantalla nueva — es la primera vez que la aplicación de `teacher` necesita
+alternar entre dos pantallas, así que esta sesión decide "nav local, no hash" en vez de adelantar el
+router de T-22 sin que lo pida ninguna spec todavía (documentado en `DECISIONES_TECNICAS.md`).
+
+**48 tests nuevos (776 en total, antes 728, verificado con `git stash -u` contra el commit de
+partida):** 4 de `dominio/asistencia.ts` (`motivoAnulacionValido`, `puedeCambiarSlotAtribuido`, casos
+límite incluidos), 4 de `fechaLocalISO` (`dominio/slots.test.ts`), 11 de `actualizarAsistencia` +
+`listarRegistrosDeSlotYFecha` + `listarHistorialDeAsistencia` (`datos/asistencia.test.ts`), 15 de
+`pantallaRegistrosSlot.test.ts` (nuevo: acceso, selector de profesor/slot/fecha, las cinco acciones
+de edición, confirmación explícita de anular y de cambiar alumno, error sin perder el panel abierto,
+historial solo `administrator`, añadir registro olvidado), 1 de `router.test.ts` (`#/registros`) y 2
+de `aplicacion.test.ts` (navegación de `administrator` y de `teacher`) — 37 en total. Más 11
+estáticos nuevos de la migración (`herramientas/migraciones/rpcActualizarAsistencia.test.ts`, mismo
+patrón que `rpcRegistrarAsistencia.test.ts`), que completan los 48: sin fila propia en el recuento
+de `git stash -u` porque no existían antes de esta sesión, igual que el resto. El ajuste de dos
+contadores en `herramientas/migraciones/pruebasRlsEstatico.test.ts` (P-10/P-12: de 4 a 6 usos de
+`select * into v_fila from public.registrar_asistencia(...)` por los dos nuevos registros de partida
+de la sección 8c, más 6 nuevos de `actualizar_asistencia(...)`, todos correctamente expandidos) no
+añade ningún test: solo actualiza el valor esperado de dos aserciones ya existentes.
 
 **T-20 — Alumno extra: listado completo y selección manual — código y tests COMPLETOS, BLOQUEADA
 por la migración `007`.** Spec: `Migración: No`, pero cumplir el requisito 3 ("el centro de estudios
@@ -542,7 +641,7 @@ pantallas del requisito 2.
 | T-18 | Alta de asistencia (RPC `registrar_asistencia`) | COMPLETADA | 2026-09-01 | Migraciones `005` y `006` aplicadas en `dev` y **verificadas en ejecución**: `npm run probar-rls` da **67 comprobaciones, 0 omitidas, 0 fallidas**, con las cuatro altas reales pasando y los nueve rechazos trayendo cada uno su motivo propio (ventana de 7 días, futuro, `slot` sin id, alumno de baja, en nombre de otro, slot ajeno, `student`, y los dos duplicados chocando con `asistencia_uq_alumno_slot_dia_valida` y `asistencia_peticion_id_unico`). El camino hasta aquí dejó tres P-XX, todas implementadas y confirmadas: **P-10** (los rechazos exigen su motivo), **P-11** (finales de línea clavados al hash del ledger) y **P-12** (la batería no podía consumir la fila que devuelve la RPC). Límite de 60 operaciones por profesor y minuto conectado por primera vez (`limite_tasa`/`aplicar_limite_tasa`) |
 | T-19 | Pantalla de pasar lista | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17/T-18 (ambas completadas). `puedeUsarPasarLista` exclusivo de `teacher`. Nuevo `nucleo/programadorIntervalo.ts` (refresco sin red), `dominio/slots.ts` añade `limitesDiaLocal`. Cards como `<button>` nativo con doble toque por clave; `Conflicto` se resuelve releyendo el registro real, nunca como error. Sin router propio de `teacher` todavía (una sola pantalla). 48 tests nuevos (662 en total, antes 614) |
 | T-20 | Alumno extra: listado completo y selección manual | BLOQUEADA — pendiente aplicar migración `007` | 2026-09-01 | Código y 66 tests completos, contra dobles. Migración `007_rpc_buscar_alumnos.sql` (RPC `buscar_alumnos_activos`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 9 de §3 |
-| T-21 | Revisar y modificar los registros por slot | PENDIENTE | — | Migración `008_rpc_actualizar_asistencia` (renumerada: T-20 tomó `007`, ver §7); límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
+| T-21 | Revisar y modificar los registros por slot | BLOQUEADA — pendiente aplicar migración `008` | 2026-09-01 | Código y tests completos, contra dobles. Migración `008_rpc_actualizar_asistencia.sql` (RPC `actualizar_asistencia`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 10 de §3 |
 | T-22 | "Mi horario" del profesor (teacher) | PENDIENTE | — | — |
 | T-23 | Consulta y exportación del histórico | PENDIENTE | — | — |
 | T-24 | Administración de usuarios y roles | PENDIENTE | — | — |
@@ -590,6 +689,7 @@ pantallas del requisito 2.
 | 7 | Aplicar la migración `005_rpc_registrar_asistencia` en `dev`, **después** de las filas 4, 5 y 6 | T-18 | ~~`git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `5`, y ejecutar también `npm run probar-rls`~~ | **RESUELTA 2026-09-01** — aplicada por el dueño con `npm run migrate`. **Verificada:** `esquema_version()` devuelve `5`. El `npm run probar-rls` recomendado **hizo exactamente su trabajo**: 67 comprobaciones, 0 omitidas, **4 fallidas**, todas de la sección 7b nueva y todas con el mismo error — `column reference "ventana_inicio" is ambiguous`, un bug de `aplicar_limite_tasa()` dentro de esta misma migración. `005` queda aplicada e **inmutable**; el arreglo va en la migración `006` (fila 8) |
 | 8 | Aplicar `006_arreglo_limite_tasa_ambiguo` y verificar T-18 con `npm run probar-rls` | T-18 | ~~`git pull`, `npm run migrate` y `npm run probar-rls`~~ | **RESUELTA 2026-09-01** — hizo falta más de una vuelta y cada una encontró algo. (1) `npm run migrate`: `005` y `006` aplicadas, confirmadas con `npm run migrate -- --estado`. (2) Primera `probar-rls`: el ambiguo resuelto, pero 6 fallos propios de la batería (P-12) y nueve rechazos que aprobaban sin mirar el motivo (P-10). (3) Segunda `probar-rls`, tras corregir ambos: **67 comprobaciones, 0 omitidas, 0 fallidas, "ningún acceso prohibido tuvo éxito"**. T-18 cerrada |
 | 9 | Aplicar la migración `007_rpc_buscar_alumnos` en `dev`, **después** de las filas 4 a 8 | T-20 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `7`, y ejecutar también `npm run probar-rls` (nueva sección 8b: cinco comprobaciones de `buscar_alumnos_activos`) | PENDIENTE |
+| 10 | Aplicar la migración `008_rpc_actualizar_asistencia` en `dev`, **después** de la fila 9 (`007`) | T-21 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `8`, y ejecutar también `npm run probar-rls` (nueva sección 8c: `actualizar_asistencia` — edición propia/ajena, ventana de 7 días, anular sin motivo, cambiar alumno/slot; sección 5 ampliada con UPDATE/DELETE directo denegados) | PENDIENTE |
 
 ---
 
@@ -654,6 +754,7 @@ pantallas del requisito 2.
 | 11 | Requisitos 2 y 4 de T-17: la zona horaria del centro y la ventana de tolerancia antes del inicio de un slot son configurables, pero el cliente no tiene bundler ni acceso a variables de entorno (§0.2: solo `config.js` expone `SUPABASE_URL`/`SUPABASE_ANON_KEY`) — así que hoy son constantes de dominio, no lectura de `ZONA_HORARIA_CENTRO` de `.env.ejemplo`. Valores elegidos, conservadores: `Europe/Madrid` (única zona horaria de todos los centros del sistema; si algún día hay centros en otro huso, dejaría de ser una constante única) y 10 minutos de tolerancia antes de `hora_inicio` (ni tan corto que un profesor puntual se quede sin propuesta, ni tan largo que aparezca la clase siguiente mientras dura la anterior). Ambas funciones (`instanteLocal`, `alumnosPropuestos`) ya las reciben como parámetro opcional, así que cambiar el valor es una constante, no una migración ni una reescritura. ¿Confirma el dueño estos dos valores, o prefiere otros? Mientras no haya respuesta, se usan los conservadores y esto no bloquea nada. | T-17 | |
 | 12 | Requisito 4 de T-18: un segundo registro del mismo alumno en el mismo slot y día se rechaza con un error identificable — implementado ya así, con una restricción `unique` parcial de verdad (`asistencia_uq_alumno_slot_dia_valida`, `db/005_rpc_registrar_asistencia.sql`), acotada a `estado = 'valida'` (anular un registro libera el hueco) y solo para `origen = 'slot'` (una clase extra manual no tiene esta restricción). ¿Confirma el dueño que "rechazar" es el comportamiento deseado, o preferiría en algún caso permitir un segundo registro del mismo alumno el mismo día (p. ej. si el profesor quiere anotar dos tramos separados de la misma clase)? Mientras no haya respuesta, se rechaza (comportamiento literal de la spec) y esto no bloquea nada — revertirlo, si hiciera falta, sería una migración nueva que sustituya el índice por uno menos estricto, nunca editar `005`. | T-18 | |
 | 13 | Requisito 1 de T-18 ("valida que [`ocurrido_en`] no está en el futuro ni más allá de la ventana permitida hacia atrás"): la ventana elegida es de 7 días (`VENTANA_RETROACTIVA_MAXIMA_DIAS`, `src/dominio/asistencia.ts`), el mismo valor conservador que `VENTANA_EDICION_TEACHER_DIAS` de T-21 pero una constante DISTINTA (son dos preguntas de negocio distintas que hoy solo coinciden en cifra por casualidad, ver `DECISIONES_TECNICAS.md`). ¿Confirma el dueño 7 días para poder REGISTRAR una asistencia olvidada, o prefiere otro plazo? Es una constante en dos sitios (la RPC y el dominio de cliente, hoy sincronizadas a mano — cambiarla exige tocar los dos), no una migración de esquema. Mientras no haya respuesta, se usa el valor conservador y esto no bloquea nada. | T-18 | |
+| 14 | Requisito 6 de T-21: la ventana en la que un `teacher` puede modificar sus propios registros de asistencia es de 7 días desde `registrado_en` (`VENTANA_EDICION_TEACHER_DIAS`, `src/dominio/asistencia.ts`, ya escrita desde T-03/T-18 con este mismo valor de partida; la RPC `actualizar_asistencia` de `db/008_rpc_actualizar_asistencia.sql` aplica la misma cifra del lado del servidor). `administrator` no tiene límite en ningún caso. ¿Confirma el dueño 7 días, o prefiere otro plazo? Constante en dos sitios (RPC y dominio de cliente, sincronizadas a mano), no una migración de esquema — cambiarla exige tocar los dos y, si el runner ya aplicó `008`, escribir una migración nueva para la RPC (`008` queda inmutable en cuanto se aplique). Mientras no haya respuesta, se usa el valor conservador y esto no bloquea nada. | T-21 | |
 
 ---
 

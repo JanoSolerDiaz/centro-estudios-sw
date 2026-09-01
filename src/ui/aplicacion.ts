@@ -50,7 +50,13 @@ import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferen
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
 import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
 import { listarProfesoresActivos } from '../datos/profesores.ts';
-import { registrarAsistencia, listarAsistenciaDeHoy } from '../datos/asistencia.ts';
+import {
+  registrarAsistencia,
+  listarAsistenciaDeHoy,
+  actualizarAsistencia,
+  listarRegistrosDeSlotYFecha,
+  listarHistorialDeAsistencia,
+} from '../datos/asistencia.ts';
 import { mostrarPantallaLogin } from './pantallaLogin.ts';
 import { mostrarPantallaRecuperarContrasena } from './pantallaRecuperarContrasena.ts';
 import { mostrarPantallaEstablecerContrasenaNueva } from './pantallaEstablecerContrasenaNueva.ts';
@@ -59,7 +65,9 @@ import { mostrarPantallaCentros } from './pantallaCentros.ts';
 import { mostrarPantallaListadoAlumnos } from './pantallaListadoAlumnos.ts';
 import { mostrarPantallaFichaAlumno } from './pantallaFichaAlumno.ts';
 import { mostrarPantallaPasarLista } from './pantallaPasarLista.ts';
+import { mostrarPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
 import { crearBoton } from './formularios.ts';
+import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
  * `main.ts` a partir de la configuración de entorno — nunca un `fetch` a medio configurar. Ausente
@@ -149,11 +157,15 @@ function mostrarAppAdministrador(
   enlaceAlumnos.addEventListener('click', () => {
     router.navegar({ nombre: 'alumnos' });
   });
+  const enlaceRegistros = crearBoton(documento, 'Registros', 'button');
+  enlaceRegistros.addEventListener('click', () => {
+    router.navegar({ nombre: 'registros' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlaceCentros, enlaceAlumnos, botonSalir);
+  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
@@ -184,6 +196,24 @@ function mostrarAppAdministrador(
         irANuevoAlumno: () => {
           router.navegar({ nombre: 'alumno-nuevo' });
         },
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'registros') {
+      mostrarPantallaRegistrosSlot(areaPantalla, {
+        rol: perfil.rol,
+        profesorId: perfil.id,
+        reloj: app.reloj,
+        listarProfesoresParaSelector: () => listarProfesoresActivos(app.postgrest),
+        listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesorConAlumno(app.postgrest, profesorId),
+        listarRegistros: (slotId, fecha) => listarRegistrosDeSlotYFecha(app.postgrest, slotId, fecha),
+        listarHistorial: (asistenciaId) => listarHistorialDeAsistencia(app.postgrest, asistenciaId),
+        obtenerAlumnoParaTarjeta: (alumnoId2) => obtenerAlumnoParaTarjeta(app.postgrest, alumnoId2),
+        buscarAlumnos: (texto) => buscarAlumnosParaExtra(app.postgrest, texto),
+        actualizar: (profesorDuenoId, entrada) => actualizarAsistencia({ postgrest: app.postgrest }, profesorDuenoId, entrada),
+        registrarOlvidado: (entrada) => registrarAsistencia({ postgrest: app.postgrest }, perfil.id, entrada),
+        generarPeticionId: () => crypto.randomUUID(),
       });
       return;
     }
@@ -242,9 +272,14 @@ function mostrarAppAdministrador(
   contenedor.append(cabecera, areaPantalla);
 }
 
-/** Monta la aplicación real de `teacher` (T-19): cabecera fija + la pantalla de pasar lista, sin
- * router propio (ver la cabecera del módulo). `renovarSesion` conecta el punto de enganche de T-09
- * (`GestorSesion.renovarAlAbrirPasarLista`), llamado una vez al montar la pantalla. */
+type VistaProfesor = 'pasar-lista' | 'registros';
+
+/** Monta la aplicación real de `teacher`: cabecera fija + una de sus dos pantallas (pasar lista,
+ * T-19; registros, T-21), alternadas por una navegación local — sin hash propio todavía (ver la
+ * cabecera del módulo): dos botones y un estado mínimo bastan mientras no haya una tercera pantalla
+ * que enrutar de verdad; T-22 decidirá si hace falta un router real al llegar "mi horario".
+ * `renovarSesion` conecta el punto de enganche de T-09 (`GestorSesion.renovarAlAbrirPasarLista`),
+ * llamado una vez al montar pasar lista, cada vez que se vuelve a esa vista. */
 function mostrarAppProfesor(
   contenedor: HTMLElement,
   perfil: Perfil,
@@ -254,39 +289,87 @@ function mostrarAppProfesor(
 ): void {
   contenedor.textContent = '';
   const documento = contenedor.ownerDocument;
+  const vista = crearAlmacenEstado<{ actual: VistaProfesor }>({ actual: 'pasar-lista' });
 
   const cabecera = documento.createElement('header');
   const titulo = documento.createElement('h1');
   titulo.textContent = `GestorAcademia — ${ETIQUETA_ROL[perfil.rol]}`;
   const saludo = documento.createElement('p');
   saludo.textContent = `Sesión iniciada como ${perfil.nombre}.`;
+
+  const nav = documento.createElement('nav');
+  const enlacePasarLista = crearBoton(documento, 'Pasar lista', 'button');
+  enlacePasarLista.addEventListener('click', () => {
+    vista.actualizar({ actual: 'pasar-lista' });
+  });
+  const enlaceRegistros = crearBoton(documento, 'Registros', 'button');
+  enlaceRegistros.addEventListener('click', () => {
+    vista.actualizar({ actual: 'registros' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  cabecera.append(titulo, saludo, botonSalir);
+  nav.append(enlacePasarLista, enlaceRegistros, botonSalir);
+
+  cabecera.append(titulo, saludo, nav);
 
   const areaPantalla = documento.createElement('div');
-  mostrarPantallaPasarLista(areaPantalla, {
-    rol: perfil.rol,
-    profesorId: perfil.id,
-    reloj: app.reloj,
-    programador: app.programador,
-    cargarPropuesta: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
-    cargarAsistenciaDeHoy: (instante) => listarAsistenciaDeHoy(app.postgrest, perfil.id, instante),
-    registrar: (entrada) =>
-      registrarAsistencia(
-        { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
-        perfil.id,
-        entrada,
-      ),
-    obtenerUrlsAvataresMini: (alumnos) => urlsAvataresEnLote(app.almacenamiento, alumnos, 'mini'),
-    generarPeticionId: () => crypto.randomUUID(),
-    renovarSesion: () => gestorSesion.renovarAlAbrirPasarLista(),
-    buscarAlumnosExtra: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
-    obtenerAlumnoParaTarjeta: (alumnoId) => obtenerAlumnoParaTarjeta(app.postgrest, alumnoId),
-    rebote: crearRebote(),
-  });
+
+  function pintarVista({ actual }: { actual: VistaProfesor }): void {
+    areaPantalla.textContent = '';
+    if (actual === 'registros') {
+      mostrarPantallaRegistrosSlot(areaPantalla, {
+        rol: perfil.rol,
+        profesorId: perfil.id,
+        reloj: app.reloj,
+        // Sin listarProfesoresParaSelector: teacher nunca elige profesor (puedeEditarAsistenciaDeCualquiera es false).
+        listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesorConAlumno(app.postgrest, profesorId),
+        listarRegistros: (slotId, fecha) => listarRegistrosDeSlotYFecha(app.postgrest, slotId, fecha),
+        listarHistorial: (asistenciaId) => listarHistorialDeAsistencia(app.postgrest, asistenciaId),
+        obtenerAlumnoParaTarjeta: (alumnoId) => obtenerAlumnoParaTarjeta(app.postgrest, alumnoId),
+        buscarAlumnos: (texto) => buscarAlumnosParaExtra(app.postgrest, texto),
+        actualizar: (profesorDuenoId, entrada) =>
+          actualizarAsistencia(
+            { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+            profesorDuenoId,
+            entrada,
+          ),
+        registrarOlvidado: (entrada) =>
+          registrarAsistencia(
+            { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+            perfil.id,
+            entrada,
+          ),
+        generarPeticionId: () => crypto.randomUUID(),
+      });
+      return;
+    }
+
+    mostrarPantallaPasarLista(areaPantalla, {
+      rol: perfil.rol,
+      profesorId: perfil.id,
+      reloj: app.reloj,
+      programador: app.programador,
+      cargarPropuesta: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
+      cargarAsistenciaDeHoy: (instante) => listarAsistenciaDeHoy(app.postgrest, perfil.id, instante),
+      registrar: (entrada) =>
+        registrarAsistencia(
+          { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+          perfil.id,
+          entrada,
+        ),
+      obtenerUrlsAvataresMini: (alumnos) => urlsAvataresEnLote(app.almacenamiento, alumnos, 'mini'),
+      generarPeticionId: () => crypto.randomUUID(),
+      renovarSesion: () => gestorSesion.renovarAlAbrirPasarLista(),
+      buscarAlumnosExtra: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
+      obtenerAlumnoParaTarjeta: (alumnoId) => obtenerAlumnoParaTarjeta(app.postgrest, alumnoId),
+      rebote: crearRebote(),
+    });
+  }
+
+  vista.suscribir(pintarVista);
+  pintarVista(vista.obtener());
 
   contenedor.append(cabecera, areaPantalla);
 }

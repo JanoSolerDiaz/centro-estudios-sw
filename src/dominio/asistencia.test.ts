@@ -12,6 +12,8 @@ import {
   puedeRegistrarEnNombreDeOtro,
   claveRegistroPorSlot,
   registrosDeHoyPorAlumnoSlot,
+  motivoAnulacionValido,
+  puedeCambiarSlotAtribuido,
   type RegistroAsistencia,
   type UsuarioAutenticado,
 } from './asistencia.ts';
@@ -214,4 +216,22 @@ void test('registrosDeHoyPorAlumnoSlot: distingue al mismo alumno en dos slots d
   assert.equal(mapa.size, 2);
   assert.equal(mapa.get(claveRegistroPorSlot('alumno-1', 'slot-1')), filaA);
   assert.equal(mapa.get(claveRegistroPorSlot('alumno-1', 'slot-2')), filaB);
+});
+
+void test('motivoAnulacionValido: rechaza null', () => {
+  assert.equal(motivoAnulacionValido(null), false);
+});
+
+void test('motivoAnulacionValido: rechaza cadena vacía o solo espacios', () => {
+  assert.equal(motivoAnulacionValido(''), false);
+  assert.equal(motivoAnulacionValido('   '), false);
+});
+
+void test('motivoAnulacionValido: acepta un motivo con contenido, incluso con espacios alrededor', () => {
+  assert.equal(motivoAnulacionValido('  Registrado por error  '), true);
+});
+
+void test('puedeCambiarSlotAtribuido: solo tiene sentido sobre un registro de origen slot', () => {
+  assert.equal(puedeCambiarSlotAtribuido({ origen: 'slot' }), true);
+  assert.equal(puedeCambiarSlotAtribuido({ origen: 'manual' }), false);
 });

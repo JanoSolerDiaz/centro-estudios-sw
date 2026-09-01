@@ -68,3 +68,4 @@ Lo que **no** cubren: que el valor de esta tabla corresponda al del ledger remot
 > tabla de arriba, con su hash real, en cuanto el dueño confirme (§3 de `SEGUIMIENTO.md`).
 
 - **`007_rpc_buscar_alumnos.sql`** (T-20): crea la función `buscar_alumnos_activos(p_texto, p_limite)`, `SECURITY DEFINER`. Pendiente de que el dueño ejecute `npm run migrate` — fila 9 de §3 de `SEGUIMIENTO.md`.
+- **`008_rpc_actualizar_asistencia.sql`** (T-21): crea la función `actualizar_asistencia(...)`, `SECURITY DEFINER` — la única vía de modificación de un registro de asistencia ya existente (cambiar alumno, ajustar hora, cambiar el slot atribuido, anular con motivo, editar la nota); reutiliza `aplicar_limite_tasa()` de `005`. Requiere que `007` esté aplicada antes (orden numérico del runner). Pendiente de que el dueño ejecute `npm run migrate` — fila 10 de §3 de `SEGUIMIENTO.md`.

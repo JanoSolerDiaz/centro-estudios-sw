@@ -655,9 +655,15 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
--- 5. asistencia / asistencia_historial — nadie escribe directamente,
---    ni siquiera administrator (solo las RPC de T-18/T-21, inexistentes
---    todavía).
+-- 5. asistencia / asistencia_historial — nadie escribe directamente, ni
+--    siquiera administrator: la única vía de escritura son las RPC
+--    SECURITY DEFINER registrar_asistencia (T-18) y actualizar_asistencia
+--    (T-21, db/008_rpc_actualizar_asistencia.sql), probadas en las
+--    secciones 7b y 8c más abajo. Aquí se prueba justo lo contrario: que
+--    el camino directo (INSERT/UPDATE/DELETE sobre la tabla, sin pasar
+--    por ninguna RPC) sigue cerrado incluso para administrator — el
+--    caso explícito que pide el criterio de aceptación de T-21 ("UPDATE
+--    directo, DELETE... rechazados").
 -- ---------------------------------------------------------------------
 
 do $$
@@ -687,6 +693,30 @@ begin
       perform pg_temp.registrar_prohibido('asistencia_historial / administrator INSERT directo (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- UPDATE/DELETE directo (T-21, criterio de aceptación): ni siquiera administrator, aunque exista
+  -- una fila real que tocar (slot_prueba, si la sección 4/7b llegaron a crear un registro sobre
+  -- ella) — igual de prohibido si no existe ninguna, porque revoke all corta ANTES de llegar a
+  -- evaluar qué filas afectaría.
+  if pg_temp.hay_fixture('administrator') then
+    perform pg_temp.impersonar('administrator');
+    begin
+      update public.asistencia set nota = 'intento directo' where true;
+      perform pg_temp.registrar('asistencia / administrator UPDATE directo (debe fallar)', 'prohibido', false, 'se actualizó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('asistencia / administrator UPDATE directo (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+    end;
+    begin
+      delete from public.asistencia where true;
+      perform pg_temp.registrar('asistencia / administrator DELETE (debe fallar)', 'prohibido', false, 'se borró sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('asistencia / administrator DELETE (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  else
+    perform pg_temp.omitir('asistencia / administrator UPDATE directo (debe fallar)', 'no hay administrator en este entorno');
+    perform pg_temp.omitir('asistencia / administrator DELETE (debe fallar)', 'no hay administrator en este entorno');
   end if;
 end $$;
 
@@ -1195,6 +1225,327 @@ begin
       perform pg_temp.registrar_prohibido('buscar_alumnos_activos / student no puede llamar (debe fallar)', array['%solo administrator o teacher pueden buscar%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 8c. actualizar_asistencia (T-21, db/008_rpc_actualizar_asistencia.sql)
+--     — la única vía de modificación de un registro ya existente.
+--     Reutiliza alumno_prueba (sección 2) y slot_prueba (sección 4, del
+--     'teacher'); crea sus propios registros con registrar_asistencia
+--     (T-18), nunca con un INSERT directo — con UNA única excepción,
+--     señalada donde ocurre: fabricar un registro "antiguo" para probar
+--     el borde de la ventana de edición de 7 días, algo que ningún
+--     camino real de la aplicación puede producir en el tiempo de vida
+--     de esta prueba (registrado_en es siempre `now()` en el momento de
+--     registrar). Ese INSERT lo hace el rol de conexión sin impersonar
+--     a nadie (mismo nivel de privilegio con el que esta sección 0
+--     crea sus propias tablas temporales), nunca `authenticated`: no es
+--     una vía que la aplicación real tenga abierta.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id        uuid := pg_temp.dato('alumno_prueba');
+  v_slot_id          uuid := pg_temp.dato('slot_prueba');
+  v_teacher_id       uuid;
+  v_teacher2_id      uuid;
+  v_fila             public.asistencia%rowtype;
+  v_registro_a       uuid;
+  v_registro_b       uuid;
+  v_registro_slot    uuid;
+  v_registro_viejo   uuid;
+  v_alumno_b         uuid;
+  v_slot_b_id        uuid;
+  v_slot_ajeno_id    uuid;
+  v_n_historial      integer;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
+
+  if v_alumno_id is null or not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('actualizar_asistencia / teacher edita nota de lo suyo', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / anular sin motivo (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / anular con motivo', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / la fila anulada sigue existiendo', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / dos modificaciones dejan dos filas en el historial con los valores previos', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / teacher2 no puede editar lo ajeno (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / administrator edita lo de cualquiera', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / student no puede llamar (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / cambiar alumno', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / cambiar el slot atribuido', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / cambiar a un slot de otro profesor (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / cambiar el slot de un registro manual (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / fuera de la ventana de edición (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / administrator sin límite de ventana', 'falta el alumno o el teacher de prueba');
+    return;
+  end if;
+
+  -- Dos registros 'manual' propios del teacher: v_registro_a para la nota/anulación/historial,
+  -- v_registro_b para "cambiar alumno" (independiente, para no interferir con el primero).
+  perform pg_temp.impersonar('teacher');
+  select * into v_fila from public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid());
+  v_registro_a := v_fila.id;
+  select * into v_fila from public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid());
+  v_registro_b := v_fila.id;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher edita la nota de su propio registro: permitido (primera modificación de v_registro_a).
+  perform pg_temp.impersonar('teacher');
+  begin
+    select * into v_fila from public.actualizar_asistencia(
+      p_asistencia_id => v_registro_a, p_nota => 'Llegó tarde', p_nota_provista => true
+    );
+    perform pg_temp.registrar('actualizar_asistencia / teacher edita nota de lo suyo', 'permitido', v_fila.nota = 'Llegó tarde');
+  exception when others then
+    perform pg_temp.registrar('actualizar_asistencia / teacher edita nota de lo suyo', 'permitido', false, sqlerrm);
+  end;
+
+  -- anular sin motivo: debe rechazarse.
+  begin
+    perform public.actualizar_asistencia(p_asistencia_id => v_registro_a, p_anular => true);
+    perform pg_temp.registrar('actualizar_asistencia / anular sin motivo (debe fallar)', 'prohibido', false, 'se anuló sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('actualizar_asistencia / anular sin motivo (debe fallar)', array['%anular exige un motivo%'], sqlerrm);
+  end;
+
+  -- anular con motivo: permitido (segunda modificación de v_registro_a).
+  begin
+    select * into v_fila from public.actualizar_asistencia(
+      p_asistencia_id => v_registro_a, p_anular => true, p_motivo_anulacion => 'Registrado por error'
+    );
+    perform pg_temp.registrar(
+      'actualizar_asistencia / anular con motivo', 'permitido',
+      v_fila.estado = 'anulada' and v_fila.motivo_anulacion = 'Registrado por error'
+    );
+  exception when others then
+    perform pg_temp.registrar('actualizar_asistencia / anular con motivo', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- La fila anulada NO se borra: sigue existiendo, con su estado (requisito 4 de T-21, "la fila
+  -- permanece y se muestra tachada").
+  perform pg_temp.registrar(
+    'actualizar_asistencia / la fila anulada sigue existiendo', 'permitido',
+    exists (select 1 from public.asistencia where id = v_registro_a and estado = 'anulada')
+  );
+
+  -- asistencia_historial (lectura solo administrator) debe tener exactamente dos filas para
+  -- v_registro_a: la de ANTES de la nota (nota null) y la de ANTES de la anulación (nota ya puesta,
+  -- estado todavía 'valida') — los valores previos correctos de cada modificación, en ese orden.
+  if pg_temp.hay_fixture('administrator') then
+    perform pg_temp.impersonar('administrator');
+    begin
+      select count(*) into v_n_historial from public.asistencia_historial where asistencia_id = v_registro_a;
+      perform pg_temp.registrar(
+        'actualizar_asistencia / dos modificaciones dejan dos filas en el historial con los valores previos',
+        'permitido',
+        v_n_historial = 2
+          and exists (select 1 from public.asistencia_historial where asistencia_id = v_registro_a and nota is null)
+          and exists (
+            select 1 from public.asistencia_historial
+            where asistencia_id = v_registro_a and nota = 'Llegó tarde' and estado = 'valida'
+          ),
+        format('%s filas de historial', v_n_historial)
+      );
+    exception when others then
+      perform pg_temp.registrar('actualizar_asistencia / dos modificaciones dejan dos filas en el historial con los valores previos', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  else
+    perform pg_temp.omitir('actualizar_asistencia / dos modificaciones dejan dos filas en el historial con los valores previos', 'no hay administrator en este entorno (asistencia_historial solo lo lee ese rol)');
+  end if;
+
+  -- teacher2 (otro profesor) intenta editar un registro que no es suyo: debe rechazarse.
+  if v_teacher2_id is null then
+    perform pg_temp.omitir('actualizar_asistencia / teacher2 no puede editar lo ajeno (debe fallar)', 'no hay un segundo teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher2');
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_registro_b, p_nota => 'intento ajeno', p_nota_provista => true);
+      perform pg_temp.registrar('actualizar_asistencia / teacher2 no puede editar lo ajeno (debe fallar)', 'prohibido', false, 'se modificó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / teacher2 no puede editar lo ajeno (debe fallar)', array['%no puedes modificar un registro de otro profesor%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- administrator SÍ puede editar el registro del teacher (sin límite de ventana ni de propiedad).
+  if not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('actualizar_asistencia / administrator edita lo de cualquiera', 'no hay administrator en este entorno');
+  else
+    perform pg_temp.impersonar('administrator');
+    begin
+      select * into v_fila from public.actualizar_asistencia(
+        p_asistencia_id => v_registro_b, p_nota => 'editado por administrator', p_nota_provista => true
+      );
+      perform pg_temp.registrar('actualizar_asistencia / administrator edita lo de cualquiera', 'permitido', v_fila.nota = 'editado por administrator');
+    exception when others then
+      perform pg_temp.registrar('actualizar_asistencia / administrator edita lo de cualquiera', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- student: sin acceso alguno (§0.2), tampoco a esta RPC.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('actualizar_asistencia / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_registro_b, p_nota => 'intento student', p_nota_provista => true);
+      perform pg_temp.registrar('actualizar_asistencia / student no puede llamar (debe fallar)', 'prohibido', false, 'se modificó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / student no puede llamar (debe fallar)', array['%solo administrator o teacher pueden modificar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- Cambiar el alumno (requisito 4, "se tocó al equivocado"): un segundo alumno activo de prueba,
+  -- creado aquí mismo por administrator (mismo patrón que alumno_inactivo de la sección 7).
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.alumno (nombre, primer_apellido, centro_referencia_id, activo)
+      values ('PruebaCambioAlumno', 'RLS', (select centro_referencia_id from public.alumno where id = v_alumno_id), true)
+      returning id into v_alumno_b;
+  exception when others then
+    v_alumno_b := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_alumno_b is null then
+    perform pg_temp.omitir('actualizar_asistencia / cambiar alumno', 'no se pudo crear el segundo alumno de prueba');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      select * into v_fila from public.actualizar_asistencia(p_asistencia_id => v_registro_b, p_alumno_id => v_alumno_b);
+      perform pg_temp.registrar('actualizar_asistencia / cambiar alumno', 'permitido', v_fila.alumno_id = v_alumno_b);
+    exception when others then
+      perform pg_temp.registrar('actualizar_asistencia / cambiar alumno', 'permitido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- Cambiar el slot atribuido (requisito 4): reutiliza el registro por slot que ya dejó la sección
+  -- 7b (mismo alumno_prueba + slot_prueba, todavía 'valida' — no se crea ninguno nuevo para no
+  -- chocar con asistencia_uq_alumno_slot_dia_valida). Un segundo slot del mismo profesor y alumno,
+  -- en otro día, es el destino del cambio.
+  select id into v_registro_slot from public.asistencia
+    where alumno_id = v_alumno_id and slot_id = v_slot_id and estado = 'valida' limit 1;
+
+  if v_slot_id is null or v_registro_slot is null then
+    perform pg_temp.omitir('actualizar_asistencia / cambiar el slot atribuido', 'no hay un registro por slot todavía válido (sección 7b)');
+    perform pg_temp.omitir('actualizar_asistencia / cambiar a un slot de otro profesor (debe fallar)', 'no hay un registro por slot todavía válido (sección 7b)');
+  else
+    perform pg_temp.impersonar('administrator');
+    begin
+      insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+        values (v_alumno_id, v_teacher_id, 2, '16:00', '17:00', current_date)
+        returning id into v_slot_b_id;
+    exception when others then
+      v_slot_b_id := null;
+    end;
+    perform pg_temp.dejar_de_impersonar();
+
+    if v_slot_b_id is null then
+      perform pg_temp.omitir('actualizar_asistencia / cambiar el slot atribuido', 'no se pudo crear el segundo slot de prueba');
+    else
+      perform pg_temp.impersonar('teacher');
+      begin
+        select * into v_fila from public.actualizar_asistencia(p_asistencia_id => v_registro_slot, p_slot_id => v_slot_b_id);
+        perform pg_temp.registrar(
+          'actualizar_asistencia / cambiar el slot atribuido', 'permitido',
+          v_fila.slot_id = v_slot_b_id and v_fila.slot_dia_semana = 2
+        );
+      exception when others then
+        perform pg_temp.registrar('actualizar_asistencia / cambiar el slot atribuido', 'permitido', false, sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end if;
+
+    -- Slot de OTRO profesor (teacher2): debe rechazarse, tanto si teacher2 existe (caso real) como
+    -- si no (se omite, no se puede fabricar el fixture).
+    if v_teacher2_id is null then
+      perform pg_temp.omitir('actualizar_asistencia / cambiar a un slot de otro profesor (debe fallar)', 'no hay un segundo teacher en este entorno');
+    else
+      perform pg_temp.impersonar('administrator');
+      begin
+        insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+          values (v_alumno_id, v_teacher2_id, 3, '16:00', '17:00', current_date)
+          returning id into v_slot_ajeno_id;
+      exception when others then
+        v_slot_ajeno_id := null;
+      end;
+      perform pg_temp.dejar_de_impersonar();
+
+      if v_slot_ajeno_id is null then
+        perform pg_temp.omitir('actualizar_asistencia / cambiar a un slot de otro profesor (debe fallar)', 'no se pudo crear el slot ajeno de prueba');
+      else
+        perform pg_temp.impersonar('teacher');
+        begin
+          perform public.actualizar_asistencia(p_asistencia_id => v_registro_slot, p_slot_id => v_slot_ajeno_id);
+          perform pg_temp.registrar('actualizar_asistencia / cambiar a un slot de otro profesor (debe fallar)', 'prohibido', false, 'se cambió sin error');
+        exception when others then
+          perform pg_temp.registrar_prohibido('actualizar_asistencia / cambiar a un slot de otro profesor (debe fallar)', array['%el slot pertenece a otro profesor%'], sqlerrm);
+        end;
+        perform pg_temp.dejar_de_impersonar();
+      end if;
+    end if;
+  end if;
+
+  -- Cambiar el slot de un registro 'manual' (v_registro_b, origen manual): debe rechazarse — esta
+  -- acción solo tiene sentido sobre un registro que ya es de origen 'slot'.
+  if v_slot_id is null then
+    perform pg_temp.omitir('actualizar_asistencia / cambiar el slot de un registro manual (debe fallar)', 'no hay slot de prueba (sección 4)');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_registro_b, p_slot_id => v_slot_id);
+      perform pg_temp.registrar('actualizar_asistencia / cambiar el slot de un registro manual (debe fallar)', 'prohibido', false, 'se cambió sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / cambiar el slot de un registro manual (debe fallar)', array['%solo se puede cambiar el slot de un registro de origen%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- Ventana de edición de 7 días: un registro "antiguo" fabricado directamente (ver el aviso de la
+  -- cabecera de esta sección) con registrado_en de hace 10 días — ningún camino real de la
+  -- aplicación puede producir esto en el tiempo de vida de una prueba.
+  begin
+    insert into public.asistencia (alumno_id, profesor_id, registrado_en, ocurrido_en, es_retroactivo, origen, peticion_id)
+      values (v_alumno_id, v_teacher_id, now() - interval '10 days', now() - interval '10 days', false, 'manual', gen_random_uuid())
+      returning id into v_registro_viejo;
+  exception when others then
+    v_registro_viejo := null;
+  end;
+
+  if v_registro_viejo is null then
+    perform pg_temp.omitir('actualizar_asistencia / fuera de la ventana de edición (debe fallar)', 'no se pudo fabricar el registro antiguo de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / administrator sin límite de ventana', 'no se pudo fabricar el registro antiguo de prueba');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_registro_viejo, p_nota => 'demasiado tarde', p_nota_provista => true);
+      perform pg_temp.registrar('actualizar_asistencia / fuera de la ventana de edición (debe fallar)', 'prohibido', false, 'se modificó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / fuera de la ventana de edición (debe fallar)', array['%ventana de edición%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+
+    if not pg_temp.hay_fixture('administrator') then
+      perform pg_temp.omitir('actualizar_asistencia / administrator sin límite de ventana', 'no hay administrator en este entorno');
+    else
+      perform pg_temp.impersonar('administrator');
+      begin
+        select * into v_fila from public.actualizar_asistencia(
+          p_asistencia_id => v_registro_viejo, p_nota => 'administrator sin límite', p_nota_provista => true
+        );
+        perform pg_temp.registrar('actualizar_asistencia / administrator sin límite de ventana', 'permitido', v_fila.nota = 'administrator sin límite');
+      exception when others then
+        perform pg_temp.registrar('actualizar_asistencia / administrator sin límite de ventana', 'permitido', false, sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end if;
   end if;
 end $$;
 
