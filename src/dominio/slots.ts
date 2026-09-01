@@ -263,3 +263,78 @@ export function alumnosPropuestos(parametros: ParametrosPropuesta): PropuestaAsi
     minutosHastaInicio: inicioMasProximo - minutosAhora,
   };
 }
+
+const MINUTOS_POR_SEMANA = 7 * 24 * 60;
+
+/** Posición de (día, hora) dentro de un ciclo semanal de `MINUTOS_POR_SEMANA` minutos, empezando el
+ * lunes a medianoche — unidad común para comparar "cuánto falta" entre un slot del miércoles y uno
+ * del lunes siguiente sin tratar el fin de semana como un caso especial. */
+function posicionSemanal(diaSemana: DiaSemana, horaHHMM: string): number {
+  return (diaSemana - 1) * 1440 + minutosDesdeMedianoche(horaHHMM);
+}
+
+export interface SlotSemanal extends SlotConAlumno {
+  /** ¿Toca este slot ahora mismo? Mismo criterio que `slotActivoEnInstante` — puede haber varios a
+   * la vez (dos alumnos simultáneos, requisito 4 de T-22). */
+  readonly esActual: boolean;
+  /** ¿Es el próximo del ciclo semanal? Solo entre los que NO están ya `esActual`; puede haber
+   * varios empatados si comparten día y hora de inicio. Si ningún slot vigente queda por delante
+   * esta semana, la distancia se calcula dando la vuelta a la semana siguiente — un horario
+   * recurrente nunca se queda sin "próximo" mientras tenga al menos un slot que no sea el actual. */
+  readonly esSiguiente: boolean;
+}
+
+export interface ParametrosVistaSemanal extends OpcionesPropuesta {
+  readonly profesorId: string;
+  readonly instante: Date;
+  /** Mismo origen que `ParametrosPropuesta.slots`: de cualquier vigencia, esta función filtra por
+   * profesor y por vigencia en `instante`. */
+  readonly slots: readonly SlotConAlumno[];
+}
+
+/** "Mi horario" (T-22, requisitos 1 y 4): todos los slots vigentes del profesor en `instante`, con
+ * el alumno asignado y marcados con si tocan ahora mismo o son el próximo del ciclo semanal. Sin
+ * agrupar por día de la semana ni ordenar por apellido del alumno — la pantalla decide cómo
+ * presentarlos, esta función solo resuelve QUÉ toca y CUÁNDO, igual que `alumnosPropuestos` resuelve
+ * "ahora" para pasar lista. Ordenados por (día, hora de inicio) para que quien pinte la semana no
+ * tenga que ordenar de nuevo. */
+export function vistaSemanalProfesor(parametros: ParametrosVistaSemanal): readonly SlotSemanal[] {
+  const zonaHoraria = parametros.zonaHoraria ?? ZONA_HORARIA_CENTRO_POR_DEFECTO;
+  const tolerancia = parametros.tolerancia ?? TOLERANCIA_MINUTOS_POR_DEFECTO;
+  const opciones: OpcionesPropuesta = { zonaHoraria, tolerancia };
+
+  const vigentes = parametros.slots.filter(
+    (slot) => slot.profesor_id === parametros.profesorId && slot.alumno.activo && slotVigenteEn(slot, parametros.instante),
+  );
+
+  const local = instanteLocal(parametros.instante, zonaHoraria);
+  const posicionAhora = posicionSemanal(local.diaSemana, local.horaMinuto);
+
+  const marcados = vigentes.map((slot) => ({
+    slot,
+    esActual: slotActivoEnInstante(slot, parametros.instante, opciones),
+  }));
+
+  const distancias = new Map<SlotConAlumno, number>();
+  let distanciaMinima = Infinity;
+  for (const { slot, esActual } of marcados) {
+    if (esActual) {
+      continue;
+    }
+    const distancia =
+      (((posicionSemanal(slot.dia_semana, slot.hora_inicio) - posicionAhora) % MINUTOS_POR_SEMANA) + MINUTOS_POR_SEMANA) %
+      MINUTOS_POR_SEMANA;
+    distancias.set(slot, distancia);
+    if (distancia < distanciaMinima) {
+      distanciaMinima = distancia;
+    }
+  }
+
+  return marcados
+    .map(({ slot, esActual }) => ({
+      ...slot,
+      esActual,
+      esSiguiente: !esActual && distancias.get(slot) === distanciaMinima,
+    }))
+    .sort((a, b) => posicionSemanal(a.dia_semana, a.hora_inicio) - posicionSemanal(b.dia_semana, b.hora_inicio));
+}

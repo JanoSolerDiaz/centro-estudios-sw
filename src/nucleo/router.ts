@@ -5,11 +5,58 @@
  * `crearRouter` recibe su `objetivo` por inyección (nunca lee `window` directamente), mismo patrón
  * que `instalarCapturaErrores` (T-05): así se testea con un objeto de mentira, sin `jsdom`.
  *
- * Solo enruta la parte de la aplicación de `administrator` (T-16 es "Interfaz de gestión DEL
- * ADMINISTRADOR", ver su título en `HOJA_DE_RUTA.md`); `teacher` tiene su propia navegación, más
- * simple, dentro de `aplicacion.ts#mostrarAppProfesor` (T-21, sin hash propio todavía — T-22
- * decidirá si le hace falta uno de verdad al llegar "mi horario").
+ * Enruta la aplicación de `administrator` (T-16). Desde T-22, `teacher` gana su propio router
+ * (`crearRouterProfesor`/`RutaProfesor`, más abajo): las rutas de las dos aplicaciones no se
+ * comparten porque nunca están montadas a la vez (`aplicacion.ts` monta una u otra según el rol),
+ * así que un tipo de ruta único con casos de los dos roles solo añadiría confusión a cambio de
+ * ningún ahorro real. Lo que sí se comparte es el mecanismo (suscribir a `hashchange`, navegar
+ * escribiendo el hash): `crearRouterGenerico`, privado de este módulo, es el motor común y cada
+ * `crearRouter*` solo le pasa su propio par `analizar`/`haciaHash`.
  */
+
+/** Subconjunto de `Window` que este módulo necesita. */
+export interface ObjetivoRouter {
+  readonly location: { hash: string };
+  addEventListener(tipo: 'hashchange', escucha: () => void): void;
+  removeEventListener(tipo: 'hashchange', escucha: () => void): void;
+}
+
+export interface Router<TRuta> {
+  obtenerRuta(): TRuta;
+  navegar(ruta: TRuta): void;
+  /** Devuelve una función para desuscribirse. */
+  suscribir(escucha: (ruta: TRuta) => void): () => void;
+}
+
+function crearRouterGenerico<TRuta>(
+  objetivo: ObjetivoRouter,
+  analizar: (hash: string) => TRuta,
+  haciaHash: (ruta: TRuta) => string,
+): Router<TRuta> {
+  const escuchas = new Set<(ruta: TRuta) => void>();
+
+  function manejarCambio(): void {
+    const ruta = analizar(objetivo.location.hash);
+    for (const escucha of escuchas) {
+      escucha(ruta);
+    }
+  }
+
+  objetivo.addEventListener('hashchange', manejarCambio);
+
+  return {
+    obtenerRuta: () => analizar(objetivo.location.hash),
+    navegar(ruta) {
+      objetivo.location.hash = haciaHash(ruta);
+    },
+    suscribir(escucha) {
+      escuchas.add(escucha);
+      return () => {
+        escuchas.delete(escucha);
+      };
+    },
+  };
+}
 
 export type Ruta =
   | { readonly nombre: 'centros' }
@@ -67,42 +114,60 @@ export function hashDeRuta(ruta: Ruta): string {
   }
 }
 
-/** Subconjunto de `Window` que este módulo necesita. */
-export interface ObjetivoRouter {
-  readonly location: { hash: string };
-  addEventListener(tipo: 'hashchange', escucha: () => void): void;
-  removeEventListener(tipo: 'hashchange', escucha: () => void): void;
+export function crearRouter(objetivo: ObjetivoRouter): Router<Ruta> {
+  return crearRouterGenerico(objetivo, analizarRuta, hashDeRuta);
 }
 
-export interface Router {
-  obtenerRuta(): Ruta;
-  navegar(ruta: Ruta): void;
-  /** Devuelve una función para desuscribirse. */
-  suscribir(escucha: (ruta: Ruta) => void): () => void;
-}
+/**
+ * Router de `teacher` (T-22, requisito 2: "desde cada slot, dos accesos directos"). Tres rutas:
+ * `#/pasar-lista` (T-19), `#/horario` ("mi horario", nueva) y `#/registros[/<slotId>]` (T-21) — el
+ * segmento de `slotId` es opcional y solo sirve para que "mi horario" pueda enlazar directo a los
+ * registros de UN slot concreto sin obligar a la pantalla de registros a exponer nada nuevo a quien
+ * navegue sin él (sigue arrancando con "elige un slot…", igual que hasta ahora).
+ *
+ * La ruta por defecto sigue siendo `pasar-lista`, no `horario`: T-19 ya estableció que es la
+ * pantalla del día a día (registrar en segundos), y cambiar qué se ve nada más entrar sin que
+ * ninguna spec lo pida sería una regresión de comportamiento, no una mejora.
+ */
+export type RutaProfesor =
+  | { readonly nombre: 'pasar-lista' }
+  | { readonly nombre: 'horario' }
+  | { readonly nombre: 'registros'; readonly slotId?: string };
 
-export function crearRouter(objetivo: ObjetivoRouter): Router {
-  const escuchas = new Set<(ruta: Ruta) => void>();
+const RUTA_PROFESOR_POR_DEFECTO: RutaProfesor = { nombre: 'pasar-lista' };
 
-  function manejarCambio(): void {
-    const ruta = analizarRuta(objetivo.location.hash);
-    for (const escucha of escuchas) {
-      escucha(ruta);
-    }
+export function analizarRutaProfesor(hash: string): RutaProfesor {
+  const segmentos = hash
+    .replace(/^#/, '')
+    .split('/')
+    .map((segmento) => segmento.trim())
+    .filter((segmento) => segmento.length > 0);
+
+  const [primero, segundo] = segmentos;
+
+  if (primero === 'horario') {
+    return { nombre: 'horario' };
   }
+  if (primero === 'registros') {
+    return segundo === undefined ? { nombre: 'registros' } : { nombre: 'registros', slotId: decodeURIComponent(segundo) };
+  }
+  if (primero === 'pasar-lista') {
+    return { nombre: 'pasar-lista' };
+  }
+  return RUTA_PROFESOR_POR_DEFECTO;
+}
 
-  objetivo.addEventListener('hashchange', manejarCambio);
+export function hashDeRutaProfesor(ruta: RutaProfesor): string {
+  switch (ruta.nombre) {
+    case 'pasar-lista':
+      return '#/pasar-lista';
+    case 'horario':
+      return '#/horario';
+    case 'registros':
+      return ruta.slotId === undefined ? '#/registros' : `#/registros/${encodeURIComponent(ruta.slotId)}`;
+  }
+}
 
-  return {
-    obtenerRuta: () => analizarRuta(objetivo.location.hash),
-    navegar(ruta) {
-      objetivo.location.hash = hashDeRuta(ruta);
-    },
-    suscribir(escucha) {
-      escuchas.add(escucha);
-      return () => {
-        escuchas.delete(escucha);
-      };
-    },
-  };
+export function crearRouterProfesor(objetivo: ObjetivoRouter): Router<RutaProfesor> {
+  return crearRouterGenerico(objetivo, analizarRutaProfesor, hashDeRutaProfesor);
 }

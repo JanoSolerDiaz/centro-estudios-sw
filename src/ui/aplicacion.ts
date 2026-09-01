@@ -11,11 +11,11 @@
  * posición de T-09).
  *
  * Desde T-19, `teacher` monta a su vez su propia aplicación real (pasar lista) si
- * `deps.appProfesor` viene informado — sin router propio todavía: una única pantalla no necesita
- * enrutar nada, igual que la aplicación de `administrator` tampoco lo tuvo hasta que T-16 montó una
- * segunda y tercera pantalla (decisión documentada en `DECISIONES_TECNICAS.md`). T-22 ("mi
- * horario") es quien tendrá que introducir el router de `teacher` cuando exista una segunda
- * pantalla que enrutar.
+ * `deps.appProfesor` viene informado. Desde T-22, con "mi horario" como tercera pantalla, gana su
+ * propio router por hash (`crearRouterProfesor`, `nucleo/router.ts`) — antes de eso una navegación
+ * local bastaba (T-19/T-21, decisión documentada en `DECISIONES_TECNICAS.md`), pero un enlace
+ * profundo real a los registros de UN slot concreto (requisito 2 de T-22) ya no cabe en un estado
+ * local que no distingue slots.
  *
  * Este módulo es la única pieza de la capa de autenticación que toca el DOM de arranque y, desde
  * T-16, la raíz de composición de la aplicación de gestión: es quien conecta las funciones puras de
@@ -25,7 +25,7 @@
 
 import type { GestorSesion, EstadoSesion } from '../nucleo/gestorSesion.ts';
 import { parsearParametrosRecuperacion } from '../nucleo/enlaceRecuperacion.ts';
-import { crearRouter, type ObjetivoRouter, type Ruta } from '../nucleo/router.ts';
+import { crearRouter, crearRouterProfesor, type ObjetivoRouter, type Ruta, type RutaProfesor } from '../nucleo/router.ts';
 import type { Perfil } from '../dominio/tipos.ts';
 import { ETIQUETA_ROL } from '../dominio/tipos.ts';
 import type { ClientePostgrest } from '../datos/postgrest.ts';
@@ -66,8 +66,8 @@ import { mostrarPantallaListadoAlumnos } from './pantallaListadoAlumnos.ts';
 import { mostrarPantallaFichaAlumno } from './pantallaFichaAlumno.ts';
 import { mostrarPantallaPasarLista } from './pantallaPasarLista.ts';
 import { mostrarPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
+import { mostrarPantallaMiHorario } from './pantallaMiHorario.ts';
 import { crearBoton } from './formularios.ts';
-import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
  * `main.ts` a partir de la configuración de entorno — nunca un `fetch` a medio configurar. Ausente
@@ -88,6 +88,7 @@ export interface DependenciasAppAdministrador {
  * construido por `main.ts`. Ausente en los tests que no la ejercitan (siguen viendo el marcador de
  * posición) y en cualquier sesión de `administrator` (que nunca monta esta pieza). */
 export interface DependenciasAppProfesor {
+  readonly objetivoRouter: ObjetivoRouter;
   readonly postgrest: ClientePostgrest;
   readonly almacenamiento: ClienteAlmacenamiento;
   readonly reloj: Reloj;
@@ -272,12 +273,14 @@ function mostrarAppAdministrador(
   contenedor.append(cabecera, areaPantalla);
 }
 
-type VistaProfesor = 'pasar-lista' | 'registros';
-
-/** Monta la aplicación real de `teacher`: cabecera fija + una de sus dos pantallas (pasar lista,
- * T-19; registros, T-21), alternadas por una navegación local — sin hash propio todavía (ver la
- * cabecera del módulo): dos botones y un estado mínimo bastan mientras no haya una tercera pantalla
- * que enrutar de verdad; T-22 decidirá si hace falta un router real al llegar "mi horario".
+/** Monta la aplicación real de `teacher`: cabecera fija + una de sus tres pantallas (pasar lista,
+ * T-19; mi horario, T-22; registros, T-21), enrutadas por hash de verdad desde T-22
+ * (`crearRouterProfesor`, `nucleo/router.ts`) — sustituye a la navegación local de dos valores que
+ * T-21 dejó como paso intermedio (ver `DECISIONES_TECNICAS.md`, entrada de T-21: "T-22 decidirá si
+ * hace falta un router real"), ahora que "mi horario" da a la aplicación de `teacher` su tercera
+ * pantalla y su primer enlace profundo real (requisito 2 de T-22: "desde cada slot, dos accesos
+ * directos" — solo se puede enlazar a UN slot concreto de registros con una ruta de verdad, `#/
+ * registros/<slotId>`, no con un estado local que no distingue slots).
  * `renovarSesion` conecta el punto de enganche de T-09 (`GestorSesion.renovarAlAbrirPasarLista`),
  * llamado una vez al montar pasar lista, cada vez que se vuelve a esa vista. */
 function mostrarAppProfesor(
@@ -289,7 +292,7 @@ function mostrarAppProfesor(
 ): void {
   contenedor.textContent = '';
   const documento = contenedor.ownerDocument;
-  const vista = crearAlmacenEstado<{ actual: VistaProfesor }>({ actual: 'pasar-lista' });
+  const router = crearRouterProfesor(app.objetivoRouter);
 
   const cabecera = documento.createElement('header');
   const titulo = documento.createElement('h1');
@@ -300,30 +303,53 @@ function mostrarAppProfesor(
   const nav = documento.createElement('nav');
   const enlacePasarLista = crearBoton(documento, 'Pasar lista', 'button');
   enlacePasarLista.addEventListener('click', () => {
-    vista.actualizar({ actual: 'pasar-lista' });
+    router.navegar({ nombre: 'pasar-lista' });
+  });
+  const enlaceHorario = crearBoton(documento, 'Mi horario', 'button');
+  enlaceHorario.addEventListener('click', () => {
+    router.navegar({ nombre: 'horario' });
   });
   const enlaceRegistros = crearBoton(documento, 'Registros', 'button');
   enlaceRegistros.addEventListener('click', () => {
-    vista.actualizar({ actual: 'registros' });
+    router.navegar({ nombre: 'registros' });
   });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlacePasarLista, enlaceRegistros, botonSalir);
+  nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
   const areaPantalla = documento.createElement('div');
 
-  function pintarVista({ actual }: { actual: VistaProfesor }): void {
+  function pintarRuta(ruta: RutaProfesor): void {
     areaPantalla.textContent = '';
-    if (actual === 'registros') {
+
+    if (ruta.nombre === 'horario') {
+      mostrarPantallaMiHorario(areaPantalla, {
+        rol: perfil.rol,
+        profesorId: perfil.id,
+        reloj: app.reloj,
+        programador: app.programador,
+        cargarSlots: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
+        irAPasarLista: () => {
+          router.navegar({ nombre: 'pasar-lista' });
+        },
+        irARegistros: (slotId) => {
+          router.navegar({ nombre: 'registros', slotId });
+        },
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'registros') {
       mostrarPantallaRegistrosSlot(areaPantalla, {
         rol: perfil.rol,
         profesorId: perfil.id,
         reloj: app.reloj,
         // Sin listarProfesoresParaSelector: teacher nunca elige profesor (puedeEditarAsistenciaDeCualquiera es false).
+        ...(ruta.slotId !== undefined ? { slotInicialId: ruta.slotId } : {}),
         listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesorConAlumno(app.postgrest, profesorId),
         listarRegistros: (slotId, fecha) => listarRegistrosDeSlotYFecha(app.postgrest, slotId, fecha),
         listarHistorial: (asistenciaId) => listarHistorialDeAsistencia(app.postgrest, asistenciaId),
@@ -368,8 +394,8 @@ function mostrarAppProfesor(
     });
   }
 
-  vista.suscribir(pintarVista);
-  pintarVista(vista.obtener());
+  router.suscribir(pintarRuta);
+  pintarRuta(router.obtenerRuta());
 
   contenedor.append(cabecera, areaPantalla);
 }

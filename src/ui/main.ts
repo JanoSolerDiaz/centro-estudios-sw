@@ -99,6 +99,7 @@ function crearAppProfesorSiHayConfiguracion(): DependenciasAppProfesor | undefin
   }
   const obtenerTokenSesion = () => gestorSesion.obtenerTokenSesion();
   return {
+    objetivoRouter: window,
     postgrest: crearClientePostgrest({ urlBase: configuracion.urlBase, claveAnonima: configuracion.claveAnonima, obtenerTokenSesion }),
     almacenamiento: crearClienteAlmacenamiento({ urlBase: configuracion.urlBase, claveAnonima: configuracion.claveAnonima, obtenerTokenSesion }),
     reloj: relojDelSistema,

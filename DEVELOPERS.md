@@ -267,11 +267,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21) — `analizarRuta(hash)`/`hashDeRuta(ruta)` (puras) y
-    `crearRouter(objetivo)`: router por `hash` de la aplicación de `administrator` (`#/centros`,
-    `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`). `objetivo` se inyecta (nunca lee
-    `window` directamente), mismo patrón que `instalarCapturaErrores`. `teacher` no usa este router
-    (ver `mostrarAppProfesor` más abajo).
+  - `router.ts` (T-16, ampliado en T-21 y T-22) — dos routers por `hash`, cada uno con su propio par
+    `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común (`crearRouterGenerico`,
+    privado): `crearRouter(objetivo)` para `administrator` (`#/centros`, `#/alumnos`,
+    `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`) y, desde T-22, `crearRouterProfesor(objetivo)`
+    para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>]` — el segmento de `slotId`
+    es opcional, para el enlace profundo de "mi horario" a los registros de un slot concreto).
+    `objetivo` se inyecta en los dos (nunca leen `window` directamente), mismo patrón que
+    `instalarCapturaErrores`. Las dos gramáticas de ruta son independientes a propósito: las dos apps
+    nunca están montadas a la vez (ver `mostrarAppProfesor` más abajo).
   - `almacenEstado.ts` (T-16) — `crearAlmacenEstado(inicial)`: estado mínimo con suscripción
     (`obtener`/`actualizar`/`suscribir`), mismo contrato que `GestorSesion`. Genérico y sin DOM;
     usado por `pantallaListadoAlumnos.ts`.
@@ -308,24 +312,26 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     recuperación responde igual exista o no la cuenta; la de nueva contraseña valida localmente
     (coincidencia, longitud mínima) antes de gastar una petición; la de sin acceso no hace ninguna
     llamada a datos, solo pinta el `Perfil` que ya le pasan.
-  - `aplicacion.ts` (T-09, reescrito en T-16, ampliado en T-19) — `iniciarAplicacion(contenedor,
+  - `aplicacion.ts` (T-09, reescrito en T-16, ampliado en T-19/T-22) — `iniciarAplicacion(contenedor,
     deps)`: el enrutador. Hash de recuperación → pantalla de nueva contraseña; si no, según
     `EstadoSesion` → login/recuperar, o según `perfil.rol`: `student`/rol desconocido →
     `pantallaSinAcceso`; `administrator` → la aplicación real de T-16 si `deps.appAdministrador`
-    viene informado; `teacher` → la aplicación real de T-19 (pasar lista) si `deps.appProfesor`
-    viene informado. Los dos vienen siempre informados desde `main.ts` cuando hay `config.js`
+    viene informado; `teacher` → la aplicación real de T-19/T-22 si `deps.appProfesor` viene
+    informado. Los dos vienen siempre informados desde `main.ts` cuando hay `config.js`
     desplegado; ausentes (y por tanto marcador de posición de T-09) en cualquier test que no los
     ejercite — compatibilidad hacia atrás verificada con un test explícito para cada uno.
     `mostrarAppAdministrador`/`mostrarAppProfesor` son también la **raíz de composición**: conectan
     las funciones puras de `src/datos/**` con el `ClientePostgrest`/`ClienteAlmacenamiento` reales,
     para que cada pantalla siga recibiendo solo funciones ya resueltas, nunca un cliente HTTP.
-    `mostrarAppAdministrador` monta además un `crearRouter` propio (`pantallaCentros.ts`,
+    `mostrarAppAdministrador` monta un `crearRouter` propio (`pantallaCentros.ts`,
     `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`, `pantallaRegistrosSlot.ts` desde T-21).
-    `mostrarAppProfesor` sigue sin `hash`/router de verdad, pero desde T-21 ya no es una única
-    pantalla: una navegación local mínima (`crearAlmacenEstado` sobre `'pasar-lista' | 'registros'`,
-    dos botones en la cabecera) alterna entre `pantallaPasarLista.ts` y `pantallaRegistrosSlot.ts`
-    sin perder la sesión ni la cabecera. T-22 ("mi horario") decidirá si a `teacher` le hace falta ya
-    un router de verdad al llegar una TERCERA pantalla.
+    Desde T-22, `mostrarAppProfesor` monta a su vez `crearRouterProfesor` (sustituye la navegación
+    local de dos valores que T-21 dejó como paso intermedio): tres botones en la cabecera ("Pasar
+    lista", "Mi horario", "Registros") alternan entre `pantallaPasarLista.ts`,
+    `pantallaMiHorario.ts` (nueva) y `pantallaRegistrosSlot.ts` sin perder la sesión ni la cabecera.
+    "Mi horario" navega a los otros dos con `router.navegar(...)`: sin parámetros a pasar lista, y
+    con `{ slotId }` a registros — de ahí que `DependenciasAppProfesor` necesite ahora
+    `objetivoRouter` (mismo campo que ya tenía `DependenciasAppAdministrador`).
   - `pantallaCentros.ts` (T-11) — `mostrarPantallaCentros(contenedor, deps)`: catálogo de centros de
     estudios (listar con filtro de estado y búsqueda, crear, editar el nombre, desactivar,
     reactivar). **Enrutada desde T-16** (`#/centros`, solo dentro de la aplicación de
@@ -392,12 +398,27 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     el aborto de "empezar una nueva" surta efecto sin necesitar un `AbortController` propio. Una
     respuesta abortada (`esErrorDeCancelacion`) se ignora en silencio, nunca se pinta como error.
     Nunca pide avatar (requisito 3 de T-20): el tipo `ResultadoBusquedaAlumno` no lo tiene.
-  - `pantallaRegistrosSlot.ts` (T-21) — `mostrarPantallaRegistrosSlot(contenedor, deps)`: consulta y
-    modificación de los registros de UN slot en UN día, para `teacher` (solo lo suyo, sin selector de
-    profesor) y `administrator` (elige profesor, `puedeEditarAsistenciaDeCualquiera`,
-    `permisosUi.ts`) — la RLS de `003_politicas_rls.sql` ya bastaba para la consulta (`SELECT` sobre
-    `asistencia`/`asistencia_historial` desde T-10); la migración `008` solo hacía falta para la
-    modificación. El selector de slot solo ofrece los vigentes en la fecha elegida
+  - `pantallaMiHorario.ts` (T-22) — `mostrarPantallaMiHorario(contenedor, deps)`: vista semanal de
+    solo lectura, exclusiva de `teacher` (`puedeVerMiHorario`, `permisosUi.ts`). `deps.cargarSlots()`
+    trae todos los slots del profesor en una única petición y se cachea en cierre;
+    `deps.programador` recalcula cada 20 s `vistaSemanalProfesor` (`dominio/slots.ts`) sobre esa
+    caché y el instante fresco de `deps.reloj`, mismo patrón exacto que `pantallaPasarLista.ts`
+    (incluida su misma limitación conocida del `cada(...)` sin cancelar). Los siete días de la
+    semana aparecen siempre, con "Sin clases este día" en los vacíos; dentro de cada día, los slots
+    se ordenan por apellido del alumno (`compararAlumnosParaOrden`). Un resumen superior ("Ahora: …"
+    / "Siguiente: …" / "Sin horario asignado") y, por fila, la etiqueta "En curso"/"Siguiente" cuando
+    aplica. Botón "Pasar lista" solo en el slot `esActual` (`deps.irAPasarLista()`, sin parámetros);
+    botón "Ver registros" siempre (`deps.irARegistros(slotId)`), que el router de `teacher` traduce a
+    `#/registros/<slotId>`.
+  - `pantallaRegistrosSlot.ts` (T-21, ampliada en T-22) — `mostrarPantallaRegistrosSlot(contenedor,
+    deps)`: consulta y modificación de los registros de UN slot en UN día, para `teacher` (solo lo
+    suyo, sin selector de profesor) y `administrator` (elige profesor,
+    `puedeEditarAsistenciaDeCualquiera`, `permisosUi.ts`) — la RLS de `003_politicas_rls.sql` ya
+    bastaba para la consulta (`SELECT` sobre `asistencia`/`asistencia_historial` desde T-10); la
+    migración `008` solo hacía falta para la modificación. Desde T-22, `deps.slotInicialId?`
+    (opcional) preselecciona un slot y pide sus registros sin selección manual si coincide con uno
+    ya cargado (el enlace profundo que usa "mi horario"); si no coincide con ninguno, se ignora en
+    silencio. El selector de slot solo ofrece los vigentes en la fecha elegida
     (`slotVigenteEn`, `dominio/slotHorario.ts`, T-15). Cinco acciones por fila, cada una su propio
     mini-formulario: nota, hora, slot atribuido (solo si `puedeCambiarSlotAtribuido`), cambiar el
     alumno (reutiliza `buscar_alumnos_activos` de T-20, con una búsqueda simple, sin el combobox ARIA

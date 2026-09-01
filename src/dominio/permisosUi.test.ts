@@ -9,6 +9,7 @@ import {
   puedeGestionarHorarios,
   puedeUsarPasarLista,
   puedeVerAvatarEnCards,
+  puedeVerMiHorario,
   puedeVerPersonasReferencia,
 } from './permisosUi.ts';
 
@@ -66,4 +67,10 @@ void test('puedeUsarPasarLista: exclusivamente teacher, ni siquiera administrato
   assert.equal(puedeUsarPasarLista('teacher'), true);
   assert.equal(puedeUsarPasarLista('administrator'), false);
   assert.equal(puedeUsarPasarLista('student'), false);
+});
+
+void test('puedeVerMiHorario: exclusivamente teacher, ni siquiera administrator', () => {
+  assert.equal(puedeVerMiHorario('teacher'), true);
+  assert.equal(puedeVerMiHorario('administrator'), false);
+  assert.equal(puedeVerMiHorario('student'), false);
 });

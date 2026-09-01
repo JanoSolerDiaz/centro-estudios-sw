@@ -92,6 +92,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     rol: overrides.rol ?? 'teacher',
     profesorId: overrides.profesorId ?? 'profesor-1',
     reloj: overrides.reloj ?? crearRelojFijo(INSTANTE),
+    ...(overrides.slotInicialId !== undefined ? { slotInicialId: overrides.slotInicialId } : {}),
     listarProfesoresParaSelector: overrides.listarProfesoresParaSelector ?? (() => Promise.resolve([])),
     listarSlotsDeProfesor: overrides.listarSlotsDeProfesor ?? (() => Promise.resolve([])),
     listarRegistros: overrides.listarRegistros ?? (() => Promise.resolve([])),
@@ -235,6 +236,54 @@ void test('al elegir un slot se piden sus registros del día elegido, y se pinta
   assert.ok(argumentos);
   assert.equal(argumentos[0], 'slot-1');
   assert.match(contenedor.textContent, /Ana García López/);
+});
+
+// --- Preselección de slot (T-22, "mi horario") --------------------------------------------------
+
+void test('slotInicialId preselecciona el slot y carga sus registros sin que el usuario elija nada', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let argumentos: readonly [string, Date] | undefined;
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      slotInicialId: 'slot-1',
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot({ id: 'slot-1' }), crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' })]),
+      listarRegistros: (slotId, fecha) => {
+        argumentos = [slotId, fecha];
+        return Promise.resolve([crearAsistencia()]);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  assert.equal(selectSlot.value, 'slot-1');
+  assert.ok(argumentos);
+  assert.equal(argumentos[0], 'slot-1');
+  assert.match(contenedor.textContent, /Ana García López/);
+});
+
+void test('slotInicialId que no coincide con ningún slot cargado se ignora en silencio', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let llamadasRegistros = 0;
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      slotInicialId: 'slot-que-ya-no-existe',
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot({ id: 'slot-1' })]),
+      listarRegistros: () => {
+        llamadasRegistros += 1;
+        return Promise.resolve([]);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  assert.equal(selectSlot.value, '');
+  assert.equal(llamadasRegistros, 0);
 });
 
 void test('un registro anulado se muestra tachado y con su motivo', async () => {

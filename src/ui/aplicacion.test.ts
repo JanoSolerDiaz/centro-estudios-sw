@@ -151,11 +151,12 @@ function crearAppAdministradorFalso(
 }
 
 /** Construye un `DependenciasAppProfesor` de pruebas: mismo criterio que `crearAppAdministradorFalso`
- * (`ClientePostgrest` real sobre un `fetch` simulado), con un `ProgramadorIntervalo` de prueba (sin
- * `setInterval` real) y un reloj fijo. */
+ * (`ClientePostgrest` real sobre un `fetch` simulado, y desde T-22 el mismo `ObjetivoRouter` de
+ * mentira), con un `ProgramadorIntervalo` de prueba (sin `setInterval` real) y un reloj fijo. */
 function crearAppProfesorFalso(
   manejador: Parameters<typeof crearFetchSimulado>[0],
-): { app: DependenciasAppProfesor; peticiones: PeticionSimulada[] } {
+  hashInicial = '#/pasar-lista',
+): { app: DependenciasAppProfesor; objetivoRouter: ObjetivoRouter; peticiones: PeticionSimulada[] } {
   const peticiones: PeticionSimulada[] = [];
   const postgrest = crearClientePostgrest({
     urlBase: 'https://proyecto.supabase.co',
@@ -165,13 +166,16 @@ function crearAppProfesorFalso(
       return manejador(peticion);
     }),
   });
+  const objetivoRouter = crearObjetivoRouterDePrueba(hashInicial);
   return {
     app: {
+      objetivoRouter,
       postgrest,
       almacenamiento: ALMACENAMIENTO_NO_IMPLEMENTADO,
       reloj: crearRelojFijo(new Date('2026-01-07T10:00:00.000Z')), // miércoles a mediodía en Madrid
       programador: crearProgramadorIntervaloDePrueba(),
     },
+    objetivoRouter,
     peticiones,
   };
 }
@@ -412,7 +416,7 @@ void test('teacher sin appProfesor: sigue viendo la pantalla temporal (compatibi
   assert.match(contenedor.textContent, /todavía está en construcción/i);
 });
 
-// --- T-21: la pantalla de registros, para administrator (enrutada) y para teacher (nav local). ---
+// --- T-21/T-22: la pantalla de registros, enrutada para administrator y para teacher. -----------
 
 void test('administrator con appAdministrador: "Registros" navega a la pantalla de registros', async () => {
   const contenedor = crearContenedorDePruebas();
@@ -454,4 +458,93 @@ void test('teacher con appProfesor: "Registros" alterna a la pantalla de registr
   await esperarMicrotareas();
 
   assert.match(contenedor.textContent, /No tienes ninguna clase más hoy/);
+});
+
+// --- T-22: "mi horario" y el router real de teacher (sustituye a la navegación local de T-21). ---
+
+/** Slot vigente el miércoles de 10:00 a 12:00 con el alumno embebido, tal como lo devuelve
+ * PostgREST para `listarSlotsDeProfesorConAlumno` — el reloj fijo de `crearAppProfesorFalso` es
+ * miércoles 11:00 en Madrid, así que este slot está `esActual`. */
+const SLOT_TEACHER_EN_CURSO = {
+  id: 'slot-1',
+  alumno_id: 'alumno-1',
+  profesor_id: 'profesor-1',
+  dia_semana: 3,
+  hora_inicio: '10:00',
+  hora_fin: '12:00',
+  asignatura_o_grupo: 'Matemáticas',
+  vigente_desde: '2026-01-01',
+  vigente_hasta: null,
+  creado_en: '2026-01-01T00:00:00.000Z',
+  actualizado_en: '2026-01-01T00:00:00.000Z',
+  alumno: {
+    id: 'alumno-1',
+    nombre: 'Ana',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    avatar_ruta: null,
+    activo: true,
+  },
+};
+
+function manejadorConSlotDelTeacher(peticion: PeticionSimulada): { estado: number; cuerpo: unknown } {
+  const url = new URL(peticion.url);
+  if (url.pathname === '/rest/v1/slot_horario') {
+    return { estado: 200, cuerpo: [SLOT_TEACHER_EN_CURSO] };
+  }
+  return { estado: 200, cuerpo: [] };
+}
+
+void test('teacher con appProfesor: "Mi horario" navega a la vista semanal', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  const botonHorario = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Mi horario');
+  assert.ok(botonHorario);
+  botonHorario.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Mi horario/);
+  assert.match(contenedor.textContent, /Sin horario asignado/);
+});
+
+void test('teacher: desde mi horario, "Ver registros" de un slot navega directo a los registros de ESE slot (requisito 2 de T-22)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app, objetivoRouter } = crearAppProfesorFalso(manejadorConSlotDelTeacher, '#/horario');
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  const botonRegistros = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Ver registros');
+  assert.ok(botonRegistros);
+  botonRegistros.click();
+  await esperarMicrotareas();
+
+  assert.equal(objetivoRouter.location.hash, '#/registros/slot-1');
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  assert.equal(selectSlot.value, 'slot-1');
+});
+
+void test('teacher: desde mi horario, "Pasar lista" solo se ofrece en el slot en curso y navega a pasar lista', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppProfesorFalso(manejadorConSlotDelTeacher, '#/horario');
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /En curso/);
+  const botonPasarLista = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Pasar lista');
+  assert.ok(botonPasarLista);
+  botonPasarLista.click();
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.querySelector('button[data-clave]'), 'debe mostrar las cards de pasar lista, no mi horario');
+  assert.equal(contenedor.querySelectorAll('section').length, 0, 'mi horario ya no debe seguir montado');
 });

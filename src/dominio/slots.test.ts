@@ -6,6 +6,7 @@ import {
   instanteLocal,
   limitesDiaLocal,
   slotActivoEnInstante,
+  vistaSemanalProfesor,
   TOLERANCIA_MINUTOS_POR_DEFECTO,
   ZONA_HORARIA_CENTRO_POR_DEFECTO,
   type AlumnoParaPropuesta,
@@ -308,4 +309,114 @@ void test('alumnosPropuestos: cambio de hora estacional no rompe la propuesta', 
   const resultado = alumnosPropuestos({ profesorId: 'profesor-1', instante: justoDespuesDelCambio, slots: [slot] });
   assert.equal(resultado.tipo, 'en_curso');
   assert.equal(resultado.alumnos[0]?.alumno.id, 'alumno-1');
+});
+
+// --- vistaSemanalProfesor: "mi horario" (T-22) ---------------------------------------------------
+
+void test('vistaSemanalProfesor: filtra por profesor, no por cualquier slot de la lista', () => {
+  const slotDeOtro = crearSlot({ profesor_id: 'profesor-2' });
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slotDeOtro] });
+  assert.deepEqual(resultado, []);
+});
+
+void test('vistaSemanalProfesor: excluye al alumno dado de baja', () => {
+  const slot = crearSlot({}, { activo: false });
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.deepEqual(resultado, []);
+});
+
+void test('vistaSemanalProfesor: excluye un slot ya cesado (fuera de vigencia)', () => {
+  const slot = crearSlot({ vigente_hasta: '2026-06-30' });
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.deepEqual(resultado, []);
+});
+
+void test('vistaSemanalProfesor: incluye un slot vigente aunque su día ya haya pasado esta semana', () => {
+  const slot = crearSlot({ dia_semana: 1 }); // lunes, INSTANTE_BASE es miércoles
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.equal(resultado.length, 1);
+  assert.equal(resultado[0]?.id, slot.id);
+});
+
+void test('vistaSemanalProfesor: marca esActual en el slot que toca ahora mismo', () => {
+  const slot = crearSlot({});
+  const [resultado] = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.equal(resultado?.esActual, true);
+  assert.equal(resultado.esSiguiente, false);
+});
+
+void test('vistaSemanalProfesor: dos slots el mismo día con dos alumnos simultáneos, los dos esActual', () => {
+  const slotA = crearSlot({ id: 'slot-a', alumno_id: 'alumno-a' }, { id: 'alumno-a' });
+  const slotB = crearSlot({ id: 'slot-b', alumno_id: 'alumno-b' }, { id: 'alumno-b' });
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slotA, slotB] });
+  assert.equal(resultado.length, 2);
+  assert.ok(resultado.every((slot) => slot.esActual));
+  assert.ok(resultado.every((slot) => !slot.esSiguiente));
+});
+
+void test('vistaSemanalProfesor: marca esSiguiente en el próximo slot del mismo día, no en el actual', () => {
+  const actual = crearSlot({ id: 'slot-actual', hora_inicio: '17:00', hora_fin: '18:00' });
+  const siguiente = crearSlot(
+    { id: 'slot-siguiente', alumno_id: 'alumno-b', hora_inicio: '19:00', hora_fin: '20:00' },
+    { id: 'alumno-b' },
+  );
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [actual, siguiente] });
+  const porId = new Map(resultado.map((slot) => [slot.id, slot]));
+  assert.deepEqual(
+    { esActual: porId.get('slot-actual')?.esActual, esSiguiente: porId.get('slot-actual')?.esSiguiente },
+    { esActual: true, esSiguiente: false },
+  );
+  assert.deepEqual(
+    { esActual: porId.get('slot-siguiente')?.esActual, esSiguiente: porId.get('slot-siguiente')?.esSiguiente },
+    { esActual: false, esSiguiente: true },
+  );
+});
+
+void test('vistaSemanalProfesor: sin nada actual, el próximo del día es esSiguiente', () => {
+  const slot = crearSlot({ hora_inicio: '18:00', hora_fin: '19:00' }); // más tarde que INSTANTE_BASE (17:30)
+  const [resultado] = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.equal(resultado?.esActual, false);
+  assert.equal(resultado.esSiguiente, true);
+});
+
+void test('vistaSemanalProfesor: empata varios como siguiente si comparten día y hora de inicio', () => {
+  const slotA = crearSlot(
+    { id: 'slot-a', alumno_id: 'alumno-a', hora_inicio: '18:00', hora_fin: '19:00' },
+    { id: 'alumno-a' },
+  );
+  const slotB = crearSlot(
+    { id: 'slot-b', alumno_id: 'alumno-b', hora_inicio: '18:00', hora_fin: '19:00' },
+    { id: 'alumno-b' },
+  );
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slotA, slotB] });
+  assert.ok(resultado.every((slot) => slot.esSiguiente));
+});
+
+void test('vistaSemanalProfesor: el próximo puede dar la vuelta a la semana que viene', () => {
+  // INSTANTE_BASE es miércoles 17:30 CEST; un único slot el lunes anterior a las 09:00 ya pasó esta
+  // semana entera — el "próximo" solo puede ser su ocurrencia de la semana que viene.
+  const slot = crearSlot({ dia_semana: 1, hora_inicio: '09:00', hora_fin: '10:00' });
+  const [resultado] = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [slot] });
+  assert.equal(resultado?.esActual, false);
+  assert.equal(resultado.esSiguiente, true);
+});
+
+void test('vistaSemanalProfesor: ordena por día de la semana y hora de inicio', () => {
+  const jueves = crearSlot({ id: 'slot-jueves', dia_semana: 4, hora_inicio: '09:00', hora_fin: '10:00' });
+  const lunesTarde = crearSlot({ id: 'slot-lunes-tarde', dia_semana: 1, hora_inicio: '18:00', hora_fin: '19:00' });
+  const lunesTemprano = crearSlot({ id: 'slot-lunes-temprano', dia_semana: 1, hora_inicio: '09:00', hora_fin: '10:00' });
+  const resultado = vistaSemanalProfesor({
+    profesorId: 'profesor-1',
+    instante: INSTANTE_BASE,
+    slots: [jueves, lunesTarde, lunesTemprano],
+  });
+  assert.deepEqual(
+    resultado.map((slot) => slot.id),
+    ['slot-lunes-temprano', 'slot-lunes-tarde', 'slot-jueves'],
+  );
+});
+
+void test('vistaSemanalProfesor: sin ningún slot vigente, lista vacía', () => {
+  const resultado = vistaSemanalProfesor({ profesorId: 'profesor-1', instante: INSTANTE_BASE, slots: [] });
+  assert.deepEqual(resultado, []);
 });

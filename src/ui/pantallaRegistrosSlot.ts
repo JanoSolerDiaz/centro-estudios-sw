@@ -7,10 +7,10 @@
  * (`puedeEditarAsistenciaDeCualquiera`, `dominio/permisosUi.ts`). El alcance real lo garantiza RLS
  * (`003_politicas_rls.sql`), no esta pantalla — igual que el resto de `permisosUi.ts`.
  *
- * Sin router propio de `teacher` todavía (T-22 lo introducirá): quien monta esta pantalla para un
- * `teacher` decide cómo alternar con pasar lista (T-19), mismo criterio documentado en
- * `DECISIONES_TECNICAS.md` que ya dejó pasar lista sin enrutar hasta que hubiera una segunda
- * pantalla que enrutar — ahora ya la hay.
+ * Desde T-22, `teacher` navega aquí por el router real de `aplicacion.ts#mostrarAppProfesor`
+ * (`#/registros[/<slotId>]`) en vez de la navegación local que T-21 dejó como paso intermedio;
+ * `deps.slotInicialId` es lo que "mi horario" (T-22) usa para enlazar directo a los registros de UN
+ * slot concreto sin pasar por el selector.
  *
  * Cinco acciones de edición (requisito 4), cada una su propio mini-formulario dentro del panel de
  * edición de la fila — nunca un formulario único de "corrección": cambiar el alumno (búsqueda,
@@ -58,6 +58,13 @@ export interface DependenciasPantallaRegistrosSlot {
   /** El propio `teacher` (slots fijos, sin selector); ignorado para `administrator`, que elige. */
   readonly profesorId: string;
   readonly reloj: Reloj;
+  /** Slot a preseleccionar al abrir (T-22, "mi horario" enlaza directo a los registros de UN slot
+   * concreto). Solo tiene efecto para `teacher` (sin selector de profesor: sus slots se cargan de
+   * inmediato); para `administrator`, que primero elige profesor, no hay slot que preseleccionar
+   * hasta que ese paso ocurra, así que este campo no se usa en ese caso. Si no coincide con ningún
+   * slot cargado (p. ej. ha cambiado de horario entre que se generó el enlace y se abrió), se
+   * ignora en silencio y la pantalla arranca como siempre: "elige un slot…". */
+  readonly slotInicialId?: string;
   /** Solo se llama si `rol === 'administrator'` — quien monta esta pantalla para un `teacher`
    * puede omitirla sin más. */
   listarProfesoresParaSelector?(): Promise<readonly ProfesorParaSelector[]>;
@@ -239,7 +246,11 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     almacen.actualizar({ cargando: true, error: '', slots: [], slotSeleccionadoId: '', registros: [], filas: new Map() });
     try {
       const slots = await deps.listarSlotsDeProfesor(profesorId);
-      almacen.actualizar({ slots, cargando: false });
+      const slotPreseleccionado = deps.slotInicialId && slots.some((slot) => slot.id === deps.slotInicialId) ? deps.slotInicialId : '';
+      almacen.actualizar({ slots, cargando: false, slotSeleccionadoId: slotPreseleccionado });
+      if (slotPreseleccionado) {
+        await cargarRegistros();
+      }
     } catch (error) {
       almacen.actualizar({ cargando: false, error: mensajeAmigable(error) });
     }

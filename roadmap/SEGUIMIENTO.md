@@ -10,14 +10,76 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-01 (sesión siguiente a "T-20 BLOQUEADA") — **T-21 (revisar y
-modificar los registros por slot) BLOQUEADA — pendiente aplicar migración `008`.** Su única
-dependencia, T-19, ya estaba `COMPLETADA`; T-20 seguía `BLOQUEADA` por `007` (sin relación de
-dependencia con T-21, así que no hacía falta esperarla) y se deja tal cual. Ningún hallazgo
-`ABIERTO` de severidad alta en `auditoriacontinua.md` al empezar esta sesión (los tres abiertos
-siguen siendo de severidad baja, higiene documental — ver §0.3, no exigen atención urgente). Todo el
-código y los tests de T-21 se escriben y verifican igual, contra dobles, y quedan latentes hasta que
-el dueño aplique `008` (que a su vez exige `007` ya aplicada, orden numérico del runner).
+**Última actualización:** 2026-09-01 (sesión siguiente a "T-21 BLOQUEADA") — **T-22 ("mi horario" y
+mis alumnos por slot, teacher) COMPLETADA, sin migración.** T-20 y T-21 seguían `BLOQUEADAS` por
+`007`/`008` respectivamente (sin relación de dependencia con T-22, que solo depende de T-17,
+`COMPLETADA` desde el 2026-08-31) y se dejan tal cual. Ningún hallazgo `ABIERTO` de severidad alta en
+`auditoriacontinua.md` al empezar esta sesión (los tres abiertos siguen siendo de severidad baja,
+higiene documental — ver §0.3, no exigen atención urgente).
+
+**T-22 — "Mi horario" y mis alumnos por slot (teacher) — COMPLETADA, sin migración.** Cierra la
+lista de pantallas de `teacher`: `slot_horario` y sus políticas RLS (T-10, "lee solo los suyos") ya
+existían, así que no hacía falta tocar el esquema, y el criterio de aceptación que pide "un `teacher`
+no puede leer los slots de otro" ya estaba cubierto en `db/pruebas_rls.sql` sección 4 desde T-10 (no
+se ha añadido ningún caso nuevo: ya demostraba exactamente eso).
+
+**Dominio (`src/dominio/slots.ts`), `vistaSemanalProfesor`, nueva:** dado un profesor, un instante y
+sus slots (mismo contrato que `alumnosPropuestos` de T-17), devuelve todos los vigentes marcados con
+`esActual`/`esSiguiente` (requisito 4) — mutuamente excluyentes, y el "siguiente" se calcula en un
+ciclo semanal de `7*24*60` minutos que da la vuelta a la semana que viene si todo lo vigente ya pasó
+esta semana (a diferencia de `alumnosPropuestos`, que solo mira "lo que resta de hoy", correcto para
+pasar lista pero no para una vista pensada para verse cualquier día). Detalle de la decisión y las
+alternativas descartadas en `DECISIONES_TECNICAS.md`. 12 tests nuevos en `slots.test.ts`, incluidos
+dos alumnos simultáneos con los dos `esActual`, un empate de "siguiente" entre dos slots con la misma
+hora de inicio, y el caso de vuelta a la semana que viene.
+
+**`src/dominio/permisosUi.ts` añade `puedeVerMiHorario`**, misma condición exacta que
+`puedeUsarPasarLista` pero como función propia (mismo criterio que `puedeGestionarFichaAlumno`/
+`puedeGestionarHorarios`, ya separadas pese a compartir condición) — 1 test nuevo.
+
+**`src/nucleo/router.ts` gana el primer router real de `teacher`** (`crearRouterProfesor`/
+`RutaProfesor`: `pasar-lista` | `horario` | `registros[/slotId]`), sustituyendo la navegación local
+de dos valores que T-21 dejó como paso intermedio a propósito (su propia entrada de
+`DECISIONES_TECNICAS.md` ya decía "T-22 decidirá si hace falta un router real"). Comparte con
+`crearRouter` de `administrator` un motor interno común nuevo, `crearRouterGenerico<TRuta>` (privado
+del módulo), en vez de duplicar la suscripción a `hashchange` o fundir los dos vocabularios de ruta
+en un tipo único — detalle en `DECISIONES_TECNICAS.md`. La ruta por defecto sigue siendo
+`pasar-lista`, no `horario`: cambiar la pantalla de aterrizaje sin que la spec lo pidiera habría sido
+una regresión de comportamiento. 11 tests nuevos en `router.test.ts`.
+
+**UI (`src/ui/pantallaMiHorario.ts`, nueva):** vista de solo lectura, los siete días de la semana
+SIEMPRE visibles (con "Sin clases este día" en los vacíos, nunca ocultos — requisito 1, mismo
+criterio de "nunca una lista vacía sin explicación" que T-17), ordenados dentro de cada día por
+apellido del alumno (`compararAlumnosParaOrden`). Un resumen superior ("Ahora: …" / "Siguiente: …" /
+"Sin horario asignado") y, por fila, la etiqueta "En curso"/"Siguiente" cuando aplica (requisito 4).
+Refresco periódico cada 20 s vía `ProgramadorIntervalo` (mismo patrón exacto que T-19, incluida su
+misma limitación conocida de no cancelar el intervalo al cambiar de vista) que recalcula
+`vistaSemanalProfesor` sobre la caché de slots y el instante fresco del reloj, sin ninguna petición de
+red. Botón "Pasar lista" (requisito 2) solo en el slot `esActual`, que navega sin parámetros (pasar
+lista ya muestra lo que toque); botón "Ver registros" siempre, que navega a `#/registros/<slotId>`.
+13 tests nuevos en `pantallaMiHorario.test.ts`.
+
+**`src/ui/pantallaRegistrosSlot.ts` gana `deps.slotInicialId?` (opcional):** si coincide con un slot
+ya cargado, la pantalla lo preselecciona y pide sus registros sin que el usuario elija nada; si no
+coincide con ninguno (p. ej. el horario cambió entre que se generó el enlace y se abrió), se ignora en
+silencio y arranca como siempre. Es lo que "mi horario" usa para el enlace profundo del requisito 2.
+2 tests nuevos.
+
+**Wiring (`src/ui/aplicacion.ts`, `src/ui/main.ts`):** `mostrarAppProfesor` reescrita sobre
+`crearRouterProfesor` en vez del estado local de T-21; nuevo botón "Mi horario" en la barra de
+navegación de `teacher`, junto a "Pasar lista" y "Registros". `DependenciasAppProfesor` gana
+`objetivoRouter` (mismo campo que ya tenía `DependenciasAppAdministrador` desde T-16); `main.ts` lo
+rellena con `window`, igual que la app de administrator. 3 tests nuevos en `aplicacion.test.ts`
+(navegar a "mi horario", el enlace profundo a los registros de un slot concreto, y que "Pasar lista"
+solo se ofrece cuando el slot está en curso).
+
+**42 tests nuevos (818 en total, antes 776, verificado con `git stash -u` contra el commit de
+partida):** 12 de `dominio/slots.ts` (`vistaSemanalProfesor`), 1 de `permisosUi.ts`
+(`puedeVerMiHorario`), 11 de `nucleo/router.ts` (`crearRouterProfesor`/`RutaProfesor`), 13 de
+`pantallaMiHorario.test.ts` (nuevo), 2 de `pantallaRegistrosSlot.ts` (`slotInicialId`) y 3 de
+`aplicacion.test.ts`.
+
+---
 
 **T-21 — Revisar y modificar los registros por slot — código y tests COMPLETOS, BLOQUEADA por la
 migración `008`.** Cierra el ciclo del día a día: una sola pantalla (`pantallaRegistrosSlot.ts`,
@@ -642,7 +704,7 @@ pantallas del requisito 2.
 | T-19 | Pantalla de pasar lista | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17/T-18 (ambas completadas). `puedeUsarPasarLista` exclusivo de `teacher`. Nuevo `nucleo/programadorIntervalo.ts` (refresco sin red), `dominio/slots.ts` añade `limitesDiaLocal`. Cards como `<button>` nativo con doble toque por clave; `Conflicto` se resuelve releyendo el registro real, nunca como error. Sin router propio de `teacher` todavía (una sola pantalla). 48 tests nuevos (662 en total, antes 614) |
 | T-20 | Alumno extra: listado completo y selección manual | BLOQUEADA — pendiente aplicar migración `007` | 2026-09-01 | Código y 66 tests completos, contra dobles. Migración `007_rpc_buscar_alumnos.sql` (RPC `buscar_alumnos_activos`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 9 de §3 |
 | T-21 | Revisar y modificar los registros por slot | BLOQUEADA — pendiente aplicar migración `008` | 2026-09-01 | Código y tests completos, contra dobles. Migración `008_rpc_actualizar_asistencia.sql` (RPC `actualizar_asistencia`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 10 de §3 |
-| T-22 | "Mi horario" del profesor (teacher) | PENDIENTE | — | — |
+| T-22 | "Mi horario" del profesor (teacher) | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17 (`COMPLETADA`). `dominio/slots.ts#vistaSemanalProfesor` (nuevo), primer router real de `teacher` (`crearRouterProfesor`, `nucleo/router.ts`, sustituye la navegación local de T-21), pantalla `pantallaMiHorario.ts` (nueva) y `slotInicialId` opcional en `pantallaRegistrosSlot.ts` para el enlace profundo del requisito 2. 42 tests nuevos (818 en total, antes 776) |
 | T-23 | Consulta y exportación del histórico | PENDIENTE | — | — |
 | T-24 | Administración de usuarios y roles | PENDIENTE | — | — |
 | T-25 | Endurecimiento, privacidad y paso a producción | PENDIENTE | — | La única tarea que toca `prod` |

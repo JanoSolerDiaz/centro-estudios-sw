@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analizarRuta, hashDeRuta, crearRouter, type ObjetivoRouter, type Ruta } from './router.ts';
+import {
+  analizarRuta,
+  hashDeRuta,
+  crearRouter,
+  analizarRutaProfesor,
+  hashDeRutaProfesor,
+  crearRouterProfesor,
+  type ObjetivoRouter,
+  type Ruta,
+  type RutaProfesor,
+} from './router.ts';
 
 void test('analizarRuta: "#/centros" es la ruta de centros', () => {
   assert.deepEqual(analizarRuta('#/centros'), { nombre: 'centros' });
@@ -116,4 +126,71 @@ void test('la función devuelta por suscribir() desuscribe', () => {
   objetivo.location.hash = '#/centros';
 
   assert.deepEqual(recibidas, []);
+});
+
+// --- Router de teacher (T-22): pasar lista, mi horario y registros[/slotId] --------------------
+
+void test('analizarRutaProfesor: "#/pasar-lista" es pasar lista (T-19)', () => {
+  assert.deepEqual(analizarRutaProfesor('#/pasar-lista'), { nombre: 'pasar-lista' });
+});
+
+void test('analizarRutaProfesor: "#/horario" es mi horario (T-22)', () => {
+  assert.deepEqual(analizarRutaProfesor('#/horario'), { nombre: 'horario' });
+});
+
+void test('analizarRutaProfesor: "#/registros" sin slot es la pantalla de registros sin preselección', () => {
+  assert.deepEqual(analizarRutaProfesor('#/registros'), { nombre: 'registros' });
+});
+
+void test('analizarRutaProfesor: "#/registros/<slotId>" preselecciona ese slot', () => {
+  assert.deepEqual(analizarRutaProfesor('#/registros/slot-abc'), { nombre: 'registros', slotId: 'slot-abc' });
+});
+
+void test('analizarRutaProfesor: un slotId con caracteres especiales llega decodificado', () => {
+  assert.deepEqual(analizarRutaProfesor('#/registros/uno%20dos'), { nombre: 'registros', slotId: 'uno dos' });
+});
+
+void test('analizarRutaProfesor: cadena vacía cae en pasar lista, no en mi horario ni en blanco', () => {
+  assert.deepEqual(analizarRutaProfesor(''), { nombre: 'pasar-lista' });
+});
+
+void test('analizarRutaProfesor: un hash sin reconocer cae también en pasar lista', () => {
+  assert.deepEqual(analizarRutaProfesor('#/lo-que-sea'), { nombre: 'pasar-lista' });
+});
+
+void test('hashDeRutaProfesor es el inverso exacto de analizarRutaProfesor para cada forma de ruta', () => {
+  const rutas: readonly RutaProfesor[] = [
+    { nombre: 'pasar-lista' },
+    { nombre: 'horario' },
+    { nombre: 'registros' },
+    { nombre: 'registros', slotId: 'slot-abc' },
+  ];
+  for (const ruta of rutas) {
+    assert.deepEqual(analizarRutaProfesor(hashDeRutaProfesor(ruta)), ruta);
+  }
+});
+
+void test('crearRouterProfesor: obtenerRuta() refleja el hash actual del objetivo', () => {
+  const objetivo = crearObjetivoDePrueba('#/horario');
+  const router = crearRouterProfesor(objetivo);
+  assert.deepEqual(router.obtenerRuta(), { nombre: 'horario' });
+});
+
+void test('crearRouterProfesor: navegar() a registros con slotId cambia el hash y notifica', () => {
+  const objetivo = crearObjetivoDePrueba('#/pasar-lista');
+  const router = crearRouterProfesor(objetivo);
+  const recibidas: RutaProfesor[] = [];
+  router.suscribir((ruta) => recibidas.push(ruta));
+
+  router.navegar({ nombre: 'registros', slotId: 'slot-1' });
+
+  assert.equal(objetivo.location.hash, '#/registros/slot-1');
+  assert.deepEqual(recibidas, [{ nombre: 'registros', slotId: 'slot-1' }]);
+});
+
+void test('crearRouterProfesor y crearRouter son independientes: cada uno interpreta el hash con su propia gramática', () => {
+  const objetivoProfesor = crearObjetivoDePrueba('#/registros');
+  const objetivoAdministrador = crearObjetivoDePrueba('#/registros');
+  assert.deepEqual(crearRouterProfesor(objetivoProfesor).obtenerRuta(), { nombre: 'registros' });
+  assert.deepEqual(crearRouter(objetivoAdministrador).obtenerRuta(), { nombre: 'registros' });
 });

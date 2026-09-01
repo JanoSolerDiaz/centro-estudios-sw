@@ -58,6 +58,13 @@ export function puedeUsarPasarLista(rol: Rol): boolean {
   return rol === 'teacher';
 }
 
+/** "Mi horario" (T-22): la vista semanal de solo lectura de los propios slots. Exclusivamente
+ * `teacher`, mismo motivo que `puedeUsarPasarLista` — `administrator` no tiene horario propio que
+ * consultar, el suyo es el de gestión (T-16), no uno para impartir clase. */
+export function puedeVerMiHorario(rol: Rol): boolean {
+  return rol === 'teacher';
+}
+
 /** Columnas de `alumno` con las que merece la pena pintar un formulario o una card para `rol`: no
  * es una lista de lo que el dato PUEDE tener, es una lista de lo que no tiene sentido dibujar
  * porque el servidor nunca lo va a devolver para ese rol (`003_politicas_rls.sql`, requisito 4 de

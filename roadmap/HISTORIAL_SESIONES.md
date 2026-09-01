@@ -37,6 +37,56 @@
 
 ---
 
+### Sesión 2026-09-01 (siguiente a "T-21 BLOQUEADA") — T-22: "mi horario" del profesor, COMPLETADA
+
+**Tarea(s):** T-22 ("mi horario" y mis alumnos por slot, teacher)
+**Estado resultante:** **T-22 COMPLETADA, sin migración.** T-20 y T-21 siguen `BLOQUEADAS` por
+`007`/`008` respectivamente (sin dependencia con T-22, que solo depende de T-17) y se dejan tal cual.
+Sin hallazgo `ABIERTO` de severidad alta en `auditoriacontinua.md` al empezar la sesión (los tres
+siguen siendo de severidad baja) — no hizo falta ningún P-XX urgente antes de la cola. Al arrancar,
+la rama `develop` local de este contenedor tenía otra vez un historial ajeno (4 commits, sin
+ancestro común con `origin/develop`) — mismo artefacto de arranque de contenedor ya descrito en la
+sesión anterior, no trabajo real: se realineó `develop` local con `origin/develop`
+(`git checkout -B develop origin/develop`) antes de tocar nada; sin backup esta vez porque, igual que
+la sesión anterior confirmó, esa rama nunca llegó a `origin` y no hay nada de valor que preservar
+**Commits a `develop`:** ver commit de esta sesión (`T-22: "mi horario" del profesor — router de
+teacher, vista semanal y enlace profundo a registros`)
+**Migraciones aplicadas:** ninguna — T-22 no necesita ninguna (`slot_horario` y sus políticas RLS ya
+existen desde T-10)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `src/dominio/slots.ts` (`vistaSemanalProfesor`, nuevo);
+`src/dominio/slots.test.ts`; `src/dominio/permisosUi.ts` (`puedeVerMiHorario`, nuevo);
+`src/dominio/permisosUi.test.ts`; `src/nucleo/router.ts` (`crearRouterGenerico` privado,
+`crearRouterProfesor`/`RutaProfesor`/`analizarRutaProfesor`/`hashDeRutaProfesor`, nuevos);
+`src/nucleo/router.test.ts`; `src/ui/pantallaMiHorario.ts` (nuevo, pantalla completa);
+`src/ui/pantallaMiHorario.test.ts` (nuevo); `src/ui/pantallaRegistrosSlot.ts` (`slotInicialId`
+opcional); `src/ui/pantallaRegistrosSlot.test.ts`; `src/ui/aplicacion.ts` (`mostrarAppProfesor`
+reescrita sobre el router real, `DependenciasAppProfesor.objetivoRouter` nuevo);
+`src/ui/aplicacion.test.ts`; `src/ui/main.ts` (`objetivoRouter: window` en la construcción de
+`DependenciasAppProfesor`); `roadmap/SEGUIMIENTO.md` (§1, cabecera, narrativa de T-22);
+`roadmap/DECISIONES_TECNICAS.md` (6 filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (818/818, 42 nuevos, verificado con
+`git stash -u` contra el commit de partida: 776 antes) · build ✅
+**Health check post-deploy:** no aplica (sin migración, sin cambio de esquema ni de despliegue)
+**Decisiones tomadas:** 6 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-01, T-22): motor
+`crearRouterGenerico` compartido en vez de generalizar `Ruta` o duplicar la suscripción a
+`hashchange`; ruta por defecto de `teacher` sigue siendo `pasar-lista`, no `horario`; `esActual`/
+`esSiguiente` mutuamente excluyentes con ciclo semanal para "siguiente"; los siete días de la semana
+siempre visibles, nunca ocultos; `slotInicialId` opcional en `pantallaRegistrosSlot.ts` para el
+enlace profundo, en vez de duplicar la pantalla o usar un estado global; `puedeVerMiHorario` como
+función propia pese a compartir condición con `puedeUsarPasarLista`
+**Hallazgos del auditor atendidos:** ninguno (los tres `ABIERTO` de severidad baja siguen sin
+cambios, no exigían atención urgente)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente tarea de la cola es T-23 (consulta y exportación del histórico), que
+depende de T-21 — sigue `BLOQUEADA` por la migración `008`, así que T-23 también lo estará hasta que
+el dueño la aplique. Revisar en la siguiente sesión si `007`/`008` ya se aplicaron (filas 9 y 10 de
+§3 de `SEGUIMIENTO.md`) para desbloquear T-20/T-21, y si no, valorar si hay alguna tarea PENDIENTE sin
+esa dependencia antes de T-23 (T-24 depende de T-10, `COMPLETADA` — sin bloqueo de migración)
+
+---
+
 ### Sesión 2026-09-01 (siguiente a "T-20 BLOQUEADA") — T-21: código y tests completos, BLOQUEADA por migración `008`
 
 **Tarea(s):** T-21 (revisar y modificar los registros por slot)
