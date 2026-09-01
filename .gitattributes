@@ -1,0 +1,34 @@
+# ---------------------------------------------------------------------------
+# Finales de línea — por qué este fichero existe
+#
+# El runner de migraciones guarda en `esquema_migracion` el SHA-256 del fichero
+# `db/NNN_*.sql` TAL CUAL está en el disco (`herramientas/migraciones/hash.ts`),
+# y `planificar()` aborta con `ErrorHashCambiado` en cuanto deja de coincidir.
+# Eso es deliberado: es lo que hace inmutable una migración ya aplicada.
+#
+# Pero `core.autocrlf` reescribe los finales de línea al hacer checkout, y esa
+# reescritura cambia el hash de un fichero que no ha cambiado ni una letra. Un
+# `git clone` en otra máquina bastaría para dejar el runner sin poder aplicar
+# absolutamente nada, con el SQL correcto delante.
+#
+# Por eso cada `.sql` queda CLAVADO a los finales de línea con los que se aplicó
+# y con los que está su hash en el ledger de `dev`, verificado con
+# `npm run migrate -- --estado` el 2026-09-01. No es una preferencia de estilo:
+# cambiar una de estas líneas invalida el hash de esa migración.
+#
+# MIGRACIONES FUTURAS: escríbelas en CRLF, que es la regla general de abajo, y
+# comprueba antes de commitear que `npm test` sigue en verde — hay un test que
+# contrasta el hash de cada fichero contra el documentado en `db/APLICADAS.md`.
+# ---------------------------------------------------------------------------
+
+db/*.sql                                text eol=crlf
+
+# Excepciones, cada una por su motivo, no por gusto:
+#   000 / 000b / diagnostico — arranque manual del dueño, fuera del runner: no
+#   tienen hash en el ledger, se dejan como están para no generar ruido.
+db/000_bootstrap_perfil.sql             text eol=lf
+db/000b_arreglo_permisos.sql            text eol=lf
+db/diagnostico_000.sql                  text eol=lf
+#   006 — se escribió y se aplicó en LF (hash 6de505c4b933 en el ledger). Es la
+#   única migración de verdad en LF; pasarla a CRLF la invalidaría.
+db/006_arreglo_limite_tasa_ambiguo.sql  text eol=lf

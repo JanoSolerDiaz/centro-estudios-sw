@@ -37,6 +37,48 @@
 
 ---
 
+### Sesión 2026-09-01 (continuación) — P-11
+
+**Tarea(s):** P-11 (finales de línea y hash del ledger) · cierre de la aplicación de `005`/`006`
+**Estado resultante:** P-11 **IMPLEMENTADA**. T-18 pasa de "pendiente aplicar migración `006`" a
+**BLOQUEADA — pendiente verificar con `npm run probar-rls`**: las dos migraciones ya están aplicadas
+**Commits a `develop`:** ver commit de esta sesión (`P-11: clavar los finales de línea de db/*.sql
+al hash del ledger`)
+**Migraciones aplicadas:** `005` y `006` en `dev`, por el dueño, con `npm run migrate`. Confirmadas
+con `npm run migrate -- --estado`: la `006` figura en el ledger con hash `6de505c4b933`
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `.gitattributes` (nuevo),
+`herramientas/migraciones/hashesAplicadas.test.ts` (nuevo), `db/APLICADAS.md` (tres hashes
+corregidos, fila de la `006`, nota sobre finales de línea), `roadmap/SEGUIMIENTO.md` (§1 T-18, §3
+fila 8, §5 P-11), `roadmap/DECISIONES_TECNICAS.md` (dos filas),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (610, antes 607: 3 nuevos) · build ✅
+**Health check post-deploy:** N/A — `npm run health` no existe todavía (hosting `<pendiente>`, §0.1)
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-01, P-11): por qué el
+`.gitattributes` fija los finales de línea fichero a fichero en vez de normalizar el repo, y por qué
+la guarda vive en `npm test` y no en el runner
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- **El hash del ledger colgaba de `core.autocrlf`.** El runner hashea el fichero tal cual está en el
+  disco, así que CRLF y LF dan hashes distintos del mismo SQL. Sin `.gitattributes`, quién reescribe
+  qué fichero dependía de si a git le tocaba materializarlo. Efecto ya materializado: las filas 002,
+  003 y 004 de `APLICADAS.md` documentaban el hash LF mientras el ledger guardaba el CRLF.
+  Corregidas contra `npm run migrate -- --estado`. Efecto latente, peor: un clon en otra máquina
+  dejaba `npm run migrate` inservible sobre migraciones intactas
+- **Error propio, anotado para que no se repita el método.** La primera comprobación de finales de
+  línea se hizo con `grep -q $'\r'`, que bajo Git-Bash lee en modo texto y se come los `\r`: dio LF
+  sobre ficheros que estaban en CRLF, y sobre esa lectura falsa se propuso un `.gitattributes` con
+  `eol=lf` que habría roto el runner de golpe. Lo que sirve es leer los bytes (`grep -U`,
+  `git ls-files --eol`, o contar los `0x0D` desde Node), no un grep en modo texto
+**Tareas autopropuestas (P-XX):** **P-11** registrada e implementada. **P-10** (endurecer las
+comprobaciones "debe fallar" de `db/pruebas_rls.sql`) sigue registrada y sin implementar, a la
+espera de que `npm run probar-rls` confirme la `006`
+**Próximo paso:** el dueño ejecuta `npm run probar-rls` (fila 8 de §3) esperando 67 comprobaciones,
+0 fallidas y 0 omitidas, y revisa que las líneas "debe fallar" traigan su motivo propio. Con eso
+verde: cerrar T-18 como COMPLETADA, implementar P-10 y seguir con T-19
+
+---
+
 ### Sesión 2026-09-01
 
 **Tarea(s):** T-18 (arreglo de la migración `005` ya aplicada) · P-10 (registrada, no implementada)
