@@ -37,6 +37,55 @@
 
 ---
 
+### Sesión 2026-09-01
+
+**Tarea(s):** T-18 (arreglo de la migración `005` ya aplicada) · P-10 (registrada, no implementada)
+**Estado resultante:** T-18 sigue **BLOQUEADA — pendiente aplicar migración `006`**
+**Commits a `develop`:** ver commit de esta sesión (`T-18: arreglo de aplicar_limite_tasa —
+referencias ambiguas en el ON CONFLICT (migración 006)`)
+**Migraciones aplicadas:** `db/005_rpc_registrar_asistencia.sql` en `dev`, por el dueño, con
+`npm run migrate`; `esquema_version()` devuelve `5`. Anotada en `db/APLICADAS.md`. **Escrita y
+pendiente:** `db/006_arreglo_limite_tasa_ambiguo.sql` (fila 8 de §3)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `db/006_arreglo_limite_tasa_ambiguo.sql` (nuevo),
+`herramientas/migraciones/arregloLimiteTasaAmbiguo.test.ts` (nuevo), `db/APLICADAS.md`,
+`roadmap/SEGUIMIENTO.md` (§1 T-18, §3 filas 7 y 8, §5 P-10),
+`roadmap/DECISIONES_TECNICAS.md` (tres filas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (607, antes 599: 8 nuevos, todos estáticos sobre la migración 006) · build ✅
+**Health check post-deploy:** N/A — `npm run health` no existe todavía (el hosting estático sigue
+`<pendiente>`, §0.1); la verificación en vivo de este cambio es `npm run probar-rls` tras aplicar
+`006`, y es lo que pide la fila 8 de §3
+**Decisiones tomadas:** tres filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-01, "T-18
+(arreglo)"): arreglo por migración nueva y no editando `005`; norma de cualificar toda lectura de
+la fila previa en un `ON CONFLICT ... DO UPDATE`; y por qué el endurecimiento de la batería (P-10)
+no viaja en este mismo empujón
+**Hallazgos del auditor atendidos:** ninguno (esta sesión sale de un fallo de `npm run probar-rls`,
+no del registro de `auditoriacontinua.md`)
+**Hallazgos:**
+- **El bug.** Al aplicar `005` en `dev`, `npm run probar-rls` dio 67 comprobaciones, 0 omitidas y
+  **4 fallidas**, todas con `column reference "ventana_inicio" is ambiguous`. Causa raíz: no está en
+  `registrar_asistencia` sino en `aplicar_limite_tasa()`, a la que llama en su paso 2. Dentro de un
+  `INSERT ... ON CONFLICT ... DO UPDATE`, la tabla destino y `excluded` están las dos en ámbito, así
+  que `ventana_inicio`/`contador` sin cualificar en las expresiones del `SET` son ambiguos. Falla al
+  planificar la sentencia, no al ejecutarla: el `INSERT` nunca corrió, `limite_tasa` está vacía y no
+  hay dato que limpiar. Arreglado en `006` cualificando las cuatro lecturas con `limite_tasa.`
+- **Lo que el bug enseñó de la batería (→ P-10).** De las trece comprobaciones de la sección 7b que
+  el bug tumbó, solo cuatro salieron en rojo: las de acceso *permitido*. Las otras nueve son casos
+  "debe fallar" y salieron **`[OK]` por el motivo equivocado**, porque el bloque `prohibido` aprueba
+  con cualquier `sqlerrm`. Un fallo de implementación se disfrazó de control de acceso funcionando
+- **Ruido a vigilar en el limitador.** Cada ejecución de la batería gasta ~13 de las 60 operaciones
+  por minuto del profesor de prueba. Cuatro ejecuciones seguidas dentro del mismo minuto de ventana
+  fija empezarían a rozar el límite y darían fallos que no son del código sino del ritmo de prueba.
+  No se toca el límite (es el contrato de T-06); queda anotado por si algún día aparece un rojo raro
+**Tareas autopropuestas (P-XX):** **P-10** registrada en §5 (endurecer las comprobaciones "debe
+fallar" de `db/pruebas_rls.sql` para que exijan su motivo). Registrada y **no implementada** a
+propósito, ver la decisión correspondiente
+**Próximo paso:** el dueño hace `git pull` y `npm run migrate` (fila 8 de §3), comprueba
+`esquema_version()` = `6` y ejecuta `npm run probar-rls` esperando 67/0/0. Con eso verde: anotar
+`006` en `db/APLICADAS.md`, cerrar T-18 como COMPLETADA, implementar P-10 y seguir con T-19
+
+---
+
 ### Sesión 2026-08-31 (PM)
 
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
