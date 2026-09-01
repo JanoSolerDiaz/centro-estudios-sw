@@ -94,6 +94,14 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   y `resultadosParaMostrar(resultados)`, que marca `esHomonimo` cuando dos resultados de la MISMA
   búsqueda comparten nombre completo — es lo único que decide si el combobox pinta el centro junto
   al nombre (requisito 3: "el centro cuando hay homónimos", no siempre).
+  Desde T-23: `slots.ts` añade `fechaHoraLocalLegible` (`DD/MM/AAAA HH:MM`, para las dos horas del
+  histórico, en pantalla y en el CSV). `historicoAsistencia.ts` (nuevo) — `tieneModificaciones`
+  (`actualizado_en !== null`, sin consultar `asistencia_historial`) y
+  `filaCsvHistorico`/`cabecerasCsvHistorico`/`generarCsvHistorico`, que leen ÚNICAMENTE el snapshot
+  ya guardado en la fila de `asistencia` (nunca un `SlotHorario` vigente, para que un cambio de
+  horario posterior no pueda colarse en un informe ya emitido). Sobre la utilidad genérica
+  `nucleo/csv.ts` (`filaCsv`/`documentoCsv`: separador `;`, BOM UTF-8, `\r\n` — el separador correcto
+  para una hoja de cálculo española, donde la coma es el separador decimal).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -140,9 +148,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     fuera de las ocho de T-08 (login con contraseña incorrecta no es lo mismo que "sin sesión").
     Endpoints sin poder verificarse contra documentación en vivo en esta sesión, mismo aviso que
     T-06/T-07/T-08.
-  - `profesores.ts` (T-16) — `listarProfesoresActivos`: los únicos datos de `perfil` que necesita el
-    selector de profesor del bloque de horario de la ficha de alumno (`id`, `nombre`, `rol=teacher`,
-    `activo=true`). Solo lectura; el alta de usuarios es T-24.
+  - `profesores.ts` (T-16, ampliado en T-23) — `listarProfesoresActivos`: los únicos datos de
+    `perfil` que necesita el selector de profesor del bloque de horario de la ficha de alumno (`id`,
+    `nombre`, `rol=teacher`, `activo=true`). Solo lectura; el alta de usuarios es T-24. Desde T-23:
+    `resolverNombresProfesores(cliente, ids)` — resuelve en LOTE el nombre de cada id, sin filtrar
+    por `rol`/`activo` (un profesor que ya no da clase sigue siendo el que registró históricamente
+    esa fila); para un `teacher` (que solo tiene `perfil_leer_propio`) el mapa devuelto contiene como
+    mucho su propia fila.
   - `centrosEstudios.ts` (T-11) — `listarCentros`/`crearCentro`/`editarNombreCentro`/
     `contarAlumnosActivosDeCentro`/`desactivarCentro`/`reactivarCentro` sobre `postgrest.ts`. El alta
     y la edición de nombre comprueban antes el duplicado acento-insensible
@@ -183,7 +195,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `listarRegistrosDeSlotYFecha(cliente, slotId, fecha, zona?)` — registros de un slot en CUALQUIER
     fecha, cualquier estado (a diferencia de `listarAsistenciaDeHoy`, siempre "hoy" y solo válidos).
     `listarHistorialDeAsistencia(cliente, asistenciaId)` — lee `asistencia_historial`, solo tiene
-    sentido para `administrator` (única política de lectura sobre esa tabla).
+    sentido para `administrator` (única política de lectura sobre esa tabla). Desde T-23:
+    `listarHistoricoAsistencia(cliente, filtro, zona?, logger?)` — consulta transversal paginada por
+    alumno/profesor/centro/rango de fechas (requisito 1 y 5 de T-23); el filtro por centro resuelve
+    primero los ids de alumno de ese centro (`alumno.centro_referencia_id`, sin embed anidado — el
+    cliente no soporta filtrar sobre un recurso embebido) y después acota `asistencia` con `.in(...)`.
+    Deja traza mínima en el log (`logger.info`, solo ids y página, nunca un nombre — parámetro
+    inyectable, por defecto la instancia real de T-02). `listarHistoricoAsistenciaCompleto(cliente,
+    filtro, zona?)` recorre la anterior en lotes de 500 para traer TODO lo que cumple el filtro, para
+    la exportación CSV (requisito 3), nunca solo la página que ve la pantalla.
   - `alumnos.ts`, ampliado en T-20 — `buscarAlumnosParaExtra(cliente, texto, señal?)`: llama a la
     RPC `buscar_alumnos_activos` (`db/007_rpc_buscar_alumnos.sql`, `SECURITY DEFINER`), nunca la
     tabla base ni la vista `alumno_ficha` — es la única vía por la que un `teacher` puede saber a
@@ -192,6 +212,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     lee de la tabla base `alumno` las mismas columnas que ya trae embebidas
     `listarSlotsDeProfesorConAlumno` (incluida `avatar_ruta`, que el buscador nunca devuelve) —
     necesario para pintar la card del alumno recién añadido con su avatar (requisito 5 de T-20).
+    Desde T-23: `resolverIdentificacionAlumnos(cliente, ids)` — resuelve en LOTE (nunca una petición
+    por fila) el nombre de cada id de una página del histórico, contra la tabla base `alumno`; un id
+    que la RLS de quien consulta no puede resolver simplemente falta en el mapa devuelto.
+    `resolverContactoAlumnos(cliente, ids)` — email/teléfono en lote contra `alumno_ficha`, solo
+    tiene sentido detrás de `puedeExportarConDatosDeContacto(rol)`.
 
   ### Configuración del cliente (`config.js`)
 
@@ -267,15 +292,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21 y T-22) — dos routers por `hash`, cada uno con su propio par
-    `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común (`crearRouterGenerico`,
+  - `router.ts` (T-16, ampliado en T-21, T-22 y T-23) — dos routers por `hash`, cada uno con su propio
+    par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común (`crearRouterGenerico`,
     privado): `crearRouter(objetivo)` para `administrator` (`#/centros`, `#/alumnos`,
-    `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`) y, desde T-22, `crearRouterProfesor(objetivo)`
+    `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`, `#/historico`) y `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>]` — el segmento de `slotId`
-    es opcional, para el enlace profundo de "mi horario" a los registros de un slot concreto).
-    `objetivo` se inyecta en los dos (nunca leen `window` directamente), mismo patrón que
-    `instalarCapturaErrores`. Las dos gramáticas de ruta son independientes a propósito: las dos apps
-    nunca están montadas a la vez (ver `mostrarAppProfesor` más abajo).
+    es opcional, para el enlace profundo de "mi horario" a los registros de un slot concreto — y
+    `#/historico`). `objetivo` se inyecta en los dos (nunca leen `window` directamente), mismo patrón
+    que `instalarCapturaErrores`. Las dos gramáticas de ruta son independientes a propósito: las dos
+    apps nunca están montadas a la vez (ver `mostrarAppProfesor` más abajo).
   - `almacenEstado.ts` (T-16) — `crearAlmacenEstado(inicial)`: estado mínimo con suscripción
     (`obtener`/`actualizar`/`suscribir`), mismo contrato que `GestorSesion`. Genérico y sin DOM;
     usado por `pantallaListadoAlumnos.ts`.
@@ -301,11 +326,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     enlazado por `aria-describedby`/`aria-invalid` — distinto de `crearZonaMensaje`, que es un único
     mensaje para todo el formulario). Objetivos táctiles ≥44px y 16px de fuente (evita el zoom de
     iOS) fijados aquí, en estilos en línea — el proyecto no tiene todavía ninguna hoja de estilos.
-  - `dom.ts` (T-16) — `crearElemento(documento, etiqueta, opciones, hijos)`: helper de creación de
-    elementos con texto/atributos/hijos en una llamada, siempre por `textContent`/`createElement`
-    (nunca `innerHTML`). Complementa a `formularios.ts` para el resto del marcado de una pantalla
-    (títulos, párrafos, contenedores); usado por `pantallaListadoAlumnos.ts` y la nueva
-    `pantallaFichaAlumno.ts`.
+  - `dom.ts` (T-16, ampliado en T-23) — `crearElemento(documento, etiqueta, opciones, hijos)`:
+    helper de creación de elementos con texto/atributos/hijos en una llamada, siempre por
+    `textContent`/`createElement` (nunca `innerHTML`). Complementa a `formularios.ts` para el resto
+    del marcado de una pantalla (títulos, párrafos, contenedores). Desde T-23: `Descargador`/
+    `crearDescargadorNavegador(documento)` — dispara la descarga de un fichero de texto (`Blob`/
+    `URL.createObjectURL`/`<a download>`), inyectable igual que `FabricaProcesadoImagen` (T-14): la
+    pantalla que lo usa se testea con un `Descargador` de mentira que solo registra la llamada.
   - `pantallaLogin.ts`, `pantallaRecuperarContrasena.ts`, `pantallaEstablecerContrasenaNueva.ts`,
     `pantallaSinAcceso.ts` (T-09) — una función `mostrarPantallaX(contenedor, deps)` por pantalla,
     con sus dependencias inyectadas (nunca llaman directamente a `gestorSesion.ts`). La de
@@ -324,14 +351,16 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     las funciones puras de `src/datos/**` con el `ClientePostgrest`/`ClienteAlmacenamiento` reales,
     para que cada pantalla siga recibiendo solo funciones ya resueltas, nunca un cliente HTTP.
     `mostrarAppAdministrador` monta un `crearRouter` propio (`pantallaCentros.ts`,
-    `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`, `pantallaRegistrosSlot.ts` desde T-21).
-    Desde T-22, `mostrarAppProfesor` monta a su vez `crearRouterProfesor` (sustituye la navegación
-    local de dos valores que T-21 dejó como paso intermedio): tres botones en la cabecera ("Pasar
-    lista", "Mi horario", "Registros") alternan entre `pantallaPasarLista.ts`,
-    `pantallaMiHorario.ts` (nueva) y `pantallaRegistrosSlot.ts` sin perder la sesión ni la cabecera.
-    "Mi horario" navega a los otros dos con `router.navegar(...)`: sin parámetros a pasar lista, y
-    con `{ slotId }` a registros — de ahí que `DependenciasAppProfesor` necesite ahora
-    `objetivoRouter` (mismo campo que ya tenía `DependenciasAppAdministrador`).
+    `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`, `pantallaRegistrosSlot.ts` desde T-21,
+    `pantallaHistorico.ts` desde T-23). `mostrarAppProfesor` monta a su vez `crearRouterProfesor`
+    (sustituye la navegación local de dos valores que T-21 dejó como paso intermedio): cuatro botones
+    en la cabecera ("Pasar lista", "Mi horario", "Registros", "Histórico" desde T-23) alternan entre
+    `pantallaPasarLista.ts`, `pantallaMiHorario.ts`, `pantallaRegistrosSlot.ts` y `pantallaHistorico.ts`
+    sin perder la sesión ni la cabecera. "Mi horario" navega a los otros dos con `router.navegar(...)`:
+    sin parámetros a pasar lista, y con `{ slotId }` a registros — de ahí que `DependenciasAppProfesor`
+    necesite `objetivoRouter` (mismo campo que ya tenía `DependenciasAppAdministrador`). Ninguna de
+    las dos interfaces de dependencias necesitó un campo nuevo para T-23: la pantalla de histórico
+    reutiliza el mismo `postgrest` que ya recibían las dos.
   - `pantallaCentros.ts` (T-11) — `mostrarPantallaCentros(contenedor, deps)`: catálogo de centros de
     estudios (listar con filtro de estado y búsqueda, crear, editar el nombre, desactivar,
     reactivar). **Enrutada desde T-16** (`#/centros`, solo dentro de la aplicación de
@@ -431,6 +460,27 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     para `administrator`, el único rol con política de lectura sobre esa tabla. "Quién registró/
     modificó" se muestra por fecha, no por nombre — simplificación deliberada, documentada en el
     propio fichero (`DECISIONES_TECNICAS.md`).
+  - `pantallaHistorico.ts` (T-23) — `mostrarPantallaHistorico(contenedor, deps)`: consulta
+    transversal del histórico completo (no de un solo slot, a diferencia de
+    `pantallaRegistrosSlot.ts`), para `administrator` (todo el centro) y `teacher` (solo lo suyo, por
+    RLS — su propio id se aplica siempre como filtro sin que la interfaz se lo ofrezca cambiar).
+    Primera pantalla del proyecto con un `<table>` HTML real (`<thead>`/`<th scope="col">`) en vez del
+    patrón `div`/`span` de `pantallaListadoAlumnos.ts`. Filtro de alumno por búsqueda simple
+    (reutiliza `buscar_alumnos_activos` de T-20, mismo patrón sin combobox ARIA completo que
+    `pantallaRegistrosSlot.ts`); selectores de profesor y de centro solo si
+    `puedeConsultarHistoricoDeCualquiera(rol)` (`permisosUi.ts`, exclusiva de `administrator`).
+    Paginación real en servidor (`datos/asistencia.ts#listarHistoricoAsistencia`). Botón "Exportar
+    CSV" (`dominio/historicoAsistencia.ts#generarCsvHistorico`, sobre la utilidad genérica
+    `nucleo/csv.ts`) que trae TODO el histórico filtrado, no solo la página visible
+    (`listarHistoricoAsistenciaCompleto`, en lotes de 500), con una casilla "incluir datos de
+    contacto" (`puedeExportarConDatosDeContacto`, exclusiva de `administrator`) que añade email y
+    teléfono del alumno solo si se marca explícitamente. La descarga se dispara con un `Descargador`
+    inyectable (`ui/dom.ts#crearDescargadorNavegador`, `Blob`/`URL.createObjectURL`/`<a download>`),
+    mismo patrón de inyección que `FabricaProcesadoImagen` (T-14). Los nombres de alumno/profesor de
+    cada fila se resuelven en LOTE por id (`resolverIdentificacionAlumnos`/`resolverNombresProfesores`,
+    nunca un embed anidado de PostgREST); un id que la RLS de quien consulta no puede resolver (p. ej.
+    un alumno de baja para un `teacher`) se muestra con una etiqueta de repuesto explícita. La consulta
+    deja traza mínima en el log (`logAuditoria.info`, solo ids y página, nunca un nombre).
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

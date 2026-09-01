@@ -10,12 +10,92 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-01 (sesión siguiente a "T-21 BLOQUEADA") — **T-22 ("mi horario" y
-mis alumnos por slot, teacher) COMPLETADA, sin migración.** T-20 y T-21 seguían `BLOQUEADAS` por
-`007`/`008` respectivamente (sin relación de dependencia con T-22, que solo depende de T-17,
-`COMPLETADA` desde el 2026-08-31) y se dejan tal cual. Ningún hallazgo `ABIERTO` de severidad alta en
+**Última actualización:** 2026-09-01 (sesión siguiente a "T-22 COMPLETADA") — **T-23 (consulta y
+exportación del histórico de asistencia) COMPLETADA, sin migración.** T-20 y T-21 seguían
+`BLOQUEADAS` por `007`/`008` respectivamente; T-23 declara "Depende de: T-21" en `HOJA_DE_RUTA.md`
+pero esa dependencia es de producto, no técnica (T-23 solo lee `SELECT` sobre `asistencia`, ya
+concedido desde T-10, y no necesita la RPC `actualizar_asistencia` de T-21) — mismo criterio de
+"comprobar la dependencia real antes de saltar por número" que ya aplicó la sesión de T-22 con
+T-20/T-21, detallado en `DECISIONES_TECNICAS.md`. Ningún hallazgo `ABIERTO` de severidad alta en
 `auditoriacontinua.md` al empezar esta sesión (los tres abiertos siguen siendo de severidad baja,
 higiene documental — ver §0.3, no exigen atención urgente).
+
+**T-23 — Consulta y exportación del histórico de asistencia — COMPLETADA, sin migración.** Cierre
+del ciclo de auditoría del registro: `administrator` consulta todo el centro por alumno, profesor,
+centro de estudios y rango de fechas; `teacher` solo lo suyo (por RLS, ya existente desde T-10).
+
+**Dominio (`src/dominio/historicoAsistencia.ts`, nuevo):** `tieneModificaciones` (`actualizado_en
+!== null`, sin consultar `asistencia_historial`); `filaCsvHistorico`/`cabecerasCsvHistorico`/
+`generarCsvHistorico` componen las columnas del CSV (requisito 3) a partir ÚNICAMENTE del snapshot
+ya guardado en la fila de `asistencia` — nunca leen un `SlotHorario` vigente, así que un cambio de
+horario posterior no puede colarse en un informe ya emitido (requisito 2, con test dedicado que lo
+demuestra). Datos de contacto (email/teléfono) solo aparecen si `incluirContacto` viene explícito
+Y la fila los trae — ninguna de las dos condiciones por separado basta (requisito 3: "salvo que el
+administrator lo pida explícitamente"). Nueva utilidad genérica `nucleo/csv.ts` (`filaCsv`/
+`documentoCsv`): separador `;`, BOM UTF-8, `\r\n` — el separador correcto para una hoja de cálculo
+española, donde la coma es el separador decimal (detalle y alternativas en `DECISIONES_TECNICAS.md`).
+`dominio/slots.ts` añade `fechaHoraLocalLegible` (`DD/MM/AAAA HH:MM`) para las dos horas del CSV y de
+la tabla en pantalla.
+
+**`permisosUi.ts` añade tres funciones:** `puedeVerHistorico` (`administrator` o `teacher`, nunca
+`student`), `puedeConsultarHistoricoDeCualquiera` y `puedeExportarConDatosDeContacto` (exclusivas de
+`administrator`, misma condición que `puedeEditarAsistenciaDeCualquiera` pero como funciones propias
+— mismo criterio ya establecido con `puedeGestionarFichaAlumno`/`puedeGestionarHorarios`).
+
+**Datos (`src/datos/asistencia.ts`):** `listarHistoricoAsistencia` (paginada en servidor, requisito
+5) filtra por alumno/profesor/rango de fechas directamente y por centro en DOS pasos (resuelve los
+ids de alumno de ese centro contra la tabla `alumno`, después `.in('alumno_id', ids)` sobre
+`asistencia`) — el cliente de PostgREST no soporta filtrar sobre un recurso embebido, detalle en
+`DECISIONES_TECNICAS.md`. `listarHistoricoAsistenciaCompleto` recorre esa misma consulta en lotes de
+500 para la exportación (requisito 3: el CSV trae TODO lo que cumple el filtro, no solo la página
+visible). Traza mínima del requisito 4 ("las consultas de datos personales dejan traza mínima en el
+log"): `logAuditoria.info('Consulta de histórico de asistencia', { alumno_id, profesor_id,
+centro_id, pagina })` — solo ids, nunca un nombre; `Logger` inyectable (por defecto la instancia
+real de T-02), mismo criterio que `Reloj`/`ProgramadorIntervalo`. `datos/alumnos.ts` añade
+`resolverIdentificacionAlumnos` (lote por id, tabla base `alumno`) y `resolverContactoAlumnos` (lote
+por id, `alumno_ficha`, solo tiene sentido detrás de `puedeExportarConDatosDeContacto`);
+`datos/profesores.ts` añade `resolverNombresProfesores` (lote por id, sin filtrar por `rol`/`activo`:
+un profesor que ya no da clase sigue siendo el que registró históricamente esa fila).
+
+**UI (`src/ui/pantallaHistorico.ts`, nueva):** primera pantalla del proyecto con un `<table>` HTML
+real (`<thead>`/`<th scope="col">`) en vez del patrón `div`/`span` de `pantallaListadoAlumnos.ts` —
+es la primera pantalla genuinamente tabular (ocho columnas por fila). Filtro de alumno por búsqueda
+simple (reutiliza `buscarAlumnosParaExtra` de T-20, mismo patrón sin combobox ARIA completo que ya
+usa "cambiar el alumno" de `pantallaRegistrosSlot.ts`); selectores de profesor y de centro solo si
+`puedeConsultarHistoricoDeCualquiera` — un `teacher` nunca los ve, su propio id se aplica siempre
+como filtro sin que la interfaz se lo ofrezca cambiar (RLS ya lo garantiza; defensa en profundidad).
+Paginador igual que `pantallaListadoAlumnos.ts`. Botón "Exportar CSV" con casilla "incluir datos de
+contacto" (solo si `puedeExportarConDatosDeContacto`) que dispara la descarga vía `Descargador`
+nuevo (`ui/dom.ts#crearDescargadorNavegador`, `Blob`/`URL.createObjectURL`/`<a download>`), inyectable
+igual que `FabricaProcesadoImagen` de T-14 — se testea con un `Descargador` de mentira que solo
+registra la llamada. Un id de alumno o de profesor que no resuelve (RLS lo oculta, p. ej. un alumno
+de baja para un `teacher`) se muestra con una etiqueta de repuesto explícita, nunca en blanco.
+
+**Wiring (`src/nucleo/router.ts`, `src/ui/aplicacion.ts`):** nueva ruta `#/historico` en los dos
+routers (`Ruta` de `administrator`, `RutaProfesor` de `teacher`), con su botón "Histórico" en ambas
+barras de navegación. `main.ts` no necesita ningún cambio: reutiliza el mismo `postgrest` que ya
+recibían `DependenciasAppAdministrador`/`DependenciasAppProfesor`.
+
+**`db/pruebas_rls.sql` añade la sección 8d, nueva:** `asistencia / teacher2 no lee los registros
+ajenos`, consulta DIRECTA a la tabla (sin RPC de por medio) que comprueba la política
+`asistencia_teacher_leer_propias` en sí misma — ni por id ni filtrando por `profesor_id` ajeno. Es
+el caso explícito que pide el criterio de aceptación de T-23 ("un teacher no lee registros de otro"),
+distinto de lo que ya probaba la sección 8c (T-21: que la RPC `actualizar_asistencia` rechaza por su
+propia comprobación de propiedad, no la política `SELECT` de la tabla). Reutiliza el registro que la
+sección 8c ya crea (`pg_temp.recordar_dato`/`pg_temp.dato`, cruzando fixtures entre bloques `do $$`
+independientes) en vez de fabricar uno nuevo.
+
+**73 tests nuevos (891 en total, antes 818, contados por `git diff` de cada fichero de test contra
+el commit de partida):** 8 de `nucleo/csv.ts` (escapado, BOM, CRLF), 4 de `fechaHoraLocalLegible`
+(`dominio/slots.test.ts`), 17 de `dominio/historicoAsistencia.ts` (incluida la no-retroactividad del
+requisito 2 y el CSV con comas/comillas/tildes/fila anulada/fila retroactiva del criterio de
+aceptación), 2 de `permisosUi.test.ts`, 10 de `datos/asistencia.test.ts` (`listarHistoricoAsistencia`/
+`listarHistoricoAsistenciaCompleto`/traza de log), 5 de `resolverIdentificacionAlumnos`/
+`resolverContactoAlumnos` (`datos/alumnos.test.ts`), 3 de `resolverNombresProfesores`
+(`datos/profesores.test.ts`), 2 de la ruta `historico` en `router.test.ts`, 20 de
+`pantallaHistorico.test.ts` (nuevo) y 2 de navegación en `aplicacion.test.ts`.
+
+---
 
 **T-22 — "Mi horario" y mis alumnos por slot (teacher) — COMPLETADA, sin migración.** Cierra la
 lista de pantallas de `teacher`: `slot_horario` y sus políticas RLS (T-10, "lee solo los suyos") ya
@@ -705,7 +785,7 @@ pantallas del requisito 2.
 | T-20 | Alumno extra: listado completo y selección manual | BLOQUEADA — pendiente aplicar migración `007` | 2026-09-01 | Código y 66 tests completos, contra dobles. Migración `007_rpc_buscar_alumnos.sql` (RPC `buscar_alumnos_activos`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 9 de §3 |
 | T-21 | Revisar y modificar los registros por slot | BLOQUEADA — pendiente aplicar migración `008` | 2026-09-01 | Código y tests completos, contra dobles. Migración `008_rpc_actualizar_asistencia.sql` (RPC `actualizar_asistencia`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 10 de §3 |
 | T-22 | "Mi horario" del profesor (teacher) | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17 (`COMPLETADA`). `dominio/slots.ts#vistaSemanalProfesor` (nuevo), primer router real de `teacher` (`crearRouterProfesor`, `nucleo/router.ts`, sustituye la navegación local de T-21), pantalla `pantallaMiHorario.ts` (nueva) y `slotInicialId` opcional en `pantallaRegistrosSlot.ts` para el enlace profundo del requisito 2. 42 tests nuevos (818 en total, antes 776) |
-| T-23 | Consulta y exportación del histórico | PENDIENTE | — | — |
+| T-23 | Consulta y exportación del histórico | COMPLETADA | 2026-09-01 | Sin migración: `SELECT` sobre `asistencia` ya concedido desde T-10. `dominio/historicoAsistencia.ts` (CSV), `nucleo/csv.ts` (utilidad genérica), `datos/asistencia.ts#listarHistoricoAsistencia`/`listarHistoricoAsistenciaCompleto`, `ui/pantallaHistorico.ts` (nueva, primer `<table>` real del proyecto). `db/pruebas_rls.sql` sección 8d nueva (aislamiento de lectura). 73 tests nuevos (891 en total, antes 818) |
 | T-24 | Administración de usuarios y roles | PENDIENTE | — | — |
 | T-25 | Endurecimiento, privacidad y paso a producción | PENDIENTE | — | La única tarea que toca `prod` |
 | R-01 | Registro explícito de ausencias | PENDIENTE | — | Oleada v1 / F-01 · Migración `006_registro_ausencias` |

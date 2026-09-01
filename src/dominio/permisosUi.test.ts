@@ -3,12 +3,15 @@ import assert from 'node:assert/strict';
 import type { Rol } from './tipos.ts';
 import {
   columnasVisiblesFichaAlumno,
+  puedeConsultarHistoricoDeCualquiera,
   puedeEditarAsistenciaDeCualquiera,
+  puedeExportarConDatosDeContacto,
   puedeGestionarCentros,
   puedeGestionarFichaAlumno,
   puedeGestionarHorarios,
   puedeUsarPasarLista,
   puedeVerAvatarEnCards,
+  puedeVerHistorico,
   puedeVerMiHorario,
   puedeVerPersonasReferencia,
 } from './permisosUi.ts';
@@ -73,4 +76,18 @@ void test('puedeVerMiHorario: exclusivamente teacher, ni siquiera administrator'
   assert.equal(puedeVerMiHorario('teacher'), true);
   assert.equal(puedeVerMiHorario('administrator'), false);
   assert.equal(puedeVerMiHorario('student'), false);
+});
+
+void test('puedeVerHistorico: administrator y teacher sí, student nunca', () => {
+  assert.equal(puedeVerHistorico('administrator'), true);
+  assert.equal(puedeVerHistorico('teacher'), true);
+  assert.equal(puedeVerHistorico('student'), false);
+});
+
+void test('puedeConsultarHistoricoDeCualquiera y puedeExportarConDatosDeContacto: exclusivamente administrator', () => {
+  for (const rol of ROLES) {
+    const esperado = rol === 'administrator';
+    assert.equal(puedeConsultarHistoricoDeCualquiera(rol), esperado, `puedeConsultarHistoricoDeCualquiera(${rol})`);
+    assert.equal(puedeExportarConDatosDeContacto(rol), esperado, `puedeExportarConDatosDeContacto(${rol})`);
+  }
 });

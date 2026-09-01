@@ -13,6 +13,8 @@ import {
   buscarAlumnosParaExtra,
   LIMITE_BUSQUEDA_ALUMNO_EXTRA,
   obtenerAlumnoParaTarjeta,
+  resolverIdentificacionAlumnos,
+  resolverContactoAlumnos,
 } from './alumnos.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { AlumnoConCentro, AlumnoConCentroYPersonas } from './alumnos.ts';
@@ -465,4 +467,91 @@ void test('obtenerAlumnoParaTarjeta lee de la tabla base alumno, columnas de ide
 void test('obtenerAlumnoParaTarjeta lanza ErrorDelServidor si el servidor no devuelve ninguna fila', async () => {
   const cliente = crearCliente(() => ({ estado: 200, cuerpo: [] }));
   await assert.rejects(obtenerAlumnoParaTarjeta(cliente, 'no-existe'));
+});
+
+// --- resolverIdentificacionAlumnos (T-23, histórico de asistencia) ------------------------------
+
+void test('resolverIdentificacionAlumnos: con ids vacío, no hace ninguna petición y devuelve un mapa vacío', async () => {
+  let llamadas = 0;
+  const cliente = crearCliente(() => {
+    llamadas += 1;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const mapa = await resolverIdentificacionAlumnos(cliente, []);
+
+  assert.equal(llamadas, 0);
+  assert.equal(mapa.size, 0);
+});
+
+void test('resolverIdentificacionAlumnos: una única petición en lote (in), columnas de identificación', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return {
+      estado: 200,
+      cuerpo: [
+        { id: 'a1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null },
+        { id: 'a2', nombre: 'Luis', primer_apellido: 'Pérez', segundo_apellido: 'Ruiz' },
+      ],
+    };
+  });
+
+  const mapa = await resolverIdentificacionAlumnos(cliente, ['a1', 'a2']);
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/alumno');
+  assert.equal(url.searchParams.get('id'), 'in.(a1,a2)');
+  assert.equal(url.searchParams.get('select'), 'id,nombre,primer_apellido,segundo_apellido');
+  assert.equal(mapa.size, 2);
+  assert.deepEqual(mapa.get('a1'), { id: 'a1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null });
+  assert.equal(mapa.get('a2')?.nombre, 'Luis');
+});
+
+void test('resolverIdentificacionAlumnos: un id sin fila devuelta (p. ej. de baja, para un teacher) simplemente falta en el mapa', async () => {
+  const cliente = crearCliente(() => ({
+    estado: 200,
+    cuerpo: [{ id: 'a1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null }],
+  }));
+
+  const mapa = await resolverIdentificacionAlumnos(cliente, ['a1', 'a2-de-baja']);
+
+  assert.equal(mapa.size, 1);
+  assert.equal(mapa.has('a2-de-baja'), false);
+});
+
+// --- resolverContactoAlumnos (T-23, exportación con datos de contacto) --------------------------
+
+void test('resolverContactoAlumnos: con ids vacío, no hace ninguna petición y devuelve un mapa vacío', async () => {
+  let llamadas = 0;
+  const cliente = crearCliente(() => {
+    llamadas += 1;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const mapa = await resolverContactoAlumnos(cliente, []);
+
+  assert.equal(llamadas, 0);
+  assert.equal(mapa.size, 0);
+});
+
+void test('resolverContactoAlumnos: una única petición en lote (in) contra alumno_ficha', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return {
+      estado: 200,
+      cuerpo: [{ id: 'a1', email_alumno: 'ana@ejemplo.com', telefono_alumno: '666123456' }],
+    };
+  });
+
+  const mapa = await resolverContactoAlumnos(cliente, ['a1']);
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/alumno_ficha');
+  assert.equal(url.searchParams.get('id'), 'in.(a1)');
+  assert.equal(url.searchParams.get('select'), 'id,email_alumno,telefono_alumno');
+  assert.deepEqual(mapa.get('a1'), { id: 'a1', email_alumno: 'ana@ejemplo.com', telefono_alumno: '666123456' });
 });

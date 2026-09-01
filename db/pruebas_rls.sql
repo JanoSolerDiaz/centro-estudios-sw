@@ -1290,6 +1290,9 @@ begin
   select * into v_fila from public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid());
   v_registro_b := v_fila.id;
   perform pg_temp.dejar_de_impersonar();
+  -- Recordado para la sección 8d (aislamiento de lectura de asistencia entre profesores, T-23), que
+  -- se ejecuta en su propio bloque "do" y no comparte estas variables locales.
+  perform pg_temp.recordar_dato('registro_b_teacher', v_registro_b);
 
   -- teacher edita la nota de su propio registro: permitido (primera modificación de v_registro_a).
   perform pg_temp.impersonar('teacher');
@@ -1547,6 +1550,55 @@ begin
       perform pg_temp.dejar_de_impersonar();
     end if;
   end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 8d. asistencia — aislamiento de LECTURA general entre profesores (T-23,
+--     criterio de aceptación: "caso... de que un teacher no lee registros
+--     de otro"). Distinto de lo ya probado en 8c (que un teacher2 no puede
+--     LLAMAR a actualizar_asistencia sobre un registro ajeno, rechazado
+--     por la comprobación de propiedad de la propia RPC): aquí se
+--     comprueba la política SELECT (asistencia_teacher_leer_propias) en
+--     sí misma, con una consulta directa a la tabla, sin pasar por
+--     ninguna RPC — exactamente el patrón de la sección 4b para
+--     slot_horario, aplicado a asistencia.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_teacher_id  uuid;
+  v_registro_b  uuid := pg_temp.dato('registro_b_teacher');
+  v_visto       boolean;
+  v_total       integer;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+
+  if v_registro_b is null or v_teacher_id is null then
+    perform pg_temp.omitir('asistencia / teacher2 no lee los registros ajenos (debe fallar)', 'falta el registro o el teacher de prueba (sección 8c)');
+    return;
+  end if;
+  if not pg_temp.hay_fixture('teacher2') then
+    perform pg_temp.omitir('asistencia / teacher2 no lee los registros ajenos (debe fallar)', 'no hay un segundo teacher en este entorno');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('teacher2');
+  begin
+    -- Ni por id (la fila entera no existe para teacher2 según su RLS)...
+    select exists (select 1 from public.asistencia where id = v_registro_b) into v_visto;
+    -- ...ni filtrando explícitamente por el profesor dueño: la política es la que corta, no que la
+    -- fila "no aparezca por casualidad" al no filtrar por profesor_id.
+    select count(*) into v_total from public.asistencia where profesor_id = v_teacher_id;
+    perform pg_temp.registrar(
+      'asistencia / teacher2 no lee los registros ajenos (debe fallar)', 'prohibido',
+      not v_visto and v_total = 0,
+      format('visto_por_id=%s, filas_por_profesor_id=%s', v_visto, v_total)
+    );
+  exception when others then
+    perform pg_temp.registrar('asistencia / teacher2 no lee los registros ajenos (debe fallar)', 'prohibido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
 end $$;
 
 

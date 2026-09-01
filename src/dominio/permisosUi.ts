@@ -65,6 +65,30 @@ export function puedeVerMiHorario(rol: Rol): boolean {
   return rol === 'teacher';
 }
 
+/** Consulta y exportación del histórico de asistencia (T-23). Ambos roles con acceso real por
+ * RLS —`administrator` lee todo el centro, `teacher` solo lo suyo—, así que los dos pueden ABRIR la
+ * pantalla; `student` nunca (§0.2: sin acceso alguno a esta funcionalidad). */
+export function puedeVerHistorico(rol: Rol): boolean {
+  return rol === 'administrator' || rol === 'teacher';
+}
+
+/** Dentro de la pantalla de histórico, ¿puede elegir un profesor concreto (distinto de sí mismo) o
+ * acotar por centro de estudios? Solo `administrator` — un `teacher` ya está limitado a lo suyo por
+ * RLS, así que ofrecerle un selector de profesor solo mostraría un control que el servidor iba a
+ * vaciar igualmente; mismo criterio exacto que `puedeEditarAsistenciaDeCualquiera` (T-21), pero
+ * como función propia porque son dos capacidades distintas (consultar frente a editar) que podrían
+ * divergir si el dueño decide un día que un teacher SÍ pueda ver el histórico de otro. */
+export function puedeConsultarHistoricoDeCualquiera(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
+/** ¿Puede pedir que la exportación CSV del histórico incluya también el email y el teléfono del
+ * alumno (requisito 3 de T-23: "salvo que el administrator lo pida explícitamente")? Solo
+ * `administrator` — un `teacher` no tiene acceso a esos datos ni siquiera en la ficha del alumno. */
+export function puedeExportarConDatosDeContacto(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
 /** Columnas de `alumno` con las que merece la pena pintar un formulario o una card para `rol`: no
  * es una lista de lo que el dato PUEDE tener, es una lista de lo que no tiene sentido dibujar
  * porque el servidor nunca lo va a devolver para ese rol (`003_politicas_rls.sql`, requisito 4 de

@@ -17,6 +17,7 @@ import type { ClientePostgrest } from './postgrest.ts';
 import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import type { Asistencia, AsistenciaHistorial, OrigenAsistencia } from '../dominio/tipos.ts';
 import { limitesDiaLocal, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
+import { logger, type Logger } from '../nucleo/registro.ts';
 
 const TABLA = 'asistencia';
 
@@ -166,6 +167,131 @@ export async function listarAsistenciaDeHoy(
     .gte('ocurrido_en', inicioUtc.toISOString())
     .lte('ocurrido_en', new Date(finUtc.getTime() - 1).toISOString())
     .seleccionar();
+}
+
+export interface FiltroHistorico {
+  readonly alumnoId?: string;
+  readonly profesorId?: string;
+  /** Ignorado si `alumnoId` también está presente (ese filtro es más específico y no hace falta
+   * resolver la lista de alumnos del centro para acotar a uno solo que ya se conoce). */
+  readonly centroId?: string;
+  /** Día de calendario (en `zonaHoraria`) desde el que empieza el rango, inclusive. */
+  readonly desde?: Date;
+  /** Día de calendario (en `zonaHoraria`) en el que termina el rango, inclusive. */
+  readonly hasta?: Date;
+  /** Página 0-based. */
+  readonly pagina?: number;
+  readonly porPagina?: number;
+}
+
+export interface ResultadoHistorico {
+  readonly filas: readonly Asistencia[];
+  readonly totalAproximado: number | null;
+}
+
+const PAGINA_POR_DEFECTO_HISTORICO = 20;
+
+/** Ids de los alumnos de `centroId` (T-23, requisito 1: "por centro de estudios de referencia") —
+ * contra la tabla base `alumno`, columnas de identificación que `authenticated` ya tiene concedidas
+ * (`003_politicas_rls.sql`), así que también resuelve para un `teacher` (acotado a `activo = true`
+ * por su propia RLS, igual que cualquier otra lectura suya de `alumno`). Sin paginar: el número de
+ * alumnos de un centro es un conjunto acotado, del mismo orden que `listarProfesoresActivos`. */
+async function idsAlumnosDeCentro(cliente: ClientePostgrest, centroId: string): Promise<readonly string[]> {
+  const filas = await cliente
+    .desde<{ readonly id: string }>('alumno')
+    .eq('centro_referencia_id', centroId)
+    .seleccionar('id');
+  return filas.map((fila) => fila.id);
+}
+
+/** Consulta transversal del histórico (T-23, requisito 1: por alumno, por profesor, por centro y
+ * por rango de fechas), paginada en servidor (requisito 5: "el histórico crece sin límite"). `RLS`
+ * (`003_politicas_rls.sql`) ya acota el resultado a lo propio de un `teacher`, o a todo el centro
+ * para un `administrator` — los filtros de aquí son sobre lo que el servidor ya deja ver, igual que
+ * el resto de este módulo. Ordenado del más reciente al más antiguo: es una consulta de revisión,
+ * no una rejilla de "lo de hoy" que tenga sentido leer cronológicamente hacia delante. */
+export async function listarHistoricoAsistencia(
+  cliente: ClientePostgrest,
+  filtro: FiltroHistorico = {},
+  zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
+  /** Inyectable para tests deterministas (mismo criterio que `Reloj`/`ProgramadorIntervalo`); por
+   * defecto la instancia real de T-02. */
+  logAuditoria: Logger = logger,
+): Promise<ResultadoHistorico> {
+  // Traza mínima de la consulta (requisito 4 de T-23: "las consultas de datos personales dejan
+  // traza mínima en el log") — solo ids (nunca un nombre, que este módulo ni siquiera resuelve) y
+  // la página pedida, para poder auditar quién consultó qué sin guardar el dato personal en sí.
+  logAuditoria.info('Consulta de histórico de asistencia', {
+    alumno_id: filtro.alumnoId ?? null,
+    profesor_id: filtro.profesorId ?? null,
+    centro_id: filtro.centroId ?? null,
+    pagina: filtro.pagina ?? 0,
+  });
+
+  let consulta = cliente.desde<Asistencia>(TABLA);
+
+  if (filtro.alumnoId) {
+    consulta = consulta.eq('alumno_id', filtro.alumnoId);
+  } else if (filtro.centroId) {
+    const ids = await idsAlumnosDeCentro(cliente, filtro.centroId);
+    if (ids.length === 0) {
+      return { filas: [], totalAproximado: 0 };
+    }
+    consulta = consulta.in('alumno_id', ids);
+  }
+  if (filtro.profesorId) {
+    consulta = consulta.eq('profesor_id', filtro.profesorId);
+  }
+  if (filtro.desde) {
+    consulta = consulta.gte('ocurrido_en', limitesDiaLocal(filtro.desde, zonaHoraria).inicioUtc.toISOString());
+  }
+  if (filtro.hasta) {
+    const { finUtc } = limitesDiaLocal(filtro.hasta, zonaHoraria);
+    consulta = consulta.lte('ocurrido_en', new Date(finUtc.getTime() - 1).toISOString());
+  }
+
+  const porPagina = filtro.porPagina ?? PAGINA_POR_DEFECTO_HISTORICO;
+  const pagina = filtro.pagina ?? 0;
+  const desde = pagina * porPagina;
+  const { filas, totalAproximado } = await consulta
+    .order('ocurrido_en', { descendente: true })
+    .range(desde, desde + porPagina - 1)
+    .seleccionarConTotal();
+  return { filas, totalAproximado };
+}
+
+/** Tamaño de lote al traer el histórico COMPLETO para exportar (T-23, requisito 3) — no el de la
+ * página que ve la pantalla. Un valor alto reduce el número de peticiones sin arriesgar una URL
+ * desmedida (esta consulta no usa `in` con muchos valores, salvo el filtro de centro, ya resuelto
+ * antes de paginar). */
+const TAMANIO_LOTE_EXPORTACION = 500;
+
+/** Todo el histórico que cumple `filtro`, sin paginar para la pantalla (T-23, requisito 3:
+ * "exportación a CSV") — recorre `listarHistoricoAsistencia` página a página hasta que una página
+ * viene incompleta, reutilizando exactamente la misma consulta y los mismos filtros que ve la
+ * pantalla, nunca una segunda implementación en paralelo. Sensato para el volumen de un centro
+ * privado; si algún día no lo fuera, la señal sería exigir la paginación también en el CSV, no
+ * optimizar esto por adelantado. */
+export async function listarHistoricoAsistenciaCompleto(
+  cliente: ClientePostgrest,
+  filtro: Omit<FiltroHistorico, 'pagina' | 'porPagina'> = {},
+  zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
+): Promise<readonly Asistencia[]> {
+  const filasCompletas: Asistencia[] = [];
+  let pagina = 0;
+  for (;;) {
+    const { filas } = await listarHistoricoAsistencia(
+      cliente,
+      { ...filtro, pagina, porPagina: TAMANIO_LOTE_EXPORTACION },
+      zonaHoraria,
+    );
+    filasCompletas.push(...filas);
+    if (filas.length < TAMANIO_LOTE_EXPORTACION) {
+      break;
+    }
+    pagina += 1;
+  }
+  return filasCompletas;
 }
 
 const TABLA_HISTORIAL = 'asistencia_historial';

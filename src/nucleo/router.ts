@@ -1,7 +1,8 @@
 /**
  * Router por hash (T-16, requisito 1): sin bundler ni librería de enrutado (§0.2), resuelve qué
  * pantalla mostrar a partir de `location.hash` — `#/centros`, `#/alumnos`, `#/alumnos/nuevo`,
- * `#/alumnos/<id>`, `#/registros` (T-21). `analizarRuta`/`hashDeRuta` son puras y no tocan el DOM;
+ * `#/alumnos/<id>`, `#/registros` (T-21), `#/historico` (T-23). `analizarRuta`/`hashDeRuta` son
+ * puras y no tocan el DOM;
  * `crearRouter` recibe su `objetivo` por inyección (nunca lee `window` directamente), mismo patrón
  * que `instalarCapturaErrores` (T-05): así se testea con un objeto de mentira, sin `jsdom`.
  *
@@ -63,7 +64,8 @@ export type Ruta =
   | { readonly nombre: 'alumnos' }
   | { readonly nombre: 'alumno-nuevo' }
   | { readonly nombre: 'alumno-detalle'; readonly alumnoId: string }
-  | { readonly nombre: 'registros' };
+  | { readonly nombre: 'registros' }
+  | { readonly nombre: 'historico' };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -84,6 +86,9 @@ export function analizarRuta(hash: string): Ruta {
   }
   if (primero === 'registros') {
     return { nombre: 'registros' };
+  }
+  if (primero === 'historico') {
+    return { nombre: 'historico' };
   }
   if (primero === 'alumnos') {
     if (segundo === undefined) {
@@ -111,6 +116,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return `#/alumnos/${encodeURIComponent(ruta.alumnoId)}`;
     case 'registros':
       return '#/registros';
+    case 'historico':
+      return '#/historico';
   }
 }
 
@@ -119,11 +126,12 @@ export function crearRouter(objetivo: ObjetivoRouter): Router<Ruta> {
 }
 
 /**
- * Router de `teacher` (T-22, requisito 2: "desde cada slot, dos accesos directos"). Tres rutas:
- * `#/pasar-lista` (T-19), `#/horario` ("mi horario", nueva) y `#/registros[/<slotId>]` (T-21) — el
+ * Router de `teacher` (T-22, requisito 2: "desde cada slot, dos accesos directos"). Cuatro rutas:
+ * `#/pasar-lista` (T-19), `#/horario` ("mi horario") y `#/registros[/<slotId>]` (T-21) — el
  * segmento de `slotId` es opcional y solo sirve para que "mi horario" pueda enlazar directo a los
  * registros de UN slot concreto sin obligar a la pantalla de registros a exponer nada nuevo a quien
- * navegue sin él (sigue arrancando con "elige un slot…", igual que hasta ahora).
+ * navegue sin él (sigue arrancando con "elige un slot…", igual que hasta ahora)— y `#/historico`
+ * (T-23, nueva).
  *
  * La ruta por defecto sigue siendo `pasar-lista`, no `horario`: T-19 ya estableció que es la
  * pantalla del día a día (registrar en segundos), y cambiar qué se ve nada más entrar sin que
@@ -132,7 +140,8 @@ export function crearRouter(objetivo: ObjetivoRouter): Router<Ruta> {
 export type RutaProfesor =
   | { readonly nombre: 'pasar-lista' }
   | { readonly nombre: 'horario' }
-  | { readonly nombre: 'registros'; readonly slotId?: string };
+  | { readonly nombre: 'registros'; readonly slotId?: string }
+  | { readonly nombre: 'historico' };
 
 const RUTA_PROFESOR_POR_DEFECTO: RutaProfesor = { nombre: 'pasar-lista' };
 
@@ -151,6 +160,9 @@ export function analizarRutaProfesor(hash: string): RutaProfesor {
   if (primero === 'registros') {
     return segundo === undefined ? { nombre: 'registros' } : { nombre: 'registros', slotId: decodeURIComponent(segundo) };
   }
+  if (primero === 'historico') {
+    return { nombre: 'historico' };
+  }
   if (primero === 'pasar-lista') {
     return { nombre: 'pasar-lista' };
   }
@@ -165,6 +177,8 @@ export function hashDeRutaProfesor(ruta: RutaProfesor): string {
       return '#/horario';
     case 'registros':
       return ruta.slotId === undefined ? '#/registros' : `#/registros/${encodeURIComponent(ruta.slotId)}`;
+    case 'historico':
+      return '#/historico';
   }
 }
 

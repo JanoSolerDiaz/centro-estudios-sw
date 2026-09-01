@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   alumnosPropuestos,
+  fechaHoraLocalLegible,
   fechaLocalISO,
   instanteLocal,
   limitesDiaLocal,
@@ -146,6 +147,24 @@ void test('fechaLocalISO: rellena mes y día a dos cifras', () => {
 
 void test('fechaLocalISO: admite otra zona horaria explícita (UTC, sin desplazamiento)', () => {
   assert.equal(fechaLocalISO(new Date('2026-06-10T23:30:00.000Z'), 'UTC'), '2026-06-10');
+});
+
+// --- fechaHoraLocalLegible: columnas "hora atribuida"/"hora de creación" del histórico (T-23) ---
+
+void test('fechaHoraLocalLegible: formato DD/MM/AAAA HH:MM en CEST (agosto, UTC+2)', () => {
+  assert.equal(fechaHoraLocalLegible(new Date('2026-08-26T15:05:00.000Z')), '26/08/2026 17:05');
+});
+
+void test('fechaHoraLocalLegible: formato DD/MM/AAAA HH:MM en CET (enero, UTC+1)', () => {
+  assert.equal(fechaHoraLocalLegible(new Date('2026-01-05T09:00:00.000Z')), '05/01/2026 10:00');
+});
+
+void test('fechaHoraLocalLegible: rellena día, mes, hora y minuto a dos cifras', () => {
+  assert.equal(fechaHoraLocalLegible(new Date('2026-01-01T07:03:00.000Z')), '01/01/2026 08:03');
+});
+
+void test('fechaHoraLocalLegible: admite otra zona horaria explícita (UTC, sin desplazamiento)', () => {
+  assert.equal(fechaHoraLocalLegible(new Date('2026-06-10T23:30:00.000Z'), 'UTC'), '10/06/2026 23:30');
 });
 
 // --- slotActivoEnInstante: la batería exacta del criterio de aceptación de T-17 -----------------

@@ -132,6 +132,17 @@ export function fechaLocalISO(instante: Date, zonaHoraria: string = ZONA_HORARIA
   return `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
+/** `instante` como fecha y hora legibles en `zonaHoraria` ("DD/MM/AAAA HH:MM", T-23: columnas "hora
+ * atribuida"/"hora de creación" del histórico, en pantalla y en el CSV exportado). Mismo criterio de
+ * calendario que `fechaLocalISO` — reutiliza `fechaLocalCompleta` en vez de duplicar el cálculo —,
+ * pero en el formato de fecha que espera un lector español, no el `AAAA-MM-DD` de un `<input
+ * type="date">`. */
+export function fechaHoraLocalLegible(instante: Date, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): string {
+  const { anio, mes, dia, hora, minuto } = fechaLocalCompleta(instante, zonaHoraria);
+  const dosDigitos = (numero: number): string => String(numero).padStart(2, '0');
+  return `${dosDigitos(dia)}/${dosDigitos(mes)}/${String(anio).padStart(4, '0')} ${dosDigitos(hora)}:${dosDigitos(minuto)}`;
+}
+
 export interface LimitesDiaLocal {
   /** Medianoche local (inclusiva) del día que contiene `instante`, en UTC. */
   readonly inicioUtc: Date;

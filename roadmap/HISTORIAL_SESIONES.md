@@ -37,6 +37,67 @@
 
 ---
 
+### Sesión 2026-09-01 (siguiente a "T-22 COMPLETADA") — T-23: histórico de asistencia, COMPLETADA
+
+**Tarea(s):** T-23 (consulta y exportación del histórico de asistencia)
+**Estado resultante:** **T-23 COMPLETADA, sin migración.** T-20 y T-21 siguen `BLOQUEADAS` por
+`007`/`008` respectivamente. T-23 declara "Depende de: T-21" en `HOJA_DE_RUTA.md`, pero esa
+dependencia es de producto, no técnica: se ejecutó igualmente tras comprobar que solo necesita
+`SELECT` sobre `asistencia` (ya concedido desde T-10), nunca la RPC `actualizar_asistencia` que
+bloquea a T-21 — detalle en `DECISIONES_TECNICAS.md`. Sin hallazgo `ABIERTO` de severidad alta en
+`auditoriacontinua.md` al empezar la sesión. Al arrancar, esta sesión encontró otra vez el mismo
+artefacto de arranque de contenedor que las dos sesiones anteriores describen (una rama `develop`
+local con 4 commits sin ancestro común con `origin/develop`, y el HEAD detached inicial ya coincidía
+con `origin/develop`): se respaldó en una rama local (`backup-local-develop-stale`) por precaución
+antes de realinear `develop` con `origin/develop` (`git reset --hard origin/develop`), sin tocar
+`origin` en ningún momento
+**Commits a `develop`:** ver commit de esta sesión (`T-23: consulta y exportación del histórico de
+asistencia`)
+**Migraciones aplicadas:** ninguna — T-23 no necesita ninguna (`asistencia`/`asistencia_historial` y
+sus políticas RLS ya existen desde T-10)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `src/nucleo/csv.ts` (nuevo, `filaCsv`/`documentoCsv`);
+`src/nucleo/csv.test.ts` (nuevo); `src/dominio/slots.ts` (`fechaHoraLocalLegible`, nuevo);
+`src/dominio/slots.test.ts`; `src/dominio/historicoAsistencia.ts` (nuevo, `tieneModificaciones`/CSV);
+`src/dominio/historicoAsistencia.test.ts` (nuevo); `src/dominio/permisosUi.ts` (`puedeVerHistorico`/
+`puedeConsultarHistoricoDeCualquiera`/`puedeExportarConDatosDeContacto`, nuevas);
+`src/dominio/permisosUi.test.ts`; `src/datos/asistencia.ts` (`listarHistoricoAsistencia`/
+`listarHistoricoAsistenciaCompleto`, nuevas, con traza de log inyectable); `src/datos/asistencia.test.ts`;
+`src/datos/alumnos.ts` (`resolverIdentificacionAlumnos`/`resolverContactoAlumnos`, nuevas);
+`src/datos/alumnos.test.ts`; `src/datos/profesores.ts` (`resolverNombresProfesores`, nuevo);
+`src/datos/profesores.test.ts`; `src/ui/dom.ts` (`Descargador`/`crearDescargadorNavegador`, nuevos);
+`src/ui/pantallaHistorico.ts` (nuevo, pantalla completa); `src/ui/pantallaHistorico.test.ts` (nuevo);
+`src/nucleo/router.ts` (ruta `historico` en `Ruta` y `RutaProfesor`); `src/nucleo/router.test.ts`;
+`src/ui/aplicacion.ts` (wiring de `pantallaHistorico` en ambos routers, botón "Histórico" en ambas
+navs); `src/ui/aplicacion.test.ts`; `db/pruebas_rls.sql` (sección 8d, nueva);
+`herramientas/migraciones/pruebasRlsEstatico.test.ts` (sin cambios de contenido, solo verificado en
+verde); `roadmap/SEGUIMIENTO.md` (§1, cabecera, narrativa de T-23); `roadmap/DECISIONES_TECNICAS.md`
+(11 filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (891/891, 73 nuevos, contados con `git diff`
+de cada fichero de test contra el commit de partida: 818 antes) · build ✅
+**Health check post-deploy:** no aplica (sin migración, sin cambio de esquema ni de despliegue)
+**Decisiones tomadas:** 11 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-01, T-23): ejecutar T-23
+pese a su dependencia declarada con T-21 (dependencia de producto, no técnica); resolución de
+nombres en lote por id en vez de un embed anidado de PostgREST de dos saltos; filtro por centro en
+dos pasos (ids de alumno del centro, después `in` sobre `asistencia`) por la misma limitación del
+cliente; utilidad de CSV nueva (`nucleo/csv.ts`, separador `;`, BOM UTF-8, `\r\n`); exportación que
+trae TODO el histórico filtrado en lotes de 500, no solo la página visible; datos de contacto en la
+exportación solo si `administrator` los pide explícitamente; primer `<table>` HTML real del
+proyecto; dependencias opcionales en `pantallaHistorico.ts` (mismo patrón que
+`listarProfesoresParaSelector?` de T-21); traza de log inyectable para la consulta (requisito 4);
+sección 8d nueva en `db/pruebas_rls.sql` (aislamiento de lectura directa, distinto de lo que ya
+probaba 8c)
+**Hallazgos del auditor atendidos:** ninguno (sin hallazgos `ABIERTO` de severidad alta al empezar)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente tarea de la cola es T-24 (administración de usuarios y roles, depende de
+T-10, `COMPLETADA`) — sin bloqueo de migración propia, aunque su requisito 3 anticipa que las
+operaciones de alta/forzar contraseña/revocar sesión de Supabase Auth necesitan `service_role` y
+quedan como procedimiento manual documentado, no como código. T-20 y T-21 siguen `BLOQUEADAS`
+esperando que el dueño aplique `007`/`008`
+
+---
+
 ### Sesión 2026-09-01 (siguiente a "T-21 BLOQUEADA") — T-22: "mi horario" del profesor, COMPLETADA
 
 **Tarea(s):** T-22 ("mi horario" y mis alumnos por slot, teacher)

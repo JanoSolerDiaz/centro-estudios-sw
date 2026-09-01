@@ -300,6 +300,48 @@ export async function buscarAlumnosParaExtra(
   );
 }
 
+/** Resuelve en LOTE (nunca una petición por fila) el nombre para mostrar de cada id de `ids` — T-23,
+ * histórico de asistencia: cada página trae varios `alumno_id` distintos y hace falta su nombre, no
+ * su identificador crudo. Va contra la tabla base `alumno` (columnas de identificación, concedidas a
+ * `authenticated`), así que también resuelve para un `teacher`, acotado por su propia RLS a
+ * `activo = true` — un alumno de baja que un `teacher` intente resolver simplemente no aparece en el
+ * mapa devuelto, y quien llama decide qué mostrar en su lugar (mismo patrón de "falta en el mapa" que
+ * cualquier otro resolutor en lote del proyecto, p. ej. `obtenerUrlsAvataresMini` de T-14). Con
+ * `ids` vacío no hace ninguna petición. */
+export async function resolverIdentificacionAlumnos(
+  cliente: ClientePostgrest,
+  ids: readonly string[],
+): Promise<ReadonlyMap<string, Pick<Alumno, 'id' | 'nombre' | 'primer_apellido' | 'segundo_apellido'>>> {
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const filas = await cliente
+    .desde<Pick<Alumno, 'id' | 'nombre' | 'primer_apellido' | 'segundo_apellido'>>(TABLA)
+    .in('id', ids)
+    .seleccionar('id,nombre,primer_apellido,segundo_apellido');
+  return new Map(filas.map((fila) => [fila.id, fila]));
+}
+
+/** Resuelve en LOTE el email y el teléfono de cada id de `ids` — T-23, requisito 3: "no incluye
+ * datos de contacto... salvo que el administrator lo pida explícitamente" en la exportación del
+ * histórico. Contra `alumno_ficha` (solo `administrator` la lee, T-10): quien llama a esta función
+ * debe haber comprobado ya `puedeExportarConDatosDeContacto(rol)` — no lo comprueba ella misma,
+ * igual que el resto de este módulo deja la comprobación de rol a la RLS del servidor. Con `ids`
+ * vacío no hace ninguna petición. */
+export async function resolverContactoAlumnos(
+  cliente: ClientePostgrest,
+  ids: readonly string[],
+): Promise<ReadonlyMap<string, Pick<Alumno, 'email_alumno' | 'telefono_alumno'>>> {
+  if (ids.length === 0) {
+    return new Map();
+  }
+  const filas = await cliente
+    .desde<Pick<Alumno, 'id' | 'email_alumno' | 'telefono_alumno'>>(VISTA_FICHA)
+    .in('id', ids)
+    .seleccionar('id,email_alumno,telefono_alumno');
+  return new Map(filas.map((fila) => [fila.id, fila]));
+}
+
 /** Lee las mismas columnas de identificación que ya trae embebidas `listarSlotsDeProfesorConAlumno`
  * (T-17, `AlumnoParaPropuesta`) para UN alumno concreto — necesario tras registrar una "clase
  * extra" (T-20, requisito 5: "el alumno pasa entonces a ser una card más... con su avatar"), porque

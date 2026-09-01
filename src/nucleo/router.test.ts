@@ -44,6 +44,10 @@ void test('analizarRuta: "#/registros" es la pantalla de registros (T-21)', () =
   assert.deepEqual(analizarRuta('#/registros'), { nombre: 'registros' });
 });
 
+void test('analizarRuta: "#/historico" es la pantalla de histórico (T-23)', () => {
+  assert.deepEqual(analizarRuta('#/historico'), { nombre: 'historico' });
+});
+
 void test('analizarRuta: funciona igual sin el "#" inicial', () => {
   assert.deepEqual(analizarRuta('/centros'), { nombre: 'centros' });
 });
@@ -55,6 +59,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'alumno-nuevo' },
     { nombre: 'alumno-detalle', alumnoId: 'abc-123' },
     { nombre: 'registros' },
+    { nombre: 'historico' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);
@@ -146,6 +151,10 @@ void test('analizarRutaProfesor: "#/registros/<slotId>" preselecciona ese slot',
   assert.deepEqual(analizarRutaProfesor('#/registros/slot-abc'), { nombre: 'registros', slotId: 'slot-abc' });
 });
 
+void test('analizarRutaProfesor: "#/historico" es la pantalla de histórico (T-23)', () => {
+  assert.deepEqual(analizarRutaProfesor('#/historico'), { nombre: 'historico' });
+});
+
 void test('analizarRutaProfesor: un slotId con caracteres especiales llega decodificado', () => {
   assert.deepEqual(analizarRutaProfesor('#/registros/uno%20dos'), { nombre: 'registros', slotId: 'uno dos' });
 });
@@ -164,6 +173,7 @@ void test('hashDeRutaProfesor es el inverso exacto de analizarRutaProfesor para 
     { nombre: 'horario' },
     { nombre: 'registros' },
     { nombre: 'registros', slotId: 'slot-abc' },
+    { nombre: 'historico' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRutaProfesor(hashDeRutaProfesor(ruta)), ruta);

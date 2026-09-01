@@ -44,19 +44,24 @@ import {
   reactivarAlumno,
   buscarAlumnosParaExtra,
   obtenerAlumnoParaTarjeta,
+  resolverIdentificacionAlumnos,
+  resolverContactoAlumnos,
 } from '../datos/alumnos.ts';
 import { crearRebote } from '../nucleo/rebote.ts';
 import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferencia } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
 import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
-import { listarProfesoresActivos } from '../datos/profesores.ts';
+import { listarProfesoresActivos, resolverNombresProfesores } from '../datos/profesores.ts';
 import {
   registrarAsistencia,
   listarAsistenciaDeHoy,
   actualizarAsistencia,
   listarRegistrosDeSlotYFecha,
   listarHistorialDeAsistencia,
+  listarHistoricoAsistencia,
+  listarHistoricoAsistenciaCompleto,
 } from '../datos/asistencia.ts';
+import { crearDescargadorNavegador } from './dom.ts';
 import { mostrarPantallaLogin } from './pantallaLogin.ts';
 import { mostrarPantallaRecuperarContrasena } from './pantallaRecuperarContrasena.ts';
 import { mostrarPantallaEstablecerContrasenaNueva } from './pantallaEstablecerContrasenaNueva.ts';
@@ -67,6 +72,7 @@ import { mostrarPantallaFichaAlumno } from './pantallaFichaAlumno.ts';
 import { mostrarPantallaPasarLista } from './pantallaPasarLista.ts';
 import { mostrarPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
 import { mostrarPantallaMiHorario } from './pantallaMiHorario.ts';
+import { mostrarPantallaHistorico } from './pantallaHistorico.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -162,11 +168,15 @@ function mostrarAppAdministrador(
   enlaceRegistros.addEventListener('click', () => {
     router.navegar({ nombre: 'registros' });
   });
+  const enlaceHistorico = crearBoton(documento, 'Histórico', 'button');
+  enlaceHistorico.addEventListener('click', () => {
+    router.navegar({ nombre: 'historico' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, botonSalir);
+  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, enlaceHistorico, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
@@ -215,6 +225,23 @@ function mostrarAppAdministrador(
         actualizar: (profesorDuenoId, entrada) => actualizarAsistencia({ postgrest: app.postgrest }, profesorDuenoId, entrada),
         registrarOlvidado: (entrada) => registrarAsistencia({ postgrest: app.postgrest }, perfil.id, entrada),
         generarPeticionId: () => crypto.randomUUID(),
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'historico') {
+      mostrarPantallaHistorico(areaPantalla, {
+        rol: perfil.rol,
+        usuarioId: perfil.id,
+        listarHistorico: (filtro) => listarHistoricoAsistencia(app.postgrest, filtro),
+        listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
+        resolverNombresAlumnos: (ids) => resolverIdentificacionAlumnos(app.postgrest, ids),
+        resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
+        resolverContactoAlumnos: (ids) => resolverContactoAlumnos(app.postgrest, ids),
+        buscarAlumnos: (texto) => buscarAlumnosParaExtra(app.postgrest, texto),
+        listarProfesoresParaFiltro: () => listarProfesoresActivos(app.postgrest),
+        listarCentrosParaFiltro: () => listarCentros(app.postgrest),
+        descargador: crearDescargadorNavegador(documento),
       });
       return;
     }
@@ -313,11 +340,15 @@ function mostrarAppProfesor(
   enlaceRegistros.addEventListener('click', () => {
     router.navegar({ nombre: 'registros' });
   });
+  const enlaceHistorico = crearBoton(documento, 'Histórico', 'button');
+  enlaceHistorico.addEventListener('click', () => {
+    router.navegar({ nombre: 'historico' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, botonSalir);
+  nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, enlaceHistorico, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
@@ -368,6 +399,24 @@ function mostrarAppProfesor(
             entrada,
           ),
         generarPeticionId: () => crypto.randomUUID(),
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'historico') {
+      mostrarPantallaHistorico(areaPantalla, {
+        rol: perfil.rol,
+        usuarioId: perfil.id,
+        // Sin listarProfesoresParaFiltro/listarCentrosParaFiltro/resolverContactoAlumnos: teacher
+        // nunca elige otro profesor ni centro (puedeConsultarHistoricoDeCualquiera es false) ni
+        // exporta con contacto (puedeExportarConDatosDeContacto es false) — mismo criterio que
+        // "registros" arriba.
+        listarHistorico: (filtro) => listarHistoricoAsistencia(app.postgrest, filtro),
+        listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
+        resolverNombresAlumnos: (ids) => resolverIdentificacionAlumnos(app.postgrest, ids),
+        resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
+        buscarAlumnos: (texto) => buscarAlumnosParaExtra(app.postgrest, texto),
+        descargador: crearDescargadorNavegador(documento),
       });
       return;
     }

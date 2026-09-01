@@ -4,12 +4,15 @@ import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.t
 import { crearClientePostgrest } from './postgrest.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { crearLimitadorTasa, ErrorLimiteAlcanzado } from '../nucleo/limitadorTasa.ts';
+import { crearLogger, type EntradaLog } from '../nucleo/registro.ts';
 import {
   registrarAsistencia,
   listarAsistenciaDeHoy,
   actualizarAsistencia,
   listarRegistrosDeSlotYFecha,
   listarHistorialDeAsistencia,
+  listarHistoricoAsistencia,
+  listarHistoricoAsistenciaCompleto,
 } from './asistencia.ts';
 import { Conflicto, ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
@@ -399,6 +402,178 @@ void test('listarRegistrosDeSlotYFecha: admite otra zona horaria explícita', as
   assert.ok(peticion);
   const url = new URL(peticion.url);
   assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-06-10T00:00:00.000Z"', 'lte."2026-06-10T23:59:59.999Z"']);
+});
+
+// --- listarHistoricoAsistencia / listarHistoricoAsistenciaCompleto (T-23) ----------------------
+
+void test('listarHistoricoAsistencia: deja traza mínima en el log — solo ids y página, nunca un nombre', async () => {
+  const postgrest = crearCliente(() => ({ estado: 200, cuerpo: [], cabeceras: { 'content-range': '0-0/0' } }));
+  const entradas: EntradaLog[] = [];
+  const logAuditoria = crearLogger((entrada) => entradas.push(entrada), 'debug');
+
+  await listarHistoricoAsistencia(postgrest, { alumnoId: 'al1', profesorId: 'p1', pagina: 2 }, undefined, logAuditoria);
+
+  assert.equal(entradas.length, 1);
+  const entrada = entradas[0];
+  assert.ok(entrada);
+  assert.equal(entrada.mensaje, 'Consulta de histórico de asistencia');
+  assert.deepEqual(entrada.contexto, { alumno_id: 'al1', profesor_id: 'p1', centro_id: null, pagina: 2 });
+});
+
+void test('listarHistoricoAsistencia: sin filtros, una única petición paginada y ordenada de más reciente a más antiguo', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [FILA], cabeceras: { 'content-range': '0-0/1' } };
+  });
+
+  const resultado = await listarHistoricoAsistencia(postgrest);
+
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'GET');
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/asistencia');
+  assert.equal(url.searchParams.get('order'), 'ocurrido_en.desc');
+  assert.equal(peticion.cabeceras.range, '0-19');
+  assert.equal(url.searchParams.get('alumno_id'), null);
+  assert.equal(url.searchParams.get('profesor_id'), null);
+  assert.deepEqual(resultado, { filas: [FILA], totalAproximado: 1 });
+});
+
+void test('listarHistoricoAsistencia: filtro por alumno y por profesor a la vez', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [], cabeceras: { 'content-range': '0-0/0' } };
+  });
+
+  await listarHistoricoAsistencia(postgrest, { alumnoId: 'al1', profesorId: 'p1' });
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.searchParams.get('alumno_id'), 'eq.al1');
+  assert.equal(url.searchParams.get('profesor_id'), 'eq.p1');
+});
+
+void test('listarHistoricoAsistencia: rango de fechas acota ocurrido_en al día natural de desde/hasta', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [], cabeceras: { 'content-range': '0-0/0' } };
+  });
+
+  // 2026-08-26 y 2026-08-27, mediodía CEST (UTC+2).
+  await listarHistoricoAsistencia(postgrest, {
+    desde: new Date('2026-08-26T12:00:00.000Z'),
+    hasta: new Date('2026-08-27T12:00:00.000Z'),
+  });
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.deepEqual(url.searchParams.getAll('ocurrido_en'), [
+    'gte."2026-08-25T22:00:00.000Z"',
+    'lte."2026-08-27T21:59:59.999Z"',
+  ]);
+});
+
+void test('listarHistoricoAsistencia: página y tamaño de página se traducen en la cabecera Range', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [], cabeceras: { 'content-range': '0-0/0' } };
+  });
+
+  await listarHistoricoAsistencia(postgrest, { pagina: 2, porPagina: 10 });
+
+  assert.ok(peticion);
+  assert.equal(peticion.cabeceras.range, '20-29');
+});
+
+void test('listarHistoricoAsistencia: filtro por centro resuelve primero los ids de alumno de ese centro (dos peticiones)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const postgrest = crearCliente((p) => {
+    peticiones.push(p);
+    if (new URL(p.url).pathname === '/rest/v1/alumno') {
+      return { estado: 200, cuerpo: [{ id: 'al1' }, { id: 'al2' }] };
+    }
+    return { estado: 200, cuerpo: [FILA], cabeceras: { 'content-range': '0-0/1' } };
+  });
+
+  await listarHistoricoAsistencia(postgrest, { centroId: 'centro1' });
+
+  assert.equal(peticiones.length, 2);
+  const [primera, segunda] = peticiones;
+  const urlPrimera = new URL(primera?.url ?? '');
+  assert.equal(urlPrimera.pathname, '/rest/v1/alumno');
+  assert.equal(urlPrimera.searchParams.get('centro_referencia_id'), 'eq.centro1');
+  const urlSegunda = new URL(segunda?.url ?? '');
+  assert.equal(urlSegunda.pathname, '/rest/v1/asistencia');
+  assert.equal(urlSegunda.searchParams.get('alumno_id'), 'in.(al1,al2)');
+});
+
+void test('listarHistoricoAsistencia: centro sin ningún alumno devuelve vacío sin consultar asistencia', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const postgrest = crearCliente((p) => {
+    peticiones.push(p);
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const resultado = await listarHistoricoAsistencia(postgrest, { centroId: 'centro-vacio' });
+
+  assert.equal(peticiones.length, 1); // solo la consulta de alumnos del centro, nunca asistencia
+  assert.deepEqual(resultado, { filas: [], totalAproximado: 0 });
+});
+
+void test('listarHistoricoAsistencia: alumnoId es más específico que centroId, y omite resolver el centro', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const postgrest = crearCliente((p) => {
+    peticiones.push(p);
+    return { estado: 200, cuerpo: [FILA], cabeceras: { 'content-range': '0-0/1' } };
+  });
+
+  await listarHistoricoAsistencia(postgrest, { alumnoId: 'al1', centroId: 'centro1' });
+
+  assert.equal(peticiones.length, 1);
+  const url = new URL(peticiones[0]?.url ?? '');
+  assert.equal(url.pathname, '/rest/v1/asistencia');
+  assert.equal(url.searchParams.get('alumno_id'), 'eq.al1');
+});
+
+void test('listarHistoricoAsistenciaCompleto: una sola página cuando viene incompleta', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const postgrest = crearCliente((p) => {
+    peticiones.push(p);
+    return { estado: 200, cuerpo: [FILA, { ...FILA, id: 'as2' }], cabeceras: { 'content-range': '0-1/2' } };
+  });
+
+  const filas = await listarHistoricoAsistenciaCompleto(postgrest);
+
+  assert.equal(peticiones.length, 1);
+  assert.equal(filas.length, 2);
+});
+
+void test('listarHistoricoAsistenciaCompleto: recorre varias páginas hasta que una viene incompleta', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  let llamada = 0;
+  const postgrest = crearCliente((p) => {
+    peticiones.push(p);
+    llamada += 1;
+    // Tamaño de lote real de exportación (500): las dos primeras llenas, la tercera con 1 sola fila.
+    const filasDeEstaPagina =
+      llamada <= 2
+        ? Array.from({ length: 500 }, (_, indice) => ({ ...FILA, id: `as-${String(llamada)}-${String(indice)}` }))
+        : [FILA];
+    return {
+      estado: 200,
+      cuerpo: filasDeEstaPagina,
+      cabeceras: { 'content-range': `0-0/${String(1001)}` },
+    };
+  });
+
+  const filas = await listarHistoricoAsistenciaCompleto(postgrest);
+
+  assert.equal(peticiones.length, 3);
+  assert.equal(filas.length, 1001);
 });
 
 void test('listarHistorialDeAsistencia: una única petición, acotada al registro y ordenada por cambiado_en ascendente', async () => {

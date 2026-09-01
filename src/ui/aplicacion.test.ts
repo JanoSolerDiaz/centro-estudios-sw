@@ -460,6 +460,45 @@ void test('teacher con appProfesor: "Registros" alterna a la pantalla de registr
   assert.match(contenedor.textContent, /No tienes ninguna clase más hoy/);
 });
 
+// --- T-23: histórico de asistencia, enrutado para administrator y para teacher. -----------------
+
+void test('administrator con appAdministrador: "Histórico" navega a la pantalla de histórico, con selector de profesor y de centro', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonHistorico = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Histórico');
+  assert.ok(botonHistorico);
+  botonHistorico.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Histórico de asistencia/);
+  assert.ok(contenedor.querySelector('#historico-filtro-profesor'));
+  assert.ok(contenedor.querySelector('#historico-filtro-centro'));
+});
+
+void test('teacher con appProfesor: "Histórico" navega a la pantalla de histórico, sin selector de profesor ni de centro', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  const botonHistorico = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Histórico');
+  assert.ok(botonHistorico);
+  botonHistorico.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Histórico de asistencia/);
+  assert.equal(contenedor.querySelector('#historico-filtro-profesor'), null);
+  assert.equal(contenedor.querySelector('#historico-filtro-centro'), null);
+  assert.equal(contenedor.querySelector('#historico-incluir-contacto'), null);
+});
+
 // --- T-22: "mi horario" y el router real de teacher (sustituye a la navegación local de T-21). ---
 
 /** Slot vigente el miércoles de 10:00 a 12:00 con el alumno embebido, tal como lo devuelve
