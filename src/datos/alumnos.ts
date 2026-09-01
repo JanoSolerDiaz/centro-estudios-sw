@@ -30,6 +30,8 @@ import {
   telefonoAlumnoValido,
   compararAlumnosParaOrden,
 } from '../dominio/alumno.ts';
+import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
+import type { AlumnoParaPropuesta } from '../dominio/slots.ts';
 import { ErrorDeValidacion, ErrorDelServidor } from './erroresDominio.ts';
 
 export type FiltroEstadoAlumno = 'activos' | 'inactivos' | 'todos';
@@ -264,4 +266,51 @@ export async function reactivarAlumno(cliente: ClientePostgrest, id: string): Pr
     .eq('id', id)
     .actualizar({ activo: true, baja_en: null, motivo_baja: null }, { representar: false });
   return leerFichaPorId(cliente, id);
+}
+
+/** Tope de resultados pedido al servidor (T-20, requisito 2: "paginación o límite de resultados").
+ * Un combobox de autocompletado no necesita más: si hace falta más precisión, el profesor sigue
+ * escribiendo y el rebote dispara una búsqueda más concreta. Debe coincidir con el valor por
+ * defecto de `buscar_alumnos_activos` (`db/007_rpc_buscar_alumnos.sql`), que además lo acota entre
+ * 1 y 20 en servidor como defensa en profundidad si algún día difieren. */
+export const LIMITE_BUSQUEDA_ALUMNO_EXTRA = 8;
+
+/** Busca alumnos activos para registrar una "clase extra" (T-20) — nunca contacto, nunca personas
+ * de referencia, nunca `avatar_ruta`: el tipo de retorno de la RPC `buscar_alumnos_activos`
+ * (`db/007_rpc_buscar_alumnos.sql`, `SECURITY DEFINER`) no las incluye, así que este módulo no
+ * puede filtrar de más ni de menos por descuido. Con texto vacío o solo espacios no llama al
+ * servidor: devuelve `[]` directamente, ni siquiera la petición HTTP (requisito 2: "desde el
+ * segundo carácter" es responsabilidad de quien llama — `dominio/busquedaAlumnoExtra.ts`,
+ * `debeBuscar` — pero esta función es defensiva por su cuenta con cualquier entrada). `señal`
+ * (T-06, `nucleo/controlPeticion.ts`) permite cancelar una búsqueda obsoleta cuando llega una tecla
+ * nueva antes de que responda el servidor. */
+export async function buscarAlumnosParaExtra(
+  cliente: ClientePostgrest,
+  texto: string,
+  señal?: AbortSignal,
+): Promise<readonly ResultadoBusquedaAlumno[]> {
+  const consulta = normalizarNombrePersona(texto);
+  if (consulta.length === 0) {
+    return [];
+  }
+  return cliente.rpc<readonly ResultadoBusquedaAlumno[]>(
+    'buscar_alumnos_activos',
+    { p_texto: consulta, p_limite: LIMITE_BUSQUEDA_ALUMNO_EXTRA },
+    señal,
+  );
+}
+
+/** Lee las mismas columnas de identificación que ya trae embebidas `listarSlotsDeProfesorConAlumno`
+ * (T-17, `AlumnoParaPropuesta`) para UN alumno concreto — necesario tras registrar una "clase
+ * extra" (T-20, requisito 5: "el alumno pasa entonces a ser una card más... con su avatar"), porque
+ * `buscar_alumnos_activos` deliberadamente no devuelve `avatar_ruta` (requisito 3: nunca avatar en
+ * los RESULTADOS del buscador) y la card sí necesita pintarlo, igual que las del slot. Va contra la
+ * tabla base `alumno`, no `alumno_ficha`: son exactamente las columnas que esa tabla ya concede a
+ * `authenticated` (`003_politicas_rls.sql`), así que también funciona para un `teacher`. */
+export async function obtenerAlumnoParaTarjeta(cliente: ClientePostgrest, id: string): Promise<AlumnoParaPropuesta> {
+  const filas = await cliente
+    .desde<AlumnoParaPropuesta>(TABLA)
+    .eq('id', id)
+    .seleccionar('id,nombre,primer_apellido,segundo_apellido,avatar_ruta,activo');
+  return primeraFilaOFalla(filas);
 }

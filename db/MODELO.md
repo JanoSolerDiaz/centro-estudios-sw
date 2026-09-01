@@ -4,13 +4,14 @@
 > mantiene al día en cada migración (§0.4 de `HOJA_DE_RUTA.md`). El SQL exacto vive en `db/NNN_*.sql`;
 > este documento es el mapa, no la fuente de verdad — ante cualquier duda, el SQL manda.
 >
-> Estado actual (corregido 2026-08-31, sesión de T-18 — este párrafo llevaba desactualizado varias
-> sesiones, ver `db/APLICADAS.md` que sí se mantuvo al día): `000`/`000b` (bootstrap manual del
-> dueño) + `001_esquema_inicial` + `002_bloqueo_cuenta` + `003_politicas_rls` + `004_bucket_avatares`,
-> los cuatro **aplicados y verificados** en `dev` (`esquema_version()` = `4`, `npm run probar-rls` en
-> verde). `005_rpc_registrar_asistencia` (T-18) está escrita y testeada —estáticamente y con
-> `db/pruebas_rls.sql`—, **pendiente de que el dueño la aplique** con `npm run migrate` (fila nueva
-> en §3 de `roadmap/SEGUIMIENTO.md`). La matriz completa rol × tabla × operación vive en
+> Estado actual (corregido 2026-09-01, sesión de T-20): `000`/`000b` (bootstrap manual del dueño) +
+> `001_esquema_inicial` + `002_bloqueo_cuenta` + `003_politicas_rls` + `004_bucket_avatares` +
+> `005_rpc_registrar_asistencia` + `006_arreglo_limite_tasa_ambiguo`, las seis **aplicadas y
+> verificadas** en `dev` (`esquema_version()` = `6`, `npm run probar-rls` en verde: 67
+> comprobaciones, 0 omitidas, 0 fallidas). `007_rpc_buscar_alumnos` (T-20) está escrita y testeada
+> —estáticamente y con `db/pruebas_rls.sql`—, **pendiente de que el dueño la aplique** con
+> `npm run migrate` (fila nueva en §3 de `roadmap/SEGUIMIENTO.md`; ver también
+> `db/APLICADAS.md` § "Pendiente de aplicar"). La matriz completa rol × tabla × operación vive en
 > `roadmap/DECISIONES_TECNICAS.md` (sección final, fuera del registro append-only).
 
 ## Diagrama de relaciones (texto)
@@ -239,6 +240,26 @@ tabla `asistencia` de arriba ya lo explica ("el segundo intento choca con la res
 en vez de crear una fila repetida") — **no** hay una comprobación de idempotencia que devuelva en
 silencio la fila ya creada; un reintento con el mismo `peticion_id` recibe un error de conflicto,
 igual que el duplicado de negocio.
+
+## `buscar_alumnos_activos` (`007_rpc_buscar_alumnos.sql`, T-20)
+
+Búsqueda de "alumno extra" (clase puntual, cualquier alumno activo del centro aunque no esté en el
+horario habitual del profesor). `SECURITY DEFINER` por un único motivo: un `teacher` no tiene GRANT
+de columna sobre `alumno.centro_referencia_id` (ver "Políticas RLS por rol" más abajo), y el
+requisito de mostrar el centro para desambiguar homónimos exige leerla para el `join` con
+`centro_estudios`. El tipo de retorno explícito —`id, nombre, primer_apellido, segundo_apellido,
+centro_nombre`— es lo que garantiza que nunca viaja contacto, personas de referencia ni
+`avatar_ruta`: no es una promesa de la función, es que esas columnas no existen en su forma de
+salida.
+
+**Reglas:** rechaza a cualquiera que no sea `administrator` o `teacher` (incluido `student`, sin
+excepción); con texto vacío o solo espacios devuelve cero filas sin tocar la tabla; busca por
+subcadena (`ilike`, insensible a mayúsculas, NO acento-insensible — misma limitación que
+`listarAlumnos` de T-12, ver `roadmap/DECISIONES_TECNICAS.md`) en `nombre`, `primer_apellido` o
+`segundo_apellido`; solo alumnos `activo`; límite de resultados acotado en servidor entre 1 y 20
+(por defecto 8), defensa en profundidad además del rebote y la cancelación de petición del cliente
+(T-20, requisito 2). Sin conexión con `limite_tasa` de T-06: es una lectura, no una escritura que
+mute datos, y el propio rebote del cliente ya acota la frecuencia real de peticiones.
 
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 

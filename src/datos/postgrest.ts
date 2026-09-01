@@ -88,7 +88,11 @@ export interface OpcionesClientePostgrest {
 
 export interface ClientePostgrest {
   desde<T>(tabla: string): ConstructorConsulta<T>;
-  rpc<T>(nombre: string, parametros?: Record<string, unknown>): Promise<T>;
+  /** `señal` (T-20): propagada al `fetch` subyacente para que quien llama pueda cancelar una RPC
+   * en curso (`nucleo/controlPeticion.ts`, `crearEjecutorUltimaPeticion`) — pensada para una
+   * búsqueda con rebote, donde una tecla nueva deja obsoleta la petición anterior. Ninguna otra
+   * operación de este cliente la necesita todavía, así que solo `rpc` la admite. */
+  rpc<T>(nombre: string, parametros?: Record<string, unknown>, señal?: AbortSignal): Promise<T>;
 }
 
 interface EstadoConsulta {
@@ -105,6 +109,7 @@ interface OpcionesPeticion {
   // es opcional, y con `exactOptionalPropertyTypes` una propiedad opcional sin `| undefined` en su
   // tipo no admite que se le asigne `undefined` de forma explícita como aquí.
   readonly rango?: { desde: number; hasta: number } | undefined;
+  readonly señal?: AbortSignal;
 }
 
 async function ejecutarPeticion(
@@ -125,6 +130,7 @@ async function ejecutarPeticion(
   return peticionAutenticada(opciones, metodo, ruta, {
     cuerpoJson: init.cuerpo,
     cabecerasExtra,
+    ...(init.señal !== undefined ? { señal: init.señal } : {}),
   });
 }
 
@@ -269,9 +275,10 @@ export function crearClientePostgrest(opcionesEntrada: OpcionesClientePostgrest)
     desde<T>(tabla: string): ConstructorConsulta<T> {
       return crearConstructorConsulta<T>(opciones, tabla);
     },
-    async rpc<T>(nombre: string, parametros?: Record<string, unknown>): Promise<T> {
+    async rpc<T>(nombre: string, parametros?: Record<string, unknown>, señal?: AbortSignal): Promise<T> {
       const respuesta = await ejecutarPeticion(opciones, 'POST', `/rest/v1/rpc/${nombre}`, {
         cuerpo: parametros ?? {},
+        ...(señal !== undefined ? { señal } : {}),
       });
       const { valor, malformado } = await leerCuerpoJson(respuesta);
       if (malformado) {

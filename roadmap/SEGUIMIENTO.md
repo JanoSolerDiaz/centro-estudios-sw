@@ -10,11 +10,107 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-01 (sesión siguiente a "T-18 COMPLETADA") — **T-19 (pantalla de
-pasar lista) COMPLETADA.** Sin migración (`Migración: No` en su spec): T-17 y T-18, sus únicas
-dependencias, ya estaban `COMPLETADA`. Ningún hallazgo `ABIERTO` de severidad alta en
-`auditoriacontinua.md` al empezar esta sesión (todos los abiertos son de severidad baja, higiene
-documental — ver §0.3, no exigen atención urgente).
+**Última actualización:** 2026-09-01 (sesión siguiente a "T-19 COMPLETADA") — **T-20 (alumno extra:
+listado completo y selección manual) BLOQUEADA — pendiente aplicar migración `007`.** Su única
+dependencia, T-19, ya estaba `COMPLETADA`. Ningún hallazgo `ABIERTO` de severidad alta en
+`auditoriacontinua.md` al empezar esta sesión (los tres abiertos son de severidad baja, higiene
+documental — ver §0.3, no exigen atención urgente). Todo el código y los tests de T-20 se escriben y
+verifican igual, contra dobles, y quedan latentes hasta que el dueño aplique `007`.
+
+**T-20 — Alumno extra: listado completo y selección manual — código y tests COMPLETOS, BLOQUEADA
+por la migración `007`.** Spec: `Migración: No`, pero cumplir el requisito 3 ("el centro de estudios
+cuando hay homónimos") exige que un `teacher` sepa a qué centro pertenece un alumno, columna
+(`centro_referencia_id`) que su `GRANT` de columna sobre `alumno` no incluye — mismo precedente que
+T-09 (necesitó migración pese a `Migración: No` en su spec, §7). Migración
+`db/007_rpc_buscar_alumnos.sql`: RPC `buscar_alumnos_activos(p_texto, p_limite)`, `SECURITY
+DEFINER`, tipo de retorno explícito (`id, nombre, primer_apellido, segundo_apellido, centro_nombre`)
+que hace estructuralmente imposible devolver contacto, personas de referencia o avatar (requisito 3)
+— preferida a ampliar el `GRANT` de columna, que habría filtrado `centro_referencia_id` en TODAS las
+lecturas de `alumno` de cualquier `teacher`, no solo en el buscador (detalle en
+`DECISIONES_TECNICAS.md`). Numeración: toma `007` porque `006` ya lo ocupaba el arreglo de T-18
+(`006_arreglo_limite_tasa_ambiguo.sql`) — la migración de T-21 (`005_rpc_actualizar_asistencia` en
+la hoja de ruta original, proyectada como `006` en §7 el 2026-08-28) pasa a ser
+`008_rpc_actualizar_asistencia.sql` cuando le llegue el turno.
+
+**Combobox accesible escrito a mano (`src/ui/comboboxAlumnoExtra.ts`, nuevo), la pieza de
+accesibilidad más difícil del proyecto hasta hoy:** `role="combobox"`/`"listbox"`/`"option"`,
+`aria-expanded`/`aria-controls`/`aria-activedescendant`, flechas arriba/abajo, Enter para
+seleccionar, Escape para cerrar, y una región `role="status"` que sirve a la vez de anuncio
+`aria-live` del recuento y de los cuatro estados explícitos del requisito 6 (sin escribir, buscando,
+sin resultados, error). Rebote de 250 ms con el primitivo nuevo `src/nucleo/rebote.ts`
+(`crearRebote()`, FÁBRICA — nunca una instancia compartida, mismo criterio que
+`crearProtectorDobleToque`) antes de llamar a `datos/alumnos.ts#buscarAlumnosParaExtra`. Cancelación
+real de la petición en curso (requisito 2) conectando por primera vez a un punto de llamada real el
+`crearEjecutorUltimaPeticion` de T-06 (hasta hoy escrito y testeado en aislamiento, sin ningún
+consumidor) — incluso cuando el texto cae por debajo del umbral de dos caracteres y no hay ninguna
+búsqueda nueva que lanzar, se ejecuta una operación trivial ya resuelta solo para que el aborto de
+"empezar una nueva" surta efecto. Para que esto funcionara de verdad hubo que conectar por primera
+vez `AbortSignal` a la capa de red: `peticionHttp.ts`/`postgrest.ts` (`rpc(nombre, parametros,
+señal?)`, tercer parámetro nuevo) y el doble de `fetch` (`dobleHttp.ts`, rechaza con `AbortError` si
+la señal ya está abortada al llamar). Una respuesta que llega abortada se ignora en silencio, nunca
+se pinta como error — para eso, `esErrorDeCancelacion` (antes privada de `mensajesAbuso.ts`) se
+traslada a `nucleo/controlPeticion.ts` y se exporta, para que las dos consumidoras (una que avisa al
+usuario, otra que ignora) compartan el mismo predicado sin duplicarlo.
+
+**Homónimos (requisito 3) y nunca avatar en el buscador:** `dominio/busquedaAlumnoExtra.ts`
+(`debeBuscar`, umbral de dos caracteres; `resultadosParaMostrar`, marca `esHomonimo` cuando dos
+resultados de la MISMA búsqueda comparten nombre completo, para pintar el centro solo cuando hace
+falta). El buscador nunca pide avatar por diseño explícito de la propia spec — el tipo
+`ResultadoBusquedaAlumno` no tiene `avatar_ruta`, así que no hay forma de pedirlo por descuido.
+
+**El alumno seleccionado se registra de inmediato (requisito 5) por la misma RPC de T-18/T-19**
+(`registrar_asistencia`, `origen: 'manual'`, `slot_id: null`, con la nota opcional del requisito 8),
+y aparece como una card más en la MISMA rejilla de `pantallaPasarLista.ts`, marcada visualmente
+"Extra" — nunca una sección aparte. `registrarExtra` es el punto de entrada ÚNICO tanto para el alta
+(crea la card en 'enviando' la primera vez que se llama con esa clave) como para el reintento tras
+un error (clic en la card, mismo `peticionId` — nunca uno nuevo, o la idempotencia del servidor no
+protege nada); la clave de un extra es su propio `peticionId`, porque no tiene slot con el que
+formar la clave alumno+slot de las cards normales. Tras registrar, pide en best-effort
+`datos/alumnos.ts#obtenerAlumnoParaTarjeta` (columnas de identificación de la tabla base, incluida
+`avatar_ruta`, que el buscador nunca trae) y reutiliza el mismo pipeline de avatares en lote de
+T-19. **Desviación documentada en `DECISIONES_TECNICAS.md`:** un `Conflicto` en un extra NO se
+reconcilia releyendo el registro real como hace `manejarToque` con las cards de slot — un registro
+`manual` no tiene la clave alumno+slot+día con la que `registrosDeHoyPorAlumnoSlot` indexa; se trata
+como cualquier otro error, con el mismo `peticionId` listo para reintentar.
+
+**Bug propio encontrado y corregido durante la propia sesión (antes de cualquier commit):**
+`manejarSeleccionExtra` fijaba la card en fase 'enviando' y LUEGO llamaba a `registrarExtra`, cuya
+guarda de entrada («si ya está 'enviando', no hagas nada») estaba pensada para el reintento y
+bloqueaba también la primera llamada — la card se quedaba en "Registrando…" para siempre sin llegar
+a llamar nunca a `registrar`. Encontrado por el propio test de integración («aparece como card
+marcada Extra»), no leyendo el código. Arreglado unificando el punto de entrada: `registrarExtra`
+decide por sí sola, mirando si ya existe una entrada para esa clave, si está creando o reintentando.
+
+**`db/pruebas_rls.sql` amplía con la sección 8b, nueva:** reutiliza `alumno_prueba` (activo) y
+`alumno_inactivo` (dado de baja), ambos con apellido "RLS" ya creados por las secciones 2 y 7 — sin
+crear ningún fixture nuevo. Cinco comprobaciones: `teacher` encuentra al activo con el nombre del
+centro; el alumno dado de baja (mismo apellido, encontraría por texto) nunca aparece; la respuesta no
+trae `email_alumno`/`telefono_alumno`/`avatar_ruta`/`personas_referencia` (estructuralmente
+garantizado por el tipo de retorno, comprobado aquí en ejecución); texto vacío no consulta nada; y
+`student` no puede llamar a la función, sin excepción.
+
+**66 tests nuevos (728 en total, antes 662, verificado con `git stash -u` contra el commit de
+partida):** 8 de `nucleo/rebote.ts` (rebote real y de prueba, cancelación, dos instancias
+independientes), 2 de `esErrorDeCancelacion` (`controlPeticion.test.ts`), 3 de la propagación de
+`señal` en `postgrest.ts#rpc`, 9 de `dominio/busquedaAlumnoExtra.ts` (umbral, homónimos, orden), 10
+de `datos/alumnos.ts` (`buscarAlumnosParaExtra` y `obtenerAlumnoParaTarjeta`: cuerpo exacto de la
+RPC, texto vacío no llama a red, cancelación, traducción de error), 23 de
+`comboboxAlumnoExtra.test.ts` (ARIA, rebote, los cuatro estados, homónimos, teclado, ratón,
+cancelación real con `AbortSignal`, dos instancias independientes) y 11 de integración en
+`pantallaPasarLista.test.ts` (monta el buscador, registra con `origen: manual`/`nota`, la card
+"Extra" con avatar, reintento con el mismo `peticionId`, alumno inactivo no aparece). Más 9 tests
+estáticos de la migración (`herramientas/migraciones/rpcBuscarAlumnos.test.ts`, mismo patrón que
+`rpcRegistrarAsistencia.test.ts`) y el arreglo de `hashesAplicadas.test.ts` (documentado abajo).
+
+**Arreglo de `herramientas/migraciones/hashesAplicadas.test.ts` (P-XX no abierta, arreglo directo:
+sin él, `npm test` quedaba roto por una migración pendiente legítima, no por ningún descuido):** su
+tercera prueba exigía una fila de tabla CON HASH para cada fichero `db/NNN_*.sql` en disco, algo que
+ninguna migración anterior había necesitado —005/006 se escribieron y aplicaron el mismo día, antes
+de que existiera este test—. Corregido para reconocer también una migración pendiente mencionada en
+CUALQUIER parte del texto de `db/APLICADAS.md` (la nueva sección "Pendiente de aplicar", sin hash),
+tal como su propio mensaje de error ya pedía. Detalle en `DECISIONES_TECNICAS.md`.
+
+---
 
 **T-19 — Pantalla de pasar lista — COMPLETADA.** La pantalla más importante del producto: un
 `teacher` entra, ve a quién le toca y registra entradas en segundos. `puedeUsarPasarLista`
@@ -445,8 +541,8 @@ pantallas del requisito 2.
 | T-17 | Motor de propuesta "quién toca ahora" | COMPLETADA | 2026-08-31 | Sin migración: depende solo de T-15 (COMPLETADA). `dominio/slots.ts` reescrito (sustituye la versión provisional de T-03) con zona horaria real (`Intl`, `Europe/Madrid` por defecto) y ventana de tolerancia; `datos/slotsHorario.ts` añade `listarSlotsDeProfesorConAlumno` (una petición, alumno embebido en columnas restringidas). 33 tests nuevos netos (477 en total, antes 460). Pregunta abierta #11 en §6 (valores por defecto de zona horaria y tolerancia, sin bloquear) |
 | T-18 | Alta de asistencia (RPC `registrar_asistencia`) | COMPLETADA | 2026-09-01 | Migraciones `005` y `006` aplicadas en `dev` y **verificadas en ejecución**: `npm run probar-rls` da **67 comprobaciones, 0 omitidas, 0 fallidas**, con las cuatro altas reales pasando y los nueve rechazos trayendo cada uno su motivo propio (ventana de 7 días, futuro, `slot` sin id, alumno de baja, en nombre de otro, slot ajeno, `student`, y los dos duplicados chocando con `asistencia_uq_alumno_slot_dia_valida` y `asistencia_peticion_id_unico`). El camino hasta aquí dejó tres P-XX, todas implementadas y confirmadas: **P-10** (los rechazos exigen su motivo), **P-11** (finales de línea clavados al hash del ledger) y **P-12** (la batería no podía consumir la fila que devuelve la RPC). Límite de 60 operaciones por profesor y minuto conectado por primera vez (`limite_tasa`/`aplicar_limite_tasa`) |
 | T-19 | Pantalla de pasar lista | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17/T-18 (ambas completadas). `puedeUsarPasarLista` exclusivo de `teacher`. Nuevo `nucleo/programadorIntervalo.ts` (refresco sin red), `dominio/slots.ts` añade `limitesDiaLocal`. Cards como `<button>` nativo con doble toque por clave; `Conflicto` se resuelve releyendo el registro real, nunca como error. Sin router propio de `teacher` todavía (una sola pantalla). 48 tests nuevos (662 en total, antes 614) |
-| T-20 | Alumno extra: listado completo y selección manual | PENDIENTE | — | — |
-| T-21 | Revisar y modificar los registros por slot | PENDIENTE | — | Migración `005_rpc_actualizar_asistencia`; límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
+| T-20 | Alumno extra: listado completo y selección manual | BLOQUEADA — pendiente aplicar migración `007` | 2026-09-01 | Código y 66 tests completos, contra dobles. Migración `007_rpc_buscar_alumnos.sql` (RPC `buscar_alumnos_activos`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 9 de §3 |
+| T-21 | Revisar y modificar los registros por slot | PENDIENTE | — | Migración `008_rpc_actualizar_asistencia` (renumerada: T-20 tomó `007`, ver §7); límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
 | T-22 | "Mi horario" del profesor (teacher) | PENDIENTE | — | — |
 | T-23 | Consulta y exportación del histórico | PENDIENTE | — | — |
 | T-24 | Administración de usuarios y roles | PENDIENTE | — | — |
@@ -493,6 +589,7 @@ pantallas del requisito 2.
 | 6 | Aplicar la migración `004_bucket_avatares` en `dev`, **después** de las filas 4 y 5 | T-14 | ~~`git pull` y `npm run migrate` en local (aplica en orden numérico: no hace nada si `002`/`003` siguen pendientes). Al terminar, comprobar que `esquema_version()` devuelve `4`~~ | **RESUELTA 2026-08-31** — aplicada por el dueño con `npm run migrate`. **Verificada:** `esquema_version()` devuelve `4`, y `npm run probar-rls` confirma que la protección de escritura del bucket funciona contra la base real: `avatares / teacher escribe (debe fallar)` queda bloqueado por una **política RLS** sobre `storage.objects` (*new row violates row-level security policy*), no por un GRANT. Las omisiones de la batería bajan de 3 a 2. **Las dos que quedan cambian de motivo, no desaparecen**: ya no es que falte el bucket, es que está vacío — nadie ha subido todavía ningún avatar, así que las dos comprobaciones de **lectura** (que un profesor vea el avatar de un alumno activo y **no** el de uno dado de baja) siguen sin ejercitarse, y no se desbloquean solas. Ver **P-09** (implementada 2026-08-31, sesión de T-14 (3): la sección 7 ya crea sus propios fixtures y no depende de un avatar real). **Anotada en `db/APLICADAS.md` (hash `1065196e1662`)** |
 | 7 | Aplicar la migración `005_rpc_registrar_asistencia` en `dev`, **después** de las filas 4, 5 y 6 | T-18 | ~~`git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `5`, y ejecutar también `npm run probar-rls`~~ | **RESUELTA 2026-09-01** — aplicada por el dueño con `npm run migrate`. **Verificada:** `esquema_version()` devuelve `5`. El `npm run probar-rls` recomendado **hizo exactamente su trabajo**: 67 comprobaciones, 0 omitidas, **4 fallidas**, todas de la sección 7b nueva y todas con el mismo error — `column reference "ventana_inicio" is ambiguous`, un bug de `aplicar_limite_tasa()` dentro de esta misma migración. `005` queda aplicada e **inmutable**; el arreglo va en la migración `006` (fila 8) |
 | 8 | Aplicar `006_arreglo_limite_tasa_ambiguo` y verificar T-18 con `npm run probar-rls` | T-18 | ~~`git pull`, `npm run migrate` y `npm run probar-rls`~~ | **RESUELTA 2026-09-01** — hizo falta más de una vuelta y cada una encontró algo. (1) `npm run migrate`: `005` y `006` aplicadas, confirmadas con `npm run migrate -- --estado`. (2) Primera `probar-rls`: el ambiguo resuelto, pero 6 fallos propios de la batería (P-12) y nueve rechazos que aprobaban sin mirar el motivo (P-10). (3) Segunda `probar-rls`, tras corregir ambos: **67 comprobaciones, 0 omitidas, 0 fallidas, "ningún acceso prohibido tuvo éxito"**. T-18 cerrada |
+| 9 | Aplicar la migración `007_rpc_buscar_alumnos` en `dev`, **después** de las filas 4 a 8 | T-20 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `7`, y ejecutar también `npm run probar-rls` (nueva sección 8b: cinco comprobaciones de `buscar_alumnos_activos`) | PENDIENTE |
 
 ---
 
@@ -573,3 +670,4 @@ pantallas del requisito 2.
 | 2026-08-28 | T-12 | **Requisito 4 no cumplido literalmente: la búsqueda no es acento-insensible.** La spec pide "la búsqueda encuentra por cualquiera de las tres partes, acento-insensible"; la implementación usa `ilike` (ampliado a tres columnas con `or`), que no lo es. Instalar `unaccent` o añadir una columna generada e indexada es DDL, y T-12 tiene `Migración: No` — no hay forma de cumplirlo sin una migración. El criterio de aceptación enumerado de T-12 no incluye ningún caso de prueba sobre esto (a diferencia del criterio 2 de T-11, que sí prueba el duplicado acento-insensible) | Limitación técnica real, no una omisión: documentada en `DECISIONES_TECNICAS.md` y abierta como pregunta #8 de §6 para que el dueño decida si merece una migración futura |
 | 2026-08-31 | T-14 | **Criterio de aceptación no cumplido literalmente: "una imagen de 4000 px produce una derivada de 512 px y otra de 96 px, ambas WebP y sin EXIF" no se comprueba con píxeles reales ni con un fichero WebP real.** `jsdom` no implementa `createImageBitmap` ni un `<canvas>` que rasterice de verdad, y añadir el paquete nativo `canvas` de npm solo para este test habría sido una dependencia pesada para verificar algo que ni siquiera sería el mismo decodificador que un navegador real. Se testea en su lugar: la geometría del recorte (pura, con test completo), la orquestación (qué tamaños se piden, en qué orden, con qué tipo MIME) contra una fábrica de procesado de imagen de mentira, y se documenta la eliminación de EXIF como garantía de la propia plataforma (repintar sobre un `canvas` nuevo nunca copia metadatos del origen) | Documentado en `DECISIONES_TECNICAS.md`. Mismo criterio que T-08/`postgrest.ts` (no se testea el `fetch` real, solo el doble): la implementación real (`crearFabricaProcesadoImagenNavegador`) solo la ejercita un navegador real, cuando T-16 la monte en una pantalla |
 | 2026-08-31 | T-18 | **Renumeración de la migración de T-18: `005_rpc_registrar_asistencia.sql`, no `004_rpc_registrar_asistencia` como decía la hoja de ruta original.** `004` ya lo ocupa `004_bucket_avatares.sql` (T-14), consecuencia de la renumeración en cadena de la fila anterior de este mismo §7 (2026-08-28). Efecto en cadena: la migración de T-21 (`005_rpc_actualizar_asistencia` en el original) pasará a ser `006_rpc_actualizar_asistencia.sql` | Consecuencia directa de la renumeración ya arrastrada por T-10/T-14. Anotado aquí, en `DECISIONES_TECNICAS.md`, en la cabecera del propio `005_rpc_registrar_asistencia.sql` y en la fila de T-18 de §1, para que la sesión de T-21 no lo descubra a mitad |
+| 2026-09-01 | T-20 | **T-20 pasa a necesitar migración, y su spec dice `Migración: No`; además, `007` (no `006`) es el número que le toca, dejando la de T-21 en `008`.** El requisito 3 ("el centro cuando hay homónimos") exige que un `teacher` sepa a qué centro pertenece un alumno, columna que su `GRANT` sobre `alumno` no incluye — no hay forma de cumplirlo sin DDL. Y la proyección de la fila anterior de este mismo §7 (`006_rpc_actualizar_asistencia` para T-21) ya había quedado obsoleta ANTES de esta sesión: `006` lo ocupó el arreglo de T-18 (`006_arreglo_limite_tasa_ambiguo.sql`, mismo día). T-20 toma el `007` que quedaba libre; T-21 pasa a `008_rpc_actualizar_asistencia.sql` | Mismo precedente que T-09 (fila de 2026-08-27 de este §7): la hoja de ruta es inmutable, así que la ampliación/renumeración se registra aquí, en `DECISIONES_TECNICAS.md`, en la cabecera de `007_rpc_buscar_alumnos.sql` y en las filas de T-20/T-21 de §1, para que la sesión de T-21 no lo descubra a mitad |

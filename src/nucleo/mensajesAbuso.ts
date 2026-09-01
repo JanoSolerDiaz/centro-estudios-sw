@@ -12,6 +12,7 @@
  */
 
 import { ErrorLimiteAlcanzado } from './limitadorTasa.ts';
+import { esErrorDeCancelacion } from './controlPeticion.ts';
 import { PerfilInactivo, CuentaBloqueada } from './gestorSesion.ts';
 import {
   NoAutenticado,
@@ -27,10 +28,6 @@ import { CredencialesInvalidas } from '../datos/autenticacion.ts';
 
 const MENSAJE_POR_DEFECTO = 'No se ha podido completar la acción. Inténtalo de nuevo en unos segundos.';
 
-function esErrorDeAborto(error: unknown): boolean {
-  return error instanceof DOMException && error.name === 'AbortError';
-}
-
 function formatearSegundos(ms: number): string {
   const segundos = Math.max(1, Math.ceil(ms / 1000));
   return `${String(segundos)} segundo${segundos === 1 ? '' : 's'}`;
@@ -41,7 +38,7 @@ export function mensajeAmigable(error: unknown): string {
   if (error instanceof ErrorLimiteAlcanzado) {
     return `Estás haciendo esta acción demasiado rápido. Espera ${formatearSegundos(error.reintentarEnMs)} e inténtalo de nuevo.`;
   }
-  if (esErrorDeAborto(error)) {
+  if (esErrorDeCancelacion(error)) {
     return 'La operación ha tardado demasiado o se ha cancelado. Comprueba tu conexión e inténtalo de nuevo.';
   }
   if (error instanceof CredencialesInvalidas) {

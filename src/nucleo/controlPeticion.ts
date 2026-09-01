@@ -25,6 +25,15 @@ export function crearEjecutorUltimaPeticion<T>(): (operacion: OperacionCancelabl
   };
 }
 
+/** `true` si `error` es la cancelación deliberada de una petición (el `AbortError` estándar que
+ * `fetch` rechaza cuando su señal se dispara), no un fallo real. `mensajesAbuso.ts` (T-06) lo usa
+ * para dar un mensaje de "se ha cancelado"; una búsqueda con rebote que queda obsoleta porque llegó
+ * una tecla nueva (T-20, `crearEjecutorUltimaPeticion` de arriba) debe usarlo para lo contrario:
+ * ignorar el error por completo, nunca mostrarlo — la petición nueva es la que manda. */
+export function esErrorDeCancelacion(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
 /** Aborta `operacion` si no ha resuelto (ni rechazado) dentro de `ms`. */
 export async function conTiempoDeEspera<T>(operacion: OperacionCancelable<T>, ms: number): Promise<T> {
   const controlador = new AbortController();

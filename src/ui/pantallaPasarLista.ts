@@ -54,13 +54,16 @@ import { claveRegistroPorSlot, registrosDeHoyPorAlumnoSlot } from '../dominio/as
 import { compararAlumnosParaOrden } from '../dominio/alumno.ts';
 import { inicialesAlumno, colorMonograma } from '../dominio/avatarAlumno.ts';
 import { puedeUsarPasarLista } from '../dominio/permisosUi.ts';
+import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
+import type { Rebote } from '../nucleo/rebote.ts';
 import { crearProtectorDobleToque } from '../nucleo/proteccionDobleToque.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 import { crearElemento } from './dom.ts';
 import { crearZonaMensaje, crearBoton } from './formularios.ts';
+import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import type { RegistrarAsistenciaEntrada } from '../datos/asistencia.ts';
 import type { AlumnoConRutaAvatar } from '../datos/avatarAlumno.ts';
 import { Conflicto } from '../datos/erroresDominio.ts';
@@ -89,6 +92,15 @@ export interface DependenciasPantallaPasarLista {
    * montar la pantalla, en el mejor esfuerzo — un fallo no bloquea ni vacía lo que ya hay en
    * pantalla (requisito 6 de T-09), la siguiente petición real revelará si la sesión sigue viva. */
   renovarSesion(): Promise<void>;
+  /** Búsqueda de "alumno extra" (T-20): `datos/alumnos.ts#buscarAlumnosParaExtra` en la
+   * composición real, sobre el combobox accesible de `comboboxAlumnoExtra.ts`. */
+  buscarAlumnosExtra(texto: string, señal: AbortSignal): Promise<readonly ResultadoBusquedaAlumno[]>;
+  /** Columnas de identificación (incluida `avatar_ruta`) de UN alumno tras añadirlo como extra
+   * (T-20, requisito 5): la búsqueda nunca trae el avatar (requisito 3), así que la card recién
+   * creada lo pide aparte, en el mismo lote que las demás (`obtenerUrlsAvataresMini`). */
+  obtenerAlumnoParaTarjeta(alumnoId: string): Promise<AlumnoParaPropuesta>;
+  /** Nueva por pantalla (T-20, `nucleo/rebote.ts`): nunca compartida entre dos combobox. */
+  readonly rebote: Rebote;
   readonly zonaHoraria?: string;
   readonly tolerancia?: number;
 }
@@ -104,12 +116,25 @@ interface EstadoTarjeta {
   readonly mensajeError?: string;
 }
 
+/** "Alumno extra" (T-20): sin slot, nunca pasa por la fase 'pendiente' — seleccionarlo en el
+ * combobox YA dispara el registro (requisito 5), así que nace directamente en 'enviando'. Nota
+ * opcional (requisito 8) y marcador visual "Extra" (`crearTarjetaExtraElemento`). */
+interface EstadoTarjetaExtra {
+  readonly alumno: AlumnoParaPropuesta;
+  readonly fase: Exclude<FaseTarjeta, 'pendiente'>;
+  readonly peticionId: string;
+  readonly nota: string | null;
+  readonly asistencia?: Asistencia;
+  readonly mensajeError?: string;
+}
+
 interface EstadoPantalla {
   readonly cargando: boolean;
   readonly errorCarga: string;
   readonly propuesta: PropuestaAsistencia | null;
   readonly instante: Date;
   readonly tarjetas: ReadonlyMap<string, EstadoTarjeta>;
+  readonly extras: ReadonlyMap<string, EstadoTarjetaExtra>;
   readonly avatares: ReadonlyMap<string, string>;
 }
 
@@ -138,7 +163,16 @@ function descripcionesSlot(alumnos: readonly AlumnoPropuesto[]): readonly string
     .map((d) => `${d.asignatura} · ${d.inicio}–${d.fin}`);
 }
 
-function textoEstadoTarjeta(tarjeta: EstadoTarjeta, zonaHoraria: string): string {
+/** Forma mínima que necesita `textoEstadoTarjeta`: tanto `EstadoTarjeta` (slot) como
+ * `EstadoTarjetaExtra` (T-20, sin slot) la cumplen sin ningún cambio — la card extra reutiliza el
+ * mismo texto de estado que las de slot, nunca uno paralelo que pudiera desincronizarse. */
+interface ConEstadoDeTarjeta {
+  readonly fase: FaseTarjeta;
+  readonly asistencia?: Asistencia;
+  readonly mensajeError?: string;
+}
+
+function textoEstadoTarjeta(tarjeta: ConEstadoDeTarjeta, zonaHoraria: string): string {
   switch (tarjeta.fase) {
     case 'pendiente':
       return 'Pendiente';
@@ -177,6 +211,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     propuesta: null,
     instante: deps.reloj.ahora(),
     tarjetas: new Map(),
+    extras: new Map(),
     avatares: new Map(),
   });
 
@@ -229,23 +264,10 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     return monograma;
   }
 
-  function crearTarjetaElemento(clave: string, tarjeta: EstadoTarjeta, avatares: ReadonlyMap<string, string>): HTMLButtonElement {
-    const { alumno } = tarjeta;
-    const boton = documento.createElement('button');
-    boton.type = 'button';
-    boton.dataset.clave = clave;
-    boton.style.minHeight = '44px';
-    boton.style.minWidth = '44px';
-    boton.style.display = 'flex';
-    boton.style.flexDirection = 'column';
-    boton.style.alignItems = 'center';
-    boton.style.gap = '4px';
-    boton.style.padding = '8px';
-    boton.style.border = '2px solid #374151';
-    boton.style.borderRadius = '8px';
-    boton.style.fontSize = '16px';
-    boton.style.backgroundColor = tarjeta.fase === 'registrado' ? '#DCFCE7' : tarjeta.fase === 'error' ? '#FEE2E2' : '#FFFFFF';
-
+  /** Avatar + monograma compartidos por la card de slot y la de "alumno extra" (T-20): mismo
+   * comportamiento exacto — monograma primero, imagen que sustituye al cargar, imagen que falla se
+   * quita sin dejar hueco roto (requisito 4 de T-19). */
+  function crearAvatarWrap(alumno: AlumnoParaPropuesta, avatares: ReadonlyMap<string, string>): HTMLElement {
     const avatarWrap = documento.createElement('div');
     avatarWrap.style.position = 'relative';
     avatarWrap.style.width = '96px';
@@ -273,10 +295,31 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       });
       avatarWrap.append(imagen);
     }
+    return avatarWrap;
+  }
+
+  function crearTarjetaElemento(clave: string, tarjeta: EstadoTarjeta, avatares: ReadonlyMap<string, string>): HTMLButtonElement {
+    const { alumno } = tarjeta;
+    const boton = documento.createElement('button');
+    boton.type = 'button';
+    boton.dataset.clave = clave;
+    boton.style.minHeight = '44px';
+    boton.style.minWidth = '44px';
+    boton.style.display = 'flex';
+    boton.style.flexDirection = 'column';
+    boton.style.alignItems = 'center';
+    boton.style.gap = '4px';
+    boton.style.padding = '8px';
+    boton.style.border = '2px solid #374151';
+    boton.style.borderRadius = '8px';
+    boton.style.fontSize = '16px';
+    boton.style.backgroundColor = tarjeta.fase === 'registrado' ? '#DCFCE7' : tarjeta.fase === 'error' ? '#FEE2E2' : '#FFFFFF';
+
+    boton.append(crearAvatarWrap(alumno, avatares));
 
     const nombreEl = crearElemento(documento, 'span', { texto: `${alumno.nombre} ${alumno.primer_apellido}` });
     nombreEl.style.fontWeight = 'bold';
-    boton.append(avatarWrap, nombreEl);
+    boton.append(nombreEl);
 
     if (alumno.segundo_apellido) {
       boton.append(crearElemento(documento, 'span', { texto: alumno.segundo_apellido }));
@@ -292,6 +335,65 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
     boton.addEventListener('click', () => {
       void obtenerProtector(clave)();
+    });
+
+    return boton;
+  }
+
+  /** "Alumno extra" (T-20, requisito 5): misma card que una de slot —avatar, monograma, nombre,
+   * estado— más una etiqueta "Extra" visible y, si la hay, la nota (requisito 8: "se distingue
+   * visualmente aquí"). Clicable solo para reintentar un error (mismo `peticionId`, nunca uno
+   * nuevo — igual criterio de idempotencia que las cards de slot); no hay reconciliación de
+   * `Conflicto` como en `manejarToque` porque un registro `manual` no tiene la clave
+   * alumno+slot+día con la que releer: un reintento que choca con `Conflicto` se trata como
+   * cualquier otro error (limitación documentada en DECISIONES_TECNICAS.md), y "Actualizar" en la
+   * próxima sesión de pasar lista lo mostraría de todas formas a través de `listarAsistenciaDeHoy`. */
+  function crearTarjetaExtraElemento(clave: string, extra: EstadoTarjetaExtra, avatares: ReadonlyMap<string, string>): HTMLButtonElement {
+    const { alumno } = extra;
+    const boton = documento.createElement('button');
+    boton.type = 'button';
+    boton.dataset.clave = clave;
+    boton.style.minHeight = '44px';
+    boton.style.minWidth = '44px';
+    boton.style.display = 'flex';
+    boton.style.flexDirection = 'column';
+    boton.style.alignItems = 'center';
+    boton.style.gap = '4px';
+    boton.style.padding = '8px';
+    boton.style.border = '2px dashed #92400E';
+    boton.style.borderRadius = '8px';
+    boton.style.fontSize = '16px';
+    boton.style.backgroundColor = extra.fase === 'registrado' ? '#DCFCE7' : extra.fase === 'error' ? '#FEE2E2' : '#FFFBEB';
+
+    boton.append(crearAvatarWrap(alumno, avatares));
+
+    const etiquetaExtra = crearElemento(documento, 'span', { texto: 'Extra' });
+    etiquetaExtra.style.fontSize = '12px';
+    etiquetaExtra.style.fontWeight = 'bold';
+    etiquetaExtra.style.color = '#92400E';
+    boton.append(etiquetaExtra);
+
+    const nombreEl = crearElemento(documento, 'span', { texto: `${alumno.nombre} ${alumno.primer_apellido}` });
+    nombreEl.style.fontWeight = 'bold';
+    boton.append(nombreEl);
+
+    if (alumno.segundo_apellido) {
+      boton.append(crearElemento(documento, 'span', { texto: alumno.segundo_apellido }));
+    }
+    if (extra.nota) {
+      boton.append(crearElemento(documento, 'span', { texto: extra.nota }));
+    }
+
+    const textoEstado = textoEstadoTarjeta(extra, zonaHoraria);
+    boton.append(crearElemento(documento, 'span', { texto: textoEstado }));
+    boton.setAttribute(
+      'aria-label',
+      `Extra. ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}. ${textoEstado}`,
+    );
+    boton.disabled = extra.fase === 'registrado' || extra.fase === 'enviando';
+
+    boton.addEventListener('click', () => {
+      void obtenerProtectorExtra(clave)();
     });
 
     return boton;
@@ -320,6 +422,15 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     rejilla.textContent = '';
     for (const [clave, tarjeta] of estado.tarjetas) {
       const elemento = crearTarjetaElemento(clave, tarjeta, estado.avatares);
+      rejilla.append(elemento);
+      if (clave === claveEnfocada) {
+        elemento.focus();
+      }
+    }
+    // Los "alumno extra" (T-20) van al final de la MISMA rejilla — "una card más en la lista de la
+    // sesión" (requisito 5), no una sección aparte — distinguidos por su propio marcado visual.
+    for (const [clave, extra] of estado.extras) {
+      const elemento = crearTarjetaExtraElemento(clave, extra, estado.avatares);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
         elemento.focus();
@@ -368,7 +479,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   async function cargarAvataresPendientes(): Promise<void> {
     const estado = almacen.obtener();
     const pendientes: AlumnoConRutaAvatar[] = [];
-    for (const tarjeta of estado.tarjetas.values()) {
+    for (const tarjeta of [...estado.tarjetas.values(), ...estado.extras.values()]) {
       const { id, avatar_ruta: rutaBase } = tarjeta.alumno;
       if (rutaBase && !estado.avatares.has(id) && !avataresPedidos.has(id)) {
         avataresPedidos.add(id);
@@ -473,8 +584,110 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     return protector;
   }
 
+  function fijarExtra(clave: string, extra: EstadoTarjetaExtra): void {
+    almacen.actualizar((actual) => {
+      const nuevoMapa = new Map(actual.extras);
+      nuevoMapa.set(clave, extra);
+      return { ...actual, extras: nuevoMapa };
+    });
+  }
+
+  /** Best-effort tras registrar un extra (T-20, requisito 5): pide las columnas de identificación
+   * REALES del alumno (con `avatar_ruta`, que `buscar_alumnos_activos` nunca trae) y actualiza la
+   * card ya visible con ellas — un fallo aquí deja la card con los datos del resultado de búsqueda
+   * (sin avatar, monograma de sobra) en vez de romper nada; `avatares_pedidos`/`cargarAvataresPendientes`
+   * recogen el resto en el siguiente tick si además hace falta firmar la URL. */
+  async function actualizarAlumnoDeExtra(clave: string, alumnoId: string): Promise<void> {
+    try {
+      const alumno = await deps.obtenerAlumnoParaTarjeta(alumnoId);
+      const extraActual = almacen.obtener().extras.get(clave);
+      if (!extraActual) {
+        return;
+      }
+      fijarExtra(clave, { ...extraActual, alumno });
+      void cargarAvataresPendientes();
+    } catch {
+      // Best-effort: la card se queda con el nombre del resultado de búsqueda, sin avatar.
+    }
+  }
+
+  /** Crea la card (si no existía) o la reintenta (si existía en 'error') y llama a `registrar`.
+   * Punto de entrada ÚNICO para el alta de un extra —tanto la primera selección en el combobox
+   * como el reintento tras un fallo— para que no haya dos sitios que decidan de forma distinta
+   * cuándo pasar a 'enviando'. */
+  async function registrarExtra(clave: string, resultado: ResultadoBusquedaAlumno, nota: string | null, peticionId: string): Promise<void> {
+    const extraActual = almacen.obtener().extras.get(clave);
+    if (extraActual && (extraActual.fase === 'registrado' || extraActual.fase === 'enviando')) {
+      return;
+    }
+    const alumnoBase: AlumnoParaPropuesta =
+      extraActual?.alumno ??
+      {
+        id: resultado.id,
+        nombre: resultado.nombre,
+        primer_apellido: resultado.primer_apellido,
+        segundo_apellido: resultado.segundo_apellido,
+        avatar_ruta: null,
+        activo: true,
+      };
+    fijarExtra(clave, { alumno: alumnoBase, fase: 'enviando', peticionId, nota });
+    try {
+      const fila = await deps.registrar({ alumnoId: resultado.id, origen: 'manual', slotId: null, peticionId, nota });
+      fijarExtra(clave, { alumno: alumnoBase, fase: 'registrado', peticionId, nota, asistencia: fila });
+      void actualizarAlumnoDeExtra(clave, resultado.id);
+    } catch (error) {
+      // Un `Conflicto` en un extra no se reconcilia como en `manejarToque`: un registro `manual`
+      // no tiene la clave alumno+slot+día con la que releerlo (limitación documentada en
+      // DECISIONES_TECNICAS.md). Se trata como cualquier otro error, con el MISMO peticionId listo
+      // para reintentar — nunca uno nuevo, o la protección de idempotencia del servidor no protege
+      // nada (mismo criterio que datos/asistencia.ts).
+      fijarExtra(clave, { alumno: alumnoBase, fase: 'error', peticionId, nota, mensajeError: mensajeAmigable(error) });
+    }
+  }
+
+  function obtenerProtectorExtra(clave: string): () => Promise<void> {
+    let protector = protectoresTarjeta.get(clave);
+    if (!protector) {
+      protector = crearProtectorDobleToque(() => {
+        const extra = almacen.obtener().extras.get(clave);
+        if (!extra) {
+          return Promise.resolve();
+        }
+        // Reintento (clic en una card en 'error'): mismo alumno, misma nota, mismo peticionId.
+        const resultado: ResultadoBusquedaAlumno = {
+          id: extra.alumno.id,
+          nombre: extra.alumno.nombre,
+          primer_apellido: extra.alumno.primer_apellido,
+          segundo_apellido: extra.alumno.segundo_apellido,
+          centro_nombre: '',
+        };
+        return registrarExtra(clave, resultado, extra.nota, extra.peticionId);
+      });
+      protectoresTarjeta.set(clave, protector);
+    }
+    return protector;
+  }
+
+  // La clave de un extra es su propio peticionId: un extra no tiene slot con el que formar la
+  // clave alumno+slot de las cards normales, y un peticionId nuevo por selección basta para que
+  // dos extras del mismo alumno el mismo día (dos clases puntuales distintas) tengan cards
+  // independientes. `registrarExtra` crea la card (fase 'enviando') la primera vez que se llama
+  // con esta clave — no hace falta fijarla aquí antes de llamar.
+  function manejarSeleccionExtra(resultado: ResultadoBusquedaAlumno, nota: string | null): void {
+    const peticionId = deps.generarPeticionId();
+    void registrarExtra(peticionId, resultado, nota, peticionId);
+  }
+
+  const seccionExtra = documento.createElement('div');
+  seccionExtra.append(crearElemento(documento, 'h2', { texto: 'Añadir alumno extra' }));
+  montarComboboxAlumnoExtra(seccionExtra, {
+    buscar: (texto, señal) => deps.buscarAlumnosExtra(texto, señal),
+    onSeleccionar: manejarSeleccionExtra,
+    rebote: deps.rebote,
+  });
+
   almacen.suscribir(pintar);
-  contenedor.append(zonaError, cabecera, mensajeCargando, rejilla);
+  contenedor.append(zonaError, cabecera, seccionExtra, mensajeCargando, rejilla);
   pintar(almacen.obtener());
   void cargar();
 

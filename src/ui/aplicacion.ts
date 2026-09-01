@@ -35,7 +35,17 @@ import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import { listarCentros, crearCentro, editarNombreCentro, contarAlumnosActivosDeCentro, desactivarCentro, reactivarCentro } from '../datos/centrosEstudios.ts';
-import { listarAlumnos, obtenerAlumno, crearAlumno, editarAlumno, darDeBajaAlumno, reactivarAlumno } from '../datos/alumnos.ts';
+import {
+  listarAlumnos,
+  obtenerAlumno,
+  crearAlumno,
+  editarAlumno,
+  darDeBajaAlumno,
+  reactivarAlumno,
+  buscarAlumnosParaExtra,
+  obtenerAlumnoParaTarjeta,
+} from '../datos/alumnos.ts';
+import { crearRebote } from '../nucleo/rebote.ts';
 import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferencia } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
 import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
@@ -273,6 +283,9 @@ function mostrarAppProfesor(
     obtenerUrlsAvataresMini: (alumnos) => urlsAvataresEnLote(app.almacenamiento, alumnos, 'mini'),
     generarPeticionId: () => crypto.randomUUID(),
     renovarSesion: () => gestorSesion.renovarAlAbrirPasarLista(),
+    buscarAlumnosExtra: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
+    obtenerAlumnoParaTarjeta: (alumnoId) => obtenerAlumnoParaTarjeta(app.postgrest, alumnoId),
+    rebote: crearRebote(),
   });
 
   contenedor.append(cabecera, areaPantalla);

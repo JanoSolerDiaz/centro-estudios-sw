@@ -85,6 +85,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   `buscarPersonaReferenciaDuplicada` (mismo nombre completo, acento-insensible, y mismo teléfono, que
   otra persona de referencia ya existente del mismo alumno): es un aviso, no un bloqueo, calculado en
   el cliente contra las personas ya cargadas.
+  Desde T-20: `busquedaAlumnoExtra.ts` — `debeBuscar(texto)` (umbral de dos caracteres, requisito 2)
+  y `resultadosParaMostrar(resultados)`, que marca `esHomonimo` cuando dos resultados de la MISMA
+  búsqueda comparten nombre completo — es lo único que decide si el combobox pinta el centro junto
+  al nombre (requisito 3: "el centro cuando hay homónimos", no siempre).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -106,12 +110,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `peticionHttp.ts` (T-08) — `peticionAutenticada`, compartida por `postgrest.ts` y
     `almacenamiento.ts`: cabeceras de autenticación, traducción de fallo de red y de respuesta no
     exitosa. Cada cliente añade sus propias cabeceras/cuerpo por encima.
-  - `postgrest.ts` (T-08, ampliado en T-12) — `crearClientePostgrest(opciones)`: `cliente
+  - `postgrest.ts` (T-08, ampliado en T-12 y T-20) — `crearClientePostgrest(opciones)`: `cliente
     .desde<T>('tabla').eq(...).seleccionar('columnas')` (o `.insertar`/`.actualizar`/`.eliminar`) y
-    `cliente.rpc(nombre, parametros)`. Desde T-12: `orIlike(columnas, patron)` (un `ilike` sobre
-    varias columnas a la vez, unidas con `or`) y `opciones.representar` en `insertar`/`actualizar`
-    (`false` pide `Prefer: return=minimal` en vez del `return=representation` por defecto).
-    Subconjunto documentado en la cabecera del propio fichero y en `DECISIONES_TECNICAS.md`.
+    `cliente.rpc(nombre, parametros, señal?)`. Desde T-12: `orIlike(columnas, patron)` (un `ilike`
+    sobre varias columnas a la vez, unidas con `or`) y `opciones.representar` en
+    `insertar`/`actualizar` (`false` pide `Prefer: return=minimal` en vez del
+    `return=representation` por defecto). Desde T-20: el tercer parámetro opcional `señal` de `rpc`
+    se propaga hasta `fetch` (`peticionHttp.ts`) — solo `rpc` lo admite, ninguna otra operación lo
+    necesita todavía. Subconjunto documentado en la cabecera del propio fichero y en
+    `DECISIONES_TECNICAS.md`.
   - `almacenamiento.ts` (T-08) — `crearClienteAlmacenamiento(opciones)`: `subir`, `eliminar`,
     `urlFirmada`, `urlFirmadasEnLote` (esta última en una única petición HTTP, nunca un bucle —
     T-19 lo necesita así). Endpoints de Storage asumidos, sin poder verificarse contra
@@ -162,7 +169,16 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     de T-06) generarlo una vez y reutilizarlo en un reintento genuino, o la idempotencia de la base
     de datos no protege nada. El límite de cliente de T-06 (opcional) se cuenta sobre el profesor
     que de verdad registra (`profesorId` si un `administrator` registra en nombre de otro; si no,
-    `usuarioId`), nunca sobre quien llama.
+    `usuarioId`), nunca sobre quien llama. `entrada.origen = 'manual'`/`slotId: null`/`nota` es el
+    camino de "alumno extra" (T-20): la misma RPC, sin ningún cambio.
+  - `alumnos.ts`, ampliado en T-20 — `buscarAlumnosParaExtra(cliente, texto, señal?)`: llama a la
+    RPC `buscar_alumnos_activos` (`db/007_rpc_buscar_alumnos.sql`, `SECURITY DEFINER`), nunca la
+    tabla base ni la vista `alumno_ficha` — es la única vía por la que un `teacher` puede saber a
+    qué centro pertenece un alumno (`centro_referencia_id` no está en su GRANT de columna). Devuelve
+    `[]` sin llamar a red si el texto recortado está vacío. `obtenerAlumnoParaTarjeta(cliente, id)`:
+    lee de la tabla base `alumno` las mismas columnas que ya trae embebidas
+    `listarSlotsDeProfesorConAlumno` (incluida `avatar_ruta`, que el buscador nunca devuelve) —
+    necesario para pintar la card del alumno recién añadido con su avatar (requisito 5 de T-20).
 
   ### Configuración del cliente (`config.js`)
 
@@ -207,9 +223,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `reintento.ts` (T-06) — `reintentarConRetroceso(operacion, opciones)`: retroceso exponencial
     acotado con `Temporizador` inyectado. Solo para operaciones idempotentes (lecturas, o
     escrituras protegidas por `peticion_id` único); nunca envolver aquí una escritura que no lo sea.
-  - `controlPeticion.ts` (T-06) — `crearEjecutorUltimaPeticion()` (cancela la petición anterior en
-    cuanto empieza una nueva) y `conTiempoDeEspera(operacion, ms)` (aborta si no resuelve a
-    tiempo), sobre `AbortController`/`AbortSignal` nativos.
+  - `controlPeticion.ts` (T-06, ampliado en T-20) — `crearEjecutorUltimaPeticion()` (cancela la
+    petición anterior en cuanto empieza una nueva) y `conTiempoDeEspera(operacion, ms)` (aborta si
+    no resuelve a tiempo), sobre `AbortController`/`AbortSignal` nativos. `esErrorDeCancelacion(error)`
+    (T-20): `true` para el `AbortError` estándar — compartida por `mensajesAbuso.ts` (que SÍ avisa al
+    usuario de una cancelación) y por `comboboxAlumnoExtra.ts` (que la usa para lo contrario: ignorar
+    en silencio una búsqueda superada por una tecla nueva).
+  - `rebote.ts` (T-20) — `crearRebote()`: rebote/"debounce" cancelable, hermano de `Temporizador` y
+    `ProgramadorIntervalo` pero con contrato propio (`aplazar(ms, tarea)` cancela cualquier tarea
+    pendiente antes de programar la nueva; `cancelar()` la cancela sin programar otra). FÁBRICA, no
+    una instancia compartida — cada combobox necesita la suya (`crearReboteDePrueba` para tests,
+    con `disparar()` para ejecutar a mano la tarea pendiente).
   - `mensajesAbuso.ts` (T-06, ampliado en T-08 y T-09) — `mensajeAmigable(error)`: traduce
     `ErrorLimiteAlcanzado`, `AbortError`, las ocho clases de `src/datos/erroresDominio.ts` y, desde
     T-09, `CredencialesInvalidas`/`PerfilInactivo`, a un mensaje fijo en español que dice qué hacer.
@@ -333,6 +357,25 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     todavía no se hayan pedido; la card se pinta con el monograma primero siempre, y una imagen que
     falla al cargar lo deja tal cual, sin hueco roto. El foco se conserva entre repintados
     (`data-clave` en cada botón) para que un recálculo de fondo no lo tire al `<body>`.
+    Desde T-20: monta `comboboxAlumnoExtra.ts` en una sección "Añadir alumno extra"; al seleccionar
+    un resultado, `registrarExtra` es el punto de entrada ÚNICO tanto para el alta (crea la card en
+    'enviando' la primera vez que se llama con esa clave) como para el reintento tras un error
+    (clic en la card, mismo `peticionId`) — la clave de un extra es su propio `peticionId`, porque no
+    tiene slot con el que formar la clave alumno+slot de las cards normales. Tras registrar, pide en
+    best-effort `deps.obtenerAlumnoParaTarjeta` (el buscador nunca trae `avatar_ruta`) y reutiliza el
+    mismo pipeline de `cargarAvataresPendientes` que las cards de slot. Un `Conflicto` en un extra NO
+    se reconcilia como en una card de slot (no hay clave alumno+slot+día con la que releer): se trata
+    como cualquier otro error, documentado como limitación conocida en `DECISIONES_TECNICAS.md`.
+  - `comboboxAlumnoExtra.ts` (T-20) — `montarComboboxAlumnoExtra(contenedor, deps)`: combobox
+    accesible escrito a mano (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`,
+    flechas/Enter/Escape, región `role="status"` que hace de anuncio `aria-live`). Rebote de 250 ms
+    (`deps.rebote`, `nucleo/rebote.ts`, una instancia NUEVA por combobox) antes de llamar a
+    `deps.buscar(texto, señal)`; cada tecla nueva cancela lo anterior reutilizando
+    `crearEjecutorUltimaPeticion()` (T-06) — incluso cuando el texto cae por debajo del umbral y no
+    hay ninguna búsqueda nueva que lanzar, ejecuta una operación trivial ya resuelta solo para que
+    el aborto de "empezar una nueva" surta efecto sin necesitar un `AbortController` propio. Una
+    respuesta abortada (`esErrorDeCancelacion`) se ignora en silencio, nunca se pinta como error.
+    Nunca pide avatar (requisito 3 de T-20): el tipo `ResultadoBusquedaAlumno` no lo tiene.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

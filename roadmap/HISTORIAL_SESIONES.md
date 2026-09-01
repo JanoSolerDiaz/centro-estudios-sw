@@ -37,6 +37,64 @@
 
 ---
 
+### Sesión 2026-09-01 (siguiente a "T-19 COMPLETADA") — T-20: código y tests completos, BLOQUEADA por migración `007`
+
+**Tarea(s):** T-20 (alumno extra: listado completo y selección manual)
+**Estado resultante:** **T-20 BLOQUEADA — pendiente aplicar migración `007`.** Código y tests
+completos, verificados contra dobles. Sin hallazgo `ABIERTO` de severidad alta al empezar la sesión
+(los tres de `auditoriacontinua.md` son de severidad baja) — no hizo falta ningún P-XX urgente antes
+de la cola. Al arrancar, la sesión encontró el repositorio local `develop` desincronizado del remoto
+(historia reescrita aguas arriba mientras el contenedor estaba inactivo): sincronizado con
+`git reset --hard origin/develop` tras confirmar que el árbol de trabajo estaba limpio y que los
+cuatro commits locales exclusivos eran una copia obsoleta del arranque, ya superada por el remoto
+**Commits a `develop`:** ver commit de esta sesión (`T-20: alumno extra — buscador accesible y
+migración de la RPC de búsqueda`)
+**Migraciones aplicadas:** ninguna — `007_rpc_buscar_alumnos.sql` escrita y empujada, pendiente de
+que el dueño la aplique (fila 9 de §3 de `SEGUIMIENTO.md`)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `db/007_rpc_buscar_alumnos.sql` (nuevo); `db/pruebas_rls.sql`
+(sección 8b nueva); `db/APLICADAS.md` (sección "Pendiente de aplicar"); `db/MODELO.md` (estado
+actual corregido hasta `006`, sección nueva de `buscar_alumnos_activos`);
+`herramientas/migraciones/rpcBuscarAlumnos.test.ts` (nuevo);
+`herramientas/migraciones/hashesAplicadas.test.ts` (arreglo: reconoce una migración pendiente
+mencionada fuera de la tabla); `src/nucleo/rebote.ts` + test (nuevos); `src/nucleo/controlPeticion.ts`
+(`esErrorDeCancelacion`, trasladada desde `mensajesAbuso.ts`) + test; `src/nucleo/mensajesAbuso.ts`
+(reutiliza `esErrorDeCancelacion`); `src/datos/peticionHttp.ts`/`src/datos/postgrest.ts` (`señal` en
+`rpc`) + tests; `src/datos/pruebas/dobleHttp.ts` (honra `init.signal`); `src/dominio/busquedaAlumnoExtra.ts`
++ test (nuevos); `src/datos/alumnos.ts` (`buscarAlumnosParaExtra`, `obtenerAlumnoParaTarjeta`) +
+tests; `src/ui/comboboxAlumnoExtra.ts` + test (nuevos); `src/ui/pantallaPasarLista.ts` (extras en la
+rejilla, buscador montado) + tests; `src/ui/aplicacion.ts` (`buscarAlumnosExtra`,
+`obtenerAlumnoParaTarjeta`, `rebote`); `DEVELOPERS.md`, `roadmap/SEGUIMIENTO.md` (§1 T-20 a
+BLOQUEADA, T-21 renumerada a `008`, §3 fila 9, §7 fila nueva, narrativa), `roadmap/DECISIONES_TECNICAS.md`
+(siete filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (728, antes 662 — verificado con
+`git stash -u` contra el commit de partida) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía
+(`<pendiente>`, T-25)
+**Decisiones tomadas:** siete filas nuevas `2026-09-01 | T-20` en `DECISIONES_TECNICAS.md` — RPC
+`SECURITY DEFINER` en vez de ampliar el `GRANT` de columna; renumeración a `007` (T-21 pasa a `008`);
+arreglo de `hashesAplicadas.test.ts` para reconocer una migración pendiente por nota al pie;
+`AbortSignal` conectado por primera vez a un punto de llamada real; `esErrorDeCancelacion` trasladada
+a `controlPeticion.ts` para no duplicar el predicado; un `Conflicto` en un extra no se reconcilia
+como en las cards de slot (limitación documentada, no bloqueante)
+**Hallazgos del auditor atendidos:** ninguno — los tres `ABIERTO` de `auditoriacontinua.md` son de
+severidad baja y no exigían atención en esta sesión
+**Hallazgos:** bug propio encontrado y corregido antes de cualquier commit —
+`manejarSeleccionExtra` fijaba la card en 'enviando' y luego llamaba a `registrarExtra`, cuya guarda
+de reintento («si ya está 'enviando', no hagas nada») bloqueaba también la primera llamada real a
+`registrar`; el test de integración de la card "Extra" lo atrapó antes de llegar a verificación
+pre-push. Arreglado unificando el punto de entrada en `registrarExtra`
+**Tareas autopropuestas (P-XX):** ninguna — el arreglo de `hashesAplicadas.test.ts` se trató como
+trabajo directo de habilitación de T-20 (la primera migración de este proyecto que queda pendiente
+en el mismo commit que la introduce), no como alcance nuevo autopropuesto
+**Próximo paso:** cuando el dueño confirme la migración `007` (§3, fila 9), verificar
+`esquema_version()` = `7` y `npm run probar-rls` (nueva sección 8b), anotar la fila en
+`db/APLICADAS.md` con su hash real y mover T-20 a `COMPLETADA`. Mientras tanto, la siguiente sesión
+puede avanzar T-21 (revisar y modificar registros por slot) en lo que no dependa de `008`, o
+cualquier otra tarea de la cola que no dependa de `007`
+
+---
+
 ### Sesión 2026-09-01 (siguiente a "T-18 COMPLETADA") — T-19 COMPLETADA
 
 **Tarea(s):** T-19 (pantalla de pasar lista)

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearEjecutorUltimaPeticion, conTiempoDeEspera } from './controlPeticion.ts';
+import { crearEjecutorUltimaPeticion, conTiempoDeEspera, esErrorDeCancelacion } from './controlPeticion.ts';
 
 function operacionQueEsperaAborto<T>(resultadoSiNoSeAborta: T): (señal: AbortSignal) => Promise<T> {
   return (señal) =>
@@ -53,4 +53,15 @@ void test('conTiempoDeEspera aborta la operación si no resuelve dentro del plaz
 void test('conTiempoDeEspera no aborta una operación que resuelve dentro del plazo', async () => {
   const resultado = await conTiempoDeEspera(operacionQueEsperaAborto('a tiempo'), 200);
   assert.equal(resultado, 'a tiempo');
+});
+
+void test('esErrorDeCancelacion reconoce el AbortError estándar', () => {
+  assert.equal(esErrorDeCancelacion(new DOMException('Abortado', 'AbortError')), true);
+});
+
+void test('esErrorDeCancelacion es false para cualquier otro error, incluida una DOMException de otro tipo', () => {
+  assert.equal(esErrorDeCancelacion(new Error('otro fallo')), false);
+  assert.equal(esErrorDeCancelacion(new DOMException('otra cosa', 'NotFoundError')), false);
+  assert.equal(esErrorDeCancelacion(undefined), false);
+  assert.equal(esErrorDeCancelacion('AbortError'), false);
 });

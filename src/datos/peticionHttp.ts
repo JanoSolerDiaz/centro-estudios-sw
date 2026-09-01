@@ -31,6 +31,10 @@ export interface OpcionesPeticionHttp {
    * falta, justo antes de pasarlo a `fetch`. */
   readonly cuerpoCrudo?: Blob | ArrayBuffer | Uint8Array;
   readonly cabecerasExtra?: Readonly<Record<string, string>>;
+  /** Propagada tal cual a `fetchImpl` (T-20, `nucleo/controlPeticion.ts`): quien llama decide
+   * cuándo abortar, este módulo no inventa su propio mecanismo de cancelación. Un `AbortError`
+   * (`DOMException`, no `TypeError`) no pasa por `esFalloDeRed` y se propaga sin traducir. */
+  readonly señal?: AbortSignal;
 }
 
 export async function peticionAutenticada(
@@ -59,9 +63,10 @@ export async function peticionAutenticada(
     respuesta = await opciones.fetchImpl(`${opciones.urlBase}${ruta}`, {
       method: metodo,
       headers: cabeceras,
-      // `exactOptionalPropertyTypes`: `body` no admite `undefined` explícito (solo `BodyInit` o
-      // ausente), así que la clave se omite del todo cuando no hay cuerpo.
+      // `exactOptionalPropertyTypes`: `body`/`signal` no admiten `undefined` explícito, así que la
+      // clave se omite del todo cuando no hay cuerpo o no se pidió señal de cancelación.
       ...(cuerpo !== undefined ? { body: cuerpo as BodyInit } : {}),
+      ...(init.señal !== undefined ? { signal: init.señal } : {}),
     });
   } catch (error) {
     if (esFalloDeRed(error)) {

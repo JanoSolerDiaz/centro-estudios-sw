@@ -56,6 +56,17 @@ function leerFilasDocumentadas(): FilaAplicada[] {
   return filas;
 }
 
+/** Nombres de fichero `NNN_nombre.sql` mencionados en CUALQUIER parte del texto de `APLICADAS.md`,
+ * no solo en las filas de la tabla — para reconocer una migración anotada como pendiente "fuera de
+ * la tabla (nota al pie)", tal como pide el mensaje de la tercera prueba de abajo. Escrita y
+ * comprobada por primera vez con T-20 (`007_rpc_buscar_alumnos.sql`), la primera migración de este
+ * proyecto que queda pendiente de aplicar en el mismo commit que la introduce en vez de aplicarse
+ * el mismo día (T-18/T-05 aplicaron 005 y 006 antes de que existiera esta prueba). */
+function leerNombresMencionados(): ReadonlySet<string> {
+  const texto = readFileSync(RUTA_APLICADAS, 'utf8');
+  return new Set([...texto.matchAll(/\b\d{3,}_[a-z0-9_]+\.sql\b/g)].map((coincidencia) => coincidencia[0]));
+}
+
 void test('APLICADAS.md documenta al menos las migraciones aplicadas hasta hoy', () => {
   const filas = leerFilasDocumentadas();
   assert.ok(filas.length >= 6, `solo se han leído ${String(filas.length)} filas con hash de APLICADAS.md`);
@@ -76,14 +87,14 @@ void test('el hash documentado de cada migración coincide con el fichero en dis
   }
 });
 
-void test('toda migración del runner en db/ tiene su fila con hash en APLICADAS.md', () => {
-  const documentadas = new Set(leerFilasDocumentadas().map((fila) => fila.fichero));
+void test('toda migración del runner en db/ tiene su fila con hash o su nota de pendiente en APLICADAS.md', () => {
+  const documentadas = new Set([...leerFilasDocumentadas().map((fila) => fila.fichero), ...leerNombresMencionados()]);
   const enDisco = leerMigracionesDisco(DIRECTORIO_DB).map((migracion) => `${migracion.nombre}.sql`);
   const sinDocumentar = enDisco.filter((nombre) => !documentadas.has(nombre));
   assert.deepEqual(
     sinDocumentar,
     [],
-    'hay migraciones en db/ sin fila en APLICADAS.md. Si acabas de escribir una y todavía no está ' +
-      'aplicada, anótala como pendiente FUERA de la tabla (nota al pie), no con una fila de hash.',
+    'hay migraciones en db/ sin ninguna mención en APLICADAS.md. Si acabas de escribir una y todavía ' +
+      'no está aplicada, anótala como pendiente FUERA de la tabla (nota al pie), no con una fila de hash.',
   );
 });

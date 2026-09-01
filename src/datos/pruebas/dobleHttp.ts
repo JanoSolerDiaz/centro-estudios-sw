@@ -44,9 +44,17 @@ function cuerpoComoObjeto(cuerpo: RequestInit['body']): unknown {
   return JSON.parse(cuerpo) as unknown;
 }
 
-/** Crea un `fetch` simulado que resuelve cada petición con el `manejador` dado, sin tocar la red. */
+/** Crea un `fetch` simulado que resuelve cada petición con el `manejador` dado, sin tocar la red.
+ * Honra `init.signal` como el `fetch` real (T-20, `nucleo/controlPeticion.ts`): si la señal ya
+ * está abortada en el momento de la llamada, rechaza con el mismo `DOMException('AbortError')` que
+ * un navegador real, en vez de invocar el manejador. No simula un aborto que llegue DESPUÉS de la
+ * llamada (este doble resuelve síncronamente, sin ningún hueco async donde reaccionar a uno) —
+ * suficiente para probar que la señal se propaga hasta `fetch`, no para probar una carrera real. */
 export function crearFetchSimulado(manejador: ManejadorPeticionSimulada): FetchSimulado {
   return (url, init) => {
+    if (init?.signal?.aborted) {
+      return Promise.reject(new DOMException('La operación se ha cancelado.', 'AbortError'));
+    }
     const peticion: PeticionSimulada = {
       url: url.toString(),
       metodo: init?.method ?? 'GET',

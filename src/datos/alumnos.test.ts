@@ -10,6 +10,9 @@ import {
   editarAlumno,
   darDeBajaAlumno,
   reactivarAlumno,
+  buscarAlumnosParaExtra,
+  LIMITE_BUSQUEDA_ALUMNO_EXTRA,
+  obtenerAlumnoParaTarjeta,
 } from './alumnos.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { AlumnoConCentro, AlumnoConCentroYPersonas } from './alumnos.ts';
@@ -365,4 +368,101 @@ void test('este módulo no expone ninguna operación de borrado de alumno', asyn
     nombresExportados.every((nombre) => !/eliminar|borrar/i.test(nombre)),
     `no debe existir ninguna función de borrado; exportado: ${nombresExportados.join(', ')}`,
   );
+});
+
+// --- buscarAlumnosParaExtra (T-20) --------------------------------------------------------------
+
+void test('buscarAlumnosParaExtra llama a la RPC buscar_alumnos_activos con el texto recortado y el límite por defecto', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  await buscarAlumnosParaExtra(cliente, '  ana  ');
+
+  assert.ok(peticion);
+  assert.equal(peticion.url, 'https://proyecto.supabase.co/rest/v1/rpc/buscar_alumnos_activos');
+  assert.equal(peticion.metodo, 'POST');
+  assert.deepEqual(peticion.cuerpo, { p_texto: 'ana', p_limite: LIMITE_BUSQUEDA_ALUMNO_EXTRA });
+});
+
+void test('buscarAlumnosParaExtra con texto vacío o solo espacios no llama al servidor', async () => {
+  let seLlamo = false;
+  const cliente = crearCliente(() => {
+    seLlamo = true;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  assert.deepEqual(await buscarAlumnosParaExtra(cliente, ''), []);
+  assert.deepEqual(await buscarAlumnosParaExtra(cliente, '   '), []);
+  assert.equal(seLlamo, false);
+});
+
+void test('buscarAlumnosParaExtra devuelve las filas de la RPC tal cual, incluido centro_nombre', async () => {
+  const filas = [
+    { id: 'a1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, centro_nombre: 'IES Cervantes' },
+  ];
+  const cliente = crearCliente(() => ({ estado: 200, cuerpo: filas }));
+
+  const resultado = await buscarAlumnosParaExtra(cliente, 'an');
+
+  assert.deepEqual(resultado, filas);
+});
+
+void test('buscarAlumnosParaExtra propaga la señal de cancelación hasta fetch', async () => {
+  let señalRecibida: AbortSignal | undefined;
+  const cliente = crearClientePostgrest({
+    urlBase: 'https://proyecto.supabase.co',
+    claveAnonima: 'clave-anonima',
+    fetchImpl: (_url, init) => {
+      señalRecibida = init?.signal ?? undefined;
+      return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+    },
+  });
+  const controlador = new AbortController();
+
+  await buscarAlumnosParaExtra(cliente, 'ana', controlador.signal);
+
+  assert.equal(señalRecibida, controlador.signal);
+});
+
+void test('buscarAlumnosParaExtra: si el servidor rechaza (student), el error de dominio se propaga', async () => {
+  const cliente = crearCliente(() => ({
+    estado: 403,
+    cuerpo: { message: 'solo administrator o teacher pueden buscar alumnos' },
+  }));
+
+  await assert.rejects(buscarAlumnosParaExtra(cliente, 'ana'), SinPermiso);
+});
+
+// --- obtenerAlumnoParaTarjeta (T-20) ------------------------------------------------------------
+
+void test('obtenerAlumnoParaTarjeta lee de la tabla base alumno, columnas de identificación exactas', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const fila = {
+    id: 'a1',
+    nombre: 'Ana',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    avatar_ruta: 'alumno/a1/foo/',
+    activo: true,
+  };
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [fila] };
+  });
+
+  const resultado = await obtenerAlumnoParaTarjeta(cliente, 'a1');
+
+  assert.ok(peticion);
+  assert.ok(peticion.url.startsWith('https://proyecto.supabase.co/rest/v1/alumno?'));
+  assert.ok(peticion.url.includes('id=eq.a1'));
+  assert.ok(peticion.url.includes('select=id,nombre,primer_apellido,segundo_apellido,avatar_ruta,activo'));
+  assert.deepEqual(resultado, fila);
+});
+
+void test('obtenerAlumnoParaTarjeta lanza ErrorDelServidor si el servidor no devuelve ninguna fila', async () => {
+  const cliente = crearCliente(() => ({ estado: 200, cuerpo: [] }));
+  await assert.rejects(obtenerAlumnoParaTarjeta(cliente, 'no-existe'));
 });

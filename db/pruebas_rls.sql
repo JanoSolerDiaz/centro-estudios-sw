@@ -1100,6 +1100,106 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8b. buscar_alumnos_activos (T-20, db/007_rpc_buscar_alumnos.sql) —
+--     reutiliza alumno_prueba (sección 2, activo, apellido "RLS") y
+--     alumno_inactivo (sección 7, mismo apellido "RLS", dado de baja):
+--     ninguno se vuelve a crear aquí. Buscar "RLS" debe encontrar el
+--     primero y nunca el segundo.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_activo   uuid := pg_temp.dato('alumno_prueba');
+  v_alumno_inactivo uuid := pg_temp.dato('alumno_inactivo');
+  v_filas           jsonb;
+begin
+  if v_alumno_activo is null or not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('buscar_alumnos_activos / teacher encuentra activo con centro', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('buscar_alumnos_activos / alumno inactivo no aparece', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('buscar_alumnos_activos / respuesta sin contacto ni personas de referencia', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('buscar_alumnos_activos / texto vacío no consulta nada (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('buscar_alumnos_activos / student no puede llamar (debe fallar)', 'falta el alumno o el teacher de prueba');
+    return;
+  end if;
+
+  -- teacher encuentra al activo, con el nombre del centro para desambiguar homónimos.
+  perform pg_temp.impersonar('teacher');
+  begin
+    select jsonb_agg(to_jsonb(t)) into v_filas
+      from public.buscar_alumnos_activos('RLS', 8) as t;
+    perform pg_temp.registrar(
+      'buscar_alumnos_activos / teacher encuentra activo con centro', 'permitido',
+      v_filas is not null
+        and jsonb_path_exists(v_filas, '$[*] ? (@.id == $id)', jsonb_build_object('id', v_alumno_activo::text))
+        and (v_filas -> 0 ? 'centro_nombre') and (v_filas -> 0 ->> 'centro_nombre') is not null,
+      v_filas::text
+    );
+  exception when others then
+    perform pg_temp.registrar('buscar_alumnos_activos / teacher encuentra activo con centro', 'permitido', false, sqlerrm);
+  end;
+
+  -- El alumno dado de baja (mismo apellido "RLS") nunca aparece, aunque el texto lo encontraría.
+  begin
+    select jsonb_agg(to_jsonb(t)) into v_filas
+      from public.buscar_alumnos_activos('RLS', 8) as t;
+    perform pg_temp.registrar(
+      'buscar_alumnos_activos / alumno inactivo no aparece', 'permitido',
+      v_alumno_inactivo is null
+        or not jsonb_path_exists(v_filas, '$[*] ? (@.id == $id)', jsonb_build_object('id', v_alumno_inactivo::text)),
+      v_filas::text
+    );
+  exception when others then
+    perform pg_temp.registrar('buscar_alumnos_activos / alumno inactivo no aparece', 'permitido', false, sqlerrm);
+  end;
+
+  -- Requisito 3 de T-20: nunca contacto ni personas de referencia — el tipo de retorno de la
+  -- función ya lo garantiza estructuralmente; esta comprobación lo deja trazado en ejecución.
+  begin
+    select jsonb_agg(to_jsonb(t)) into v_filas
+      from public.buscar_alumnos_activos('RLS', 8) as t;
+    perform pg_temp.registrar(
+      'buscar_alumnos_activos / respuesta sin contacto ni personas de referencia', 'permitido',
+      v_filas is not null
+        and not (v_filas -> 0 ? 'email_alumno')
+        and not (v_filas -> 0 ? 'telefono_alumno')
+        and not (v_filas -> 0 ? 'avatar_ruta')
+        and not (v_filas -> 0 ? 'personas_referencia'),
+      v_filas::text
+    );
+  exception when others then
+    perform pg_temp.registrar('buscar_alumnos_activos / respuesta sin contacto ni personas de referencia', 'permitido', false, sqlerrm);
+  end;
+
+  -- Texto vacío: cero filas, no un error ni "todos los alumnos".
+  begin
+    select jsonb_agg(to_jsonb(t)) into v_filas
+      from public.buscar_alumnos_activos('   ', 8) as t;
+    perform pg_temp.registrar(
+      'buscar_alumnos_activos / texto vacío no consulta nada (debe fallar)', 'permitido', v_filas is null, v_filas::text
+    );
+  exception when others then
+    perform pg_temp.registrar('buscar_alumnos_activos / texto vacío no consulta nada (debe fallar)', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student no puede llamar a la función, sin excepción (§0.2).
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('buscar_alumnos_activos / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.buscar_alumnos_activos('RLS', 8);
+      perform pg_temp.registrar('buscar_alumnos_activos / student no puede llamar (debe fallar)', 'prohibido', false, 'se consultó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('buscar_alumnos_activos / student no puede llamar (debe fallar)', array['%solo administrator o teacher pueden buscar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

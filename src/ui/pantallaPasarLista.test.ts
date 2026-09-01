@@ -6,6 +6,8 @@ import type { AlumnoParaPropuesta, SlotConAlumno } from '../dominio/slots.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { crearProgramadorIntervaloDePrueba, type ProgramadorIntervaloDePrueba } from '../nucleo/programadorIntervalo.ts';
+import { crearReboteDePrueba } from '../nucleo/rebote.ts';
+import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import { Conflicto, ErrorDeRed } from '../datos/erroresDominio.ts';
 
 // Miércoles 2026-08-26, 17:30 CEST (15:30 UTC): dentro del slot 17:00-18:00 local de dia_semana 3.
@@ -93,6 +95,9 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
         return `peticion-cliente-${String(contadorPeticionId)}`;
       }),
     renovarSesion: overrides.renovarSesion ?? (() => Promise.resolve()),
+    buscarAlumnosExtra: overrides.buscarAlumnosExtra ?? (() => Promise.resolve([])),
+    obtenerAlumnoParaTarjeta: overrides.obtenerAlumnoParaTarjeta ?? noImplementado('obtenerAlumnoParaTarjeta'),
+    rebote: overrides.rebote ?? crearReboteDePrueba(),
     ...(overrides.zonaHoraria !== undefined ? { zonaHoraria: overrides.zonaHoraria } : {}),
     ...(overrides.tolerancia !== undefined ? { tolerancia: overrides.tolerancia } : {}),
   };
@@ -674,4 +679,195 @@ void test('un tick del programador recalcula la propuesta sin volver a pedir dat
   // El instante no cambia (reloj fijo), así que el recálculo da el mismo resultado, pero sin
   // haber vuelto a pedir la propuesta al servidor.
   assert.equal(llamadasCargarPropuesta, 1);
+});
+
+// --- Alumno extra (T-20) -------------------------------------------------------------------------
+
+const ALUMNO_EXTRA_BUSCADO: ResultadoBusquedaAlumno = {
+  id: 'alumno-extra-1',
+  nombre: 'Luis',
+  primer_apellido: 'Martín',
+  segundo_apellido: null,
+  centro_nombre: 'IES Cervantes',
+};
+
+function escribirEnCombobox(input: HTMLInputElement, valor: string): void {
+  const ventana = input.ownerDocument.defaultView;
+  assert.ok(ventana);
+  input.value = valor;
+  input.dispatchEvent(new ventana.Event('input', { bubbles: true }));
+}
+
+function teclaEnCombobox(input: HTMLInputElement, key: string): void {
+  const ventana = input.ownerDocument.defaultView;
+  assert.ok(ventana);
+  input.dispatchEvent(new ventana.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+}
+
+async function buscarYSeleccionarExtra(
+  contenedor: HTMLElement,
+  rebote: ReturnType<typeof crearReboteDePrueba>,
+  texto = 'luis',
+): Promise<void> {
+  const input = contenedor.querySelector<HTMLInputElement>('input[role="combobox"]');
+  assert.ok(input, 'la pantalla de pasar lista debe montar el combobox de alumno extra');
+  escribirEnCombobox(input, texto);
+  rebote.disparar();
+  await esperarMicrotareas();
+  teclaEnCombobox(input, 'ArrowDown');
+  teclaEnCombobox(input, 'Enter');
+  await esperarMicrotareas();
+}
+
+void test('la pantalla de pasar lista monta el buscador de alumno extra sin navegar fuera (requisito 1)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([]) }));
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.querySelector('input[role="combobox"]'));
+  assert.match(contenedor.textContent, /Añadir alumno extra/);
+});
+
+void test('seleccionar un resultado registra con origen manual, slot_id nulo y la nota escrita (requisitos 5 y 8)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  let entradaRecibida: unknown;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([]),
+      rebote,
+      buscarAlumnosExtra: () => Promise.resolve([ALUMNO_EXTRA_BUSCADO]),
+      registrar: (entrada) => {
+        entradaRecibida = entrada;
+        return Promise.resolve(crearAsistencia({ id: 'asistencia-extra', alumno_id: 'alumno-extra-1', origen: 'manual', slot_id: null, nota: 'cubre guardia' }));
+      },
+      obtenerAlumnoParaTarjeta: () =>
+        Promise.resolve({
+          id: 'alumno-extra-1',
+          nombre: 'Luis',
+          primer_apellido: 'Martín',
+          segundo_apellido: null,
+          avatar_ruta: null,
+          activo: true,
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const notaInput = contenedor.querySelectorAll('input')[1];
+  assert.ok(notaInput);
+  notaInput.value = 'cubre guardia';
+
+  await buscarYSeleccionarExtra(contenedor, rebote);
+
+  assert.deepEqual(entradaRecibida, {
+    alumnoId: 'alumno-extra-1',
+    origen: 'manual',
+    slotId: null,
+    peticionId: 'peticion-cliente-1',
+    nota: 'cubre guardia',
+  });
+});
+
+void test('el alumno extra registrado aparece como card marcada "Extra" en la misma rejilla', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([]),
+      rebote,
+      buscarAlumnosExtra: () => Promise.resolve([ALUMNO_EXTRA_BUSCADO]),
+      registrar: () => Promise.resolve(crearAsistencia({ id: 'asistencia-extra', alumno_id: 'alumno-extra-1', origen: 'manual', slot_id: null })),
+      obtenerAlumnoParaTarjeta: () =>
+        Promise.resolve({
+          id: 'alumno-extra-1',
+          nombre: 'Luis',
+          primer_apellido: 'Martín',
+          segundo_apellido: null,
+          avatar_ruta: null,
+          activo: true,
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+
+  await buscarYSeleccionarExtra(contenedor, rebote);
+
+  const tarjetas = botonesDeTarjeta(contenedor);
+  assert.equal(tarjetas.length, 1);
+  assert.match(tarjetas[0]?.textContent ?? '', /Extra/);
+  assert.match(tarjetas[0]?.textContent ?? '', /Luis Martín/);
+  assert.match(tarjetas[0]?.textContent ?? '', /Registrado/);
+});
+
+void test('un error al registrar un extra deja la card en error, lista para reintentar con el MISMO peticionId', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  const peticionesRecibidas: string[] = [];
+  let falla = true;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([]),
+      rebote,
+      buscarAlumnosExtra: () => Promise.resolve([ALUMNO_EXTRA_BUSCADO]),
+      registrar: (entrada) => {
+        peticionesRecibidas.push(entrada.peticionId);
+        if (falla) {
+          falla = false;
+          return Promise.reject(new ErrorDeRed());
+        }
+        return Promise.resolve(crearAsistencia({ id: 'asistencia-extra', alumno_id: 'alumno-extra-1', origen: 'manual', slot_id: null }));
+      },
+      obtenerAlumnoParaTarjeta: () =>
+        Promise.resolve({
+          id: 'alumno-extra-1',
+          nombre: 'Luis',
+          primer_apellido: 'Martín',
+          segundo_apellido: null,
+          avatar_ruta: null,
+          activo: true,
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+
+  await buscarYSeleccionarExtra(contenedor, rebote);
+
+  const tarjetaError = botonesDeTarjeta(contenedor)[0];
+  assert.ok(tarjetaError);
+  assert.match(tarjetaError.textContent, /Pendiente/);
+  assert.equal(tarjetaError.disabled, false);
+
+  tarjetaError.click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(peticionesRecibidas, ['peticion-cliente-1', 'peticion-cliente-1']);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado/);
+});
+
+void test('un alumno inactivo no aparece en el listado del buscador (requisito 7, garantizado por el servidor)', async () => {
+  // El propio buscar() de la RPC ya filtra por activo (007_rpc_buscar_alumnos.sql): esta pantalla
+  // no repite el filtro, solo confirma que no pinta nada que buscarAlumnosExtra no le devuelva.
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([]),
+      rebote,
+      buscarAlumnosExtra: () => Promise.resolve([]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const input = contenedor.querySelector<HTMLInputElement>('input[role="combobox"]');
+  assert.ok(input);
+  escribirEnCombobox(input, 'nadie');
+  rebote.disparar();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /puede estar dado de baja/);
 });

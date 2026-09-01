@@ -266,6 +266,42 @@ void test('rpc() sin parámetros manda un cuerpo {} vacío', async () => {
   assert.deepEqual(peticion?.cuerpo, {});
 });
 
+void test('rpc() con señal la propaga hasta fetch (T-20, cancelación de búsqueda)', async () => {
+  let señalRecibida: AbortSignal | undefined;
+  const fetchImpl: FetchSimulado = (_url, init) => {
+    señalRecibida = init?.signal ?? undefined;
+    return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+  };
+  const controlador = new AbortController();
+
+  await crearCliente(fetchImpl).rpc('buscar_alumnos_activos', { p_texto: 'ab' }, controlador.signal);
+
+  assert.equal(señalRecibida, controlador.signal);
+});
+
+void test('rpc() con una señal ya abortada rechaza con AbortError, sin traducirlo a un error de dominio', async () => {
+  const fetchImpl = crearFetchSimulado(() => ({ estado: 200, cuerpo: [] }));
+  const controlador = new AbortController();
+  controlador.abort();
+
+  await assert.rejects(
+    crearCliente(fetchImpl).rpc('buscar_alumnos_activos', { p_texto: 'ab' }, controlador.signal),
+    (error: unknown) => error instanceof DOMException && error.name === 'AbortError',
+  );
+});
+
+void test('rpc() sin señal no le pasa signal a fetch', async () => {
+  let init: RequestInit | undefined;
+  const fetchImpl: FetchSimulado = (_url, initRecibido) => {
+    init = initRecibido;
+    return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+  };
+
+  await crearCliente(fetchImpl).rpc('alguna_funcion');
+
+  assert.equal(init?.signal, undefined);
+});
+
 void test('usa el token de sesión en vez de la clave anónima cuando hay uno', async () => {
   let peticion: PeticionSimulada | undefined;
   const fetchImpl = crearFetchSimulado((p) => {

@@ -56,3 +56,15 @@ Dos guardas para que no vuelva a pasar, ninguna de las cuales depende de que alg
 
 Lo que **no** cubren: que el valor de esta tabla corresponda al del ledger remoto. Eso solo lo dice
 `npm run migrate -- --estado`, y es lo que hay que ejecutar al anotar una fila nueva.
+
+---
+
+## Pendiente de aplicar
+
+> Migración escrita y empujada a `develop`, todavía **sin** fila en la tabla de arriba porque nadie
+> la ha aplicado ni verificado (§0.1: el agente nunca aplica DDL). Se anota aquí, fuera de la tabla
+> y sin hash, para que `herramientas/migraciones/hashesAplicadas.test.ts` reconozca el fichero sin
+> que el agente tenga que fabricar un hash de una migración que no está aplicada. Se mueve a la
+> tabla de arriba, con su hash real, en cuanto el dueño confirme (§3 de `SEGUIMIENTO.md`).
+
+- **`007_rpc_buscar_alumnos.sql`** (T-20): crea la función `buscar_alumnos_activos(p_texto, p_limite)`, `SECURITY DEFINER`. Pendiente de que el dueño ejecute `npm run migrate` — fila 9 de §3 de `SEGUIMIENTO.md`.
