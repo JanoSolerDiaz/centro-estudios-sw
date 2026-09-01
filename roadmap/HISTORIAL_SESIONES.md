@@ -37,6 +37,41 @@
 
 ---
 
+### Sesión 2026-09-01 (cierre) — T-18 COMPLETADA
+
+**Tarea(s):** T-18 (cierre) · confirmación en ejecución de P-10, P-11 y P-12
+**Estado resultante:** **T-18 COMPLETADA**. P-10, P-11 y P-12 verificadas en ejecución
+**Commits a `develop`:** ver commit de esta sesión (`T-18 COMPLETADA: probar-rls en verde, 67/0/0`)
+**Migraciones aplicadas:** ninguna nueva. `005` y `006` ya estaban aplicadas y verificadas
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (§1 T-18 a COMPLETADA, §3 fila 8
+RESUELTA, §5 P-10 y P-12 verificadas), `db/APLICADAS.md` (la `006` pasa a verificada en ejecución),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (614) · build ✅
+**Health check post-deploy:** N/A — `npm run health` no existe todavía (hosting `<pendiente>`, §0.1).
+La verificación en vivo de esta tarea es `npm run probar-rls`, ejecutada por el dueño: **67
+comprobaciones, 0 omitidas, 0 fallidas**, "ningún acceso prohibido tuvo éxito"
+**Decisiones tomadas:** ninguna nueva
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- **Lo que la batería demuestra ahora y antes no.** Las cuatro altas reales pasan (en vivo,
+  retroactiva con `es_retroactivo`, por slot con su snapshot, y administrator en nombre de teacher),
+  y los dos duplicados chocan por su nombre: `asistencia_uq_alumno_slot_dia_valida` y
+  `asistencia_peticion_id_unico`. Esas dos son las que protegen contra pasar lista dos veces al
+  mismo alumno, y hasta hoy nunca se habían ejercitado de verdad
+- **Coste real de las tres vueltas.** La tarea necesitó tres ejecuciones del dueño porque cada una
+  destapó una capa distinta: un bug del esquema (`006`), uno de la batería (P-12) y un agujero de
+  criterio en la propia batería (P-10). Ninguna de las tres era visible desde el escritorio del
+  agente, que no puede ejecutar ni el runner ni `probar-rls` (§0.1). Es el precio conocido del
+  modo de operación, no una sorpresa; lo que sí se ha reducido es que vuelva a pasar en silencio,
+  con los tests estáticos de `pruebasRlsEstatico.test.ts` y `hashesAplicadas.test.ts`
+**Tareas autopropuestas (P-XX):** ninguna nueva. Siguen tres entre T-17 y T-19 (P-10, P-11, P-12),
+el máximo de §0.3
+**Próximo paso:** T-19, pantalla de pasar lista. Sin migración: depende de T-17 (motor "quién toca
+ahora") y de T-18, las dos COMPLETADAS
+
+---
+
 ### Sesión 2026-09-01 (continuación 2) — P-10 y P-12
 
 **Tarea(s):** P-12 (arreglo urgente de la batería) · P-10 (implementada) · T-18 (verificación)
