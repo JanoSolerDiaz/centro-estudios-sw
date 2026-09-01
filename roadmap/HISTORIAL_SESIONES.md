@@ -37,6 +37,51 @@
 
 ---
 
+### Sesión 2026-09-01 (continuación 2) — P-10 y P-12
+
+**Tarea(s):** P-12 (arreglo urgente de la batería) · P-10 (implementada) · T-18 (verificación)
+**Estado resultante:** P-10 y P-12 **IMPLEMENTADAS**. T-18 sigue **BLOQUEADA — pendiente verificar
+con `npm run probar-rls`**, ahora a falta de una única ejecución de confirmación
+**Commits a `develop`:** ver commit de esta sesión (`P-12/P-10: la batería de RLS no podía probar
+registrar_asistencia, y aprobaba los rechazos sin mirar el motivo`)
+**Migraciones aplicadas:** ninguna nueva. Las `005` y `006` siguen aplicadas y verificadas en el
+ledger de `dev`; esta sesión no toca `db/*.sql` de migración, solo `db/pruebas_rls.sql`
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (helper `registrar_prohibido`, 26 bloques
+"debe fallar" con motivo exigido, 4 llamadas a la RPC corregidas),
+`herramientas/migraciones/pruebasRlsEstatico.test.ts` (nuevo), `roadmap/SEGUIMIENTO.md` (§1 T-18,
+§3 fila 8, §5 P-10 y P-12), `roadmap/DECISIONES_TECNICAS.md` (dos filas),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (614, antes 610: 4 nuevos) · build ✅
+**Health check post-deploy:** N/A — `npm run health` no existe todavía (hosting `<pendiente>`, §0.1)
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-01, P-10 y P-12): por
+qué los rechazos de autorización aceptan dos patrones y los de dominio exigen su mensaje exacto, y la
+norma de consumir una función que devuelve un compuesto con `select * into … from f(...)`
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:**
+- **La `006` funcionó.** La ejecución del dueño confirma que el `column reference "ventana_inicio"
+  is ambiguous` desapareció y que las siete validaciones de dominio de `registrar_asistencia`
+  rechazan cada una por su motivo real. Eso ya no es una suposición: sale impreso en el `detalle`
+- **Seis fallos, una sola causa, y no era del esquema (→ P-12).** `select f(...) into v_fila` sobre
+  una función que devuelve `public.asistencia` mete la fila compuesta entera en el primer campo. Lo
+  que convierte un fallo local en una falsificación es el savepoint: el bloque `exception` que
+  capturaba el error **deshacía el alta que la RPC sí había ejecutado**, así que las dos
+  comprobaciones de duplicado que venían detrás se quedaban sin fila con la que chocar y cantaban
+  "se insertó sin error". Un fallo en una celda invalidó otras dos
+- **Error propio, y del mismo tipo que el que se estaba arreglando.** El primer parche de
+  `pruebas_rls.sql` se aplicó con `String.prototype.replace` y una cadena de reemplazo: `$$` es una
+  secuencia de escape ahí, así que degradó el delimitador de plpgsql del helper nuevo a `$` y habría
+  roto el fichero entero al parsear. Detectado releyendo el resultado, rehecho con reemplazos
+  literales, y convertido en test (`los delimitadores $$ están intactos y emparejados`)
+**Tareas autopropuestas (P-XX):** **P-12** registrada e implementada (urgente, §0.3). **P-10**
+implementada, la que quedaba pendiente de la sesión anterior. Tres P-XX entre T-17 y T-19 (P-10,
+P-11, P-12), el máximo que permite §0.3: no abrir ninguna más antes de T-19
+**Próximo paso:** el dueño hace `git pull` y ejecuta `npm run probar-rls` (fila 8 de §3) esperando
+67 comprobaciones, 0 fallidas y 0 omitidas. Si algo sale rojo con `ERROR INESPERADO`, la línea dice
+qué motivo se esperaba y cuál llegó. Con eso verde: cerrar T-18 como COMPLETADA y seguir con T-19
+
+---
+
 ### Sesión 2026-09-01 (continuación) — P-11
 
 **Tarea(s):** P-11 (finales de línea y hash del ledger) · cierre de la aplicación de `005`/`006`

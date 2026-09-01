@@ -135,6 +135,27 @@ begin
 end;
 $$;
 
+-- P-10: registrar un rechazo esperado EXIGIENDO su motivo. Un bloque `exception when others`
+-- que apruebe con cualquier sqlerrm convierte un fallo de implementación en un falso verde: pasó
+-- el 2026-09-01, cuando un bug de aplicar_limite_tasa() tumbó las trece comprobaciones de la
+-- sección 7b y nueve cantaron [OK] porque "column reference is ambiguous" también es un error.
+-- p_motivos_esperados es una lista de patrones ILIKE: basta que encaje uno. Para los rechazos de
+-- autorización se pasan los dos mecanismos legítimos (política RLS o privilegio denegado): la
+-- clase de error es lo que importa, cuál de los dos actúa no.
+create or replace function pg_temp.registrar_prohibido(p_celda text, p_motivos_esperados text[], p_sqlerrm text)
+returns void language plpgsql as $$
+declare
+  v_ok boolean := exists (select 1 from unnest(p_motivos_esperados) as m where p_sqlerrm ilike m);
+begin
+  insert into _resultados_prueba_rls (celda, esperado, ok, detalle) values (
+    p_celda, 'prohibido', v_ok,
+    case when v_ok then p_sqlerrm
+         else 'ERROR INESPERADO — se esperaba ' || array_to_string(p_motivos_esperados, ' o ') ||
+              ' y llego: ' || p_sqlerrm end
+  );
+end;
+$$;
+
 create or replace function pg_temp.omitir(p_celda text, p_motivo text) returns void
 language plpgsql as $$
 begin
@@ -189,7 +210,7 @@ begin
       insert into public.centro_estudios (nombre) values ('__prueba_rls__centro_teacher');
       perform pg_temp.registrar('centro_estudios / teacher INSERT (debe fallar)', 'prohibido', false, 'se insertó sin error');
     exception when others then
-      perform pg_temp.registrar('centro_estudios / teacher INSERT (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('centro_estudios / teacher INSERT (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -238,7 +259,7 @@ begin
       -- error: la política de administrator excluye la fila del USING antes de tocarla.
       perform pg_temp.registrar('centro_estudios / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
     exception when others then
-      perform pg_temp.registrar('centro_estudios / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('centro_estudios / teacher UPDATE (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -303,7 +324,7 @@ begin
         values ('Intruso', 'RLS', v_centro_id);
       perform pg_temp.registrar('alumno / teacher INSERT (debe fallar)', 'prohibido', false, 'se insertó sin error');
     exception when others then
-      perform pg_temp.registrar('alumno / teacher INSERT (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('alumno / teacher INSERT (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
 
     -- El teacher SÍ debe poder leer las columnas de identificación de un alumno activo.
@@ -319,7 +340,7 @@ begin
       execute 'select email_alumno from public.alumno where id = $1' using v_alumno_id;
       perform pg_temp.registrar('alumno / teacher lee email_alumno (debe fallar)', 'prohibido', false, 'la consulta no lanzó error');
     exception when others then
-      perform pg_temp.registrar('alumno / teacher lee email_alumno (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('alumno / teacher lee email_alumno (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
 
     perform pg_temp.dejar_de_impersonar();
@@ -367,7 +388,7 @@ begin
       get diagnostics v_filas = row_count;
       perform pg_temp.registrar('alumno / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
     exception when others then
-      perform pg_temp.registrar('alumno / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('alumno / teacher UPDATE (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -421,7 +442,7 @@ begin
     exception when others then
       -- Si además no hubiera GRANT de tabla en absoluto, fallaría con un error real: también cuenta
       -- como "prohibido" cumplido.
-      perform pg_temp.registrar('persona_referencia / teacher SELECT (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('persona_referencia / teacher SELECT (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -442,7 +463,7 @@ begin
         'el INSERT se ejecutó sin lanzar ningún error, y debería haberlo hecho'
       );
     exception when others then
-      perform pg_temp.registrar('persona_referencia / teacher INSERT (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('persona_referencia / teacher INSERT (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -486,7 +507,7 @@ begin
       -- política `for all` se manifiesta como cero filas afectadas, no como un error.
       perform pg_temp.registrar('persona_referencia / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
     exception when others then
-      perform pg_temp.registrar('persona_referencia / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('persona_referencia / teacher UPDATE (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
 
     begin
@@ -494,7 +515,7 @@ begin
       get diagnostics v_filas = row_count;
       perform pg_temp.registrar('persona_referencia / teacher DELETE (debe fallar)', 'prohibido', v_filas = 0);
     exception when others then
-      perform pg_temp.registrar('persona_referencia / teacher DELETE (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('persona_referencia / teacher DELETE (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -577,7 +598,7 @@ begin
       select exists(select 1 from public.slot_horario where id = v_slot_id) into v_visto2;
       perform pg_temp.registrar('slot_horario / teacher2 no lee el ajeno (debe fallar)', 'prohibido', not v_visto2);
     exception when others then
-      perform pg_temp.registrar('slot_horario / teacher2 no lee el ajeno (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('slot_horario / teacher2 no lee el ajeno (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -626,7 +647,7 @@ begin
       -- `authenticated`); lo que lo excluye es el USING de la política, no la falta de privilegio.
       perform pg_temp.registrar('slot_horario / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
     exception when others then
-      perform pg_temp.registrar('slot_horario / teacher UPDATE (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('slot_horario / teacher UPDATE (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -648,7 +669,7 @@ begin
         values (gen_random_uuid(), gen_random_uuid(), now(), 'manual', gen_random_uuid());
       perform pg_temp.registrar('asistencia / administrator INSERT directo (debe fallar)', 'prohibido', false, 'se insertó sin error');
     exception when others then
-      perform pg_temp.registrar('asistencia / administrator INSERT directo (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('asistencia / administrator INSERT directo (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   else
@@ -663,7 +684,7 @@ begin
       ) values (gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), now(), now(), false, 'manual', 'valida', gen_random_uuid());
       perform pg_temp.registrar('asistencia_historial / administrator INSERT directo (debe fallar)', 'prohibido', false, 'se insertó sin error');
     exception when others then
-      perform pg_temp.registrar('asistencia_historial / administrator INSERT directo (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('asistencia_historial / administrator INSERT directo (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -696,7 +717,7 @@ begin
       execute format('select count(*) from public.%I', v_tabla) into v_n;
       perform pg_temp.registrar(format('student SELECT %s (debe fallar)', v_tabla), 'prohibido', v_n = 0);
     exception when others then
-      perform pg_temp.registrar(format('student SELECT %s (debe fallar)', v_tabla), 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido(format('student SELECT %s (debe fallar)', v_tabla), array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
   end loop;
   perform pg_temp.dejar_de_impersonar();
@@ -804,7 +825,7 @@ begin
       select count(*) into v_n from storage.objects where bucket_id = 'avatares' and name = v_ruta_inactivo;
       perform pg_temp.registrar('avatares / teacher lee alumno inactivo (debe fallar)', 'prohibido', v_n = 0);
     exception when others then
-      perform pg_temp.registrar('avatares / teacher lee alumno inactivo (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('avatares / teacher lee alumno inactivo (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
     end;
   end if;
 
@@ -812,7 +833,7 @@ begin
     insert into storage.objects (bucket_id, name) values ('avatares', 'alumno/00000000-0000-0000-0000-000000000000/prueba/avatar.webp');
     perform pg_temp.registrar('avatares / teacher escribe (debe fallar)', 'prohibido', false, 'se insertó sin error');
   exception when others then
-    perform pg_temp.registrar('avatares / teacher escribe (debe fallar)', 'prohibido', true, sqlerrm);
+    perform pg_temp.registrar_prohibido('avatares / teacher escribe (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
   end;
 
   perform pg_temp.dejar_de_impersonar();
@@ -856,9 +877,9 @@ begin
   -- En vivo, origen manual.
   perform pg_temp.impersonar('teacher');
   begin
-    select public.registrar_asistencia(
+    select * into v_fila from public.registrar_asistencia(
       p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid()
-    ) into v_fila;
+    );
     perform pg_temp.registrar(
       'registrar_asistencia / teacher registra en vivo (manual)', 'permitido',
       v_fila.profesor_id = v_teacher_id and v_fila.es_retroactivo = false and v_fila.slot_id is null
@@ -869,10 +890,10 @@ begin
 
   -- Registro retroactivo (2 horas atrás): debe marcar es_retroactivo, y seguir aceptándose.
   begin
-    select public.registrar_asistencia(
+    select * into v_fila from public.registrar_asistencia(
       p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid(),
       p_ocurrido_en => now() - interval '2 hours'
-    ) into v_fila;
+    );
     perform pg_temp.registrar(
       'registrar_asistencia / registro retroactivo marca es_retroactivo', 'permitido', v_fila.es_retroactivo = true
     );
@@ -890,7 +911,7 @@ begin
       'registrar_asistencia / ventana retroactiva máxima excedida (debe fallar)', 'prohibido', false, 'se insertó sin error'
     );
   exception when others then
-    perform pg_temp.registrar('registrar_asistencia / ventana retroactiva máxima excedida (debe fallar)', 'prohibido', true, sqlerrm);
+    perform pg_temp.registrar_prohibido('registrar_asistencia / ventana retroactiva máxima excedida (debe fallar)', array['%supera la ventana permitida%'], sqlerrm);
   end;
 
   -- ocurrido_en en el futuro: debe rechazarse.
@@ -901,7 +922,7 @@ begin
     );
     perform pg_temp.registrar('registrar_asistencia / ocurrido_en en el futuro (debe fallar)', 'prohibido', false, 'se insertó sin error');
   exception when others then
-    perform pg_temp.registrar('registrar_asistencia / ocurrido_en en el futuro (debe fallar)', 'prohibido', true, sqlerrm);
+    perform pg_temp.registrar_prohibido('registrar_asistencia / ocurrido_en en el futuro (debe fallar)', array['%no puede estar en el futuro%'], sqlerrm);
   end;
 
   -- origen "slot" sin slot_id: debe rechazarse.
@@ -909,7 +930,7 @@ begin
     perform public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => gen_random_uuid());
     perform pg_temp.registrar('registrar_asistencia / origen "slot" sin slot_id (debe fallar)', 'prohibido', false, 'se insertó sin error');
   exception when others then
-    perform pg_temp.registrar('registrar_asistencia / origen "slot" sin slot_id (debe fallar)', 'prohibido', true, sqlerrm);
+    perform pg_temp.registrar_prohibido('registrar_asistencia / origen "slot" sin slot_id (debe fallar)', array['%exige slot_id%'], sqlerrm);
   end;
 
   -- alumno inactivo: debe rechazarse.
@@ -920,7 +941,7 @@ begin
       perform public.registrar_asistencia(p_alumno_id => v_alumno_inactivo, p_origen => 'manual', p_peticion_id => gen_random_uuid());
       perform pg_temp.registrar('registrar_asistencia / alumno inactivo (debe fallar)', 'prohibido', false, 'se insertó sin error');
     exception when others then
-      perform pg_temp.registrar('registrar_asistencia / alumno inactivo (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('registrar_asistencia / alumno inactivo (debe fallar)', array['%dado de baja%'], sqlerrm);
     end;
   end if;
 
@@ -931,7 +952,7 @@ begin
     );
     perform pg_temp.registrar('registrar_asistencia / teacher no puede registrar en nombre de otro (debe fallar)', 'prohibido', false, 'se insertó sin error');
   exception when others then
-    perform pg_temp.registrar('registrar_asistencia / teacher no puede registrar en nombre de otro (debe fallar)', 'prohibido', true, sqlerrm);
+    perform pg_temp.registrar_prohibido('registrar_asistencia / teacher no puede registrar en nombre de otro (debe fallar)', array['%solo un administrador puede registrar en nombre de otro%'], sqlerrm);
   end;
 
   perform pg_temp.dejar_de_impersonar();
@@ -947,9 +968,9 @@ begin
     begin
       perform pg_temp.impersonar('teacher');
       begin
-        select public.registrar_asistencia(
+        select * into v_fila from public.registrar_asistencia(
           p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => v_peticion_original, p_slot_id => v_slot_id
-        ) into v_fila;
+        );
         perform pg_temp.registrar(
           'registrar_asistencia / teacher registra por slot', 'permitido',
           v_fila.slot_id = v_slot_id and v_fila.slot_dia_semana = 1
@@ -966,7 +987,7 @@ begin
         );
         perform pg_temp.registrar('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', 'prohibido', false, 'se insertó sin error');
       exception when others then
-        perform pg_temp.registrar('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', 'prohibido', true, sqlerrm);
+        perform pg_temp.registrar_prohibido('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', array['%asistencia_uq_alumno_slot_dia_valida%'], sqlerrm);
       end;
 
       -- Mismo peticion_id que el primer registro exitoso: choca con asistencia_peticion_id_unico.
@@ -976,7 +997,7 @@ begin
         );
         perform pg_temp.registrar('registrar_asistencia / mismo peticion_id repetido (debe fallar)', 'prohibido', false, 'se insertó sin error');
       exception when others then
-        perform pg_temp.registrar('registrar_asistencia / mismo peticion_id repetido (debe fallar)', 'prohibido', true, sqlerrm);
+        perform pg_temp.registrar_prohibido('registrar_asistencia / mismo peticion_id repetido (debe fallar)', array['%asistencia_peticion_id_unico%'], sqlerrm);
       end;
 
       perform pg_temp.dejar_de_impersonar();
@@ -994,7 +1015,7 @@ begin
       );
       perform pg_temp.registrar('registrar_asistencia / slot de otro profesor (debe fallar)', 'prohibido', false, 'se insertó sin error');
     exception when others then
-      perform pg_temp.registrar('registrar_asistencia / slot de otro profesor (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('registrar_asistencia / slot de otro profesor (debe fallar)', array['%pertenece a otro profesor%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -1005,9 +1026,9 @@ begin
   else
     perform pg_temp.impersonar('administrator');
     begin
-      select public.registrar_asistencia(
+      select * into v_fila from public.registrar_asistencia(
         p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid(), p_profesor_id => v_teacher_id
-      ) into v_fila;
+      );
       perform pg_temp.registrar(
         'registrar_asistencia / administrator registra en nombre de teacher', 'permitido', v_fila.profesor_id = v_teacher_id
       );
@@ -1026,7 +1047,7 @@ begin
       perform public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid());
       perform pg_temp.registrar('registrar_asistencia / student no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
     exception when others then
-      perform pg_temp.registrar('registrar_asistencia / student no puede llamar (debe fallar)', 'prohibido', true, sqlerrm);
+      perform pg_temp.registrar_prohibido('registrar_asistencia / student no puede llamar (debe fallar)', array['%solo administrator o teacher pueden registrar%'], sqlerrm);
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
@@ -1070,7 +1091,7 @@ begin
           format('%s TRUNCATE %s (debe fallar)', v_rol, v_tabla), 'prohibido', false, 'se truncó sin error'
         );
       exception when others then
-        perform pg_temp.registrar(format('%s TRUNCATE %s (debe fallar)', v_rol, v_tabla), 'prohibido', true, sqlerrm);
+        perform pg_temp.registrar_prohibido(format('%s TRUNCATE %s (debe fallar)', v_rol, v_tabla), array['%row-level security%', '%permission denied%'], sqlerrm);
       end;
       perform pg_temp.dejar_de_impersonar();
     end loop;
