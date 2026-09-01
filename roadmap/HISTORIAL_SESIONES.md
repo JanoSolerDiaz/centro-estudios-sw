@@ -37,6 +37,47 @@
 
 ---
 
+### Sesión 2026-09-01 (rutina de producto, siguiente a "T-23 COMPLETADA") — octavo ciclo del PM
+**Tarea(s):** P-XX (registro de backlog, sin implementar) — sin T-XX ni R-XX de código
+**Estado resultante:** N/A (documento vivo, no código) — **octavo ciclo del PM: ninguna R-XX nueva,
+tres entradas de backlog nuevas (P-13/P-14/P-15) desde los hallazgos del auditor, una precisión de
+requisito en R-01, sin cambios de estado de T-XX/R-XX**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: octavo ciclo del PM — revisión contra
+el avance de T-18 a T-23, hallazgos #5/#6/#7 pasados a backlog, sin R-XX nueva)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (§5: P-13, P-14, P-15 nuevas),
+`roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada con el resultado de este ciclo; requisito 1 de
+R-01 precisado tras conocerse la mecánica real de la card de T-19), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (no aplica a un ciclo de PM sin cambio
+de arquitectura)
+**Hallazgos del auditor atendidos:** se revisó el registro completo de `auditoriacontinua.md`. Los
+hallazgos #1 a #4 siguen `RESUELTO`, sin cambio. Los tres `ABIERTO` (#5, #6, #7 — los tres severidad
+baja, higiene documental o código muerto, ninguno de producto ni de arquitectura) se convierten en
+backlog técnico **P-13** (frase residual de `db/MODELO.md:296` sobre el avatar), **P-14**
+(numeración cruzada de las preguntas #12/#13 de §6) y **P-15** (`columnasVisiblesFichaAlumno` sin
+consumidor), cada uno con su `origen: hallazgo #N`, `PENDIENTE` sin urgencia — mismo tratamiento que
+ya recibieron #3/#4 como P-02/P-03. Ningún hallazgo de severidad alta abierto; ninguno de producto o
+arquitectura, así que no genera ninguna R-XX
+**Hallazgos:** ninguno propio de esta sesión, más allá de la precisión de R-01 (ver más abajo)
+**Tareas autopropuestas (P-XX):** P-13, P-14 y P-15 registradas en §5 de `SEGUIMIENTO.md`
+(`PENDIENTE`, sin implementar — es tarea del programador, no de este ciclo de PM)
+**Próximo paso:** para el programador, seguir la cola de §1 de `SEGUIMIENTO.md` (T-20/T-21
+`BLOQUEADA` a la espera de que el dueño aplique `007`/`008`; T-24 es la siguiente sin bloqueo). Para
+el dueño, las filas 9 y 10 de §3 siguen `PENDIENTE`. Revisado el avance de T-18 a T-23 contra las
+doce R-XX de las oleadas v1/v2 (§6 de este documento y la cabecera de `ROADMAP_PRODUCTO.md` con el
+detalle): ninguna inconsistencia salvo la ya corregida en R-01 (su requisito 1 asumía "el mismo
+toque de la card" para marcar ausente, incompatible con que T-19 fijara la card como un `<button>`
+de un solo toque para registrar entrada — precisado en la spec, deja la elección de control exacta
+para la sesión que implemente R-01). Ninguna R-XX nueva: sin feedback `nuevo` en `FEEDBACK.md` y sin
+hallazgo de producto/arquitectura del auditor, el hueco entre el MVP y el objetivo de producto sigue
+cubierto por las R-XX ya especificadas
+
+---
+
 ### Sesión 2026-09-01 (siguiente a "T-22 COMPLETADA") — T-23: histórico de asistencia, COMPLETADA
 
 **Tarea(s):** T-23 (consulta y exportación del histórico de asistencia)

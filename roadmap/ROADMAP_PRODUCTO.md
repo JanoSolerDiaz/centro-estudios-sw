@@ -8,32 +8,43 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-08-31 — séptimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía, sin cambios desde el ciclo anterior): nada que convertir.
-`auditoriacontinua.md` no registra ningún hallazgo nuevo: su pasada más reciente (2026-08-31,
-temprano, antes de las sesiones de desarrollo de ese mismo día) reevalúa los cuatro hallazgos del
-registro — #1 ya `RESUELTO`; #2 (severidad alta, cobertura de escritura de `db/pruebas_rls.sql`)
-sigue `ABIERTO` en el registro del auditor, pero ya lo cerró el programador el mismo día como **P-04
-urgente** (§5 de `SEGUIMIENTO.md`, `IMPLEMENTADA`) — queda a la espera de que la próxima pasada del
-auditor lo reevalúe y lo marque `RESUELTO`, no de ninguna acción de este ciclo; #3 y #4 (severidad
-baja) también los cerró el programador el mismo día como **P-02/P-03**, `RESUELTA` ambas. Ningún
-hallazgo del auditor queda sin tarea de seguimiento: no hay nada que convertir en este ciclo.
+**Última actualización:** 2026-09-01 — octavo ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
+reales (fila plantilla vacía, sin cambios desde el ciclo anterior): nada que convertir.
 
-A diferencia de los dos ciclos anteriores, **sí ha habido desarrollo real desde la última revisión**:
-T-10 a T-17 pasaron a `COMPLETADA` y T-18 (alta de asistencia, RPC `registrar_asistencia`) quedó
-escrita y `BLOQUEADA — pendiente aplicar migración 005` (§1 de `SEGUIMIENTO.md`). Revisadas las doce
-R-XX de las oleadas v1 y v2 contra ese progreso — en particular contra las decisiones concretas que
-fijaron T-17 (zona horaria `Europe/Madrid` y tolerancia de 10 min, pregunta abierta #11 de §6) y T-18
-(ventana retroactiva de 7 días y política de duplicado por slot+día+alumno, preguntas abiertas #12 y
-#13) — sin encontrar ninguna inconsistencia: las dependencias que cada R-XX ya declaraba (T-13, T-15,
-T-17, T-18, T-21...) siguen siendo las correctas, y ninguna decisión tomada en T-17/T-18 contradice
-ni estrecha el alcance de R-01, R-03 o R-06, que son las que más de cerca las tocan. **No se añade
-ninguna R-XX nueva en este ciclo:** el hueco real entre el MVP y el objetivo de producto lo siguen
-cubriendo las R-XX ya especificadas, y el avance de esta semana es progreso hacia las dependencias
-que ya tenían anotadas (T-18 en particular desbloquea, en cuanto se aplique la migración `005`, el
-trabajo de R-01/R-03/R-06), no una señal de que falte algo nuevo por especificar. Ninguna oleada está
-100% desplegada todavía (v1 ni siquiera ha arrancado: espera a que el MVP T-00–T-25 esté
-COMPLETADA/DESPLEGADA EN PRODUCCIÓN, ver §1 de `SEGUIMIENTO.md`), así que no hay nada que mover a
+`auditoriacontinua.md` registra tres hallazgos nuevos desde la pasada anterior, los tres de
+severidad baja y de higiene (documental o de código), ninguno de producto ni de arquitectura: #5
+(nota residual en `db/MODELO.md:296` sobre el punto de montaje del avatar, ya resuelto por T-16),
+#6 (numeración cruzada de las preguntas #12/#13 de §6 entre la tabla y la narrativa) y #7
+(`columnasVisiblesFichaAlumno` sin ningún consumidor real). Los tres pasan a backlog técnico como
+**P-13, P-14 y P-15** de §5 de `SEGUIMIENTO.md`, cada uno con su `origen: hallazgo #N`, `PENDIENTE`
+sin urgencia — no son mejora de producto (no generan R-XX) ni bug de seguridad (no son P-XX
+urgente): es exactamente el mismo tratamiento que ya recibieron los hallazgos #3/#4 como P-02/P-03.
+Los hallazgos #1 a #4 siguen `RESUELTO`, sin cambio.
+
+**Desarrollo real desde la última revisión: T-18 a T-23.** T-18 (alta de asistencia) quedó aplicada
+y verificada en ejecución; T-19 (pasar lista) y T-22 (mi horario del profesor) y T-23 (histórico y
+exportación) `COMPLETADA`; T-20 (alumno extra) y T-21 (revisar y modificar registros) tienen su
+código y tests completos pero siguen `BLOQUEADA` a la espera de que el dueño aplique las migraciones
+`007`/`008` (§3 de `SEGUIMIENTO.md`). Revisadas las doce R-XX de las oleadas v1 y v2 contra ese
+avance — en particular contra las decisiones que fijaron T-19 (una card es un `<button>` con un
+único toque para registrar, sin gesto ya reservado para otra acción), T-20 (RPC dedicada
+`buscar_alumnos_activos`, nunca avatar en el buscador), T-21 (`actualizar_asistencia` con cinco
+acciones combinables — cambiar alumno, hora, slot, anular, nota — y ventana de edición contada desde
+`registrado_en`) y T-23 (utilidad genérica de CSV en `nucleo/csv.ts`, separador `;`/BOM/CRLF,
+resolución de nombres en lote por id) — sin encontrar ninguna inconsistencia: las dependencias que
+cada R-XX ya declaraba siguen siendo las correctas, y ninguna decisión de este tramo contradice ni
+estrecha el alcance de R-01 (que ahora sabe que "el mismo toque de la card" que propone su requisito
+1 no puede ser un toque simple igual al de registrar entrada, ya reservado por T-19: la
+implementación de R-01 deberá usar un control distinguible — p. ej. mantener pulsada la card o un
+control secundario visible — decisión de UI concreta que le corresponde a esa sesión, no una
+reescritura de este requisito) ni de R-03/R-04/R-10/R-23, que son las que más de cerca reutilizan la
+infraestructura de T-21/T-23. **No se añade ninguna R-XX nueva en este ciclo:** el hueco real entre
+el MVP y el objetivo de producto lo siguen cubriendo las doce R-XX ya especificadas, y el avance de
+esta semana es progreso hacia las dependencias que ya tenían anotadas (T-21 en particular desbloquea,
+en cuanto se aplique la migración `008`, el trabajo de R-01/R-02/R-03), no una señal de que falte
+algo nuevo por especificar. Ninguna oleada está 100% desplegada todavía (v1 ni siquiera ha arrancado:
+espera a que el MVP T-00–T-25 esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN, ver §1 de
+`SEGUIMIENTO.md`; quedan T-20, T-21, T-24 y T-25), así que no hay nada que mover a
 `ROADMAP_HISTORICO.md` esta vez.
 
 ---
@@ -161,8 +172,12 @@ Un profesor tiene que poder cerrar el tramo dejando constancia expresa de quién
 
 **Requisitos:**
 1. Al cerrar un slot en pasar lista, o desde «Registros» (T-21), el profesor puede marcar como
-   ausente a cualquier alumno del slot que no tenga ya un registro de entrada ese día, con el mismo
-   toque de la card, no un formulario aparte.
+   ausente a cualquier alumno del slot que no tenga ya un registro de entrada ese día, sin abrir un
+   formulario aparte. **Precisión tras T-19** (la card ya es un `<button>` cuyo único toque registra
+   la entrada, sin ningún gesto libre para una segunda acción): el control para marcar ausente tiene
+   que ser distinguible de ese toque simple — por ejemplo un control secundario visible en la propia
+   card, o mantenerla pulsada — nunca el mismo gesto con doble significado. La elección exacta es una
+   decisión de UI de la sesión que implemente R-01, no de esta especificación.
 2. El registro de ausencia pasa por una RPC que fija autor e instante igual que
    `registrar_asistencia`, deja snapshot del slot, y queda editable/anulable con el mismo régimen
    que cualquier fila de `asistencia` (§0.2 de la hoja de ruta): no se borra nunca, solo se anula
