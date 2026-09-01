@@ -44,9 +44,12 @@
 | #ID | Fecha | Área | Severidad | Estado | Resumen | Tarea / origen |
 |-----|-------|------|-----------|--------|---------|----------------|
 | #1 | 2026-08-26 | Gobernanza documental | baja | RESUELTO (2026-08-28) | `HOJA_DE_RUTA.md` se declara en su cabecera "DOCUMENTO INMUTABLE" ("Este archivo NO se modifica nunca") pero fue editado 41 minutos después de crearse — commit `4c05189`, mismo día 2026-08-25, autoría del propio dueño —, cambiando tanto el protocolo de §0.1 (que el propio documento sí permite cambiar al dueño) como el cuerpo de la tarea T-07 (que el documento declara inmutable sin excepción explícita para nadie, ni siquiera el dueño). No hay riesgo de dato ni de seguridad: ocurrió antes de que ninguna sesión de desarrollo empezara a usar el documento como referencia. **Resuelto:** el dueño respondió la pregunta #3 de §6 de `SEGUIMIENTO.md` el 2026-08-27 — la cabecera se mantiene literal, sin añadir ninguna excepción, y cada edición suya se documenta como excepción puntual en §7, que ya recoge así las dos ediciones del 2026-08-25. `git log -- roadmap/HOJA_DE_RUTA.md` confirma que no ha habido ninguna edición nueva desde entonces. | `roadmap/HOJA_DE_RUTA.md`, commit `4c05189`; cierre en `roadmap/SEGUIMIENTO.md` §6 pregunta #3 y §7 |
-| #2 | 2026-08-29 | Autorización (RLS) / calidad de la batería de pruebas | alta | ABIERTO | `db/pruebas_rls.sql` (T-10, requisito 5 de su spec: "batería de aislamiento ejecutable") no contiene ni una sola sentencia `UPDATE`, `DELETE` ni `TRUNCATE` en sus 552 líneas — confirmado por `grep -i` sobre el fichero completo, cero coincidencias: solo ejercita `INSERT` y `SELECT`. Consecuencia concreta: ninguna política `UPDATE` (`slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`) tiene un caso que la ejercite, ni en su rama "debe fallar" (teacher) ni en la "debe funcionar" (administrator); y `persona_referencia_admin_todo` — la única política `for all` del esquema, y la que gobierna la única tabla con `DELETE` real — solo se prueba en su rama `INSERT`: nadie ha comprobado, ni en SQL estático ni en ejecución real, que bloquee un `UPDATE`/`DELETE` de un `teacher` ni que los permita a `administrator`. Tampoco se intenta nunca un `TRUNCATE` por `authenticated`, pese a ser el privilegio que el propio proyecto señala como el más peligroso (ya causó el incidente de `000b_arreglo_permisos.sql`). Lectura directa de `003_politicas_rls.sql` confirma que las políticas están escritas de forma correcta y simétrica (idéntica condición booleana en `USING` y `WITH CHECK`, válida por diseño para las cuatro operaciones a la vez), así que no hay indicio de vulnerabilidad activa hoy — pero la propia batería que debía demostrarlo, no lo demuestra, y hoy tampoco puede ejecutarse contra `dev` en ningún caso (sin `teacher` de prueba, con `002`/`003` todavía sin aplicar). Dado que este proyecto exige explícitamente no conformarse con "está verde" cuando la cobertura de la lógica crítica es superficial, se registra como severidad alta: debe cerrarse — añadiendo los casos que faltan de `UPDATE`/`DELETE` por tabla y un intento de `TRUNCATE` por `authenticated` — antes de dar T-10 por verificada en ejecución, no solo en SQL estático. | `db/pruebas_rls.sql`; políticas afectadas en `db/003_politicas_rls.sql` (`persona_referencia_admin_todo`, `slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`); origen: auditoría #2 |
-| #3 | 2026-08-29 | Minimización de datos | baja | ABIERTO | `src/datos/alumnos.ts`: el `select` de `listarAlumnos` (constante `SELECT_CON_CENTRO`) incluye `avatar_ruta` en el payload de red del listado de administrator, aunque `pantallaFichaAlumno.ts` no lo pinta en ninguna fila de esa lista hoy. No es una fuga real — el único consumidor de esa función es la pantalla de `administrator`, que ya tiene acceso legítimo a esa columna, y RLS reduce a cero filas la misma consulta para cualquier otro rol — pero es superficie de más que conviene recortar cuando T-14/T-19 le den un uso real al avatar, para no arrastrar el hábito a un listado que algún día podría compartirse con `teacher`. | `src/datos/alumnos.ts` (`SELECT_CON_CENTRO`, `listarAlumnos`); origen: auditoría #2; seguimiento: P-02 en `SEGUIMIENTO.md` §5 (registrada por el PM el 2026-08-29) |
-| #4 | 2026-08-29 | Gobernanza documental | baja | ABIERTO | `db/MODELO.md` línea 194 sigue diciendo, en la sección de `evento_error`, que su lectura tiene "política todavía por escribir (T-10)" — nota que no se actualizó cuando T-10 escribió de verdad `evento_error_admin_leer` en `003_politicas_rls.sql`. El resto del propio documento (línea 221 en adelante, "Políticas RLS por rol") y la matriz de `DECISIONES_TECNICAS.md` sí están al día y son correctos; es una única frase residual, sin ningún impacto funcional ni de seguridad. | `db/MODELO.md:194`; origen: auditoría #2; seguimiento: P-03 en `SEGUIMIENTO.md` §5 (registrada por el PM el 2026-08-29) |
+| #2 | 2026-08-29 | Autorización (RLS) / calidad de la batería de pruebas | alta | RESUELTO (2026-09-01) | `db/pruebas_rls.sql` (T-10, requisito 5 de su spec: "batería de aislamiento ejecutable") no contiene ni una sola sentencia `UPDATE`, `DELETE` ni `TRUNCATE` en sus 552 líneas — confirmado por `grep -i` sobre el fichero completo, cero coincidencias: solo ejercita `INSERT` y `SELECT`. Consecuencia concreta: ninguna política `UPDATE` (`slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`) tiene un caso que la ejercite, ni en su rama "debe fallar" (teacher) ni en la "debe funcionar" (administrator); y `persona_referencia_admin_todo` — la única política `for all` del esquema, y la que gobierna la única tabla con `DELETE` real — solo se prueba en su rama `INSERT`: nadie ha comprobado, ni en SQL estático ni en ejecución real, que bloquee un `UPDATE`/`DELETE` de un `teacher` ni que los permita a `administrator`. Tampoco se intenta nunca un `TRUNCATE` por `authenticated`, pese a ser el privilegio que el propio proyecto señala como el más peligroso (ya causó el incidente de `000b_arreglo_permisos.sql`). Lectura directa de `003_politicas_rls.sql` confirma que las políticas están escritas de forma correcta y simétrica (idéntica condición booleana en `USING` y `WITH CHECK`, válida por diseño para las cuatro operaciones a la vez), así que no hay indicio de vulnerabilidad activa hoy — pero la propia batería que debía demostrarlo, no lo demuestra, y hoy tampoco puede ejecutarse contra `dev` en ningún caso (sin `teacher` de prueba, con `002`/`003` todavía sin aplicar). Dado que este proyecto exige explícitamente no conformarse con "está verde" cuando la cobertura de la lógica crítica es superficial, se registra como severidad alta: debe cerrarse — añadiendo los casos que faltan de `UPDATE`/`DELETE` por tabla y un intento de `TRUNCATE` por `authenticated` — antes de dar T-10 por verificada en ejecución, no solo en SQL estático. **Resuelto:** **P-04** (urgente, 2026-08-31) añadió los casos de `UPDATE`/`DELETE` que faltaban para `centro_estudios`, `alumno`, `slot_horario` y `persona_referencia` (la política `for all`, ahora probada en sus cuatro operaciones), más una sección nueva de `TRUNCATE` por `authenticated` sobre las ocho tablas de `public`. En el camino salió una regresión real — **P-08**: la sección 1b de P-04 renombraba el fixture del que dependían las secciones 2/3/4, y esas devolvían en cascada sin ejecutar diez comprobaciones, en silencio, sin ninguna fila `FALLO`; se encontró **ejecutando la batería contra `dev` real, no leyéndola** (ni el auditor ni el propio agente que la escribió la habían visto leyendo el SQL), y se corrigió enlazando los fixtures por `id` (`_fixture_datos`) en vez de por nombre mutable. Verificado por este auditor de dos formas: (a) lectura del SQL actual (`db/pruebas_rls.sql`, secciones 3-4b, 823-1081) confirma casos reales positivos y negativos de `UPDATE`/`DELETE` para las cuatro tablas y una sección 8 dedicada a `TRUNCATE`; (b) `roadmap/SEGUIMIENTO.md` §3 fila 5 registra la ejecución real contra `dev` del 2026-08-31: **51 comprobaciones, 3 omitidas (bucket de avatares, entonces vacío — motivo legítimo), 0 fallidas**, incluyendo el aislamiento entre dos profesores, el bloqueo de `email_alumno`/`telefono_alumno` para `teacher`, y `TRUNCATE` denegado en las ocho tablas para `authenticated` y `teacher`. T-10 pasó de `BLOQUEADA` a `COMPLETADA` con esa verificación. Queda un residuo de baja severidad, ya autodetectado y correctamente registrado por el propio proyecto (no es hallazgo nuevo de este auditor): **P-06** (el barrido obligatorio de aislamiento no incluye al rol `anon`, la única superficie realmente no autenticada) y **P-07(a)** (el veredicto de `probar-rls` no distingue en su mensaje final una comprobación omitida de una realmente pasada — sí las cuenta y lista por separado, pero no "grita" cuando quedan casos sin ejercitar) siguen `PENDIENTE` en `SEGUIMIENTO.md` §5, sin urgencia, correctamente trazados. | `db/pruebas_rls.sql`; políticas afectadas en `db/003_politicas_rls.sql` (`persona_referencia_admin_todo`, `slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`); origen: auditoría #2; resuelto por P-04/P-08, `SEGUIMIENTO.md` §3 fila 5 |
+| #3 | 2026-08-29 | Minimización de datos | baja | RESUELTO (2026-09-01) | `src/datos/alumnos.ts`: el `select` de `listarAlumnos` (constante `SELECT_CON_CENTRO`) incluye `avatar_ruta` en el payload de red del listado de administrator, aunque `pantallaFichaAlumno.ts` no lo pinta en ninguna fila de esa lista hoy. No es una fuga real — el único consumidor de esa función es la pantalla de `administrator`, que ya tiene acceso legítimo a esa columna, y RLS reduce a cero filas la misma consulta para cualquier otro rol — pero es superficie de más que conviene recortar cuando T-14/T-19 le den un uso real al avatar, para no arrastrar el hábito a un listado que algún día podría compartirse con `teacher`. **Resuelto:** **P-02** (2026-08-31, sesión de T-14) recortó `avatar_ruta` del listado: `listarAlumnos` usa ahora `SELECT_LISTADO` (columnas explícitas, sin `avatar_ruta`) en vez de `SELECT_CON_CENTRO`, y el tipo `AlumnoListado` (`Omit<AlumnoConCentro, 'avatar_ruta'>`) refleja el recorte también en el tipo, no solo en la cadena de consulta. Verificado por este auditor con `grep -n "avatar_ruta" src/datos/alumnos.ts`: la única mención que queda es el comentario que documenta el propio recorte (`alumnos.ts:67-71,89`). | `src/datos/alumnos.ts` (`SELECT_LISTADO`, `AlumnoListado`, `listarAlumnos`); origen: auditoría #2; resuelto por P-02, `SEGUIMIENTO.md` §5 |
+| #4 | 2026-08-29 | Gobernanza documental | baja | RESUELTO (2026-09-01) | `db/MODELO.md` línea 194 sigue diciendo, en la sección de `evento_error`, que su lectura tiene "política todavía por escribir (T-10)" — nota que no se actualizó cuando T-10 escribió de verdad `evento_error_admin_leer` en `003_politicas_rls.sql`. El resto del propio documento (línea 221 en adelante, "Políticas RLS por rol") y la matriz de `DECISIONES_TECNICAS.md` sí están al día y son correctos; es una única frase residual, sin ningún impacto funcional ni de seguridad. **Resuelto:** **P-03** (2026-08-31) actualizó la línea: ahora nombra `evento_error_admin_leer` (`003_politicas_rls.sql`, T-10) en vez de "todavía por escribir". Verificado por este auditor con `grep -n "todavía por escribir\|por escribir" db/MODELO.md`: cero coincidencias. | `db/MODELO.md:194`; origen: auditoría #2; resuelto por P-03, `SEGUIMIENTO.md` §5 |
+| #5 | 2026-09-01 | Gobernanza documental | baja | ABIERTO | `db/MODELO.md:296` (sección T-14, avatar) sigue diciendo "falta únicamente el punto de montaje real en una pantalla (T-16)" — nota escrita en la sesión de T-14 (2026-08-31), antes de que T-16 existiera. T-16 ya está `COMPLETADA` (mismo día) y el bloque de avatar ya está montado de verdad: `src/ui/pantallaFichaAlumno.ts` monta `montarBloqueAvatar` (línea 524, cableado en la línea 1097). Mismo patrón exacto que el hallazgo #4 ya cerrado: una frase de estado que no se revisó al completar la tarea que dejaba pendiente, sin ningún impacto funcional ni de seguridad. | `db/MODELO.md:296`; `src/ui/pantallaFichaAlumno.ts:524,1097`; origen: auditoría #5 (2026-09-01) |
+| #6 | 2026-09-01 | Gobernanza documental | baja | ABIERTO | Numeración cruzada de las preguntas abiertas #12/#13 de §6 de `SEGUIMIENTO.md` (T-18, retroactividad/duplicados): la tabla de §6 es internamente coherente (línea 496: `#12` = duplicado mismo alumno/slot/día; línea 497: `#13` = ventana retroactiva máxima), y así la etiqueta también `db/005_rpc_registrar_asistencia.sql:26` (duplicados = "pregunta abierta #12"). Pero la propia narrativa de la sesión de T-18 en `SEGUIMIENTO.md` las intercambia: la línea 37 llama "#12" a la ventana retroactiva (debería ser #13) y la línea 43 llama "#13" al duplicado (debería ser #12); `roadmap/DECISIONES_TECNICAS.md:147` repite el mismo intercambio ("pregunta abierta #12... para la primera", refiriéndose a la ventana retroactiva). Sin impacto funcional: el código usa en los dos casos el valor conservador por defecto (7 días / rechazar duplicado) documentado en la spec, no una lectura equivocada de la pregunta; es solo una referencia cruzada mal etiquetada para quien intente localizar la pregunta por su número desde la narrativa en vez de desde la tabla. | `roadmap/SEGUIMIENTO.md:37,43` (narrativa) vs. `:496-497` (tabla, correcta); `roadmap/DECISIONES_TECNICAS.md:147`; `db/005_rpc_registrar_asistencia.sql:26` (correcto); origen: auditoría #5 (2026-09-01) |
+| #7 | 2026-09-01 | Calidad de código (higiene) | baja | ABIERTO | `columnasVisiblesFichaAlumno` (`src/dominio/permisosUi.ts:56`) está definida y testeada (`permisosUi.test.ts:47-62`, dos casos: `teacher`/`student` ven solo columnas de identificación, `administrator` ve también las de contacto) pero ninguna pantalla la importa ni la usa (`grep -rn "columnasVisiblesFichaAlumno" src/` solo devuelve su propia definición y su test) — código muerto, no un control de acceso activo. No es una fuga: la protección real de las columnas de contacto vive en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`, ninguno de los dos depende de esta función. Conviene o bien conectarla a la pantalla de ficha (si la intención era filtrar columnas en el cliente también) o eliminarla, para no acumular una función que aparenta ser parte del control de acceso sin estar en el camino real. | `src/dominio/permisosUi.ts:56`; `src/dominio/permisosUi.test.ts:47-62`; origen: auditoría #5 (2026-09-01) |
 
 ---
 
@@ -55,6 +58,186 @@
 > Cada pasada: fecha, hallazgos y conclusiones. Append, la más reciente arriba. Prestar
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
+
+### Auditoría 2026-09-01
+
+**Alcance real de esta pasada — el lote más grande auditado hasta hoy: 14 commits, T-10 verificada de
+verdad en ejecución, y T-14 a T-18 completas.** `git log b0e4719..HEAD` (`b0e4719` es el commit de la
+auditoría anterior, 2026-08-31) muestra 14 commits nuevos: **P-04** (cierra el hallazgo #2, cobertura
+de escritura de `db/pruebas_rls.sql`), **T-14** (bucket de avatares, aplicado y verificado), **T-15**
+(slots de horario), **P-08** (arregla una regresión real de P-04 que desactivaba diez comprobaciones
+en cascada, en silencio), **T-17** (motor "quién toca ahora"), **T-10 verificada en ejecución** contra
+`dev` real, **T-16** (interfaz de administrador) y **T-18** (RPC `registrar_asistencia`, código
+completo pero **todavía sin aplicar** — migración `005`, fila 7 de §3 de `SEGUIMIENTO.md`,
+`PENDIENTE`). Es la primera pasada en la que el proyecto tiene producto real de punta a punta para el
+`administrator` (gestión de centros, alumnos, personas de referencia, avatares y horarios) y en la que
+la matriz de autorización de T-10 deja de ser "SQL correcto sobre el papel" para pasar a ser "probado
+de verdad contra la base de datos real, con los tres roles". `db/APLICADAS.md` confirma `000`-`004`
+aplicadas y verificadas en `dev`; `005` (T-18) sigue sin aplicar, así que la RPC de alta de asistencia
+es hoy código inerte, no una vía de escritura real todavía — coherente con lo que dicen el propio
+commit del séptimo ciclo de PM (`e26553e`) y `SEGUIMIENTO.md` §1/§3, sin ninguna sobreestimación de
+lo que hay realmente en producción.
+
+**Metodología.** `git checkout develop && git pull` limpio (57 commits por delante del punto en el que
+arrancó esta sesión, ninguno perdido: fast-forward). Verificación directa en vivo de los cuatro
+comandos de §0.1 — `npm ci` (130 paquetes, 0 vulnerabilidades), `npm run typecheck`, `npm run lint`,
+`npm run build`, los cuatro en verde — y `npm test`: **599 tests, 599 pass, 0 fail** (antes 429, +170
+desde la pasada anterior, coherente con el volumen de T-14 a T-18). Confirmados contra la API de
+GitHub Actions los 37 runs de CI en `develop`, **todos `completed`/`success`**, incluido el del commit
+actual (`e26553e`, run `33428717204`). `git status` limpio antes y después. Barrido de secretos sobre
+`dist/` recién construido (`grep -rniE` de `service_role`/`SUPABASE_ACCESS_TOKEN`/JWT/contraseñas):
+cero coincidencias reales. Ningún `.env*`/`config.js` trackeado; `.gitignore` los cubre los tres.
+`HOJA_DE_RUTA.md` sin ninguna edición desde la auditoría anterior (`git log b0e4719..HEAD --
+roadmap/HOJA_DE_RUTA.md`, vacío).
+
+Dado el volumen (14 commits, cinco tareas completas), se delegó la verificación en tres subagentes de
+solo lectura, cada uno con instrucción explícita de citar fichero y línea, ejecutar/leer el código
+real y no fabricar hallazgos: uno para el bucket de avatares (T-14, el punto de mayor riesgo de todo
+el proyecto — fotos de menores), otro para la interfaz de administrador (T-16), los slots y el motor
+"quién toca ahora" (T-15/T-17) y la superficie de columnas del `teacher`, y otro para la coherencia
+documental de todo el lote (`DECISIONES_TECNICAS.md`, `SEGUIMIENTO.md` §6/§7, `HOJA_DE_RUTA.md` §0.2,
+`db/MODELO.md`). El propio auditor leyó directamente y por completo `db/001_esquema_inicial.sql`,
+`db/003_politicas_rls.sql`, `db/004_bucket_avatares.sql`, `db/005_rpc_registrar_asistencia.sql`,
+`src/datos/asistencia.ts`, `src/dominio/asistencia.ts`, todos los `GRANT` de `db/*.sql`, la cobertura
+real de `db/pruebas_rls.sql` (secciones 3, 4b, 7b y 8) y las filas relevantes de
+`roadmap/SEGUIMIENTO.md` (§1, §3, §5, §6), sin depender por completo de los subagentes en las piezas
+de mayor riesgo — y verificó por su cuenta cada hallazgo que reportaron antes de darlo por bueno.
+
+**Punto de control: escritura solo por RPC, inmutabilidad de `registrado_en`, rastro de cambios —
+sin hallazgo, verificado sobre el SQL real de `001_esquema_inicial.sql`.** `asistencia` sigue sin
+ninguna política de `INSERT`/`UPDATE` para ningún rol de la API (ni siquiera `service_role` las tiene:
+solo `SELECT`, líneas 322-323) — la única vía de escritura es la RPC `SECURITY DEFINER`
+`registrar_asistencia`. El trigger `BEFORE UPDATE` (`asistencia_proteger_inmutables`, líneas 289-307)
+sigue abortando cualquier cambio en `registrado_en`, `profesor_id` o `peticion_id`, y fija él mismo
+`actualizado_en`/`actualizado_por`. El trigger `AFTER UPDATE` (`asistencia_copiar_a_historial`, líneas
+372-397) sigue copiando la fila ANTERIOR a `asistencia_historial`, que sigue sin ningún `GRANT` de
+`INSERT`/`UPDATE`/`DELETE` a ningún rol, ni siquiera `service_role` (líneas 365-370) — estrictamente
+append-only, sin excepción. Sin `DELETE` para nadie sobre `asistencia`, en ningún rol.
+
+**Punto de control: pertenencia en la edición — parcialmente auditable, sin hallazgo en lo que existe
+hoy.** La RPC `registrar_asistencia` (`db/005_rpc_registrar_asistencia.sql:245-250`) comprueba que el
+slot pertenece al profesor que registra (`v_slot.profesor_id <> v_profesor_id` → error) y al alumno
+indicado, en el propio servidor, no en el cliente — verificado también en ejecución estática por
+`db/pruebas_rls.sql:975-988` ("slot de otro profesor, debe fallar"). La función de dominio
+`puedeEditarAsistencia` (`src/dominio/asistencia.ts:102-119`) ya implementa la regla completa de T-21
+(administrator siempre, teacher solo lo suyo y solo dentro de la ventana) del lado del cliente, con
+aviso explícito en su propio comentario de que "el cliente es código que el usuario controla" y de que
+la RPC es la fuente de verdad — pero esa RPC (`actualizar_asistencia`, T-21) todavía no existe: T-21
+sigue `PENDIENTE`. No hay hoy ninguna vía de edición real que auditar, solo la preparación del lado
+del cliente, correctamente etiquetada como tal.
+
+**Punto de control: rol `student` cerrado, privilegios de tabla, `TRUNCATE` — sin hallazgo, verificado
+en SQL estático Y en ejecución real.** `grep -n "grant .* to anon\|grant .* to authenticated"` sobre
+los seis ficheros `db/*.sql` no encuentra ningún `GRANT` a `student` (el rol no existe como grantee de
+Postgres: se distingue por `perfil.rol`, y ninguna política nueva lo menciona) ni ningún `TRUNCATE` a
+`anon`/`authenticated` en ninguna tabla. `db/pruebas_rls.sql` sección 8 (líneas 1037-1081) lo
+comprueba también en ejecución: intenta `TRUNCATE` sobre las ocho tablas de `public` impersonando a
+`administrator` y a `teacher`, esperando fallo en las dos. La ejecución real del 2026-08-31 contra
+`dev` (`SEGUIMIENTO.md` §3 fila 5) lo confirma: **51 comprobaciones, 3 omitidas, 0 fallidas**,
+incluido el barrido de `student` (sección 6) y el de `TRUNCATE` (sección 8).
+
+**Punto de control: bucket de avatares privado — el de mayor riesgo del proyecto, sin hallazgo.**
+Delegado en un subagente de solo lectura con instrucción explícita de verificar, con cita de línea,
+cada uno de los siete puntos del checklist de este documento; el auditor contrastó personalmente el
+SQL (`004_bucket_avatares.sql`: bucket privado, `image/webp` únicamente, 2 MiB; políticas de
+`003_politicas_rls.sql`: `administrator` lee/escribe, `teacher` lee solo avatares de alumnos
+`activo = true`, nada para `anon` ni `student`) contra el resultado del subagente sobre el cliente.
+Resultado: **procesado en canvas que re-codifica siempre a WebP (nunca sube el fichero original,
+elimina EXIF por construcción de la plataforma)**; sustituir o borrar un avatar borra las derivadas
+anteriores en el orden seguro sube-nuevo→cambia-puntero→borra-viejo (`avatarAlumno.ts`, con test de
+ese orden exacto); la base de datos guarda solo la ruta (`avatar_ruta`), nunca una URL; la
+visualización siempre pide una URL firmada nueva de 10 minutos de validez, sin caché; el único lugar
+de la interfaz que pinta un avatar es la ficha del alumno (`administrator`); ningún acceso de
+`student`, en ningún fichero de este subsistema. Único matiz, no un fallo: la card del alumno en la
+pantalla del profesor (T-19/T-20, "pasar lista"/"alumno extra") todavía no existe — la función que
+decide si esa card debe mostrar avatar (`puedeVerAvatarEnCards`) ya está escrita y testeada, pero sin
+consumidor todavía porque la pantalla que la usaría no está construida. Queda para la próxima pasada
+con sustancia real de este punto de control, cuando T-19/T-20 aterricen. En ejecución contra `dev`
+real, la escritura del bucket ya está probada (política RLS bloquea a `teacher`, no un `GRANT`); la
+lectura sigue con dos comprobaciones omitidas por diseño honesto (P-09 preparó fixtures propios en la
+transacción de prueba, pero nadie ha ejecutado `npm run probar-rls` desde que se aplicó `004`) — no es
+un hallazgo, es la ejecución pendiente que el dueño debe correr para confirmarlo en vivo.
+
+**T-15/T-17 (slots y "quién toca ahora") — sin hallazgo.** Zona horaria real vía `Intl` (no UTC
+ingenuo), con los dos cambios de hora de 2026 (29 de marzo, 25 de octubre) cubiertos explícitamente en
+los tests; editar un slot cierra la versión anterior (`vigente_hasta`) e inserta una nueva, nunca
+reescribe una fila ya existente, así que el histórico de asistencia sigue leyendo del snapshot que
+guardó en su momento (no-retroactividad, verificado también en la RPC de T-18: valida la vigencia del
+slot contra la fecha LOCAL de `ocurrido_en`, no contra `current_date`). El solape del mismo alumno
+bloquea; el del mismo profesor con otro alumno solo avisa — decisión documentada, no un descuido — sin
+restricción `EXCLUDE` en base de datos (limitación conocida y documentada, no oculta: dos escrituras
+concurrentes de `administrator` podrían colarse las dos, riesgo bajo dado que solo `administrator`
+escribe horarios y no es una operación de alto volumen).
+
+**T-16 (interfaz de administrador) y superficie de columnas del `teacher` — sin hallazgo.** Las tres
+pantallas reales (listado de alumnos, ficha de alumno, personas de referencia embebidas) comprueban el
+rol ANTES de disparar ninguna petición de datos, no solo ocultan un botón; la aplicación real
+(`aplicacion.ts`) solo se monta para `administrator`, `teacher` sigue con el marcador de posición de
+T-09. `db/003_politicas_rls.sql:107-109` sigue concediendo a `authenticated` solo columnas de
+identificación de `alumno` (nunca `email_alumno`/`telefono_alumno`); esas dos columnas solo son
+legibles a través de `alumno_ficha`, la vista con su propio filtro `es_administrator()` — y
+`src/datos/alumnos.ts` solo las pide a través de esa vista, nunca contra la tabla base. Ninguna
+consulta del cliente pide esas columnas contra la tabla base, ni siquiera especulativamente.
+
+**Coherencia entre lo decidido y lo ejecutado — sin hallazgo de fondo, dos hallazgos menores de
+higiene documental (#5, #6).** Las filas nuevas de `DECISIONES_TECNICAS.md` desde la pasada anterior
+se contrastaron contra el SQL/código real en los puntos de mayor riesgo (ruta del bucket, mecanismo de
+duplicado de T-18 con `unique` parcial de verdad en vez de `SELECT` con carrera, contrato del límite de
+tasa contado sobre el profesor real, validación de vigencia contra la fecha local) y coinciden en
+todos los casos. `SEGUIMIENTO.md` §7 registra correctamente las desviaciones reales del lote (la
+renumeración en cadena de `004`→`005` de T-18, la corrección de bookkeeping de
+`MARGEN_RETROACTIVIDAD_MS`, la limitación conocida de `EXCLUDE`, el criterio de aceptación de T-14 no
+comprobado con píxeles reales); la propia regresión de P-08 vive en §5 (autopropuestas), no en §7
+(desviaciones de hoja de ruta), clasificación razonable porque no es una desviación del plan sino un
+bug que el propio proceso encontró y corrigió el mismo día. `HOJA_DE_RUTA.md` §0.2 sigue sin ninguna
+violación: ningún campo personal nuevo fuera de la lista cerrada, ningún framework ni SDK de Supabase
+en `dependencies` (sigue vacío), ninguna ampliación de `student`. Las preguntas abiertas #12/#13 de §6
+(ventana retroactiva, duplicados de T-18) siguen genuinamente sin respuesta del dueño, y el código usa
+en los dos casos el valor conservador documentado — sin ninguna decisión de negocio tomada por su
+cuenta; lo único que se encontró fue el hallazgo #6 (numeración cruzada entre la narrativa y la tabla
+de esas mismas preguntas, sin impacto funcional). El hallazgo #5 (nota residual en `db/MODELO.md:296`
+sobre el punto de montaje del avatar, pendiente de T-16 cuando T-16 ya está completa) es el mismo
+patrón exacto que el hallazgo #4 ya cerrado — una frase de estado que ninguna sesión revisó al cerrar
+la tarea que dejaba pendiente.
+
+**Cierre de los hallazgos #2, #3 y #4 — verificado en código, no por confianza en lo que dice
+`SEGUIMIENTO.md`.** El hallazgo #2 (severidad alta) se cierra con evidencia doble: lectura directa de
+`db/pruebas_rls.sql` (los casos de `UPDATE`/`DELETE`/`TRUNCATE` que faltaban ya están, con sus dos
+ramas, positiva y negativa) y el resultado de la primera ejecución real contra `dev` (51
+comprobaciones, 3 omitidas legítimas, 0 fallidas) registrado en `SEGUIMIENTO.md` §3 fila 5. Es el
+hallazgo de mayor severidad que ha tenido este documento hasta hoy, y se cierra con la garantía más
+fuerte posible: no "el SQL parece correcto", sino "se ejecutó contra la base de datos real con los
+tres roles y no falló nada". El #3 (`avatar_ruta` fuera del listado) y el #4 (frase residual de
+`evento_error` en `MODELO.md`) se confirman resueltos con `grep` directo sobre el código actual, cero
+rastro de lo que señalaban.
+
+**Puntos de control permanentes — repaso completo de este documento, primera vez con producto real
+para cubrirlo casi entero.** Alcance de los datos personales (sin campo nuevo fuera de la lista
+cerrada), rol `student` cerrado (sin política nueva en ningún fichero de este lote), RLS completa
+(las nuevas tablas de este lote —`limite_tasa`— tienen RLS habilitada, sin políticas, sin `GRANT` a
+ningún rol de la API: cerrada por ausencia, el patrón correcto), hora del servidor y retroactivos
+(`registrado_en` lo fija `now()` del servidor dentro de la RPC, el cliente no puede enviarlo — no
+existe como parámetro de la función —, y `es_retroactivo` se calcula siempre en el servidor con la
+fórmula del `CHECK`), no-retroactividad del horario (snapshot leído del slot en el momento de
+registrar, nunca recalculado), secretos y stack (sin novedad), avatar solo donde toca (sin novedad,
+con el matiz de T-19/T-20 ya anotado arriba): todos verificados en esta pasada, sin hallazgo.
+
+**Conclusión.** Este es el lote de trabajo más grande y de mayor riesgo auditado hasta ahora — cinco
+tareas completas, la primera RPC de escritura real del sistema, el bucket de fotos de menores aplicado
+y con su escritura probada en vivo — y sale limpio de fondo: el hallazgo de severidad alta que llevaba
+abierto desde el 2026-08-29 se cierra con la garantía más fuerte posible (ejecución real contra `dev`,
+no solo lectura de SQL), y el proceso del propio proyecto demostró su valor dos veces en el camino —
+P-07/P-08 encontraron y corrigieron una regresión real de cobertura de tests que ni el auditor ni el
+propio autor habían visto leyendo el código, solo ejecutándolo. Los tres hallazgos nuevos de esta
+pasada (#5, #6, #7) son los tres de severidad baja, puramente de higiene (una nota de estado
+desactualizada, una numeración de referencia cruzada, una función sin consumidor) y sin ningún efecto
+funcional ni de seguridad. La única pieza de este lote que sigue latente es T-18: código y tests
+completos, pero la migración `005` sigue sin aplicar en `dev` — hasta entonces, `registrar_asistencia`
+no es una vía de escritura real todavía, solo SQL listo. La próxima auditoría con sustancia real llega
+en cuanto el dueño aplique `005` y se ejecute `npm run probar-rls` (la sección 7b, con sus trece
+comprobaciones sobre la RPC real, incluida la comprobación de que `student` no puede llamarla), o con
+T-19/T-20 (pasar lista, alumno extra), que es cuando la card de avatar del profesor por fin tiene un
+consumidor real que auditar.
 
 ### Auditoría 2026-08-31
 
