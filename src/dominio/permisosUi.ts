@@ -48,6 +48,16 @@ export function puedeVerAvatarEnCards(rol: Rol): boolean {
   return rol === 'administrator' || rol === 'teacher';
 }
 
+/** Pasar lista (T-19): la pantalla que un profesor usa cada día para registrar la entrada de sus
+ * propios alumnos, slot a slot. Exclusivamente `teacher` — no `administrator`, que no tiene un
+ * horario propio de slots (los gestiona, no los imparte) ni necesita esta pantalla para registrar
+ * en nombre de otro profesor: esa es la revisión de T-21 (`puedeEditarAsistenciaDeCualquiera`),
+ * con su propia interfaz sobre un slot y un profesor elegidos a mano, no la propuesta automática
+ * "quién toca ahora" de `dominio/slots.ts`, pensada para quien de verdad tiene ese horario. */
+export function puedeUsarPasarLista(rol: Rol): boolean {
+  return rol === 'teacher';
+}
+
 /** Columnas de `alumno` con las que merece la pena pintar un formulario o una card para `rol`: no
  * es una lista de lo que el dato PUEDE tener, es una lista de lo que no tiene sentido dibujar
  * porque el servidor nunca lo va a devolver para ese rol (`003_politicas_rls.sql`, requisito 4 de

@@ -70,6 +70,89 @@ export function instanteLocal(instante: Date, zonaHoraria: string = ZONA_HORARIA
   return { diaSemana, horaMinuto: `${horaTexto}:${minutoTexto}` };
 }
 
+/** Lo mínimo que hace falta de un instante para reconstruir uno equivalente en UTC: año, mes y
+ * día del calendario GREGORIANO (1-12, 1-31), más hora/minuto/segundo. Intermedio de
+ * `limitesDiaLocal`, sin uso fuera de este módulo. */
+interface FechaLocalCompleta {
+  readonly anio: number;
+  readonly mes: number;
+  readonly dia: number;
+  readonly hora: number;
+  readonly minuto: number;
+  readonly segundo: number;
+}
+
+function fechaLocalCompleta(instante: Date, zonaHoraria: string): FechaLocalCompleta {
+  const formato = new Intl.DateTimeFormat('en-US', {
+    timeZone: zonaHoraria,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  });
+  const partes = new Map(formato.formatToParts(instante).map((parte) => [parte.type, parte.value]));
+  const anio = Number(partes.get('year'));
+  const mes = Number(partes.get('month'));
+  const dia = Number(partes.get('day'));
+  const hora = Number(partes.get('hour'));
+  const minuto = Number(partes.get('minute'));
+  const segundo = Number(partes.get('second'));
+  if ([anio, mes, dia, hora, minuto, segundo].some((numero) => Number.isNaN(numero))) {
+    throw new Error(`No se ha podido resolver la fecha local en la zona horaria "${zonaHoraria}".`);
+  }
+  return { anio, mes, dia, hora, minuto, segundo };
+}
+
+/** Instante UTC (milisegundos desde época) de la MEDIANOCHE local de `anio`-`mes`-`dia` en
+ * `zonaHoraria` — la mitad "difícil" de `limitesDiaLocal`, aislada para poder converger por
+ * aproximaciones sucesivas: no hay fórmula cerrada porque el desplazamiento de la zona horaria
+ * respecto a UTC depende del propio instante que se busca (cambios de hora estacionales). Dos
+ * iteraciones bastan siempre: la primera acierta el desplazamiento correcto salvo, como mucho, en
+ * el borde exacto de un cambio de hora, que la segunda corrige. */
+function medianocheLocalUtcMs(anio: number, mes: number, dia: number, zonaHoraria: string): number {
+  const objetivoMs = Date.UTC(anio, mes - 1, dia, 0, 0, 0);
+  let candidatoMs = objetivoMs;
+  for (let intento = 0; intento < 2; intento += 1) {
+    const local = fechaLocalCompleta(new Date(candidatoMs), zonaHoraria);
+    const localComoUtcMs = Date.UTC(local.anio, local.mes - 1, local.dia, local.hora, local.minuto, local.segundo);
+    candidatoMs -= localComoUtcMs - objetivoMs;
+  }
+  return candidatoMs;
+}
+
+export interface LimitesDiaLocal {
+  /** Medianoche local (inclusiva) del día que contiene `instante`, en UTC. */
+  readonly inicioUtc: Date;
+  /** Medianoche local del día SIGUIENTE (exclusiva), en UTC — nunca ocurre de verdad dentro del
+   * día que se está acotando, así que sirve como límite superior estricto. */
+  readonly finUtc: Date;
+}
+
+/** Límites, en UTC, del día natural de `zonaHoraria` que contiene `instante` (T-19, requisito 5:
+ * "al abrir, ya se ve quién está registrado hoy en ese slot" — hace falta acotar qué es "hoy" para
+ * poder pedirle a PostgREST solo esa franja, en vez de traer el histórico entero y filtrar en el
+ * cliente). Mismo criterio de "día" que la restricción `asistencia_uq_alumno_slot_dia_valida` de
+ * `db/005_rpc_registrar_asistencia.sql`: el día de calendario en `Europe/Madrid`, no en UTC. */
+export function limitesDiaLocal(instante: Date, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): LimitesDiaLocal {
+  const { anio, mes, dia } = fechaLocalCompleta(instante, zonaHoraria);
+  const inicioMs = medianocheLocalUtcMs(anio, mes, dia, zonaHoraria);
+
+  // El día siguiente se calcula como aritmética de CALENDARIO pura (campos UTC de un `Date` que
+  // solo se usa como calculadora de fechas, nunca como instante real), no sumando 24h reales ni
+  // formateando un instante aproximado: las dos alternativas se equivocan de día exactamente en el
+  // día que sigue a un cambio de hora de otoño (`Europe/Madrid`, +2 → +1: 24h reales desde la
+  // medianoche de hoy caen todavía en el día de hoy, no en el de mañana), mismo motivo por el que
+  // `diaAnteriorUtc` (`slotHorario.ts`) tampoco suma milisegundos reales.
+  const calendarioManana = new Date(Date.UTC(anio, mes - 1, dia));
+  calendarioManana.setUTCDate(calendarioManana.getUTCDate() + 1);
+  const finMs = medianocheLocalUtcMs(calendarioManana.getUTCFullYear(), calendarioManana.getUTCMonth() + 1, calendarioManana.getUTCDate(), zonaHoraria);
+
+  return { inicioUtc: new Date(inicioMs), finUtc: new Date(finMs) };
+}
+
 export interface OpcionesPropuesta {
   readonly zonaHoraria?: string;
   /** Minutos de tolerancia antes de `hora_inicio` (requisito 2 de T-17). */

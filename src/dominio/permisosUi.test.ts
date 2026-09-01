@@ -7,6 +7,7 @@ import {
   puedeGestionarCentros,
   puedeGestionarFichaAlumno,
   puedeGestionarHorarios,
+  puedeUsarPasarLista,
   puedeVerAvatarEnCards,
   puedeVerPersonasReferencia,
 } from './permisosUi.ts';
@@ -59,4 +60,10 @@ void test('columnasVisiblesFichaAlumno: administrator ve también las columnas d
   assert.ok(columnas.includes('email_alumno'));
   assert.ok(columnas.includes('telefono_alumno'));
   assert.ok(columnas.includes('centro_referencia_id'));
+});
+
+void test('puedeUsarPasarLista: exclusivamente teacher, ni siquiera administrator', () => {
+  assert.equal(puedeUsarPasarLista('teacher'), true);
+  assert.equal(puedeUsarPasarLista('administrator'), false);
+  assert.equal(puedeUsarPasarLista('student'), false);
 });

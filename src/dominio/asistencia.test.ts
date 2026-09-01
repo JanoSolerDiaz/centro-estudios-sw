@@ -10,9 +10,36 @@ import {
   ocurridoEnValido,
   puedeEditarAsistencia,
   puedeRegistrarEnNombreDeOtro,
+  claveRegistroPorSlot,
+  registrosDeHoyPorAlumnoSlot,
   type RegistroAsistencia,
   type UsuarioAutenticado,
 } from './asistencia.ts';
+import type { Asistencia } from './tipos.ts';
+
+function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
+  return {
+    id: 'asistencia-1',
+    alumno_id: 'alumno-1',
+    profesor_id: 'profesor-1',
+    registrado_en: '2026-08-26T09:00:00.000Z',
+    ocurrido_en: '2026-08-26T09:00:00.000Z',
+    es_retroactivo: false,
+    origen: 'slot',
+    slot_id: 'slot-1',
+    slot_dia_semana: 3,
+    slot_hora_inicio: '09:00',
+    slot_hora_fin: '10:00',
+    slot_asignatura_o_grupo: null,
+    estado: 'valida',
+    motivo_anulacion: null,
+    nota: null,
+    actualizado_en: null,
+    actualizado_por: null,
+    peticion_id: 'peticion-1',
+    ...sobrescribir,
+  };
+}
 
 void test('MARGEN_RETROACTIVIDAD_MS coincide con el CHECK asistencia_retroactivo_coherente de la base de datos (300 s)', () => {
   assert.equal(MARGEN_RETROACTIVIDAD_MS, 300_000);
@@ -154,4 +181,37 @@ void test('puedeRegistrarEnNombreDeOtro: solo administrator', () => {
   assert.equal(puedeRegistrarEnNombreDeOtro({ id: 'admin-1', rol: 'administrator' }), true);
   assert.equal(puedeRegistrarEnNombreDeOtro({ id: 'profesor-1', rol: 'teacher' }), false);
   assert.equal(puedeRegistrarEnNombreDeOtro({ id: 'alumno-1', rol: 'student' }), false);
+});
+
+void test('claveRegistroPorSlot: combina alumno y slot de forma estable', () => {
+  assert.equal(claveRegistroPorSlot('alumno-1', 'slot-1'), 'alumno-1:slot-1');
+  assert.notEqual(claveRegistroPorSlot('alumno-1', 'slot-2'), claveRegistroPorSlot('alumno-2', 'slot-1'));
+});
+
+void test('registrosDeHoyPorAlumnoSlot: indexa una fila válida de origen slot por alumno+slot', () => {
+  const fila = crearAsistencia({ alumno_id: 'alumno-1', slot_id: 'slot-1' });
+  const mapa = registrosDeHoyPorAlumnoSlot([fila]);
+  assert.equal(mapa.get(claveRegistroPorSlot('alumno-1', 'slot-1')), fila);
+  assert.equal(mapa.size, 1);
+});
+
+void test('registrosDeHoyPorAlumnoSlot: ignora un registro anulado', () => {
+  const fila = crearAsistencia({ estado: 'anulada', motivo_anulacion: 'Registrado por error' });
+  const mapa = registrosDeHoyPorAlumnoSlot([fila]);
+  assert.equal(mapa.size, 0);
+});
+
+void test('registrosDeHoyPorAlumnoSlot: ignora un registro manual (sin slot_id)', () => {
+  const fila = crearAsistencia({ origen: 'manual', slot_id: null, slot_dia_semana: null, slot_hora_inicio: null, slot_hora_fin: null });
+  const mapa = registrosDeHoyPorAlumnoSlot([fila]);
+  assert.equal(mapa.size, 0);
+});
+
+void test('registrosDeHoyPorAlumnoSlot: distingue al mismo alumno en dos slots distintos', () => {
+  const filaA = crearAsistencia({ id: 'a', alumno_id: 'alumno-1', slot_id: 'slot-1' });
+  const filaB = crearAsistencia({ id: 'b', alumno_id: 'alumno-1', slot_id: 'slot-2' });
+  const mapa = registrosDeHoyPorAlumnoSlot([filaA, filaB]);
+  assert.equal(mapa.size, 2);
+  assert.equal(mapa.get(claveRegistroPorSlot('alumno-1', 'slot-1')), filaA);
+  assert.equal(mapa.get(claveRegistroPorSlot('alumno-1', 'slot-2')), filaB);
 });

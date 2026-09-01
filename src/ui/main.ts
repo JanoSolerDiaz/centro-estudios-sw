@@ -1,5 +1,5 @@
 import { mostrarPantallaInicial } from './pantallaInicial.ts';
-import { iniciarAplicacion, type DependenciasAppAdministrador } from './aplicacion.ts';
+import { iniciarAplicacion, type DependenciasAppAdministrador, type DependenciasAppProfesor } from './aplicacion.ts';
 import { instalarCapturaErrores } from '../nucleo/capturaErrores.ts';
 import { crearInformadorErrores, type EnviadorEventoError } from '../nucleo/informadorErrores.ts';
 import { logger } from '../nucleo/registro.ts';
@@ -13,6 +13,7 @@ import { crearClienteAlmacenamiento } from '../datos/almacenamiento.ts';
 import { crearFabricaProcesadoImagenNavegador } from '../datos/avatarAlumno.ts';
 import { crearLimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import { relojDelSistema } from '../nucleo/reloj.ts';
+import { programadorIntervaloReal } from '../nucleo/programadorIntervalo.ts';
 
 declare global {
   interface Window {
@@ -90,17 +91,36 @@ function crearAppAdministradorSiHayConfiguracion(): DependenciasAppAdministrador
   };
 }
 
+// La aplicación real de teacher (T-19) necesita el mismo par de clientes, sobre el mismo criterio
+// de disponibilidad que `crearAppAdministradorSiHayConfiguracion`.
+function crearAppProfesorSiHayConfiguracion(): DependenciasAppProfesor | undefined {
+  if (!configuracion || !gestorSesion) {
+    return undefined;
+  }
+  const obtenerTokenSesion = () => gestorSesion.obtenerTokenSesion();
+  return {
+    postgrest: crearClientePostgrest({ urlBase: configuracion.urlBase, claveAnonima: configuracion.claveAnonima, obtenerTokenSesion }),
+    almacenamiento: crearClienteAlmacenamiento({ urlBase: configuracion.urlBase, claveAnonima: configuracion.claveAnonima, obtenerTokenSesion }),
+    reloj: relojDelSistema,
+    programador: programadorIntervaloReal,
+    // Contrato de T-06 (ver DECISIONES_TECNICAS.md): 60 operaciones de asistencia por profesor y minuto.
+    limitadorAsistencia: crearLimitadorTasa({ maximo: 60, ventanaMs: 60 * 1000, reloj: relojDelSistema }),
+  };
+}
+
 const contenedorApp = document.querySelector<HTMLDivElement>('#app');
 
 if (contenedorApp) {
   if (gestorSesion) {
     const appAdministrador = crearAppAdministradorSiHayConfiguracion();
+    const appProfesor = crearAppProfesorSiHayConfiguracion();
     iniciarAplicacion(contenedorApp, {
       gestorSesion,
       hashUrl: window.location.hash,
       // `exactOptionalPropertyTypes`: omitir la clave, no copiar un valor que podría ser
       // `undefined` (mismo patrón que `postgrest.ts`/`almacenamiento.ts` con `obtenerTokenSesion`).
       ...(appAdministrador ? { appAdministrador } : {}),
+      ...(appProfesor ? { appProfesor } : {}),
     });
   } else {
     mostrarPantallaInicial(contenedorApp);

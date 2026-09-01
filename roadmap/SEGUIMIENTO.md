@@ -10,12 +10,70 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-08-31 (séptima sesión del día) — **T-18 (alta de asistencia, RPC
-`registrar_asistencia`) escrita y testeada; pasa a BLOQUEADA — pendiente aplicar migración `005`.**
-Ningún hallazgo `ABIERTO` de severidad alta nuevo en `auditoriacontinua.md` (el hallazgo #2 sigue
-igual que en la sesión anterior: ya atendido por P-04, solo espera a que el auditor lo reevalúe).
+**Última actualización:** 2026-09-01 (sesión siguiente a "T-18 COMPLETADA") — **T-19 (pantalla de
+pasar lista) COMPLETADA.** Sin migración (`Migración: No` en su spec): T-17 y T-18, sus únicas
+dependencias, ya estaban `COMPLETADA`. Ningún hallazgo `ABIERTO` de severidad alta en
+`auditoriacontinua.md` al empezar esta sesión (todos los abiertos son de severidad baja, higiene
+documental — ver §0.3, no exigen atención urgente).
 
-**Por qué T-18 y no otra cosa:** siguiente tarea de la cola tras T-16/T-17 (ambas `COMPLETADA`); su
+**T-19 — Pantalla de pasar lista — COMPLETADA.** La pantalla más importante del producto: un
+`teacher` entra, ve a quién le toca y registra entradas en segundos. `puedeUsarPasarLista`
+(`permisosUi.ts`) la reserva exclusivamente a `teacher` — ni siquiera `administrator`, que no tiene
+horario propio de slots (decisión documentada en `DECISIONES_TECNICAS.md`: su forma de tocar
+asistencia es la revisión de T-21, con slot y profesor elegidos a mano). `aplicacion.ts` gana
+`DependenciasAppProfesor`/`mostrarAppProfesor`, montada por primera vez desde `main.ts` cuando hay
+`config.js`, con la misma compatibilidad hacia atrás verificada por test que ya tenía
+`appAdministrador` (sin ella, `teacher` sigue viendo el marcador de posición de T-09). Sin router
+propio todavía — una única pantalla no tiene nada que enrutar, mismo criterio que `pantallaCentros.ts`
+antes de T-16; lo introducirá T-22 ("mi horario").
+
+**Arquitectura de `pantallaPasarLista.ts`:** `listarSlotsDeProfesorConAlumno` (T-17) y la función
+nueva `listarAsistenciaDeHoy` (`datos/asistencia.ts`) se piden en paralelo, una vez, y se cachean en
+cierre — nunca releídas en cada tick. Nuevo primitivo `nucleo/programadorIntervalo.ts`
+(`ProgramadorIntervalo.cada(ms, tarea)`, hermano de `Temporizador` de T-06) dispara cada 20 s un
+recálculo puro (`alumnosPropuestos` sobre la caché y el instante fresco de `Reloj`) para que la
+cabecera y la rejilla se refresquen solas al cambiar de tramo horario (requisito 5) sin gastar red;
+el botón "Actualizar" es el único refresco manual real. `dominio/slots.ts` añade `limitesDiaLocal`
+(límites UTC del día natural del centro) para acotar esa consulta a "hoy" — con aritmética de
+calendario, no sumando 24h reales, para no confundirse de día justo el que sigue a un cambio de
+hora de otoño (encontrado y corregido con test de regresión propio durante esta misma sesión).
+`dominio/asistencia.ts` añade `claveRegistroPorSlot`/`registrosDeHoyPorAlumnoSlot` para cruzar la
+propuesta con lo que el servidor ya tiene registrado hoy.
+
+**Cada card es un `<button>` nativo** (objetivo táctil entero, teclado y foco visible gratis, sin
+`role`/`tabindex` a mano), ordenadas por apellidos (`compararAlumnosParaOrden`, ya de T-12),
+protegidas por `crearProtectorDobleToque` POR CLAVE (alumno+slot, no una instancia global: tocar dos
+alumnos casi a la vez registra los dos). El avatar se pide en lote (`obtenerUrlsAvataresMini`,
+variante `mini` de T-14) solo para quienes tengan `avatar_ruta` y no se hayan pedido ya; la card se
+pinta siempre con el monograma primero, y una imagen que falla al cargar lo deja tal cual, sin
+hueco roto. Un `Conflicto` (409) al registrar NUNCA se muestra como error: se relee
+`cargarAsistenciaDeHoy` y la card pasa a "registrado" con la fila real — así se ve desde la interfaz
+que "el reintento no genera un segundo registro" (requisito 6), sin que el cliente necesite
+distinguir un `peticion_id` repetido de un duplicado de negocio (T-18 ya estableció que son, y deben
+seguir siendo, indistinguibles). Cualquier OTRO error deja la card en pendiente con el mismo
+`peticionId` (nunca uno nuevo) y su mensaje, lista para reintentar. El foco se conserva entre
+repintados (`data-clave` en cada botón) para que un recálculo de fondo no lo tire al `<body>`, y una
+petición "enviando" nunca desaparece de la rejilla aunque el tramo horario cambie mientras se
+espera la respuesta.
+
+**48 tests nuevos (662 en total, antes 614, verificado con `git stash -u` contra el commit de
+partida):** 26 de la pantalla (`pantallaPasarLista.test.ts`, nuevo: acceso, estados de cabecera
+—en curso/próximo/sin clases hoy—, orden por apellidos, ya registrado al abrir, flujo completo con
+la hora real del servidor, doble toque, error con reintento del mismo `peticionId`, Conflicto
+resuelto sin mostrarse como error, monograma antes que la imagen, lote único de avatares, imagen
+rota, teclado, refresco manual y automático, y que una petición en curso sobrevive a un tick), 7 de
+`limitesDiaLocal` (`slots.test.ts`, incluidos los dos cambios de hora estacionales), 5 de
+`registrosDeHoyPorAlumnoSlot`/`claveRegistroPorSlot` (`asistencia.test.ts` de dominio), 3 de
+`listarAsistenciaDeHoy` (`asistencia.test.ts` de datos), 3 de `programadorIntervalo.test.ts` (nuevo),
+1 de `puedeUsarPasarLista` (`permisosUi.test.ts`) y 4 de la nueva app de `teacher` en
+`aplicacion.test.ts` (monta pasar lista, pide solo sus propios slots/asistencia, nunca se monta para
+`administrator`, compatibilidad sin `appProfesor`). Un bug real encontrado por el propio test
+(`elementoConFoco` usaba `instanceof HTMLElement`, un global que no existe fuera de un navegador o
+de `jsdom` global — corregido a `getAttribute('data-clave')`, sin depender de ningún global).
+
+---
+
+**Por qué T-18 y no otra cosa (sesión anterior):** siguiente tarea de la cola tras T-16/T-17 (ambas `COMPLETADA`); su
 única dependencia, T-17 (motor "quién toca ahora"), está `COMPLETADA` desde la sesión anterior del
 mismo día. `Migración: Sí` en su spec (llamada `004_rpc_registrar_asistencia` en la hoja de ruta
 original) — siguiendo el protocolo de §0.1: el SQL se escribe, se empuja y se abre su fila en §3;
@@ -386,7 +444,7 @@ pantallas del requisito 2.
 | T-16 | Interfaz de gestión del administrador | COMPLETADA | 2026-08-31 | Sin migración: sus tres dependencias (T-13, T-14, T-15) ya estaban completas. Base de frontend reutilizable nueva (`nucleo/router.ts`, `ui/dom.ts`, `nucleo/almacenEstado.ts`, `formularios.crearMensajeErrorCampo`). `pantallaCentros.ts` (T-11) por fin enrutada; `pantallaFichaAlumno.ts` de T-12/T-13 dividida en `pantallaListadoAlumnos.ts` (nueva) + una `pantallaFichaAlumno.ts` reescrita como pantalla completa de cuatro bloques aislados (datos, avatar, personas de referencia, horario), cada uno con su propio montaje y `pintar()`. Nuevo `datos/profesores.ts` para el selector de horario. La aplicación real solo se monta para `administrator` (decisión documentada); `teacher` sigue con el marcador de posición de T-09. 53 tests nuevos (565 en total, antes 512) |
 | T-17 | Motor de propuesta "quién toca ahora" | COMPLETADA | 2026-08-31 | Sin migración: depende solo de T-15 (COMPLETADA). `dominio/slots.ts` reescrito (sustituye la versión provisional de T-03) con zona horaria real (`Intl`, `Europe/Madrid` por defecto) y ventana de tolerancia; `datos/slotsHorario.ts` añade `listarSlotsDeProfesorConAlumno` (una petición, alumno embebido en columnas restringidas). 33 tests nuevos netos (477 en total, antes 460). Pregunta abierta #11 en §6 (valores por defecto de zona horaria y tolerancia, sin bloquear) |
 | T-18 | Alta de asistencia (RPC `registrar_asistencia`) | COMPLETADA | 2026-09-01 | Migraciones `005` y `006` aplicadas en `dev` y **verificadas en ejecución**: `npm run probar-rls` da **67 comprobaciones, 0 omitidas, 0 fallidas**, con las cuatro altas reales pasando y los nueve rechazos trayendo cada uno su motivo propio (ventana de 7 días, futuro, `slot` sin id, alumno de baja, en nombre de otro, slot ajeno, `student`, y los dos duplicados chocando con `asistencia_uq_alumno_slot_dia_valida` y `asistencia_peticion_id_unico`). El camino hasta aquí dejó tres P-XX, todas implementadas y confirmadas: **P-10** (los rechazos exigen su motivo), **P-11** (finales de línea clavados al hash del ledger) y **P-12** (la batería no podía consumir la fila que devuelve la RPC). Límite de 60 operaciones por profesor y minuto conectado por primera vez (`limite_tasa`/`aplicar_limite_tasa`) |
-| T-19 | Pantalla de pasar lista | PENDIENTE | — | — |
+| T-19 | Pantalla de pasar lista | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17/T-18 (ambas completadas). `puedeUsarPasarLista` exclusivo de `teacher`. Nuevo `nucleo/programadorIntervalo.ts` (refresco sin red), `dominio/slots.ts` añade `limitesDiaLocal`. Cards como `<button>` nativo con doble toque por clave; `Conflicto` se resuelve releyendo el registro real, nunca como error. Sin router propio de `teacher` todavía (una sola pantalla). 48 tests nuevos (662 en total, antes 614) |
 | T-20 | Alumno extra: listado completo y selección manual | PENDIENTE | — | — |
 | T-21 | Revisar y modificar los registros por slot | PENDIENTE | — | Migración `005_rpc_actualizar_asistencia`; límite de operaciones por profesor y minuto — contrato recomendado por T-06 en `DECISIONES_TECNICAS.md` |
 | T-22 | "Mi horario" del profesor (teacher) | PENDIENTE | — | — |

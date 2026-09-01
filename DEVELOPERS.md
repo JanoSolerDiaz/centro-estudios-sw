@@ -225,8 +225,8 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     (`suscribir`/`obtenerEstado`) con tres valores: `restaurando`/`sin_sesion`/`autenticado`. Un
     `perfil.activo = false` nunca llega a `autenticado` (lanza `PerfilInactivo`, revoca en el
     servidor). `renovarAlAbrirPasarLista()` es el único punto de renovación — **siempre proactivo**,
-    nunca reactivo a un `401` (lo llamará T-19 al montar la pantalla de pasar lista); una renovación
-    fallida no cierra la sesión ni descarta el estado.
+    nunca reactivo a un `401`; conectado desde T-19, que lo llama una vez (mejor esfuerzo) al montar
+    la pantalla de pasar lista; una renovación fallida no cierra la sesión ni descarta el estado.
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
@@ -237,6 +237,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `almacenEstado.ts` (T-16) — `crearAlmacenEstado(inicial)`: estado mínimo con suscripción
     (`obtener`/`actualizar`/`suscribir`), mismo contrato que `GestorSesion`. Genérico y sin DOM;
     usado por `pantallaListadoAlumnos.ts`.
+  - `programadorIntervalo.ts` (T-19) — `ProgramadorIntervalo.cada(ms, tarea)`: hermano de
+    `Temporizador` pero para tareas REPETIDAS, no una espera única; `programadorIntervaloReal` usa
+    `setInterval`, `crearProgramadorIntervaloDePrueba` no espera de verdad y expone `disparar()`
+    para ejecutar a mano los ticks programados. Lo usa `pantallaPasarLista.ts` para refrescar la
+    hora visible y recalcular la propuesta sin volver a pedir datos al servidor en cada tick.
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido para que se puedan testear montando un
   contenedor con `jsdom`. Ninguna función de pantalla toca el `document` global directamente: reciben
@@ -265,17 +270,22 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     recuperación responde igual exista o no la cuenta; la de nueva contraseña valida localmente
     (coincidencia, longitud mínima) antes de gastar una petición; la de sin acceso no hace ninguna
     llamada a datos, solo pinta el `Perfil` que ya le pasan.
-  - `aplicacion.ts` (T-09, reescrito en T-16) — `iniciarAplicacion(contenedor, deps)`: el enrutador.
-    Hash de recuperación → pantalla de nueva contraseña; si no, según `EstadoSesion` →
-    login/recuperar, o según `perfil.rol`: `student`/rol desconocido → `pantallaSinAcceso`; `teacher`
-    → sigue con el marcador de posición de T-09 (su aplicación real es T-19/T-22, decisión
-    documentada en `DECISIONES_TECNICAS.md`); `administrator` → la aplicación real de T-16 si
-    `deps.appAdministrador` viene informado (siempre en `main.ts`; ausente y por tanto marcador de
-    posición en cualquier test que no la ejercite). `mostrarAppAdministrador` es también la **raíz de
-    composición**: monta un `crearRouter` propio y conecta las funciones puras de `src/datos/**` con
-    el `ClientePostgrest`/`ClienteAlmacenamiento` reales de `DependenciasAppAdministrador`, para que
-    cada pantalla (`pantallaCentros.ts`, `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`) siga
-    recibiendo solo funciones ya resueltas, nunca un cliente HTTP.
+  - `aplicacion.ts` (T-09, reescrito en T-16, ampliado en T-19) — `iniciarAplicacion(contenedor,
+    deps)`: el enrutador. Hash de recuperación → pantalla de nueva contraseña; si no, según
+    `EstadoSesion` → login/recuperar, o según `perfil.rol`: `student`/rol desconocido →
+    `pantallaSinAcceso`; `administrator` → la aplicación real de T-16 si `deps.appAdministrador`
+    viene informado; `teacher` → la aplicación real de T-19 (pasar lista) si `deps.appProfesor`
+    viene informado. Los dos vienen siempre informados desde `main.ts` cuando hay `config.js`
+    desplegado; ausentes (y por tanto marcador de posición de T-09) en cualquier test que no los
+    ejercite — compatibilidad hacia atrás verificada con un test explícito para cada uno.
+    `mostrarAppAdministrador`/`mostrarAppProfesor` son también la **raíz de composición**: conectan
+    las funciones puras de `src/datos/**` con el `ClientePostgrest`/`ClienteAlmacenamiento` reales,
+    para que cada pantalla siga recibiendo solo funciones ya resueltas, nunca un cliente HTTP.
+    `mostrarAppAdministrador` monta además un `crearRouter` propio (`pantallaCentros.ts`,
+    `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`); `mostrarAppProfesor` todavía no tiene
+    router propio — una única pantalla (`pantallaPasarLista.ts`) no necesita enrutar nada, mismo
+    criterio que `pantallaCentros.ts` tampoco lo tuvo hasta que T-16 montó una segunda y tercera
+    pantalla. T-22 ("mi horario") introducirá el router de `teacher` cuando haga falta.
   - `pantallaCentros.ts` (T-11) — `mostrarPantallaCentros(contenedor, deps)`: catálogo de centros de
     estudios (listar con filtro de estado y búsqueda, crear, editar el nombre, desactivar,
     reactivar). **Enrutada desde T-16** (`#/centros`, solo dentro de la aplicación de
@@ -305,6 +315,24 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     selector de profesor y valida en el cliente, con `crearMensajeErrorCampo`, que la hora de fin sea
     posterior a la de inicio antes de llamar al servidor. Enteramente de `administrator`. No hay
     pantalla independiente de personas de referencia ni de avatar, por spec.
+  - `pantallaPasarLista.ts` (T-19) — `mostrarPantallaPasarLista(contenedor, deps)`: la pantalla que
+    un profesor usa cada día, exclusiva de `teacher` (`puedeUsarPasarLista`, `permisosUi.ts`).
+    `deps.cargarPropuesta()` (todos los slots del profesor) y `deps.cargarAsistenciaDeHoy(instante)`
+    (sus registros ya válidos de hoy) se piden en paralelo una sola vez y se cachean en cierre —
+    nunca releídos en cada tick. `deps.programador` (`programadorIntervalo.ts`) recalcula la
+    propuesta pura (`alumnosPropuestos`) cada 20 s sobre esa caché y el instante fresco de
+    `deps.reloj`, así la cabecera y la rejilla se refrescan solas al cambiar de tramo horario sin
+    gastar ninguna petición; el botón "Actualizar" es el único refresco manual real. Cada card es
+    un `<button>` nativo (objetivo táctil entero, teclado gratis sin ARIA), protegido por
+    `crearProtectorDobleToque` POR CLAVE (alumno+slot) para que tocar dos cards a la vez no bloquee
+    ninguna de las dos. Un `Conflicto` (409, mismo `peticionId` ya aplicado o duplicado de negocio —
+    indistinguibles por diseño desde T-18) nunca se muestra como error: se relee
+    `cargarAsistenciaDeHoy` y la card pasa a "registrado" con la fila real, que es como "el
+    reintento no genera un segundo registro" se ve desde la interfaz. El avatar se pide en lote
+    (`obtenerUrlsAvataresMini`, variante `mini` de T-14) solo para los alumnos con `avatar_ruta` que
+    todavía no se hayan pedido; la card se pinta con el monograma primero siempre, y una imagen que
+    falla al cargar lo deja tal cual, sin hueco roto. El foco se conserva entre repintados
+    (`data-clave` en cada botón) para que un recálculo de fondo no lo tire al `<body>`.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

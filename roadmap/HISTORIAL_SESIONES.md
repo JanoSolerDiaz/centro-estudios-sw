@@ -37,6 +37,64 @@
 
 ---
 
+### Sesión 2026-09-01 (siguiente a "T-18 COMPLETADA") — T-19 COMPLETADA
+
+**Tarea(s):** T-19 (pantalla de pasar lista)
+**Estado resultante:** **T-19 COMPLETADA.** Sin hallazgo `ABIERTO` de severidad alta al empezar la
+sesión (todos los de `auditoriacontinua.md` son de severidad baja) — no hizo falta ningún P-XX
+urgente antes de la cola
+**Commits a `develop`:** ver commit de esta sesión (`T-19: pantalla de pasar lista`)
+**Migraciones aplicadas:** ninguna — T-19 tiene `Migración: No` en su spec
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `src/ui/pantallaPasarLista.ts` + su test (nuevos);
+`src/nucleo/programadorIntervalo.ts` + su test (nuevos); `src/dominio/slots.ts` (`limitesDiaLocal`)
+y su test; `src/dominio/asistencia.ts` (`claveRegistroPorSlot`/`registrosDeHoyPorAlumnoSlot`) y su
+test; `src/datos/asistencia.ts` (`listarAsistenciaDeHoy`) y su test; `src/dominio/permisosUi.ts`
+(`puedeUsarPasarLista`) y su test; `src/ui/aplicacion.ts` (`DependenciasAppProfesor`,
+`mostrarAppProfesor`) y su test; `src/ui/main.ts` (`crearAppProfesorSiHayConfiguracion`);
+`DEVELOPERS.md`, `roadmap/SEGUIMIENTO.md` (§1 T-19 a COMPLETADA, narrativa nueva),
+`roadmap/DECISIONES_TECNICAS.md` (ocho filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (662, antes 614 — verificado con
+`git stash -u` contra el commit de partida) · build ✅
+**Health check post-deploy:** no aplica — sin hosting de producción configurado todavía
+(`<pendiente>`, T-25)
+**Decisiones tomadas:** ocho filas nuevas `2026-09-01 | T-19` en `DECISIONES_TECNICAS.md` — un
+`Conflicto` (409) al registrar nunca se muestra como error, se relee el registro real; los alumnos
+"próximo" también se pintan como cards tocables, no solo los "en curso"; nuevo primitivo
+`programadorIntervalo.ts`; `limitesDiaLocal` por aritmética de calendario, no sumando 24h reales
+(evita confundirse de día el que sigue al cambio de hora de otoño); sin router propio de `teacher`
+todavía (una sola pantalla, mismo criterio que `pantallaCentros.ts` antes de T-16);
+`puedeUsarPasarLista` exclusivo de `teacher`, ni siquiera `administrator`; card como `<button>`
+nativo con doble toque protegido POR CLAVE, no una instancia global
+**Hallazgos del auditor atendidos:** ninguno (los tres `ABIERTO` de severidad baja siguen abiertos,
+sin relación con el alcance de esta tarea)
+**Hallazgos:**
+- **Bug real encontrado por el propio test, antes de llegar a producción:** `elementoConFoco`
+  (preservación de foco entre repintados) usaba `activo instanceof HTMLElement`, una clase que solo
+  existe como global del navegador — funcionaría en `main.ts` real, pero rompía con
+  `ReferenceError: HTMLElement is not defined` en cualquier test que montara la pantalla desde
+  `aplicacion.ts` sin pasar por el `window` de una instancia `jsdom` concreta (el propio
+  `pantallaPasarLista.test.ts` usa `contenedor.ownerDocument`, no un global). Corregido a
+  `documento.activeElement?.getAttribute('data-clave')`, sin referenciar ningún global — mismo
+  principio de inyección que el resto de `src/ui/`, que ya evitaba `window` a propósito en todos
+  los demás sitios. El test de `aplicacion.test.ts` que monta la app real de `teacher` es lo que lo
+  destapó; sin él habría quedado sin detectar hasta un navegador real
+- **Limitación conocida, sin entrada de §7 por no ser un incumplimiento de la spec:** el
+  `ProgramadorIntervalo` que arranca `mostrarPantallaPasarLista` no se cancela al desmontar la
+  pantalla — ningún componente de `src/ui/` tiene hoy un ciclo de vida de "desmontaje" (T-16 tampoco
+  lo tiene para sus pantallas). En la práctica no se remonta nunca dentro de una misma sesión
+  (`gestorSesion` no cambia de referencia de `perfil` al renovar el token, así que `aplicacion.ts` no
+  vuelve a llamar a `mostrarAppProfesor`); solo se acumularía un intervalo huérfano —inocuo, sin
+  efecto de red duplicado— en el caso raro de cerrar sesión y volver a entrar como el mismo
+  profesor en la misma pestaña. Documentado en la cabecera del propio módulo; revisar si T-22
+  introduce un router y con él un punto natural de desmontaje
+**Tareas autopropuestas (P-XX):** ninguna nueva
+**Próximo paso:** T-20 (alumno extra: listado completo y selección manual), depende de T-19
+(COMPLETADA). Su pieza más difícil es el combobox accesible escrito a mano (sin librería) — ver
+requisito 4 de su spec en `HOJA_DE_RUTA.md`
+
+---
+
 ### Sesión 2026-09-01 (cierre) — T-18 COMPLETADA
 
 **Tarea(s):** T-18 (cierre) · confirmación en ejecución de P-10, P-11 y P-12

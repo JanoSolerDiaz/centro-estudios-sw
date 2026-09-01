@@ -16,6 +16,9 @@
 import type { ClientePostgrest } from './postgrest.ts';
 import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import type { Asistencia, OrigenAsistencia } from '../dominio/tipos.ts';
+import { limitesDiaLocal, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
+
+const TABLA = 'asistencia';
 
 export interface RegistrarAsistenciaEntrada {
   readonly alumnoId: string;
@@ -70,4 +73,29 @@ export async function registrarAsistencia(
     p_nota: entrada.nota ?? null,
     p_profesor_id: entrada.profesorId ?? null,
   });
+}
+
+/** Registros ya válidos de `profesorId` cuyo `ocurrido_en` cae en el día natural (`limitesDiaLocal`,
+ * `dominio/slots.ts`) que contiene `instante` — una única petición a PostgREST (T-19, requisito 5:
+ * "al abrir, ya se ve quién está registrado hoy en ese slot"; §0.2, "las URL firmadas de una
+ * pantalla se piden SIEMPRE en lote", mismo criterio aplicado aquí a la consulta de registros).
+ * `RLS` (`003_politicas_rls.sql`) ya acota el resultado a los propios registros de `profesorId`
+ * para un `teacher`, o a todos para un `administrator` que llame en nombre de otro — este filtro
+ * `eq('profesor_id', ...)` es defensa en profundidad, no la protección real. Incluye tanto los de
+ * origen `slot` (la rejilla de cards) como los `manual` (T-20): quien llama decide qué hacer con
+ * cada uno, esta función no filtra por origen. */
+export async function listarAsistenciaDeHoy(
+  cliente: ClientePostgrest,
+  profesorId: string,
+  instante: Date,
+  zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
+): Promise<readonly Asistencia[]> {
+  const { inicioUtc, finUtc } = limitesDiaLocal(instante, zonaHoraria);
+  return cliente
+    .desde<Asistencia>(TABLA)
+    .eq('profesor_id', profesorId)
+    .eq('estado', 'valida')
+    .gte('ocurrido_en', inicioUtc.toISOString())
+    .lte('ocurrido_en', new Date(finUtc.getTime() - 1).toISOString())
+    .seleccionar();
 }

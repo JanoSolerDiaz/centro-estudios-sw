@@ -17,7 +17,7 @@
  */
 
 import type { Reloj } from '../nucleo/reloj.ts';
-import type { OrigenAsistencia, Rol } from './tipos.ts';
+import type { Asistencia, OrigenAsistencia, Rol } from './tipos.ts';
 
 /** Margen entre `ocurrido_en` y `registrado_en` por debajo del cual un registro se considera "en
  * vivo" y no retroactivo. Debe coincidir EXACTAMENTE con el `CHECK asistencia_retroactivo_coherente`
@@ -116,4 +116,28 @@ export function puedeEditarAsistencia(
   }
   const limiteMs = ventanaDias * 24 * 60 * 60 * 1000;
   return reloj.ahora().getTime() - registro.registradoEn.getTime() <= limiteMs;
+}
+
+/** Clave de un registro por alumno y slot (T-19, requisito 5: "al abrir, ya se ve quién está
+ * registrado hoy en ese slot"), único criterio para cruzar la propuesta (`alumnosPropuestos`,
+ * `dominio/slots.ts`) con lo que ya devolvió el servidor — mismas dos columnas que la restricción
+ * `asistencia_uq_alumno_slot_dia_valida` de `db/005_rpc_registrar_asistencia.sql` (más el día, que
+ * aquí no hace falta comparar porque quien llama ya acota la consulta a "hoy" con `limitesDiaLocal`). */
+export function claveRegistroPorSlot(alumnoId: string, slotId: string): string {
+  return `${alumnoId}:${slotId}`;
+}
+
+/** Indexa `asistencias` (ya acotadas a "hoy" por quien llama) por `claveRegistroPorSlot`, para que
+ * la pantalla de pasar lista (T-19) resuelva en O(1) si una card concreta ya está registrada. Solo
+ * indexa filas de origen `slot` (`slot_id` no nulo) y `estado = 'valida'`: un registro `manual`
+ * (alumno extra, T-20) no bloquea ni marca ninguna card de la rejilla, y uno `anulado` no cuenta
+ * como registrado — mismo criterio que la restricción parcial de la base de datos. */
+export function registrosDeHoyPorAlumnoSlot(asistencias: readonly Asistencia[]): ReadonlyMap<string, Asistencia> {
+  const mapa = new Map<string, Asistencia>();
+  for (const fila of asistencias) {
+    if (fila.slot_id !== null && fila.estado === 'valida') {
+      mapa.set(claveRegistroPorSlot(fila.alumno_id, fila.slot_id), fila);
+    }
+  }
+  return mapa;
 }

@@ -4,7 +4,7 @@ import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.t
 import { crearClientePostgrest } from './postgrest.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { crearLimitadorTasa, ErrorLimiteAlcanzado } from '../nucleo/limitadorTasa.ts';
-import { registrarAsistencia } from './asistencia.ts';
+import { registrarAsistencia, listarAsistenciaDeHoy } from './asistencia.ts';
 import { Conflicto, ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
 
@@ -204,4 +204,40 @@ void test('el límite de cliente se cuenta sobre el profesor objetivo (profesorI
   }, ErrorLimiteAlcanzado);
   // El admin puede seguir registrando en nombre de OTRO profesor sin verse afectado.
   limitador.comprobar('asistencia:admin-1');
+});
+
+void test('listarAsistenciaDeHoy: una única petición, acotada al profesor, estado válido y al día natural del centro', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [FILA] };
+  });
+
+  // 2026-08-26T12:00Z es mediodía en CEST (UTC+2): el día local va de 2026-08-25T22:00Z a 2026-08-26T22:00Z.
+  const filas = await listarAsistenciaDeHoy(postgrest, 'p1', new Date('2026-08-26T12:00:00.000Z'));
+
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'GET');
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/asistencia');
+  assert.equal(url.searchParams.get('profesor_id'), 'eq.p1');
+  assert.equal(url.searchParams.get('estado'), 'eq.valida');
+  // El punto de los milisegundos es un carácter reservado de PostgREST (`codificadorValores.ts`):
+  // el valor viaja entrecomillado, como cualquier otro valor de texto con "." en un filtro.
+  assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-08-25T22:00:00.000Z"', 'lte."2026-08-26T21:59:59.999Z"']);
+  assert.deepEqual(filas, [FILA]);
+});
+
+void test('listarAsistenciaDeHoy: admite otra zona horaria explícita', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  await listarAsistenciaDeHoy(postgrest, 'p1', new Date('2026-06-10T12:00:00.000Z'), 'UTC');
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-06-10T00:00:00.000Z"', 'lte."2026-06-10T23:59:59.999Z"']);
 });

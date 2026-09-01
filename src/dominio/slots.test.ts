@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   alumnosPropuestos,
   instanteLocal,
+  limitesDiaLocal,
   slotActivoEnInstante,
   TOLERANCIA_MINUTOS_POR_DEFECTO,
   ZONA_HORARIA_CENTRO_POR_DEFECTO,
@@ -72,6 +73,59 @@ void test('instanteLocal aplica el cambio de hora de otoño (CEST a CET, 2026-10
   const justoDespues = instanteLocal(new Date('2026-10-25T01:01:00.000Z'));
   assert.deepEqual(justoAntes, { diaSemana: 7, horaMinuto: '02:59' });
   assert.deepEqual(justoDespues, { diaSemana: 7, horaMinuto: '02:01' }); // retrocede de 02:59 a 02:01
+});
+
+// --- limitesDiaLocal: límites UTC del día natural del centro (T-19, requisito 5) ----------------
+
+void test('limitesDiaLocal: un mediodía cualquiera en CET (enero, UTC+1)', () => {
+  const { inicioUtc, finUtc } = limitesDiaLocal(new Date('2026-01-15T12:00:00.000Z'));
+  assert.equal(inicioUtc.toISOString(), '2026-01-14T23:00:00.000Z'); // medianoche CET = 23:00Z del día anterior
+  assert.equal(finUtc.toISOString(), '2026-01-15T23:00:00.000Z');
+});
+
+void test('limitesDiaLocal: un mediodía cualquiera en CEST (agosto, UTC+2)', () => {
+  const { inicioUtc, finUtc } = limitesDiaLocal(new Date('2026-08-26T12:00:00.000Z'));
+  assert.equal(inicioUtc.toISOString(), '2026-08-25T22:00:00.000Z');
+  assert.equal(finUtc.toISOString(), '2026-08-26T22:00:00.000Z');
+});
+
+void test('limitesDiaLocal: la medianoche local pertenece a su propio día, no al anterior', () => {
+  const medianoche = limitesDiaLocal(new Date('2026-08-25T22:00:00.000Z')); // 00:00 CEST del 26
+  const mediodia = limitesDiaLocal(new Date('2026-08-26T12:00:00.000Z'));
+  assert.equal(medianoche.inicioUtc.toISOString(), mediodia.inicioUtc.toISOString());
+  assert.equal(medianoche.finUtc.toISOString(), mediodia.finUtc.toISOString());
+});
+
+void test('limitesDiaLocal: el día del cambio de hora de primavera dura 23 horas reales', () => {
+  // 2026-03-29: a la 01:00 UTC el reloj local salta de 02:00 CET a 03:00 CEST.
+  const { inicioUtc, finUtc } = limitesDiaLocal(new Date('2026-03-29T12:00:00.000Z'));
+  assert.equal(inicioUtc.toISOString(), '2026-03-28T23:00:00.000Z'); // medianoche CET, antes del salto
+  assert.equal(finUtc.toISOString(), '2026-03-29T22:00:00.000Z'); // medianoche del 30, ya en CEST
+  assert.equal(finUtc.getTime() - inicioUtc.getTime(), 23 * 60 * 60 * 1000);
+});
+
+void test('limitesDiaLocal: el día siguiente al cambio de hora de otoño no se confunde con el propio día del cambio', () => {
+  // 2026-10-25: a la 01:00 UTC el reloj local retrocede de 03:00 CEST a 02:00 CET. Sumar 24h reales
+  // desde la medianoche del día 25 (CEST, +2) cae todavía dentro del día 25 (a las 23:00 CET), no en
+  // la medianoche del 26 — el motivo por el que el cálculo no puede sumar milisegundos reales.
+  const diaDelCambio = limitesDiaLocal(new Date('2026-10-25T12:00:00.000Z'));
+  const diaSiguiente = limitesDiaLocal(new Date('2026-10-26T12:00:00.000Z'));
+  assert.equal(diaDelCambio.inicioUtc.toISOString(), '2026-10-24T22:00:00.000Z'); // medianoche CEST
+  assert.equal(diaDelCambio.finUtc.toISOString(), '2026-10-25T23:00:00.000Z'); // medianoche CET del 26
+  assert.equal(diaSiguiente.inicioUtc.toISOString(), diaDelCambio.finUtc.toISOString());
+  assert.equal(diaSiguiente.finUtc.toISOString(), '2026-10-26T23:00:00.000Z');
+});
+
+void test('limitesDiaLocal: cruza correctamente el fin de año', () => {
+  const { inicioUtc, finUtc } = limitesDiaLocal(new Date('2026-12-31T23:30:00.000Z'));
+  assert.equal(inicioUtc.toISOString(), '2026-12-31T23:00:00.000Z');
+  assert.equal(finUtc.toISOString(), '2027-01-01T23:00:00.000Z');
+});
+
+void test('limitesDiaLocal: admite otra zona horaria explícita (UTC, sin desplazamiento)', () => {
+  const { inicioUtc, finUtc } = limitesDiaLocal(new Date('2026-06-10T12:00:00.000Z'), 'UTC');
+  assert.equal(inicioUtc.toISOString(), '2026-06-10T00:00:00.000Z');
+  assert.equal(finUtc.toISOString(), '2026-06-11T00:00:00.000Z');
 });
 
 // --- slotActivoEnInstante: la batería exacta del criterio de aceptación de T-17 -----------------

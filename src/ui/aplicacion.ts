@@ -8,10 +8,14 @@
  * (`nucleo/router.ts`) que enruta entre el catálogo de centros, el listado de alumnos y la ficha
  * completa de un alumno — solo si `deps.appAdministrador` viene informado (siempre en la aplicación
  * real, `main.ts`; ausente en los tests que no ejercitan esta parte, que siguen viendo el marcador de
- * posición de T-09). `teacher` sigue con ese mismo marcador de posición hasta T-19/T-22 (decisión
- * documentada en `DECISIONES_TECNICAS.md`: T-16 es literalmente "Interfaz de gestión DEL
- * ADMINISTRADOR", y las tres pantallas que construye —centros, listado de alumnos, ficha de
- * alumno— son ya, por `permisosUi.ts`, contenido exclusivo de `administrator`).
+ * posición de T-09).
+ *
+ * Desde T-19, `teacher` monta a su vez su propia aplicación real (pasar lista) si
+ * `deps.appProfesor` viene informado — sin router propio todavía: una única pantalla no necesita
+ * enrutar nada, igual que la aplicación de `administrator` tampoco lo tuvo hasta que T-16 montó una
+ * segunda y tercera pantalla (decisión documentada en `DECISIONES_TECNICAS.md`). T-22 ("mi
+ * horario") es quien tendrá que introducir el router de `teacher` cuando exista una segunda
+ * pantalla que enrutar.
  *
  * Este módulo es la única pieza de la capa de autenticación que toca el DOM de arranque y, desde
  * T-16, la raíz de composición de la aplicación de gestión: es quien conecta las funciones puras de
@@ -29,12 +33,14 @@ import type { ClienteAlmacenamiento } from '../datos/almacenamiento.ts';
 import type { FabricaProcesadoImagen, ArchivoOrigenAvatar } from '../datos/avatarAlumno.ts';
 import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
+import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import { listarCentros, crearCentro, editarNombreCentro, contarAlumnosActivosDeCentro, desactivarCentro, reactivarCentro } from '../datos/centrosEstudios.ts';
 import { listarAlumnos, obtenerAlumno, crearAlumno, editarAlumno, darDeBajaAlumno, reactivarAlumno } from '../datos/alumnos.ts';
 import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferencia } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
-import { listarSlotsDeAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
 import { listarProfesoresActivos } from '../datos/profesores.ts';
+import { registrarAsistencia, listarAsistenciaDeHoy } from '../datos/asistencia.ts';
 import { mostrarPantallaLogin } from './pantallaLogin.ts';
 import { mostrarPantallaRecuperarContrasena } from './pantallaRecuperarContrasena.ts';
 import { mostrarPantallaEstablecerContrasenaNueva } from './pantallaEstablecerContrasenaNueva.ts';
@@ -42,6 +48,7 @@ import { mostrarPantallaSinAcceso } from './pantallaSinAcceso.ts';
 import { mostrarPantallaCentros } from './pantallaCentros.ts';
 import { mostrarPantallaListadoAlumnos } from './pantallaListadoAlumnos.ts';
 import { mostrarPantallaFichaAlumno } from './pantallaFichaAlumno.ts';
+import { mostrarPantallaPasarLista } from './pantallaPasarLista.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -59,11 +66,25 @@ export interface DependenciasAppAdministrador {
   readonly limitadorAvatar?: LimitadorTasa;
 }
 
+/** Todo lo que la aplicación real de `teacher` (T-19, pasar lista) necesita para funcionar, ya
+ * construido por `main.ts`. Ausente en los tests que no la ejercitan (siguen viendo el marcador de
+ * posición) y en cualquier sesión de `administrator` (que nunca monta esta pieza). */
+export interface DependenciasAppProfesor {
+  readonly postgrest: ClientePostgrest;
+  readonly almacenamiento: ClienteAlmacenamiento;
+  readonly reloj: Reloj;
+  readonly programador: ProgramadorIntervalo;
+  /** Límite de cliente de T-06 para `registrar_asistencia` (contrato: 60 operaciones por profesor y
+   * minuto, ver `DECISIONES_TECNICAS.md`); opcional, sin él no se limita en el cliente. */
+  readonly limitadorAsistencia?: LimitadorTasa;
+}
+
 export interface DependenciasAplicacion {
   readonly gestorSesion: GestorSesion;
   /** Normalmente `window.location.hash`. */
   readonly hashUrl: string;
   readonly appAdministrador?: DependenciasAppAdministrador;
+  readonly appProfesor?: DependenciasAppProfesor;
 }
 
 function tieneAppPropia(rol: Perfil['rol']): boolean {
@@ -211,6 +232,52 @@ function mostrarAppAdministrador(
   contenedor.append(cabecera, areaPantalla);
 }
 
+/** Monta la aplicación real de `teacher` (T-19): cabecera fija + la pantalla de pasar lista, sin
+ * router propio (ver la cabecera del módulo). `renovarSesion` conecta el punto de enganche de T-09
+ * (`GestorSesion.renovarAlAbrirPasarLista`), llamado una vez al montar la pantalla. */
+function mostrarAppProfesor(
+  contenedor: HTMLElement,
+  perfil: Perfil,
+  app: DependenciasAppProfesor,
+  gestorSesion: GestorSesion,
+  cerrarSesion: () => Promise<void>,
+): void {
+  contenedor.textContent = '';
+  const documento = contenedor.ownerDocument;
+
+  const cabecera = documento.createElement('header');
+  const titulo = documento.createElement('h1');
+  titulo.textContent = `GestorAcademia — ${ETIQUETA_ROL[perfil.rol]}`;
+  const saludo = documento.createElement('p');
+  saludo.textContent = `Sesión iniciada como ${perfil.nombre}.`;
+  const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
+  botonSalir.addEventListener('click', () => {
+    void cerrarSesion();
+  });
+  cabecera.append(titulo, saludo, botonSalir);
+
+  const areaPantalla = documento.createElement('div');
+  mostrarPantallaPasarLista(areaPantalla, {
+    rol: perfil.rol,
+    profesorId: perfil.id,
+    reloj: app.reloj,
+    programador: app.programador,
+    cargarPropuesta: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
+    cargarAsistenciaDeHoy: (instante) => listarAsistenciaDeHoy(app.postgrest, perfil.id, instante),
+    registrar: (entrada) =>
+      registrarAsistencia(
+        { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+        perfil.id,
+        entrada,
+      ),
+    obtenerUrlsAvataresMini: (alumnos) => urlsAvataresEnLote(app.almacenamiento, alumnos, 'mini'),
+    generarPeticionId: () => crypto.randomUUID(),
+    renovarSesion: () => gestorSesion.renovarAlAbrirPasarLista(),
+  });
+
+  contenedor.append(cabecera, areaPantalla);
+}
+
 export function iniciarAplicacion(contenedor: HTMLElement, deps: DependenciasAplicacion): void {
   const parametrosRecuperacion = parsearParametrosRecuperacion(deps.hashUrl);
   if (parametrosRecuperacion) {
@@ -257,6 +324,10 @@ export function iniciarAplicacion(contenedor: HTMLElement, deps: DependenciasApl
     }
     if (perfil.rol === 'administrator' && deps.appAdministrador) {
       mostrarAppAdministrador(contenedor, perfil, deps.appAdministrador, () => deps.gestorSesion.cerrarSesion());
+      return;
+    }
+    if (perfil.rol === 'teacher' && deps.appProfesor) {
+      mostrarAppProfesor(contenedor, perfil, deps.appProfesor, deps.gestorSesion, () => deps.gestorSesion.cerrarSesion());
       return;
     }
     mostrarPantallaAppTemporal(contenedor, perfil, () => deps.gestorSesion.cerrarSesion());

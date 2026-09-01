@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { iniciarAplicacion, type DependenciasAppAdministrador } from './aplicacion.ts';
+import { iniciarAplicacion, type DependenciasAppAdministrador, type DependenciasAppProfesor } from './aplicacion.ts';
 import type { GestorSesion, EstadoSesion } from '../nucleo/gestorSesion.ts';
 import type { Perfil } from '../dominio/tipos.ts';
 import { crearClientePostgrest } from '../datos/postgrest.ts';
@@ -9,6 +9,7 @@ import { crearFetchSimulado, type PeticionSimulada } from '../datos/pruebas/dobl
 import type { ClienteAlmacenamiento } from '../datos/almacenamiento.ts';
 import type { FabricaProcesadoImagen } from '../datos/avatarAlumno.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
+import { crearProgramadorIntervaloDePrueba } from '../nucleo/programadorIntervalo.ts';
 import type { ObjetivoRouter } from '../nucleo/router.ts';
 
 function crearContenedorDePruebas(): HTMLElement {
@@ -145,6 +146,32 @@ function crearAppAdministradorFalso(
       reloj: crearRelojFijo(new Date('2026-01-01T00:00:00Z')),
     },
     objetivoRouter,
+    peticiones,
+  };
+}
+
+/** Construye un `DependenciasAppProfesor` de pruebas: mismo criterio que `crearAppAdministradorFalso`
+ * (`ClientePostgrest` real sobre un `fetch` simulado), con un `ProgramadorIntervalo` de prueba (sin
+ * `setInterval` real) y un reloj fijo. */
+function crearAppProfesorFalso(
+  manejador: Parameters<typeof crearFetchSimulado>[0],
+): { app: DependenciasAppProfesor; peticiones: PeticionSimulada[] } {
+  const peticiones: PeticionSimulada[] = [];
+  const postgrest = crearClientePostgrest({
+    urlBase: 'https://proyecto.supabase.co',
+    claveAnonima: 'clave-anonima',
+    fetchImpl: crearFetchSimulado((peticion) => {
+      peticiones.push(peticion);
+      return manejador(peticion);
+    }),
+  });
+  return {
+    app: {
+      postgrest,
+      almacenamiento: ALMACENAMIENTO_NO_IMPLEMENTADO,
+      reloj: crearRelojFijo(new Date('2026-01-07T10:00:00.000Z')), // miércoles a mediodía en Madrid
+      programador: crearProgramadorIntervaloDePrueba(),
+    },
     peticiones,
   };
 }
@@ -320,6 +347,65 @@ void test('administrator con appAdministrador: "Nuevo alumno" navega al alta y "
 void test('administrator sin appAdministrador: sigue viendo la pantalla temporal (compatibilidad)', () => {
   const contenedor = crearContenedorDePruebas();
   const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '' });
+
+  assert.match(contenedor.textContent, /todavía está en construcción/i);
+});
+
+// --- T-19: la aplicación real de teacher (pasar lista), cuando `appProfesor` viene informado. ---
+
+const PERFIL_TEACHER: Perfil = { ...PERFIL_ADMIN, id: 'profesor-1', nombre: 'Pedro Profesor', rol: 'teacher' };
+
+void test('teacher con appProfesor: ve la pantalla de pasar lista, no la temporal', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Pedro Profesor/);
+  assert.doesNotMatch(contenedor.textContent, /todavía está en construcción/i);
+  assert.match(contenedor.textContent, /No tienes ninguna clase más hoy/);
+  const botones = Array.from(contenedor.querySelectorAll('button')).map((b) => b.textContent);
+  assert.ok(botones.some((texto) => texto === 'Cerrar sesión'));
+  assert.ok(botones.some((texto) => texto === 'Actualizar'));
+});
+
+void test('teacher con appProfesor: pide sus slots y su asistencia de hoy, nunca los de otro profesor', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app, peticiones } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  const rutasVisitadas = peticiones.map((p) => new URL(p.url).pathname);
+  assert.ok(rutasVisitadas.includes('/rest/v1/slot_horario'));
+  assert.ok(rutasVisitadas.includes('/rest/v1/asistencia'));
+  for (const peticion of peticiones) {
+    const url = new URL(peticion.url);
+    if (url.pathname === '/rest/v1/slot_horario' || url.pathname === '/rest/v1/asistencia') {
+      assert.equal(url.searchParams.get('profesor_id'), 'eq.profesor-1');
+    }
+  }
+});
+
+void test('administrator con appProfesor informado: NUNCA monta la app de teacher (exclusiva de teacher)', () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+
+  assert.doesNotMatch(contenedor.textContent, /No tienes ninguna clase más hoy/);
+  assert.match(contenedor.textContent, /todavía está en construcción/i);
+});
+
+void test('teacher sin appProfesor: sigue viendo la pantalla temporal (compatibilidad)', () => {
+  const contenedor = crearContenedorDePruebas();
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
 
   iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '' });
 
