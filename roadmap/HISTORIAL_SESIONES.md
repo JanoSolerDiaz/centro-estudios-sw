@@ -37,6 +37,40 @@
 
 ---
 
+### Sesión 2026-09-02 (verificación) — sin tarea vertebral desbloqueada, sin P-XX pendiente
+
+**Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25
+depende de T-24, las R-XX esperan al MVP en producción — sin cambio desde la sesión anterior).
+Ninguna `P-XX`: las quince (`P-01` a `P-15`) de §5 de `SEGUIMIENTO.md` ya están `RESUELTA`, ninguna
+pendiente que atender.
+**Estado resultante:** sin cambio. T-24 sigue `BLOQUEADA — pendiente aplicar migración 009` en §1
+(fila 11 de §3 sigue `PENDIENTE`). `auditoriacontinua.md` sin ningún hallazgo `ABIERTO` de severidad
+alta (los tres de severidad baja, #5/#6/#7, ya resueltos en código por `P-13`/`P-14`/`P-15` de la
+sesión anterior, pendientes solo de que el auditor los cierre en su propio documento).
+**Commits a `develop`:** solo actualización de documentación de este ciclo (§ cabecera de
+`SEGUIMIENTO.md` y esta entrada de `HISTORIAL_SESIONES.md`); ningún cambio de `src/`, `db/` ni
+`herramientas/`.
+**Migraciones aplicadas:** ninguna (el agente nunca aplica DDL). `009_administracion_usuarios.sql`
+sigue pendiente de que el dueño la aplique (fila 11 de §3, sin cambio esta sesión).
+**Propagación a prod pendiente:** T-25 (única tarea que toca `prod`), sin poder arrancar todavía.
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (942/942, misma cifra que la sesión
+anterior) · build ✅.
+**Health check post-deploy:** no aplica (sin código nuevo desplegado).
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`.
+**Hallazgos del auditor atendidos:** ninguno nuevo (los tres abiertos, #5/#6/#7, ya se resolvieron en
+la sesión anterior vía P-13/P-14/P-15; quedan a la espera de que el auditor los cierre en su propio
+documento).
+**Hallazgos:** ninguno nuevo — revisión completa de §5 (backlog P-XX) y de `auditoriacontinua.md` sin
+encontrar ningún candidato legítimo que proponer. No se fabrica ninguna P-XX para justificar el ciclo.
+**Tareas autopropuestas (P-XX):** ninguna.
+**Próximo paso:** en cuanto el dueño aplique `009_administracion_usuarios.sql` y confirme la fila 11
+de §3 (`esquema_version()` = `9`, `npm run probar-rls` con la nueva sección 8e), T-24 pasa a
+`COMPLETADA` y queda por evaluar si T-25 puede arrancar.
+
+---
+
 ### Sesión 2026-09-02 (backlog P-XX, continuación) — T-24 sigue BLOQUEADA por `009`; P-06/P-07(a) atendidas
 
 **Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25

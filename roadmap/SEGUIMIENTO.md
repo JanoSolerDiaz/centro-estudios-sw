@@ -10,43 +10,41 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-02 (sesión de backlog P-XX, continuación) — comprobado de nuevo el
-estado de partida: `009_administracion_usuarios.sql` sigue **sin aplicar** (fila 11 de §3, sin
-cambio), así que T-24 sigue `BLOQUEADA`, T-25 sigue sin poder arrancar y las R-XX siguen esperando al
-MVP en producción — ninguna tarea de la columna vertebral desbloqueada, igual que en la sesión
-anterior. Ningún hallazgo `ABIERTO` de severidad alta en `auditoriacontinua.md`. Con la cola
-vertebral bloqueada, esta sesión atendió las dos `P-XX` que quedaban `PENDIENTE`/`PARCIALMENTE
-IMPLEMENTADA` en §5 desde el 2026-08-31 (la sesión anterior las dejó fuera a propósito de su
-recuento de "cuatro pendientes atendidas", por seguir gatilladas a "antes de dar T-10 por verificada
-en ejecución" — condición que T-10 ya superó sin ellas — pero sin marcarlas `DESCARTADA`, así que
-seguían siendo trabajo legítimo pendiente): **P-06** — la batería de `db/pruebas_rls.sql` gana la
-sección **8f**, barrido obligatorio del rol `anon` (la única superficie que viaja sin autenticar, con
-la clave anónima del paquete del navegador) sobre las nueve tablas de `public` más
-`storage.objects`, mismo patrón que el barrido de `student` de la sección 6 pero esperando rechazo
-de PRIVILEGIO en vez de RLS (ninguna tabla concede nada a `anon` desde `001`); **P-07(a)** — el
-veredicto de `probar-rls` ya no deja las omisiones dentro de la misma línea de recuento que el resto:
-`avisoOmisiones` (nuevo, `herramientas/migraciones/resultadoPruebasRls.ts`, 3 tests) devuelve un
-aviso aparte siempre que `omitidas > 0`, que la CLI imprime con `console.warn` aunque el veredicto
-final sea verde — no cambia el código de salida (una omisión legítima, p. ej. el bucket vacío, sigue
-sin ser un fallo), pero ya no puede pasar inadvertida dentro de un resumen de una sola línea. Ninguna
-migración nueva, ningún cambio de esquema: los dos son SQL de prueba y TypeScript de CLI, sin tocar
-`src/`. Verificación pre-push completa en verde (`typecheck`, `lint`, 942 tests —antes 939—,
-`build`). Detalle en §5 y en `DECISIONES_TECNICAS.md`.
+**Última actualización:** 2026-09-02 (sesión de verificación, sin tarea vertebral desbloqueada, sin
+`P-XX` pendiente) — comprobado de nuevo el estado de partida: `009_administracion_usuarios.sql` sigue
+**sin aplicar** (fila 11 de §3, sin cambio), así que T-24 sigue `BLOQUEADA`, T-25 sigue sin poder
+arrancar (depende de T-24) y las R-XX siguen esperando al MVP `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`
+(decisión de producto explícita en `ROADMAP_PRODUCTO.md`, no solo dependencia técnica: R-01 depende
+en teoría solo de T-21, ya `COMPLETADA`, pero la oleada v1 completa "arranca cuando el MVP T-00 a T-25
+esté... en producción") — ninguna tarea de la columna vertebral desbloqueada, igual que en las dos
+sesiones anteriores. Revisado `auditoriacontinua.md`: ningún hallazgo `ABIERTO` de severidad alta;
+los tres de severidad baja que quedan en su registro (#5, #6, #7) ya están resueltos en el código
+desde la sesión anterior (`P-13`/`P-14`/`P-15`), pendientes solo de que el propio auditor los cierre
+en su próxima pasada — no es el programador quien edita ese documento. Revisado §5 completo: **las
+quince `P-XX` (`P-01` a `P-15`) están `RESUELTA`**, ninguna `PENDIENTE` ni `PARCIALMENTE
+IMPLEMENTADA` que atender esta vez. Con la cola vertebral bloqueada y el backlog agotado, esta sesión
+no tenía ningún trabajo legítimo de código que aportar: se limitó a repetir la verificación pre-push
+completa para confirmar que el estado sigue siendo exactamente el que dejó la sesión anterior, sin
+ningún commit de programador entre medias — `npm ci` limpio, `typecheck`/`lint`/`build` en verde y
+`npm test`: **942 tests, 942 pass, 0 fail**, la misma cifra exacta que la sesión de `P-06`/`P-07(a)`.
+`git status` limpio antes y después, sin nada que empujar a `develop` desde el código o `db/`. Se
+sigue el mismo criterio de disciplina que las pasadas "cero consecutivo" del auditor
+(2026-08-30/2026-08-31): no se fabrica ninguna R-XX ni P-XX para justificar el ciclo cuando no hay
+ninguna legítima que proponer.
 
-**Sesión anterior (2026-09-02, "backlog P-XX"):** con T-24 ya bloqueada por `009` y sin ninguna tarea
-vertebral desbloqueada, atendió `P-05`/`P-13`/`P-14`/`P-15` (CLI de migraciones con el cuerpo real
-del error de la Management API, dos frases residuales de gobernanza documental, y
-`columnasVisiblesFichaAlumno` eliminada por código muerto) — commit `c5cff96`. Dejó explícitamente
-para más adelante `P-06`/`P-07(a)`, sin descartarlas, que esta sesión retoma arriba.
+**Sesión anterior (2026-09-02, "backlog P-XX, continuación"):** con T-24 ya bloqueada por `009` y sin
+ninguna tarea vertebral desbloqueada, atendió las dos últimas `P-XX` pendientes — `P-06` (barrido de
+`anon` en `db/pruebas_rls.sql`, sección 8f) y `P-07(a)` (`avisoOmisiones` en el veredicto de
+`probar-rls`) — commit `18fd2ba`, dejando el backlog de §5 completo en `RESUELTA`.
 
 **Sesión previa a esa (2026-09-02, "T-23 COMPLETADA"):** desbloqueó T-20 y T-21 en este §1 y anotó
-`007`/`008` en `db/APLICADAS.md`, confirmadas por el dueño en la fila 9 y 10 de §3 (quedó pendiente
-de la sesión anterior a esa, ver su propio commit `a7edaf1`). Con eso resuelto, la siguiente tarea de
-la cola era **T-24 (administración de usuarios y roles)**, que esa sesión dejó con **código y tests
-COMPLETOS, BLOQUEADA por la migración `009`**: su spec dice "Migración: No", pero el requisito 4 ("el
-último `administrator` activo no puede desactivarse ni degradarse a sí mismo; la regla se implementa
-en la base de datos") es DDL por definición — mismo criterio de "comprobar la dependencia real antes
-de dar la spec por buena" que ya aplicaron T-09/T-20/T-23, detallado en `DECISIONES_TECNICAS.md`.
+`007`/`008` en `db/APLICADAS.md`, confirmadas por el dueño en la fila 9 y 10 de §3. Con eso resuelto,
+la siguiente tarea de la cola era **T-24 (administración de usuarios y roles)**, que esa sesión dejó
+con **código y tests COMPLETOS, BLOQUEADA por la migración `009`**: su spec dice "Migración: No",
+pero el requisito 4 ("el último `administrator` activo no puede desactivarse ni degradarse a sí
+mismo; la regla se implementa en la base de datos") es DDL por definición — mismo criterio de
+"comprobar la dependencia real antes de dar la spec por buena" que ya aplicaron T-09/T-20/T-23,
+detallado en `DECISIONES_TECNICAS.md`.
 
 **T-24 — Administración de usuarios y roles — código y tests COMPLETOS, BLOQUEADA por la migración
 `009`.** Deja al rol `administrator` realmente operativo sobre los otros dos: listado con filtro por
