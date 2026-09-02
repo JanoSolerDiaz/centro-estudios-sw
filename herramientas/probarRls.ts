@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { cargarEnvLocal } from './cargarEnvLocal.ts';
 import { crearClienteManagementApi } from './migraciones/clienteManagementApi.ts';
 import { analizarArgv, resolverCredenciales } from './migraciones/entorno.ts';
+import { formatearErrorCli } from './migraciones/formatoErrorCli.ts';
 import { resumirPruebasRls, type FilaResultadoRls } from './migraciones/resultadoPruebasRls.ts';
 
 const RUTA_PRUEBAS = fileURLToPath(new URL('../db/pruebas_rls.sql', import.meta.url));
@@ -57,7 +58,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const mensaje = error instanceof Error ? error.message : String(error);
-  console.error(`probar-rls: ERROR — ${mensaje}`);
+  console.error(`probar-rls: ERROR — ${formatearErrorCli(error)}`);
   process.exitCode = 1;
 });

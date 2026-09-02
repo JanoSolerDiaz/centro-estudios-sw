@@ -14,6 +14,7 @@ import { cargarEnvLocal } from './cargarEnvLocal.ts';
 import { leerMigracionesDisco } from './migraciones/archivosMigracion.ts';
 import { crearClienteManagementApi } from './migraciones/clienteManagementApi.ts';
 import { analizarArgv, resolverCredenciales } from './migraciones/entorno.ts';
+import { formatearErrorCli } from './migraciones/formatoErrorCli.ts';
 import { aplicarPendientes, obtenerEstado } from './migraciones/runner.ts';
 import { verificarPrivilegios } from './migraciones/verificarPrivilegios.ts';
 
@@ -73,7 +74,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const mensaje = error instanceof Error ? error.message : String(error);
-  console.error(`migrar: ERROR — ${mensaje}`);
+  console.error(`migrar: ERROR — ${formatearErrorCli(error)}`);
   process.exitCode = 1;
 });

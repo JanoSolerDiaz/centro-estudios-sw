@@ -528,7 +528,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     (`herramientas/migraciones/pruebas/dobleFetch.ts`) — `migrar.ts` en sí es solo wiring, sin test
     directo, igual que `src/ui/main.ts`. **El endpoint exacto de la Management API no se ha podido
     verificar contra documentación en vivo** (sin salida de red a `supabase.com` en esta sesión); si
-    `npm run migrate` da un `404`, es el primer sospechoso.
+    `npm run migrate` da un `404`, es el primer sospechoso. Un fallo de SQL (`npm run migrate` o
+    `npm run probar-rls`) imprime, además del mensaje genérico, el cuerpo real de la respuesta de la
+    Management API (`formatearErrorCli`, `herramientas/migraciones/formatoErrorCli.ts`, P-05) — ahí
+    viene el mensaje real de Postgres, con `SQLSTATE`/`HINT`/`CONTEXT` si los trae.
   - `herramientas/seed.ts` (`npm run seed`, T-07) — semilla de desarrollo: crea los tres roles de
     usuario y datos ficticios de alumnos/centros/personas de referencia. Necesita
     `SUPABASE_SERVICE_ROLE_KEY_DEV` (mismo régimen que el access token: solo en `.env.local` del

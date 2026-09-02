@@ -368,8 +368,8 @@ son solo "una política por celda":
   **Aplicada y verificada en `dev` el 2026-08-31** (`db/APLICADAS.md`, fila `004`). El resto del
   alcance de T-14 — procesado en el cliente (recorte, dos derivadas WebP, `alumno/{alumno_id}/{uuid}/`),
   subida con orden seguro (sube lo nuevo → cambia el puntero → borra lo viejo), firma en lote y
-  monograma — está escrito en `src/dominio/avatarAlumno.ts` y `src/datos/avatarAlumno.ts`; falta
-  únicamente el punto de montaje real en una pantalla (T-16).
+  monograma — está escrito en `src/dominio/avatarAlumno.ts` y `src/datos/avatarAlumno.ts`, y montado
+  de verdad en `src/ui/pantallaFichaAlumno.ts` (`montarBloqueAvatar`) desde T-16.
 
 `db/pruebas_rls.sql`, lanzable con `npm run probar-rls` (el dueño, nunca el agente: exige
 `SUPABASE_ACCESS_TOKEN`), impersona usuarios reales de `perfil` para comprobar cada celda de la

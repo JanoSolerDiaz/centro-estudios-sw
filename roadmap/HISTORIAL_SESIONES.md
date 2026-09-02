@@ -37,6 +37,59 @@
 
 ---
 
+### Sesión 2026-09-02 (backlog P-XX) — T-24 sigue BLOQUEADA por `009`; P-05/P-13/P-14/P-15 atendidas
+
+**Tarea(s):** ninguna T-XX/R-XX (cola vertebral bloqueada: T-24 espera la migración `009`, T-25
+depende de T-24, las R-XX esperan al MVP en producción) — backlog `P-05`/`P-13`/`P-14`/`P-15` de §5
+de `SEGUIMIENTO.md`, todas `PENDIENTE` desde antes de esta sesión
+**Estado resultante:** T-24 sin cambio, sigue `BLOQUEADA — pendiente aplicar migración 009` en §1
+(fila 11 de §3 sigue `PENDIENTE`, nada que el dueño no supiera ya). Las cuatro `P-XX` pasan a
+`RESUELTA` en §5: **P-05** — `formatearErrorCli` (nuevo) hace que `npm run migrate` y
+`npm run probar-rls` impriman el cuerpo real del error de la Management API (SQLSTATE/HINT/CONTEXT
+de Postgres) en vez de solo la plantilla genérica; **P-13** — frase residual de `db/MODELO.md`
+sobre el avatar corregida (ya está montado en `pantallaFichaAlumno.ts` desde T-16, no "falta
+únicamente"); **P-14** — numeración cruzada de las preguntas abiertas #12/#13 corregida en la
+narrativa de este documento y en `DECISIONES_TECNICAS.md:147`, alineada con la tabla de §6 (que ya
+era correcta); **P-15** — `columnasVisiblesFichaAlumno` (código muerto desde su creación,
+`src/dominio/permisosUi.ts`) eliminada junto con sus dos tests, no conectada: no existe ni puede
+existir una pantalla de ficha para `teacher` dentro del alcance actual (§0.2 es explícito y
+permanente sobre lo que `teacher` no gestiona ni ve). Se atendieron las cuatro P-XX pendientes en
+una sola sesión, una de más sobre la guía de "máximo 3 entre dos tareas consecutivas" de §0.3 —
+justificado porque P-13/P-14 son correcciones de una sola frase, sin código, de coste marginal.
+**Commits a `develop`:** ver commit de esta sesión (`P-05/P-13/P-14/P-15: backlog documental y de
+diagnóstico de CLI, sin tarea vertebral desbloqueada`)
+**Migraciones aplicadas:** ninguna (el agente nunca aplica DDL). `009_administracion_usuarios.sql`
+sigue pendiente de que el dueño la aplique (fila 11 de §3, sin cambio esta sesión)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `herramientas/migraciones/formatoErrorCli.ts` (nuevo);
+`herramientas/migraciones/formatoErrorCli.test.ts` (nuevo, 4 tests); `herramientas/migrar.ts`;
+`herramientas/probarRls.ts`; `db/MODELO.md` (P-13); `roadmap/SEGUIMIENTO.md` (numeración #12/#13,
+P-14; cabecera; §5); `roadmap/DECISIONES_TECNICAS.md` (numeración #12/#13, P-14; tres decisiones
+nuevas de P-05/P-15); `src/dominio/permisosUi.ts` (P-15, eliminada `columnasVisiblesFichaAlumno`);
+`src/dominio/permisosUi.test.ts` (P-15, eliminados sus dos tests)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (939, antes 937: +4 de
+`formatoErrorCli.test.ts`, -2 de los tests eliminados de `columnasVisiblesFichaAlumno`) · build ✅
+**Health check post-deploy:** no aplica — ningún cambio de despliegue (CLI de desarrollo y
+documentación únicamente, nada en `src/ui/main.ts` ni en el bundle servido)
+**Decisiones tomadas:** tres filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-02, `P-05` ×2,
+`P-15` ×1) — módulo compartido con test en vez de duplicar la lógica en las dos CLI; omitir la línea
+de `cuerpo` cuando viene vacía; eliminar en vez de conectar `columnasVisiblesFichaAlumno`, con el
+razonamiento de por qué conectarla habría contradicho §0.2
+**Hallazgos del auditor atendidos:** #5, #6 y #7 de `auditoriacontinua.md` (los tres severidad baja,
+`ABIERTO` desde la auditoría del 2026-09-01) quedan resueltos en el código/documentación
+(`P-13`/`P-14`/`P-15` respectivamente) — pendiente de que el auditor los reevalúe y cierre en su
+próxima pasada, el programador no edita ese fichero
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna nueva registrada; se ejecutaron las cuatro ya registradas
+(`P-05`, `P-13`, `P-14`, `P-15`), todas pasadas a `RESUELTA` en §5
+**Próximo paso:** repetir la comprobación de §1 al empezar la siguiente sesión — si el dueño ya
+aplicó `009` (fila 11 de §3) y confirmó `npm run probar-rls`, desbloquear T-24 y evaluar si T-25
+puede arrancar en lo que no exige sus bloqueos humanos (créditos de producción, textos legales); si
+`009` sigue sin aplicar, no queda backlog `P-XX` pendiente en §5 — repasar de nuevo `auditoriacontinua.md`
+por si hay una pasada nueva del auditor antes de declarar que no hay nada más que hacer
+
+---
+
 ### Sesión 2026-09-02 (siguiente a "T-23 COMPLETADA") — T-20/T-21 desbloqueadas; T-24: administración de usuarios, BLOQUEADA
 
 **Tarea(s):** desbloqueo de §1/§3 (007/008 confirmadas por el dueño) + T-24 (administración de

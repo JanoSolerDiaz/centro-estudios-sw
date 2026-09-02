@@ -96,24 +96,3 @@ export function puedeExportarConDatosDeContacto(rol: Rol): boolean {
 export function puedeGestionarUsuarios(rol: Rol): boolean {
   return rol === 'administrator';
 }
-
-/** Columnas de `alumno` con las que merece la pena pintar un formulario o una card para `rol`: no
- * es una lista de lo que el dato PUEDE tener, es una lista de lo que no tiene sentido dibujar
- * porque el servidor nunca lo va a devolver para ese rol (`003_politicas_rls.sql`, requisito 4 de
- * T-10: un teacher no tiene ningún GRANT de columna sobre `email_alumno`/`telefono_alumno`). Evita
- * que una pantalla futura dibuje una casilla de contacto vacía y la confunda con "sin dato". */
-export function columnasVisiblesFichaAlumno(rol: Rol): readonly string[] {
-  const IDENTIFICACION = ['id', 'nombre', 'primer_apellido', 'segundo_apellido', 'avatar_ruta', 'activo'] as const;
-  if (rol === 'administrator') {
-    return [
-      ...IDENTIFICACION,
-      'centro_referencia_id',
-      'email_alumno',
-      'telefono_alumno',
-      'alta_en',
-      'baja_en',
-      'motivo_baja',
-    ];
-  }
-  return IDENTIFICACION;
-}

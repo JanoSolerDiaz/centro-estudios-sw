@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Rol } from './tipos.ts';
 import {
-  columnasVisiblesFichaAlumno,
   puedeConsultarHistoricoDeCualquiera,
   puedeEditarAsistenciaDeCualquiera,
   puedeExportarConDatosDeContacto,
@@ -49,23 +48,6 @@ void test('administrator y teacher ven el avatar en cards; student no', () => {
   assert.equal(puedeVerAvatarEnCards('administrator'), true);
   assert.equal(puedeVerAvatarEnCards('teacher'), true);
   assert.equal(puedeVerAvatarEnCards('student'), false);
-});
-
-void test('columnasVisiblesFichaAlumno: teacher y student ven solo identificación, nunca contacto', () => {
-  for (const rol of ['teacher', 'student'] as const) {
-    const columnas = columnasVisiblesFichaAlumno(rol);
-    assert.ok(!columnas.includes('email_alumno'), `${rol} no debería ver email_alumno`);
-    assert.ok(!columnas.includes('telefono_alumno'), `${rol} no debería ver telefono_alumno`);
-    assert.ok(columnas.includes('nombre'));
-    assert.ok(columnas.includes('avatar_ruta'));
-  }
-});
-
-void test('columnasVisiblesFichaAlumno: administrator ve también las columnas de contacto', () => {
-  const columnas = columnasVisiblesFichaAlumno('administrator');
-  assert.ok(columnas.includes('email_alumno'));
-  assert.ok(columnas.includes('telefono_alumno'));
-  assert.ok(columnas.includes('centro_referencia_id'));
 });
 
 void test('puedeUsarPasarLista: exclusivamente teacher, ni siquiera administrator', () => {
