@@ -37,6 +37,55 @@
 
 ---
 
+### Sesión 2026-09-02 (backlog P-XX, continuación) — T-24 sigue BLOQUEADA por `009`; P-06/P-07(a) atendidas
+
+**Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25
+depende de T-24, las R-XX esperan al MVP en producción — sin cambio desde la sesión anterior) —
+backlog `P-06`/`P-07` (punto a) de §5 de `SEGUIMIENTO.md`, las dos únicas que quedaban sin
+`RESUELTA`/`DESCARTADA` tras la sesión anterior
+**Estado resultante:** T-24 sin cambio, sigue `BLOQUEADA — pendiente aplicar migración 009` en §1
+(fila 11 de §3 sigue `PENDIENTE`). `P-06` y el punto (a) de `P-07` pasan a `RESUELTA` en §5: **P-06**
+— `db/pruebas_rls.sql` gana la sección **8f**, barrido obligatorio de `anon` (la única superficie no
+autenticada) sobre las nueve tablas de `public` (incluida `perfil`, que la sección 6 excluye para
+`student` por tener este una fila propia legítima — `anon` no) más `storage.objects`, esperando
+rechazo de PRIVILEGIO en las tablas de `public` (ningún `GRANT` a `anon` desde `001`) y cualquiera de
+los dos desenlaces en `storage.objects` (RLS o privilegio, sin poder verificar cuál aplica sin acceso
+al proyecto real); **P-07(a)** — `avisoOmisiones` (nuevo) hace que `npm run probar-rls` imprima un
+aviso aparte, con `console.warn`, siempre que queden comprobaciones `OMITIDO`, en vez de dejarlas
+mezcladas dentro de la misma línea de recuento — sin cambiar el código de salida, porque una omisión
+sigue sin ser un fallo (mismo criterio que ya aplicaba `resumirPruebasRls` desde T-10).
+**Commits a `develop`:** ver commit de esta sesión (`P-06/P-07(a): barrido RLS de anon y aviso de
+comprobaciones omitidas en probar-rls, sin tarea vertebral desbloqueada`)
+**Migraciones aplicadas:** ninguna (el agente nunca aplica DDL). `009_administracion_usuarios.sql`
+sigue pendiente de que el dueño la aplique (fila 11 de §3, sin cambio esta sesión)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (sección 8f, nueva);
+`herramientas/migraciones/resultadoPruebasRls.ts` (`avisoOmisiones`, nuevo);
+`herramientas/migraciones/resultadoPruebasRls.test.ts` (3 tests nuevos); `herramientas/probarRls.ts`
+(imprime el aviso); `roadmap/SEGUIMIENTO.md` (cabecera, §5); `roadmap/DECISIONES_TECNICAS.md` (cinco
+decisiones nuevas, P-06 ×3, P-07(a) ×1 — el recuento real es cuatro filas, ver el documento)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (942, antes 939: +3 de
+`resultadoPruebasRls.test.ts`) · build ✅
+**Health check post-deploy:** no aplica — ningún cambio de despliegue (SQL de prueba y CLI de
+desarrollo únicamente, nada en `src/ui/main.ts` ni en el bundle servido)
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-02, `P-06` ×3,
+`P-07(a)` ×1) — incluir `perfil` en el barrido de `anon` a diferencia del de `student`; esperar
+rechazo de privilegio en vez del patrón `v_n = 0`; aceptar los dos desenlaces posibles en
+`storage.objects`; no tocar el código de salida de `probar-rls`
+**Hallazgos del auditor atendidos:** ninguno (P-06/P-07 no vienen de un hallazgo del auditor, sino de
+un hallazgo propio del programador del 2026-08-31, ya registrado en su momento en §5)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna nueva registrada; se ejecutaron las dos que quedaban
+(`P-06`, el punto (a) de `P-07`), ambas pasadas a `RESUELTA` en §5. Con esto, §5 no tiene ninguna fila
+`PENDIENTE` ni `PARCIALMENTE IMPLEMENTADA` que quede sin atender
+**Próximo paso:** repetir la comprobación de §1 al empezar la siguiente sesión — si el dueño ya
+aplicó `009` (fila 11 de §3) y confirmó `npm run probar-rls` (con la sección 8f nueva incluida),
+desbloquear T-24 y evaluar si T-25 puede arrancar en lo que no exige sus bloqueos humanos; si `009`
+sigue sin aplicar, no queda ningún backlog `P-XX` pendiente en §5 — repasar `auditoriacontinua.md`
+por si hay una pasada nueva del auditor antes de declarar que no hay nada más que hacer
+
+---
+
 ### Sesión 2026-09-02 (backlog P-XX) — T-24 sigue BLOQUEADA por `009`; P-05/P-13/P-14/P-15 atendidas
 
 **Tarea(s):** ninguna T-XX/R-XX (cola vertebral bloqueada: T-24 espera la migración `009`, T-25

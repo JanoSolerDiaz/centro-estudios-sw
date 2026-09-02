@@ -531,7 +531,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `npm run migrate` da un `404`, es el primer sospechoso. Un fallo de SQL (`npm run migrate` o
     `npm run probar-rls`) imprime, además del mensaje genérico, el cuerpo real de la respuesta de la
     Management API (`formatearErrorCli`, `herramientas/migraciones/formatoErrorCli.ts`, P-05) — ahí
-    viene el mensaje real de Postgres, con `SQLSTATE`/`HINT`/`CONTEXT` si los trae.
+    viene el mensaje real de Postgres, con `SQLSTATE`/`HINT`/`CONTEXT` si los trae. `npm run
+    probar-rls` (`herramientas/probarRls.ts`, T-10) ejecuta `db/pruebas_rls.sql` contra el proyecto
+    de destino y resume el resultado con `resumirPruebasRls`/`avisoOmisiones`
+    (`herramientas/migraciones/resultadoPruebasRls.ts`, P-07): si alguna comprobación sale `OMITIDO`
+    (falta un fixture del entorno — un segundo profesor, un alumno de baja, el bucket de avatares
+    vacío) imprime un aviso aparte, siempre, aunque el veredicto final sea verde — no cuenta como
+    fallo, pero conviene leer el motivo de cada `[OMITIDO]` antes de dar la cobertura por buena.
   - `herramientas/seed.ts` (`npm run seed`, T-07) — semilla de desarrollo: crea los tres roles de
     usuario y datos ficticios de alumnos/centros/personas de referencia. Necesita
     `SUPABASE_SERVICE_ROLE_KEY_DEV` (mismo régimen que el access token: solo en `.env.local` del

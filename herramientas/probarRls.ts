@@ -14,7 +14,7 @@ import { cargarEnvLocal } from './cargarEnvLocal.ts';
 import { crearClienteManagementApi } from './migraciones/clienteManagementApi.ts';
 import { analizarArgv, resolverCredenciales } from './migraciones/entorno.ts';
 import { formatearErrorCli } from './migraciones/formatoErrorCli.ts';
-import { resumirPruebasRls, type FilaResultadoRls } from './migraciones/resultadoPruebasRls.ts';
+import { avisoOmisiones, resumirPruebasRls, type FilaResultadoRls } from './migraciones/resultadoPruebasRls.ts';
 
 const RUTA_PRUEBAS = fileURLToPath(new URL('../db/pruebas_rls.sql', import.meta.url));
 
@@ -48,6 +48,13 @@ async function main(): Promise<void> {
     `probar-rls: ${String(resumen.total)} comprobación(es), ${String(resumen.omitidas)} omitida(s), ` +
       `${String(resumen.fallidas.length)} fallida(s).`,
   );
+
+  // P-07(a): un aviso aparte, no mezclado en la línea de recuento de arriba ni silenciado por un
+  // veredicto en verde — un resumen sin fallos con casos omitidos no demuestra la cobertura completa.
+  const aviso = avisoOmisiones(resumen);
+  if (aviso) {
+    console.warn(`probar-rls: AVISO — ${aviso}`);
+  }
 
   if (resumen.huboFallo) {
     console.error('probar-rls: hay al menos un acceso prohibido que tuvo éxito, o uno permitido que falló. Revisa el detalle de arriba.');

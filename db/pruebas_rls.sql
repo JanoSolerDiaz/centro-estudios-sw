@@ -1732,6 +1732,55 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8f. Barrido obligatorio de anon (P-06): la única superficie que viaja
+--     SIN autenticar, con la clave anónima del propio paquete del
+--     navegador — a diferencia del barrido de la sección 6 (`student`,
+--     ya autenticado pero sin acceso), este es quien un atacante tiene
+--     sin necesitar ninguna cuenta. Ninguna tabla de `public` concede
+--     privilegio alguno a `anon` (`revoke all ... from anon` en cada
+--     migración desde `001_esquema_inicial`), así que se espera un
+--     rechazo de PRIVILEGIO («permission denied»), no de RLS: la fila
+--     nunca llega a evaluarse porque el GRANT falta antes de que exista
+--     ninguna política que mirar. `storage.objects` es la excepción: al
+--     no haber ningún `revoke` propio sobre ese esquema, puede conservar
+--     el GRANT por defecto de Supabase (ahí es RLS quien filtra, no el
+--     GRANT, igual que ya ejercita la sección 7 para `teacher`) — se
+--     acepta cualquiera de los dos desenlaces, error o 0 filas, sin
+--     asumir cuál aplica en este entorno.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_tabla text;
+  v_n     integer;
+begin
+  perform pg_temp.impersonar_anon();
+
+  foreach v_tabla in array array[
+    'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
+    'evento_error', 'limite_tasa', 'perfil'
+  ]
+  loop
+    begin
+      execute format('select count(*) from public.%I', v_tabla) into v_n;
+      perform pg_temp.registrar(format('anon SELECT %s (debe fallar)', v_tabla), 'prohibido', v_n = 0);
+    exception when others then
+      perform pg_temp.registrar_prohibido(format('anon SELECT %s (debe fallar)', v_tabla), array['%row-level security%', '%permission denied%'], sqlerrm);
+    end;
+  end loop;
+
+  begin
+    select count(*) into v_n from storage.objects where bucket_id = 'avatares';
+    perform pg_temp.registrar('anon SELECT storage.objects / avatares (debe fallar)', 'prohibido', v_n = 0);
+  exception when others then
+    perform pg_temp.registrar_prohibido('anon SELECT storage.objects / avatares (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

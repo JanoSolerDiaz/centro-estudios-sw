@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resumirPruebasRls, type FilaResultadoRls } from './resultadoPruebasRls.ts';
+import { avisoOmisiones, resumirPruebasRls, type FilaResultadoRls } from './resultadoPruebasRls.ts';
 
 function fila(parcial: Partial<FilaResultadoRls>): FilaResultadoRls {
   return { celda: 'celda', esperado: 'permitido', ok: true, detalle: null, ...parcial };
@@ -50,4 +50,29 @@ void test('cuenta omitidas y fallidas por separado en el mismo resumen', () => {
   assert.equal(resumen.omitidas, 1);
   assert.equal(resumen.fallidas.length, 1);
   assert.equal(resumen.huboFallo, true);
+});
+
+void test('avisoOmisiones: sin ninguna omisión, no hay nada que avisar', () => {
+  const resumen = resumirPruebasRls([fila({ celda: 'a', ok: true }), fila({ celda: 'b', esperado: 'prohibido', ok: true })]);
+  assert.equal(avisoOmisiones(resumen), null);
+});
+
+void test('avisoOmisiones: con omisiones, nombra cuántas de cuántas se ejecutaron', () => {
+  const resumen = resumirPruebasRls([
+    fila({ celda: 'a', esperado: 'OMITIDO', ok: true }),
+    fila({ celda: 'b', esperado: 'OMITIDO', ok: true }),
+    fila({ celda: 'c', esperado: 'permitido', ok: true }),
+  ]);
+  const aviso = avisoOmisiones(resumen);
+  assert.match(aviso ?? '', /2 de 3/);
+  assert.match(aviso ?? '', /solo se ejecutaron 1/);
+});
+
+void test('avisoOmisiones: se avisa igual aunque además haya fallos (huboFallo no lo silencia)', () => {
+  const resumen = resumirPruebasRls([
+    fila({ celda: 'a', esperado: 'OMITIDO', ok: true }),
+    fila({ celda: 'b', esperado: 'prohibido', ok: false }),
+  ]);
+  assert.equal(resumen.huboFallo, true);
+  assert.match(avisoOmisiones(resumen) ?? '', /1 de 2/);
 });
