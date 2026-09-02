@@ -1260,6 +1260,7 @@ declare
   v_slot_b_id        uuid;
   v_slot_ajeno_id    uuid;
   v_n_historial      integer;
+  v_error_alumno_b   text;
 begin
   select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
   select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
@@ -1406,18 +1407,24 @@ begin
 
   -- Cambiar el alumno (requisito 4, "se tocó al equivocado"): un segundo alumno activo de prueba,
   -- creado aquí mismo por administrator (mismo patrón que alumno_inactivo de la sección 7).
+  -- El centro se lee por `alumno_ficha`, NUNCA por la tabla base: el GRANT por columna de la
+  -- sección (a) de `003` concede a `authenticated` solo las columnas de identificación, y
+  -- `centro_referencia_id` no está entre ellas — leerla de `public.alumno` aquí daba "permission
+  -- denied" incluso siendo administrator (la RLS filtra filas, el GRANT filtra columnas y se
+  -- aplica a los dos roles por igual). La vista sí la expone, y solo a administrator.
   perform pg_temp.impersonar('administrator');
   begin
     insert into public.alumno (nombre, primer_apellido, centro_referencia_id, activo)
-      values ('PruebaCambioAlumno', 'RLS', (select centro_referencia_id from public.alumno where id = v_alumno_id), true)
+      values ('PruebaCambioAlumno', 'RLS', (select centro_referencia_id from public.alumno_ficha where id = v_alumno_id), true)
       returning id into v_alumno_b;
   exception when others then
     v_alumno_b := null;
+    v_error_alumno_b := sqlerrm;
   end;
   perform pg_temp.dejar_de_impersonar();
 
   if v_alumno_b is null then
-    perform pg_temp.omitir('actualizar_asistencia / cambiar alumno', 'no se pudo crear el segundo alumno de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / cambiar alumno', 'no se pudo crear el segundo alumno de prueba: ' || coalesce(v_error_alumno_b, 'sin error de SQL'));
   else
     perform pg_temp.impersonar('teacher');
     begin
