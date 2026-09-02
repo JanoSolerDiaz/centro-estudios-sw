@@ -59,6 +59,180 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-09-02
+
+**Alcance real de esta pasada — el segundo lote más grande auditado hasta hoy: 10 commits, T-18
+cerrada de verdad (aplicada y verificada en ejecución) y T-19, T-22, T-23 completas; T-20 y T-21
+con código y tests completos pero correctamente `BLOQUEADA` a la espera de que el dueño aplique
+`007`/`008`.** `git log d89c479..HEAD` (`d89c479` es el commit de la auditoría anterior) muestra
+diez commits nuevos: el arreglo de `aplicar_limite_tasa` (migración `006`), **P-11** (finales de
+línea clavados al hash del ledger), **P-12/P-10** (la batería de RLS no podía consumir la fila
+devuelta por `registrar_asistencia`, y aprobaba rechazos sin mirar el motivo), **T-18 COMPLETADA**
+(`probar-rls` en verde, 67/0/0), **T-19** (pasar lista), **T-20** (alumno extra, RPC
+`buscar_alumnos_activos`), **T-21** (revisar/modificar registros, RPC `actualizar_asistencia`),
+**T-22** (mi horario del profesor), **T-23** (histórico y exportación CSV), y el octavo ciclo de
+PM (hallazgos #5/#6/#7 pasados a backlog como P-13/P-14/P-15). Es la primera vez que el proyecto
+tiene producto real de punta a punta también para `teacher`, no solo para `administrator`: pasar
+lista, mi horario, revisión de registros e histórico ya tienen pantalla montada y enrutada.
+
+**Metodología.** `git checkout develop && git pull` limpio, sin nada por delante ni por detrás.
+Verificación directa en vivo de los cuatro comandos de §0.1 — `npm ci` (130 paquetes, 0
+vulnerabilidades), `npm run typecheck`, `npm run lint`, `npm run build`, los cuatro en verde — y
+`npm test`: **891 tests, 891 pass, 0 fail** (antes 599, +292 desde la pasada anterior, coherente
+con el volumen de T-18 a T-23). Confirmados contra la API de GitHub Actions los 48 runs de CI en
+`develop`, **todos `completed`/`success`**, incluido el del commit actual (`95f5b0d`). `git status`
+limpio antes y después. Barrido de secretos sobre `dist/` recién construido (`grep -rniE` de
+`service_role`/`SUPABASE_ACCESS_TOKEN`/JWT/contraseñas en claro): cero coincidencias reales; ningún
+`.env*`/`config.js` trackeado. `git log d89c479..HEAD -- roadmap/HOJA_DE_RUTA.md` vacío: sin
+ninguna edición del dueño en esta pasada. `package.json` sigue con `dependencies` vacío y el mismo
+`devDependencies` de siempre — sin framework, sin SDK de Supabase.
+
+Dado el volumen, se delegó la verificación en dos subagentes de solo lectura en paralelo, cada uno
+con instrucción explícita de citar fichero y línea y no fabricar hallazgos: uno para las dos RPC
+nuevas más sensibles (`buscar_alumnos_activos` de T-20, `actualizar_asistencia` de T-21 — la
+primera vía real de EDICIÓN de un registro de asistencia ya existente) y las secciones nuevas de
+`db/pruebas_rls.sql` que las ejercitan; otro para la superficie de exposición de avatar y datos
+personales en las cinco pantallas nuevas de `teacher` (pasar lista, buscador de alumno extra, mi
+horario, registros por slot, histórico con exportación CSV). El propio auditor leyó directamente
+`db/APLICADAS.md`, `roadmap/SEGUIMIENTO.md` (§1, §3, §5, §6, §7 completas), el diff íntegro de
+`roadmap/DECISIONES_TECNICAS.md` contra la pasada anterior, `herramientas/migraciones/
+pruebasRlsEstatico.test.ts` completo, y la sección 8d de `db/pruebas_rls.sql` (aislamiento de
+lectura de `asistencia` entre profesores) — sin depender por completo de los subagentes en las
+piezas de mayor riesgo, y contrastó sus informes contra el código antes de darlos por buenos.
+
+**Punto de control: escritura solo por RPC, ahora con EDICIÓN real — sin hallazgo, el más
+importante de esta pasada.** `actualizar_asistencia` (`db/008_rpc_actualizar_asistencia.sql`) es la
+primera vía de modificación de un registro ya existente, y reproduce exactamente el patrón de
+seguridad de `registrar_asistencia`: `SECURITY DEFINER` (línea 92), `revoke all ... from public` +
+`grant execute ... to authenticated` (líneas 225-226), comprobación de rol que rechaza `student`
+ANTES de tocar ninguna fila (líneas 116-130), y ningún parámetro para `registrado_en`,
+`profesor_id` ni `peticion_id` — no están en la firma de la función ni en el `SET` del `UPDATE`
+(confirmado por el subagente con cita de línea y por el propio `rpcActualizarAsistencia.test.ts`).
+El trigger `AFTER UPDATE` de `asistencia_historial` (`001_esquema_inicial.sql`) sigue aplicándose
+sin ningún `disable trigger` ni `session_replication_role` de por medio, verificado también en
+`db/pruebas_rls.sql:1337-1361` (dos ediciones reales producen dos filas de historial con los
+valores previos correctos).
+
+**Punto de control: pertenencia en la edición e inmutabilidad — sin hallazgo, ya no es solo
+preparación de cliente, es SQL real.** `administrator` edita cualquier registro sin restricción
+(`null` en la comprobación de propiedad, línea 117); `teacher` solo lo suyo
+(`v_actual.profesor_id = auth.uid()`, líneas 118-122) y solo dentro de la ventana de 7 días,
+contada desde `registrado_en` — nunca desde `ocurrido_en`, decisión documentada explícitamente en
+`DECISIONES_TECNICAS.md` para no permitir editar indefinidamente un registro retroactivo antiguo.
+`db/pruebas_rls.sql` sección 8c prueba los dos lados: `teacher2` rechazado sobre un registro ajeno
+(líneas 1363-1375), fuera de ventana rechazado para `teacher` (líneas 1514-1536, con un `INSERT`
+directo fuera de rol de aplicación para fabricar un registro "de hace 10 días" — el único de todo
+el fichero, documentado como atajo de arnés de pruebas y no un camino real de la aplicación) y
+`administrator` sin límite de ventana ni de propiedad (líneas 1377-1391, 1538-1550). `actualizado_en`/
+`actualizado_por` los sigue fijando el propio trigger `BEFORE UPDATE`, no la RPC — la función lo
+documenta así en su propio comentario.
+
+**Punto de control: rol `student` cerrado, RLS completa, aislamiento entre profesores — sin
+hallazgo, con una superficie nueva verificada: aislamiento de LECTURA directa de `asistencia`.**
+La sección 8d nueva de `db/pruebas_rls.sql` (leída completa por este auditor, líneas 1568-1601)
+no se limita a comprobar que `teacher2` no puede LLAMAR a `actualizar_asistencia` sobre un registro
+ajeno (eso ya lo cubre 8c, y es el rechazo de la RPC): comprueba la política `SELECT`
+(`asistencia_teacher_leer_propias`) en sí misma, con una consulta DIRECTA a la tabla — ni por `id`
+(la fila no existe para `teacher2` según su RLS) ni filtrando explícitamente por el `profesor_id`
+del otro profesor (para descartar que "no aparezca por casualidad" al no filtrar). Son dos
+superficies de ataque distintas y las dos están cerradas.
+
+**Punto de control: avatar solo donde toca — sin hallazgo, primera vez con consumidor real.** La
+card de `pasar lista` (T-19) pinta el avatar con `obtenerUrlsAvataresMini` → URL firmada de 600
+segundos de validez (nunca persistida), acotada a los alumnos de los slots del propio profesor
+(`.eq('profesor_id', profesorId)`); el buscador de "alumno extra" (T-20) nunca lo muestra — ni el
+tipo `ResultadoBusquedaAlumno` lo tiene, ni la RPC `buscar_alumnos_activos` lo devuelve (su propio
+comentario de cabecera dice explícitamente "nunca `avatar_ruta`", verificado contra el `select` real
+de la función, líneas 81-85 de `db/007_rpc_buscar_alumnos.sql`).
+
+**Punto de control: superficie de columnas del teacher — sin hallazgo, protegida por `GRANT` real,
+no solo por el cliente.** Ninguna de las funciones que las cinco pantallas nuevas de `teacher`
+pueden disparar consulta la tabla base `alumno` pidiendo `email_alumno`/`telefono_alumno`: el
+`GRANT` de columna de `003_politicas_rls.sql:107-109` sigue sin incluirlas para `authenticated`, y
+la única función que sí las lee (`resolverContactoAlumnos`, nueva de T-23) lo hace contra
+`alumno_ficha` — la vista que filtra con `es_administrator()` —, nunca contra la tabla base.
+
+**Punto de control nuevo de esta pasada: exportación CSV con datos de contacto (T-23) — sin
+hallazgo, doble barrera.** `puedeExportarConDatosDeContacto` es estrictamente `administrator`
+(`permisosUi.ts:88-90`); en el cliente, la llamada a `resolverContactoAlumnos` exige el permiso Y
+la casilla marcada explícitamente (ambos `false` por defecto), y para `teacher` la propia
+dependencia ni siquiera se inyecta al montar la aplicación (`aplicacion.ts`, con comentario
+explícito). Y si un `teacher` manipulara el cliente para forzar la llamada de todas formas, el
+`GRANT`/vista del punto de control anterior seguiría devolviendo cero filas: no depende solo del
+cliente, que es manipulable por definición.
+
+**Punto de control: datos de personas de referencia y alcance de datos personales — sin hallazgo.**
+Ninguna de las cinco pantallas nuevas (T-19 a T-23) toca `persona_referencia` en ningún punto —
+sigue exclusiva de `administrator`. Los tipos nuevos (`Asistencia`/`AsistenciaHistorial`,
+`tipos.ts:107-149`) solo añaden metadatos de asistencia (ids, timestamps, `origen`, `estado`,
+`motivo_anulacion`, `nota` libre, `peticion_id`) — ningún campo de salud, bancario ni de categoría
+especial del artículo 9, y `nota`/`motivo_anulacion` ya eran texto libre desde el diseño de T-18/T-21,
+no una novedad de esta pasada.
+
+**Calidad real de los tests de las dos RPC nuevas — documentada con honestidad, sin sobreventa.**
+`herramientas/migraciones/rpcActualizarAsistencia.test.ts` y `rpcBuscarAlumnos.test.ts` son
+puramente estáticos (analizan el texto del `.sql`, no ejecutan nada contra una base de datos real)
+y lo dicen en su propia cabecera: no sustituyen al barrido en vivo que hará el dueño con
+`npm run migrate` + `npm run probar-rls`, solo atrapan en el momento de escribir el SQL la misma
+clase de descuido que ya causó el incidente de `000b_arreglo_permisos.sql`. `SEGUIMIENTO.md` refleja
+el mismo estado sin adornarlo: T-20/T-21 figuran `BLOQUEADA — pendiente aplicar migración`, filas 9
+y 10 de §3 `PENDIENTE`. Aparte, `herramientas/migraciones/pruebasRlsEstatico.test.ts` (nuevo, leído
+completo por este auditor) es sustancial: impide que reaparezca el patrón perezoso
+`'prohibido', true, sqlerrm` (la causa exacta de P-10) en cualquiera de los `pg_temp.registrar_prohibido`
+del fichero, exige que la fila devuelta por `registrar_asistencia`/`actualizar_asistencia` se expanda
+con `select * into ... from f(...)` (la causa exacta de P-12) y comprueba que los delimitadores `$$`
+de plpgsql siguen emparejados — las tres formas concretas en que la batería ya se rompió una vez,
+convertidas en guarda automática. Confirmado con `grep` sobre las secciones 8b/8c/8d que ningún caso
+"debe fallar" usa el patrón perezoso: todos pasan por `registrar_prohibido` con su array de patrones
+concretos.
+
+**Coherencia entre lo decidido y lo ejecutado — sin hallazgo de fondo.** El diff completo de
+`roadmap/DECISIONES_TECNICAS.md` contra la pasada anterior (54 filas nuevas) se contrastó contra el
+SQL/código real en los puntos de mayor riesgo (patrón `SET` cualificado del upsert de límite de
+tasa, tri-estado de la nota en `actualizar_asistencia`, ventana contada desde `registrado_en`,
+resolución en lote de nombres sin embed anidado de PostgREST) y coincide en todos los casos.
+`roadmap/SEGUIMIENTO.md` §7 registra correctamente las desviaciones reales del lote (T-20
+necesitando migración pese a `Migración: No` en su spec original, la renumeración `007`/`008`, T-23
+ejecutada pese a declarar dependencia de producto — no técnica — con la `BLOQUEADA` T-21, criterio
+verificado por el auditor: T-23 solo necesita `SELECT`, ya concedido desde T-10, y ninguna de sus
+consultas depende de la migración `008`). El octavo ciclo de PM (`95f5b0d`) hizo además una
+comprobación cruzada real, no cosmética: al revisar T-19 contra R-01 (marcar ausente con "el mismo
+toque de la card"), detectó que la card de T-19 ya es un `<button>` cuyo único toque registra la
+entrada — sin gesto libre para una segunda acción — y dejó la precisión exacta en la spec de R-01
+(`ROADMAP_PRODUCTO.md`) para que la sesión que la implemente no choque con ese diseño a mitad de
+camino. Es exactamente el tipo de desajuste entre decisiones tomadas en momentos distintos que este
+documento pide vigilar, y lo encontró el propio proceso del proyecto, no este auditor.
+
+**Reevaluación de los hallazgos abiertos (#5, #6, #7) — sin cambio, correctamente en backlog.**
+Los tres siguen presentes en el código, byte a byte igual que en la pasada anterior:
+`db/MODELO.md:346` sigue diciendo "falta únicamente el punto de montaje real en una pantalla
+(T-16)" pese a que T-16 está completa desde hace días; la narrativa de `SEGUIMIENTO.md` (líneas 432
+y 438) sigue intercambiando los números #12/#13 frente a la tabla de §6, que es la correcta, y
+`DECISIONES_TECNICAS.md:147` repite el mismo intercambio; `columnasVisiblesFichaAlumno`
+(`permisosUi.ts:97`) sigue sin ningún consumidor real fuera de su propio test (`grep -rn` solo
+devuelve su definición y `permisosUi.test.ts`). Ninguna sesión de programador los ha tocado
+todavía — correcto, no se marcan `RESUELTO` por confianza en que el octavo ciclo de PM los
+convirtiera en **P-13/P-14/P-15**: esa conversión es trazabilidad de backlog, no una corrección de
+código, y las tres entradas de §5 de `SEGUIMIENTO.md` siguen `PENDIENTE` sin urgencia, consistente
+con lo que el código muestra.
+
+**Conclusión.** Segundo lote más grande auditado hasta hoy, y el primero con producto real también
+para `teacher` (no solo `administrator`): sale limpio de fondo. La pieza de mayor riesgo posible —
+la primera RPC que EDITA un registro de asistencia ya existente — reproduce con fidelidad el patrón
+de seguridad ya validado de `registrar_asistencia`, con su pertenencia, su ventana y su
+inmutabilidad probadas en SQL estático y en la batería en vivo (código listo, sin desplegar
+todavía: `007`/`008` siguen `PENDIENTE` de que el dueño las aplique, filas 9-10 de §3). El avatar de
+menores sigue exactamente donde debe estar y en ningún sitio más, con su primera pantalla de
+consumo real (pasar lista) verificada punto por punto; la superficie de contacto del `teacher` sigue
+cerrada por un `GRANT` de base de datos, no por disciplina de interfaz, incluso frente al riesgo
+nuevo de la exportación CSV. Los tres hallazgos de higiene que quedaban abiertos (#5, #6, #7) siguen
+sin corregir pero correctamente trazados como backlog sin urgencia — ninguno ha escalado ni se ha
+duplicado. La próxima auditoría con sustancia real de seguridad llega en cuanto el dueño aplique
+`007`/`008` y se ejecute `npm run probar-rls` (secciones 8b/8c/8d, con sus casos ya escritos y
+revisados en SQL estático), momento en el que T-20/T-21 dejarán de ser "código listo" para pasar a
+ser "vía de escritura y edición real" — o con T-24 (administración de usuarios y roles), la primera
+tarea que toca directamente la gestión de altas y roles de la aplicación.
+
 ### Auditoría 2026-09-01
 
 **Alcance real de esta pasada — el lote más grande auditado hasta hoy: 14 commits, T-10 verificada de
