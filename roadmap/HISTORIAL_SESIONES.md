@@ -37,6 +37,43 @@
 
 ---
 
+### Sesión 2026-09-02 (rutina de producto) — noveno ciclo del PM
+
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **noveno ciclo del PM: ninguna R-XX nueva,
+ninguna entrada de backlog nueva, sin cambios de estado de T-XX/R-XX. Único contenido real: corregir
+una colisión de numeración de migraciones prospectivas.**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: noveno ciclo del PM — renumeración de
+migraciones prospectivas de R-01/R-02/R-03/R-06/R-12, sin R-XX nueva)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `009_administracion_usuarios.sql`
+sigue pendiente de que el dueño la aplique, fila 11 de §3, sin cambio esta sesión)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada; migración
+renumerada en R-01, R-02, R-03, R-06 y R-12), `roadmap/SEGUIMIENTO.md` (cabecera y notas de esas
+cinco filas en §1), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — es una corrección de numeración
+prospectiva sobre specs de R-XX todavía sin implementar (no una desviación de una tarea ya
+ejecutada, que es lo que registraría §7 de `SEGUIMIENTO.md`), no una decisión de arquitectura
+**Hallazgos del auditor atendidos:** ninguno nuevo — la pasada del auditor del 2026-09-02 no registró
+ningún hallazgo nuevo; los tres `ABIERTO` de higiene (#5, #6, #7) siguen resueltos en código desde el
+ciclo anterior (P-13/P-14/P-15), a la espera de que el propio auditor los cierre en su documento
+**Hallazgos:** los números de migración reservados en las specs de R-01 (`006`), R-02 (`007`), R-03
+(`008`), R-06 (`009`) y R-12 (`010`) ya los había consumido de verdad el desarrollo real de
+T-18/T-20/T-21/T-24 desde el octavo ciclo del PM (`006_arreglo_limite_tasa_ambiguo.sql` a
+`009_administracion_usuarios.sql`, ver `db/APLICADAS.md`) — sin corregirlo, la primera sesión que
+implemente R-01 habría chocado con un fichero de migración ya aplicado y con hash ya registrado en
+el ledger. Renumeradas a `010`-`014`, los cinco siguientes números realmente libres, en el mismo
+orden relativo. Revisadas las doce R-XX contra el avance de T-24 (única tarea nueva desde el octavo
+ciclo): ninguna depende de ella, sin más cambios que hacer
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** en cuanto el dueño aplique `009_administracion_usuarios.sql` y confirme la fila 11
+de §3, T-24 pasa a `COMPLETADA` y queda por evaluar si T-25 puede arrancar. La oleada v1 (R-01 en
+cabeza) sigue esperando a que el MVP completo esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`.
+
+---
+
 ### Sesión 2026-09-02 (verificación) — sin tarea vertebral desbloqueada, sin P-XX pendiente
 
 **Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25

@@ -8,44 +8,37 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-01 — octavo ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
-reales (fila plantilla vacía, sin cambios desde el ciclo anterior): nada que convertir.
+**Última actualización:** 2026-09-02 — noveno ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
+reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` no registra ningún hallazgo
+nuevo desde el octavo ciclo — su pasada del 2026-09-02 confirma T-19/T-22/T-23 completas y T-20/T-21
+con código listo pero `BLOQUEADA`, sin hallazgo nuevo de producto ni de arquitectura; los tres
+`ABIERTO` de higiene (#5, #6, #7) siguen exactamente donde los dejó el octavo ciclo, ya resueltos en
+código por P-13/P-14/P-15 (`SEGUIMIENTO.md` §5), a la espera solo de que el propio auditor los
+cierre en su documento — no genera trabajo nuevo de este ciclo.
 
-`auditoriacontinua.md` registra tres hallazgos nuevos desde la pasada anterior, los tres de
-severidad baja y de higiene (documental o de código), ninguno de producto ni de arquitectura: #5
-(nota residual en `db/MODELO.md:296` sobre el punto de montaje del avatar, ya resuelto por T-16),
-#6 (numeración cruzada de las preguntas #12/#13 de §6 entre la tabla y la narrativa) y #7
-(`columnasVisiblesFichaAlumno` sin ningún consumidor real). Los tres pasan a backlog técnico como
-**P-13, P-14 y P-15** de §5 de `SEGUIMIENTO.md`, cada uno con su `origen: hallazgo #N`, `PENDIENTE`
-sin urgencia — no son mejora de producto (no generan R-XX) ni bug de seguridad (no son P-XX
-urgente): es exactamente el mismo tratamiento que ya recibieron los hallazgos #3/#4 como P-02/P-03.
-Los hallazgos #1 a #4 siguen `RESUELTO`, sin cambio.
+**Desarrollo real desde la última revisión: T-24 (código y tests completos, `BLOQUEADA` — pendiente
+aplicar la migración `009`) y backlog documental/de diagnóstico (P-05 a P-15, todas `RESUELTA`).**
+Ninguna R-XX ha entrado en desarrollo: v1 sigue sin arrancar, a la espera de que el MVP completo
+(T-00 a T-25) esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN` — hoy quedan T-20, T-21 y T-24
+`BLOQUEADA` (pendientes de que el dueño aplique `007`/`008`/`009`) y T-25 sin poder arrancar. Nada
+que mover a `ROADMAP_HISTORICO.md` esta vez.
 
-**Desarrollo real desde la última revisión: T-18 a T-23.** T-18 (alta de asistencia) quedó aplicada
-y verificada en ejecución; T-19 (pasar lista) y T-22 (mi horario del profesor) y T-23 (histórico y
-exportación) `COMPLETADA`; T-20 (alumno extra) y T-21 (revisar y modificar registros) tienen su
-código y tests completos pero siguen `BLOQUEADA` a la espera de que el dueño aplique las migraciones
-`007`/`008` (§3 de `SEGUIMIENTO.md`). Revisadas las doce R-XX de las oleadas v1 y v2 contra ese
-avance — en particular contra las decisiones que fijaron T-19 (una card es un `<button>` con un
-único toque para registrar, sin gesto ya reservado para otra acción), T-20 (RPC dedicada
-`buscar_alumnos_activos`, nunca avatar en el buscador), T-21 (`actualizar_asistencia` con cinco
-acciones combinables — cambiar alumno, hora, slot, anular, nota — y ventana de edición contada desde
-`registrado_en`) y T-23 (utilidad genérica de CSV en `nucleo/csv.ts`, separador `;`/BOM/CRLF,
-resolución de nombres en lote por id) — sin encontrar ninguna inconsistencia: las dependencias que
-cada R-XX ya declaraba siguen siendo las correctas, y ninguna decisión de este tramo contradice ni
-estrecha el alcance de R-01 (que ahora sabe que "el mismo toque de la card" que propone su requisito
-1 no puede ser un toque simple igual al de registrar entrada, ya reservado por T-19: la
-implementación de R-01 deberá usar un control distinguible — p. ej. mantener pulsada la card o un
-control secundario visible — decisión de UI concreta que le corresponde a esa sesión, no una
-reescritura de este requisito) ni de R-03/R-04/R-10/R-23, que son las que más de cerca reutilizan la
-infraestructura de T-21/T-23. **No se añade ninguna R-XX nueva en este ciclo:** el hueco real entre
-el MVP y el objetivo de producto lo siguen cubriendo las doce R-XX ya especificadas, y el avance de
-esta semana es progreso hacia las dependencias que ya tenían anotadas (T-21 en particular desbloquea,
-en cuanto se aplique la migración `008`, el trabajo de R-01/R-02/R-03), no una señal de que falte
-algo nuevo por especificar. Ninguna oleada está 100% desplegada todavía (v1 ni siquiera ha arrancado:
-espera a que el MVP T-00–T-25 esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN, ver §1 de
-`SEGUIMIENTO.md`; quedan T-20, T-21, T-24 y T-25), así que no hay nada que mover a
-`ROADMAP_HISTORICO.md` esta vez.
+**Corrección de este ciclo, la única con contenido real: los números de migración reservados para
+R-01/R-02/R-03/R-06/R-12 (`006` a `010`) ya no están libres.** Cuando se escribieron esas cinco
+specs, `006`-`010` eran los siguientes números disponibles; desde entonces T-18 (arreglo de
+`aplicar_limite_tasa`), T-20, T-21 y T-24 los han consumido de verdad (`006_arreglo_limite_tasa_ambiguo.sql`
+a `009_administracion_usuarios.sql`, ver `db/APLICADAS.md`). Si esas cinco specs no se corrigen
+antes de que alguien implemente R-01, la primera sesión que llegue a escribir
+`006_registro_ausencias.sql` choca con un fichero ya aplicado y con un hash ya registrado en el
+ledger. Renumeradas a los cinco siguientes números realmente libres, en el mismo orden relativo en
+que ya aparecían: R-01 `006`→**`010`**, R-02 `007`→**`011`**, R-03 `008`→**`012`**, R-06
+`009`→**`013`**, R-12 `010`→**`014`**. Es una corrección de numeración prospectiva sobre specs
+todavía sin implementar, no una desviación de una tarea ya ejecutada: no genera fila en §7 de
+`SEGUIMIENTO.md` (eso es para renumeraciones reales durante la implementación, como ya le pasó a
+T-18/T-20), solo actualiza esta spec y la nota informativa de §1 de `SEGUIMIENTO.md`. Revisado el
+resto de las doce R-XX contra el avance de T-24: ninguna depende de esa tarea, sin más cambios.
+**No se añade ninguna R-XX nueva en este ciclo:** las doce ya especificadas siguen cubriendo el
+hueco real entre el MVP y el objetivo de producto.
 
 ---
 
@@ -162,7 +155,7 @@ alternativa actual. Nada de esto añade datos personales nuevos ni toca al rol `
 ---
 
 ### R-01 — Registro explícito de ausencias
-**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`006_registro_ausencias`) · **Depende de:** T-21
+**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`010_registro_ausencias`) · **Depende de:** T-21
 **Origen:** roadmap
 
 **Objetivo:** que "no hay fila" deje de ser la única forma de decir que un alumno faltó. Hoy el
@@ -200,7 +193,7 @@ una entrada, con motivo obligatorio.
 ---
 
 ### R-02 — Justificación de una ausencia
-**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`007_justificacion_ausencia`) · **Depende de:** R-01, T-13
+**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`011_justificacion_ausencia`) · **Depende de:** R-01, T-13
 **Origen:** roadmap
 
 **Objetivo:** que una ausencia registrada se pueda marcar como justificada —motivo y quién la
@@ -228,7 +221,7 @@ para `teacher` y aceptado para `administrator`.
 ---
 
 ### R-03 — Registro de salida y cómputo de horas reales
-**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`008_registro_salida`) · **Depende de:** T-18, T-21
+**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`012_registro_salida`) · **Depende de:** T-18, T-21
 **Origen:** roadmap
 
 **Objetivo:** la hora teórica del slot no es la hora real de la clase —a veces se alarga, a veces
@@ -256,7 +249,7 @@ calculada de un registro pasado.
 ---
 
 ### R-12 — Calendario de cierres del centro (festivos y vacaciones)
-**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`010_calendario_cierres`) · **Depende de:** T-15
+**Oleada / Fase:** v1 / F-01 · **Migración:** Sí (`014_calendario_cierres`) · **Depende de:** T-15
 **Origen:** roadmap
 
 **Objetivo:** que un periodo en el que el centro no da clase (Navidad, Semana Santa, un puente,
@@ -363,7 +356,7 @@ reservada al dueño (pregunta abierta en §6 de `SEGUIMIENTO.md`).
 ---
 
 ### R-06 — Sustitución puntual de profesor en un slot
-**Oleada / Fase:** v1 / F-03 · **Migración:** Sí (`009_sustitucion_profesor`) · **Depende de:** T-15, T-17, T-18
+**Oleada / Fase:** v1 / F-03 · **Migración:** Sí (`013_sustitucion_profesor`) · **Depende de:** T-15, T-17, T-18
 **Origen:** roadmap
 
 **Objetivo:** un profesor falta un día y otro cubre su clase — hoy eso obligaría a tocar el

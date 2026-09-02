@@ -10,29 +10,31 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-02 (sesión de verificación, sin tarea vertebral desbloqueada, sin
-`P-XX` pendiente) — comprobado de nuevo el estado de partida: `009_administracion_usuarios.sql` sigue
-**sin aplicar** (fila 11 de §3, sin cambio), así que T-24 sigue `BLOQUEADA`, T-25 sigue sin poder
-arrancar (depende de T-24) y las R-XX siguen esperando al MVP `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`
-(decisión de producto explícita en `ROADMAP_PRODUCTO.md`, no solo dependencia técnica: R-01 depende
-en teoría solo de T-21, ya `COMPLETADA`, pero la oleada v1 completa "arranca cuando el MVP T-00 a T-25
-esté... en producción") — ninguna tarea de la columna vertebral desbloqueada, igual que en las dos
-sesiones anteriores. Revisado `auditoriacontinua.md`: ningún hallazgo `ABIERTO` de severidad alta;
-los tres de severidad baja que quedan en su registro (#5, #6, #7) ya están resueltos en el código
-desde la sesión anterior (`P-13`/`P-14`/`P-15`), pendientes solo de que el propio auditor los cierre
-en su próxima pasada — no es el programador quien edita ese documento. Revisado §5 completo: **las
-quince `P-XX` (`P-01` a `P-15`) están `RESUELTA`**, ninguna `PENDIENTE` ni `PARCIALMENTE
-IMPLEMENTADA` que atender esta vez. Con la cola vertebral bloqueada y el backlog agotado, esta sesión
-no tenía ningún trabajo legítimo de código que aportar: se limitó a repetir la verificación pre-push
-completa para confirmar que el estado sigue siendo exactamente el que dejó la sesión anterior, sin
-ningún commit de programador entre medias — `npm ci` limpio, `typecheck`/`lint`/`build` en verde y
-`npm test`: **942 tests, 942 pass, 0 fail**, la misma cifra exacta que la sesión de `P-06`/`P-07(a)`.
-`git status` limpio antes y después, sin nada que empujar a `develop` desde el código o `db/`. Se
-sigue el mismo criterio de disciplina que las pasadas "cero consecutivo" del auditor
-(2026-08-30/2026-08-31): no se fabrica ninguna R-XX ni P-XX para justificar el ciclo cuando no hay
-ninguna legítima que proponer.
+**Última actualización:** 2026-09-02 (noveno ciclo del PM) — sin tarea vertebral desbloqueada ni
+`P-XX`/`R-XX` nueva; el único cambio real de este ciclo es una corrección de numeración prospectiva
+en `ROADMAP_PRODUCTO.md`: los números de migración que las specs de R-01/R-02/R-03/R-06/R-12
+reservaban (`006` a `010`) ya los ha consumido de verdad el desarrollo de T-18/T-20/T-21/T-24 desde
+el octavo ciclo del PM (2026-09-01); renumerados a `010`-`014` (detalle en la cabecera de
+`ROADMAP_PRODUCTO.md` y en las notas de estas cinco filas más abajo en este mismo §1), para que la
+sesión que implemente R-01 no choque con un fichero ya aplicado. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales: nada que convertir. Revisado `auditoriacontinua.md` (pasada del 2026-09-02, sin
+hallazgo nuevo): ningún `ABIERTO` de severidad alta; los tres de severidad baja (#5, #6, #7) siguen
+resueltos en código desde el ciclo anterior (`P-13`/`P-14`/`P-15`), a la espera solo de que el propio
+auditor los cierre en su documento. Revisado §5 completo: las quince `P-XX` (`P-01` a `P-15`) siguen
+`RESUELTA`. `009_administracion_usuarios.sql` sigue **sin aplicar** (fila 11 de §3, sin cambio), así
+que T-24 sigue `BLOQUEADA`, T-25 sigue sin poder arrancar y la oleada v1 sigue sin arrancar (espera a
+que el MVP T-00 a T-25 esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`, decisión de producto explícita
+en `ROADMAP_PRODUCTO.md`, no solo dependencia técnica). No se fabrica ninguna R-XX ni P-XX nueva para
+justificar el ciclo: revisadas las doce R-XX ya especificadas contra el avance real (T-24), ninguna
+depende de esa tarea y ninguna necesita cambio más allá de la renumeración ya hecha.
 
-**Sesión anterior (2026-09-02, "backlog P-XX, continuación"):** con T-24 ya bloqueada por `009` y sin
+**Sesión anterior (2026-09-02, "verificación"):** sin tarea vertebral desbloqueada, sin `P-XX`
+pendiente — comprobado el estado de partida (T-24 `BLOQUEADA` por `009`, backlog de §5 agotado) y
+repetida la verificación pre-push completa sin ningún commit de programador entre medias: `npm ci`
+limpio, `typecheck`/`lint`/`build` en verde y `npm test`: **942 tests, 942 pass, 0 fail**, la misma
+cifra exacta que la sesión de `P-06`/`P-07(a)`. `git status` limpio antes y después.
+
+**Sesión previa a esa (2026-09-02, "backlog P-XX, continuación"):** con T-24 ya bloqueada por `009` y sin
 ninguna tarea vertebral desbloqueada, atendió las dos últimas `P-XX` pendientes — `P-06` (barrido de
 `anon` en `db/pruebas_rls.sql`, sección 8f) y `P-07(a)` (`avisoOmisiones` en el veredicto de
 `probar-rls`) — commit `18fd2ba`, dejando el backlog de §5 completo en `RESUELTA`.
@@ -919,13 +921,13 @@ pantallas del requisito 2.
 | T-23 | Consulta y exportación del histórico | COMPLETADA | 2026-09-01 | Sin migración: `SELECT` sobre `asistencia` ya concedido desde T-10. `dominio/historicoAsistencia.ts` (CSV), `nucleo/csv.ts` (utilidad genérica), `datos/asistencia.ts#listarHistoricoAsistencia`/`listarHistoricoAsistenciaCompleto`, `ui/pantallaHistorico.ts` (nueva, primer `<table>` real del proyecto). `db/pruebas_rls.sql` sección 8d nueva (aislamiento de lectura). 73 tests nuevos (891 en total, antes 818) |
 | T-24 | Administración de usuarios y roles | BLOQUEADA — pendiente aplicar migración `009` | 2026-09-02 | Código y 46 tests completos, contra dobles. Migración `009_administracion_usuarios.sql` (columna `perfil.actualizado_por` + trigger `perfil_before_update`) pendiente de que el dueño la aplique — fila nueva de §3 |
 | T-25 | Endurecimiento, privacidad y paso a producción | PENDIENTE | — | La única tarea que toca `prod` |
-| R-01 | Registro explícito de ausencias | PENDIENTE | — | Oleada v1 / F-01 · Migración `006_registro_ausencias` |
-| R-02 | Justificación de una ausencia | PENDIENTE | — | Oleada v1 / F-01 · Migración `007_justificacion_ausencia` |
-| R-03 | Registro de salida y cómputo de horas reales | PENDIENTE | — | Oleada v1 / F-01 · Migración `008_registro_salida` |
-| R-12 | Calendario de cierres del centro (festivos y vacaciones) | PENDIENTE | — | Oleada v1 / F-01 · Migración `010_calendario_cierres` · añadida por el PM el 2026-08-28, dependencia nueva de R-04 |
+| R-01 | Registro explícito de ausencias | PENDIENTE | — | Oleada v1 / F-01 · Migración `010_registro_ausencias` (renumerada por el PM el 2026-09-02: `006` lo ocupó ya T-18) |
+| R-02 | Justificación de una ausencia | PENDIENTE | — | Oleada v1 / F-01 · Migración `011_justificacion_ausencia` (renumerada por el PM el 2026-09-02: `007` lo ocupó ya T-20) |
+| R-03 | Registro de salida y cómputo de horas reales | PENDIENTE | — | Oleada v1 / F-01 · Migración `012_registro_salida` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) |
+| R-12 | Calendario de cierres del centro (festivos y vacaciones) | PENDIENTE | — | Oleada v1 / F-01 · Migración `014_calendario_cierres` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) · añadida por el PM el 2026-08-28, dependencia nueva de R-04 |
 | R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) |
 | R-05 | Aviso de ausencia injustificada listo para enviar | PENDIENTE | — | Oleada v1 / F-02 · sin envío automático |
-| R-06 | Sustitución puntual de profesor en un slot | PENDIENTE | — | Oleada v1 / F-03 · Migración `009_sustitucion_profesor` |
+| R-06 | Sustitución puntual de profesor en un slot | PENDIENTE | — | Oleada v1 / F-03 · Migración `013_sustitucion_profesor` (renumerada por el PM el 2026-09-02: `009` lo ocupó ya T-24) |
 | R-07 | Pasar lista con conexión intermitente | PENDIENTE | — | Oleada v1 / F-03 · solo cliente |
 | R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
 | R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |
