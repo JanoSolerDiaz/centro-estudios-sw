@@ -37,6 +37,68 @@
 
 ---
 
+### Sesión 2026-09-02 (siguiente a "T-23 COMPLETADA") — T-20/T-21 desbloqueadas; T-24: administración de usuarios, BLOQUEADA
+
+**Tarea(s):** desbloqueo de §1/§3 (007/008 confirmadas por el dueño) + T-24 (administración de
+usuarios y roles)
+**Estado resultante:** primer paso de la sesión: T-20 y T-21 pasan de `BLOQUEADA` a `COMPLETADA` en
+§1 de `SEGUIMIENTO.md` (el dueño ya había confirmado `007`/`008` en la fila 9 y 10 de §3 en un
+commit de la sesión anterior, `a7edaf1`, dejando pendiente exactamente este paso), y `007`/`008` se
+mueven de "pendiente de aplicar" a la tabla con hash en `db/APLICADAS.md`. Con eso resuelto, **T-24
+queda con código y 46 tests COMPLETOS, pero BLOQUEADA por la migración `009`**: su spec dice
+"Migración: No", pero el requisito 4 ("el último administrator activo no puede desactivarse ni
+degradarse a sí mismo; la regla se implementa en la base de datos") es DDL por definición — detalle
+en `DECISIONES_TECNICAS.md`. Ningún hallazgo `ABIERTO` de severidad alta en `auditoriacontinua.md`
+al empezar la sesión (los tres abiertos siguen siendo de severidad baja, higiene documental)
+**Commits a `develop`:** ver commits de esta sesión (bookkeeping de §1/§3/`APLICADAS.md` +
+`T-24: administración de usuarios y roles`)
+**Migraciones aplicadas:** ninguna por esta sesión (el agente nunca aplica DDL). Confirmadas por el
+dueño en una sesión anterior: `007_rpc_buscar_alumnos.sql`, `008_rpc_actualizar_asistencia.sql`.
+Escrita y empujada, pendiente de que el dueño la aplique: `009_administracion_usuarios.sql`
+(columna `perfil.actualizado_por` + trigger `perfil_before_update`)
+**Propagación a prod pendiente:** ninguna nueva (columna `prod` de `db/APLICADAS.md`, T-25)
+**Archivos creados/modificados:** `db/009_administracion_usuarios.sql` (nuevo);
+`herramientas/migraciones/administracionUsuarios.test.ts` (nuevo, comprobaciones estáticas);
+`db/pruebas_rls.sql` (sección 8e, nueva); `db/MODELO.md`; `db/APLICADAS.md`; `DEVELOPERS.md`
+(procedimiento manual de alta de usuario/enlace de recuperación/revocar sesión);
+`src/dominio/administracionUsuarios.ts` (nuevo, `dejariaSinAdministratorActivo` y validación de
+nombre); `src/dominio/administracionUsuarios.test.ts` (nuevo); `src/dominio/permisosUi.ts`
+(`puedeGestionarUsuarios`, nueva); `src/dominio/permisosUi.test.ts`; `src/dominio/tipos.ts`
+(`Perfil.actualizado_por`, nuevo); `src/dominio/tipos.test.ts`; `src/datos/usuarios.ts` (nuevo,
+`listarUsuarios`/`actualizarUsuario`); `src/datos/usuarios.test.ts` (nuevo); `src/ui/pantallaUsuarios.ts`
+(nuevo); `src/ui/pantallaUsuarios.test.ts` (nuevo); `src/nucleo/router.ts` (ruta `usuarios`, solo
+`administrator`); `src/nucleo/router.test.ts`; `src/ui/aplicacion.ts` (wiring + botón "Usuarios");
+`src/ui/aplicacion.test.ts`; `src/nucleo/gestorSesion.test.ts`/`src/ui/pantallaSinAcceso.test.ts`
+(fixtures de `Perfil` con el campo nuevo); `roadmap/SEGUIMIENTO.md` (§1: T-20/T-21 `COMPLETADA`,
+T-24 `BLOQUEADA`; §3: filas 9/10 marcadas resueltas por el agente, fila 11 nueva; narrativa de T-24);
+`roadmap/DECISIONES_TECNICAS.md` (siete filas nuevas); `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (937, antes 891) · build ✅ (incluida la
+guarda de fuga de secretos sobre `dist/`, que atrapó una mención literal de "service_role" en un
+comentario de `pantallaUsuarios.ts` — reescrita antes de este commit, ver hallazgo más abajo)
+**Health check post-deploy:** N/A (sin acceso a `dev` desplegado desde esta sesión)
+**Decisiones tomadas:** siete filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-02, T-24): migración
+pese a "Migración: No"; trigger en vez de RPC dedicada; el trigger sin `SECURITY DEFINER`; el
+`raise exception` sin `errcode` de permiso (400/`ErrorDeValidacion` con mensaje, no 403/`SinPermiso`
+genérico); `actualizado_por` como columna, no solo log de aplicación; sin vista de solo lectura para
+`teacher`; el botón "Desactivar" deshabilitado sin comprobación duplicada en su manejador (código
+muerto encontrado por su propio test y retirado)
+**Hallazgos del auditor atendidos:** ninguno de severidad alta que atender (ver arriba); los tres
+`ABIERTO` de baja severidad (#5/#6/#7, ya en backlog como P-13/P-14/P-15) no se tocan en esta sesión
+**Hallazgos:** (1) el comentario de cabecera de `pantallaUsuarios.ts` mencionaba literalmente
+"service_role", y `herramientas/verificarFugaSecretos.test.ts` lo detectó al compilar `dist/` —
+reescrito sin esa cadena antes de cualquier commit, la guarda hizo exactamente su trabajo. (2) La
+comprobación de bloqueo dentro del manejador de `click` del botón "Desactivar" resultó código muerto
+(un botón `disabled` no dispara `click`, confirmado por el propio test), retirada; la del `<select>`
+de rol sí se conservó tras comprobar con un test que un `change` forzado sí la alcanza
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** para el programador, T-25 depende de T-23 y T-24; con T-24 código-completo pero
+bloqueada por `009`, la cola de §1 no tiene ninguna T-XX más que no dependa de una migración pendiente
+— procede evaluar si alguna R-XX de `ROADMAP_PRODUCTO.md` puede avanzar sin bloquear, o esperar. Para
+el dueño: fila 11 nueva de §3 (`git pull` + `npm run migrate` para `009`, después `npm run probar-rls`
+y comprobar la sección 8e); al confirmarla, la siguiente sesión desbloquea T-24 en §1
+
+---
+
 ### Sesión 2026-09-01 (rutina de producto, siguiente a "T-23 COMPLETADA") — octavo ciclo del PM
 **Tarea(s):** P-XX (registro de backlog, sin implementar) — sin T-XX ni R-XX de código
 **Estado resultante:** N/A (documento vivo, no código) — **octavo ciclo del PM: ninguna R-XX nueva,

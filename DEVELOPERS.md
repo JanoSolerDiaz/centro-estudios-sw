@@ -102,6 +102,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   horario posterior no pueda colarse en un informe ya emitido). Sobre la utilidad genérica
   `nucleo/csv.ts` (`filaCsv`/`documentoCsv`: separador `;`, BOM UTF-8, `\r\n` — el separador correcto
   para una hoja de cálculo española, donde la coma es el separador decimal).
+  Desde T-24: `administracionUsuarios.ts` (nuevo) — `normalizarNombreUsuario`/`nombreUsuarioValido`
+  y `dejariaSinAdministratorActivo(usuarios, objetivo, cambio)`, que replica en el cliente la MISMA
+  condición del trigger `perfil_before_update` (`db/009_administracion_usuarios.sql`) para
+  deshabilitar el control antes de que el servidor tenga que rechazarlo — mismo patrón que
+  `motivoAnulacionValido`/`puedeCambiarSlotAtribuido` de T-21. `permisosUi.ts` añade
+  `puedeGestionarUsuarios` (exclusiva de `administrator`).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -160,6 +166,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     y la edición de nombre comprueban antes el duplicado acento-insensible
     (`src/dominio/centrosEstudios.ts`) y, si lo hay, devuelven `{ tipo: 'duplicado', existente }` en
     vez de intentar la escritura. Sin `DELETE`: la baja es siempre `activo = false`.
+  - `usuarios.ts` (T-24, nuevo) — `listarUsuarios`/`actualizarUsuario` sobre `perfil` directamente
+    (sin RPC: el `UPDATE` de `administrator` sobre cualquier fila ya estaba concedido y aislado por
+    RLS desde el bootstrap). `actualizarUsuario` combina nombre/rol/activo en una llamada parcial
+    (un campo ausente no se toca); el rechazo del trigger `perfil_before_update` por dejar el
+    sistema sin ningún `administrator` activo llega como `ErrorDeValidacion` con el mensaje del
+    propio trigger (sin `errcode` de permiso a propósito, para no perder ese mensaje detrás de un
+    `SinPermiso` genérico). Sin alta de usuario: eso es procedimiento manual, ver más abajo.
   - `alumnos.ts` (T-12, ampliado en T-13) — `listarAlumnos`/`obtenerAlumno`/`crearAlumno`/
     `editarAlumno`/`darDeBajaAlumno`/`reactivarAlumno` sobre `postgrest.ts`. Lee siempre de la vista
     `alumno_ficha` (T-10, no la tabla base) con el centro embebido
@@ -292,10 +305,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22 y T-23) — dos routers por `hash`, cada uno con su propio
-    par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común (`crearRouterGenerico`,
-    privado): `crearRouter(objetivo)` para `administrator` (`#/centros`, `#/alumnos`,
-    `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`, `#/historico`) y `crearRouterProfesor(objetivo)`
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23 y T-24) — dos routers por `hash`, cada uno con su
+    propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común
+    (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator` (`#/centros`,
+    `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`, `#/historico`, `#/usuarios`
+    desde T-24) y `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>]` — el segmento de `slotId`
     es opcional, para el enlace profundo de "mi horario" a los registros de un slot concreto — y
     `#/historico`). `objetivo` se inyecta en los dos (nunca leen `window` directamente), mismo patrón
@@ -481,6 +495,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     nunca un embed anidado de PostgREST); un id que la RLS de quien consulta no puede resolver (p. ej.
     un alumno de baja para un `teacher`) se muestra con una etiqueta de repuesto explícita. La consulta
     deja traza mínima en el log (`logAuditoria.info`, solo ids y página, nunca un nombre).
+  - `pantallaUsuarios.ts` (T-24, nuevo) — `mostrarPantallaUsuarios(contenedor, deps)`: listado con
+    filtro por rol y estado y búsqueda por nombre, edición de nombre inline (mismo patrón que
+    "Editar" de `pantallaCentros.ts`), un `<select>` de rol por fila y desactivación con
+    confirmación explícita (mismo patrón "confirmando.../Confirmar/Cancelar" que
+    `pantallaFichaAlumno.ts`/`pantallaCentros.ts`). Exclusiva de `administrator`
+    (`puedeGestionarUsuarios`): un rol sin permiso no ve nada ni dispara ninguna llamada a datos.
+    El `<select>` de rol y el botón "Desactivar" del ÚNICO `administrator` activo se deshabilitan
+    (`dejariaSinAdministratorActivo`), con una segunda barrera dentro del propio manejador por si
+    el evento llegara a dispararse por otra vía. Sin alta de usuario ni acciones que exijan la
+    clave de administración de Supabase (requisito 3 de T-24): eso es procedimiento manual, ver
+    `DEVELOPERS.md`.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin
@@ -579,6 +604,38 @@ select p.nombre, p.rol, p.activo, p.bloqueado, p.intentos_fallidos, u.email
 Esto **nunca** requiere conocer ni fijar una contraseña: renovar la contraseña de un usuario
 (bloqueado o no) sigue siendo disparar el correo de recuperación (`solicitarRecuperacionContrasena`,
 T-09), nunca que el administrador —ni el dueño— fije una nueva.
+
+## Administración de usuarios: qué se hace desde el panel y qué desde Supabase (T-24)
+
+`administrator` gestiona nombre, rol (`administrator`/`teacher`/`student`) y desactivación de
+cualquier usuario desde la pantalla "Usuarios" de la aplicación. Tres operaciones exigen
+privilegios de administración de Supabase Auth que la clave anónima del cliente no tiene (§0.2:
+esa clave nunca entra en el navegador), así que son **procedimiento manual del dueño desde el
+panel de Supabase**, no una pantalla:
+
+1. **Alta de un usuario nuevo.** Authentication → Users → Add user, con su email. El trigger
+   `crear_perfil_para_usuario_nuevo` (`000_bootstrap_perfil.sql`) le crea la fila de `perfil`
+   automáticamente con rol `student` (sin acceso) — después, desde la pantalla "Usuarios", el
+   `administrator` le asigna el rol real (`administrator` o `teacher`).
+2. **Forzar un cambio de contraseña.** No existe esa acción: la vía del proyecto es siempre que el
+   propio usuario dispare el correo de recuperación (`solicitarRecuperacionContrasena`, T-09) desde
+   la pantalla de login. Si necesita entrar sin acceso a su correo, el dueño puede enviarle un
+   enlace de invitación o restablecimiento desde Authentication → Users → (usuario) → Send
+   recovery/magic link.
+3. **Revocar una sesión.** Authentication → Users → (usuario) → Revoke sessions. Útil ante la
+   sospecha de que un dispositivo comprometido sigue con un `access_token`/`refresh_token` válido —
+   la aplicación no ofrece esto porque ningún rol tiene visibilidad de las sesiones activas de otro
+   usuario, ni falta le hace para el resto del alcance del MVP.
+
+Igual que el desbloqueo de cuenta de más abajo, esto es a propósito: automatizarlo exigiría meter
+la clave de administración de Supabase en algún sitio que el cliente pudiera alcanzar, y esa clave
+tiene DDL sobre toda la cuenta del dueño (§0.1), no solo sobre `perfil`.
+
+**El último `administrator` activo no puede desactivarse ni degradarse a sí mismo** (requisito 4 de
+T-24): lo impide el trigger `perfil_before_update` de `db/009_administracion_usuarios.sql`, en la
+base de datos, no la interfaz — si alguna vez hiciera falta saltárselo en una emergencia real (por
+ejemplo, para retirar al único administrador sin ascender antes a nadie), la única vía es, de
+nuevo, el editor SQL del panel de Supabase.
 
 ## Sobre las importaciones `.ts`
 

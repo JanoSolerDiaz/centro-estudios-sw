@@ -20,6 +20,7 @@ const PERFIL_STUDENT: Perfil = {
   bloqueado: false,
   creado_en: '2026-01-01T00:00:00.000Z',
   actualizado_en: '2026-01-01T00:00:00.000Z',
+  actualizado_por: null,
 };
 
 void test('saluda por el nombre del perfil y explica que todavía no tiene acceso', () => {

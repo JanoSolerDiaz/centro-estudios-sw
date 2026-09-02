@@ -10,15 +10,122 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-01 (sesión siguiente a "T-22 COMPLETADA") — **T-23 (consulta y
-exportación del histórico de asistencia) COMPLETADA, sin migración.** T-20 y T-21 seguían
-`BLOQUEADAS` por `007`/`008` respectivamente; T-23 declara "Depende de: T-21" en `HOJA_DE_RUTA.md`
-pero esa dependencia es de producto, no técnica (T-23 solo lee `SELECT` sobre `asistencia`, ya
-concedido desde T-10, y no necesita la RPC `actualizar_asistencia` de T-21) — mismo criterio de
-"comprobar la dependencia real antes de saltar por número" que ya aplicó la sesión de T-22 con
-T-20/T-21, detallado en `DECISIONES_TECNICAS.md`. Ningún hallazgo `ABIERTO` de severidad alta en
-`auditoriacontinua.md` al empezar esta sesión (los tres abiertos siguen siendo de severidad baja,
-higiene documental — ver §0.3, no exigen atención urgente).
+**Última actualización:** 2026-09-02 (sesión siguiente a "T-23 COMPLETADA") — primer paso de la
+sesión: desbloquear T-20 y T-21 en este §1 y anotar `007`/`008` en `db/APLICADAS.md`, confirmadas
+por el dueño en la fila 9 y 10 de §3 el 2026-09-02 (quedó pendiente de la sesión anterior, ver su
+propio commit `a7edaf1`). Con eso resuelto, la siguiente tarea de la cola era **T-24 (administración
+de usuarios y roles)**, ahora **código y tests COMPLETOS, BLOQUEADA por la migración `009`**: su
+spec dice "Migración: No", pero el requisito 4 ("el último `administrator` activo no puede
+desactivarse ni degradarse a sí mismo; la regla se implementa en la base de datos") es DDL por
+definición — mismo criterio de "comprobar la dependencia real antes de dar la spec por buena" que ya
+aplicaron T-09/T-20/T-23, detallado en `DECISIONES_TECNICAS.md`. Ningún hallazgo `ABIERTO` de
+severidad alta en `auditoriacontinua.md` al empezar esta sesión (los tres abiertos siguen siendo de
+severidad baja, higiene documental — ver §0.3, no exigen atención urgente).
+
+**T-24 — Administración de usuarios y roles — código y tests COMPLETOS, BLOQUEADA por la migración
+`009`.** Deja al rol `administrator` realmente operativo sobre los otros dos: listado con filtro por
+rol/estado/búsqueda, edición de nombre, cambio de rol entre los tres valores y desactivación —nunca
+borrado (§0.2)— sobre `perfil`, que ya existe desde el bootstrap y esta sesión NO recrea.
+
+**Por qué "Migración: No" de la spec no bastaba:** los requisitos 1 y 2 (listado/edición, vínculo
+`alumno.usuario_id`) no necesitaban nada nuevo — el `UPDATE` de `administrator` sobre cualquier fila
+de `perfil` ya estaba concedido y aislado por RLS desde `000_bootstrap_perfil.sql`
+(`perfil_admin_actualizar`), y `alumno.usuario_id` existe desde `001`. Pero el requisito 4 ("el
+último `administrator` activo no puede desactivarse ni degradarse a sí mismo; la regla se implementa
+en la base de datos") es DDL por definición: no hay forma de cumplirlo solo desde el cliente sin
+dejar una ventana de carrera entre dos administradores, y la propia frase de la spec exige que viva
+en la base de datos. Mismo criterio de "comprobar la dependencia real antes de dar la spec de
+'Migración: No' por buena" que T-09 (columna de `alumno` sin `GRANT`), T-20 (RPC de búsqueda) y T-23
+(en su caso, al revés: confirmó que SÍ podía prescindir de la migración) ya aplicaron.
+
+**Migración `009_administracion_usuarios.sql`:** dos piezas, ninguna recrea `perfil` ni sus políticas
+existentes. (1) Columna `perfil.actualizado_por`, mismo patrón que `asistencia.actualizado_por`
+(`001`): la fija el trigger, nunca el cliente — es la pieza que de verdad satisface el requisito 5
+("toda acción queda registrada con autor e instante") con un registro DURADERO en la base de datos,
+en vez de solo un log de aplicación como hizo T-23 para sus consultas de lectura. (2) Trigger
+`perfil_before_update`, que sustituye al genérico `perfil_tocar_actualizado_en` del bootstrap (mismo
+criterio que `asistencia_proteger_inmutables` sustituyó a `tocar_actualizado_en` para `asistencia` en
+`001`): sigue tocando `actualizado_en`/`actualizado_por`, y además aborta un `UPDATE` que dejaría al
+sistema sin ningún `administrator` activo — se dispara cuando la fila ANTES del cambio era un
+`administrator` activo, el cambio le quita esa condición, y no queda ninguna OTRA fila que sea
+`administrator` activo. No necesita `SECURITY DEFINER`: quien ejecuta el `UPDATE` ya tiene que ser
+`administrator` (única política de `UPDATE` sobre `perfil`), y un `administrator` ya puede leer todas
+las filas de `perfil` (`perfil_admin_leer_todos`) — el `SELECT` del trigger no pide ningún privilegio
+que el llamante no tuviera ya. **Decisión de clasificación de error, documentada en
+`DECISIONES_TECNICAS.md`:** el `raise exception` de este trigger NO lleva `errcode = '42501'` (el que
+sí llevan los rechazos de autorización de `actualizar_asistencia`, T-21) a propósito — no es un
+problema de permisos, es una regla de negocio, y PostgREST clasifica el primero como `400`
+(`ErrorDeValidacion`, con el mensaje del propio Postgres) y el segundo como `403` (`SinPermiso`,
+siempre genérico en `erroresDominio.ts`); perder el mensaje real detrás de un "no tienes permiso" que
+además sería engañoso (el `administrator` SÍ tiene permiso la mayoría de las veces) habría sido peor.
+
+**Dominio (`src/dominio/administracionUsuarios.ts`, nuevo):** `normalizarNombreUsuario` reexporta
+`normalizarNombrePersona` de `alumno.ts` (mismo criterio de reutilización que ya aplicó
+`personaReferencia.ts`); `nombreUsuarioValido` (no vacío, sin más restricciones: aquí no hay un
+`CHECK` de formato que replicar). `dejariaSinAdministratorActivo(usuarios, objetivo, cambio)` replica
+en el cliente la MISMA condición del trigger, para poder deshabilitar el control de la interfaz antes
+de que el servidor tenga que rechazarlo — mismo patrón exacto que `motivoAnulacionValido`/
+`puedeCambiarSlotAtribuido` de T-21 frente a `actualizar_asistencia`; nunca una segunda fuente de
+verdad, el trigger sigue siendo quien de verdad protege el invariante. `permisosUi.ts` añade
+`puedeGestionarUsuarios` (exclusiva de `administrator`, mismo criterio que el resto de funciones ya
+separadas pese a compartir condición con otras).
+
+**Datos (`src/datos/usuarios.ts`, nuevo):** `listarUsuarios` (filtro por rol/estado/búsqueda,
+`ilike` sobre nombre, mismo patrón que `listarCentros` de T-11) y `actualizarUsuario` (combina
+nombre/rol/activo en una sola llamada parcial — un campo ausente en `cambios` no se toca, mismo
+criterio que el resto de ediciones parciales del proyecto) directamente sobre `perfil`, sin RPC
+propia: el `UPDATE` ya estaba concedido y aislado por RLS. El rechazo del trigger llega y se propaga
+tal cual como `ErrorDeValidacion` por el mecanismo genérico de `erroresDominio.ts#errorDeRespuesta`,
+sin ningún caso especial en este módulo.
+
+**UI (`src/ui/pantallaUsuarios.ts`, nueva):** listado con filtro por rol/estado y búsqueda, edición
+de nombre inline (mismo patrón "Editar" de `pantallaCentros.ts`), un `<select>` de rol por fila
+(etiquetas en español vía `ETIQUETA_ROL`) y desactivación con confirmación explícita (mismo patrón
+"confirmando.../Confirmar/Cancelar" que `pantallaFichaAlumno.ts`/`pantallaCentros.ts`). Exclusiva de
+`administrator` (`puedeGestionarUsuarios`): un rol sin permiso no ve nada de la pantalla ni dispara
+ninguna llamada a datos, a diferencia de `pantallaCentros.ts`/`pantallaHistorico.ts`, donde `teacher`
+sí tenía una vista parcial — aquí no hay ninguna, ni siquiera de solo lectura. El `<select>` de rol y
+el botón "Desactivar" del ÚNICO `administrator` activo se deshabilitan
+(`dejariaSinAdministratorActivo` contra la lista ya cargada); el botón deshabilitado basta por sí
+solo (un botón `disabled` no dispara su evento `click`, ni en `jsdom` ni en un navegador real, así
+que la comprobación dentro de su manejador habría sido código muerto e intestable, y se quitó tras
+encontrarlo en el primer test que lo intentaba). El `<select>` SÍ conserva su comprobación interna
+además del `disabled` —"segunda barrera", con su propio test que fuerza el evento `change` saltándose
+el atributo— porque una guarda razonable es que un `change` disparado por una vía que hoy no se
+anticipa siga sin poder colarse. Sin alta de usuario ni ninguna acción que exija la clave de
+administración de Supabase (requisito 3): procedimiento manual documentado en `DEVELOPERS.md`
+(alta, envío de enlace de recuperación/invitación, revocar sesión), con el mismo razonamiento que ya
+regía el desbloqueo de cuenta de emergencia de P-01.
+
+**Wiring (`src/nucleo/router.ts`, `src/ui/aplicacion.ts`):** nueva ruta `#/usuarios`, solo en el
+router de `administrator` (`Ruta`) — `teacher` no gana esta ruta en `RutaProfesor`, no tiene ningún
+acceso a esta funcionalidad. Nuevo botón "Usuarios" en la barra de navegación de `administrator`.
+
+**`Perfil` (`src/dominio/tipos.ts`) gana `actualizado_por: string | null`**, columna nueva de la
+migración; `dominio/tipos.test.ts` (forma esperada de PostgREST) y los cinco ficheros con un literal
+`Perfil` completo (`gestorSesion.test.ts`, `aplicacion.test.ts`, `pantallaSinAcceso.test.ts`) se
+actualizan para incluirla.
+
+**`db/pruebas_rls.sql` añade la sección 8e, nueva:** aislamiento de `teacher`/`student` sobre
+perfiles ajenos —ni por `SELECT` ni por `UPDATE` directo, sin RPC de por medio, mismo patrón que la
+8b/8d para otras tablas— y el trigger `perfil_before_update` en sí mismo, forzando dentro de la misma
+transacción que el fixture `administrator` quede como el ÚNICO activo (desactivando cualquier otro
+que ya exista en `dev`, sin depender de cuántos haya hoy) antes de comprobar que ni desactivarse ni
+degradarse a sí mismo tienen éxito.
+
+**46 tests nuevos (937 en total, antes 891, contados por `git diff` de cada fichero de test contra el
+commit de partida):** 8 estáticos de la migración
+(`herramientas/migraciones/administracionUsuarios.test.ts`, mismo patrón que
+`rpcActualizarAsistencia.test.ts`), 10 de `dominio/administracionUsuarios.test.ts` (nuevo,
+`dejariaSinAdministratorActivo` con todos sus bordes: sin cambio, ya inactivo, único activo,
+desactivar/degradar, otro administrator activo, uno inactivo que no cuenta, no contarse a sí mismo),
+10 de `datos/usuarios.test.ts` (nuevo), 16 de `pantallaUsuarios.test.ts` (nuevo: acceso, listado,
+edición de nombre, cambio de rol, desactivar con confirmación, reactivar, las dos barreras del último
+administrator, filtros, búsqueda, error sin perder la fila), 1 de `router.test.ts` (`#/usuarios`) y 1
+de `aplicacion.test.ts` (navegación). `permisosUi.test.ts`/`tipos.test.ts` se ampliaron sin sumar
+filas propias al recuento (mismo criterio que sesiones anteriores: extienden un test ya existente).
+
+---
 
 **T-23 — Consulta y exportación del histórico de asistencia — COMPLETADA, sin migración.** Cierre
 del ciclo de auditoría del registro: `administrator` consulta todo el centro por alumno, profesor,
@@ -782,11 +889,11 @@ pantallas del requisito 2.
 | T-17 | Motor de propuesta "quién toca ahora" | COMPLETADA | 2026-08-31 | Sin migración: depende solo de T-15 (COMPLETADA). `dominio/slots.ts` reescrito (sustituye la versión provisional de T-03) con zona horaria real (`Intl`, `Europe/Madrid` por defecto) y ventana de tolerancia; `datos/slotsHorario.ts` añade `listarSlotsDeProfesorConAlumno` (una petición, alumno embebido en columnas restringidas). 33 tests nuevos netos (477 en total, antes 460). Pregunta abierta #11 en §6 (valores por defecto de zona horaria y tolerancia, sin bloquear) |
 | T-18 | Alta de asistencia (RPC `registrar_asistencia`) | COMPLETADA | 2026-09-01 | Migraciones `005` y `006` aplicadas en `dev` y **verificadas en ejecución**: `npm run probar-rls` da **67 comprobaciones, 0 omitidas, 0 fallidas**, con las cuatro altas reales pasando y los nueve rechazos trayendo cada uno su motivo propio (ventana de 7 días, futuro, `slot` sin id, alumno de baja, en nombre de otro, slot ajeno, `student`, y los dos duplicados chocando con `asistencia_uq_alumno_slot_dia_valida` y `asistencia_peticion_id_unico`). El camino hasta aquí dejó tres P-XX, todas implementadas y confirmadas: **P-10** (los rechazos exigen su motivo), **P-11** (finales de línea clavados al hash del ledger) y **P-12** (la batería no podía consumir la fila que devuelve la RPC). Límite de 60 operaciones por profesor y minuto conectado por primera vez (`limite_tasa`/`aplicar_limite_tasa`) |
 | T-19 | Pantalla de pasar lista | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17/T-18 (ambas completadas). `puedeUsarPasarLista` exclusivo de `teacher`. Nuevo `nucleo/programadorIntervalo.ts` (refresco sin red), `dominio/slots.ts` añade `limitesDiaLocal`. Cards como `<button>` nativo con doble toque por clave; `Conflicto` se resuelve releyendo el registro real, nunca como error. Sin router propio de `teacher` todavía (una sola pantalla). 48 tests nuevos (662 en total, antes 614) |
-| T-20 | Alumno extra: listado completo y selección manual | BLOQUEADA — pendiente aplicar migración `007` | 2026-09-01 | Código y 66 tests completos, contra dobles. Migración `007_rpc_buscar_alumnos.sql` (RPC `buscar_alumnos_activos`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 9 de §3 |
-| T-21 | Revisar y modificar los registros por slot | BLOQUEADA — pendiente aplicar migración `008` | 2026-09-01 | Código y tests completos, contra dobles. Migración `008_rpc_actualizar_asistencia.sql` (RPC `actualizar_asistencia`, `SECURITY DEFINER`) pendiente de que el dueño la aplique — fila 10 de §3 |
+| T-20 | Alumno extra: listado completo y selección manual | COMPLETADA | 2026-09-02 | Código y 66 tests completos desde 2026-09-01, contra dobles. Migración `007_rpc_buscar_alumnos.sql` aplicada y **verificada en ejecución** por el dueño (fila 9 de §3, `npm run probar-rls`: sección 8b en `[OK]`, cinco comprobaciones) — desbloqueada en esta sesión |
+| T-21 | Revisar y modificar los registros por slot | COMPLETADA | 2026-09-02 | Código y tests completos desde 2026-09-01, contra dobles. Migración `008_rpc_actualizar_asistencia.sql` aplicada y **verificada en ejecución** por el dueño (fila 10 de §3, `npm run probar-rls`: 89 comprobaciones, 0 omitidas, 0 fallidas) — desbloqueada en esta sesión |
 | T-22 | "Mi horario" del profesor (teacher) | COMPLETADA | 2026-09-01 | Sin migración: depende solo de T-17 (`COMPLETADA`). `dominio/slots.ts#vistaSemanalProfesor` (nuevo), primer router real de `teacher` (`crearRouterProfesor`, `nucleo/router.ts`, sustituye la navegación local de T-21), pantalla `pantallaMiHorario.ts` (nueva) y `slotInicialId` opcional en `pantallaRegistrosSlot.ts` para el enlace profundo del requisito 2. 42 tests nuevos (818 en total, antes 776) |
 | T-23 | Consulta y exportación del histórico | COMPLETADA | 2026-09-01 | Sin migración: `SELECT` sobre `asistencia` ya concedido desde T-10. `dominio/historicoAsistencia.ts` (CSV), `nucleo/csv.ts` (utilidad genérica), `datos/asistencia.ts#listarHistoricoAsistencia`/`listarHistoricoAsistenciaCompleto`, `ui/pantallaHistorico.ts` (nueva, primer `<table>` real del proyecto). `db/pruebas_rls.sql` sección 8d nueva (aislamiento de lectura). 73 tests nuevos (891 en total, antes 818) |
-| T-24 | Administración de usuarios y roles | PENDIENTE | — | — |
+| T-24 | Administración de usuarios y roles | BLOQUEADA — pendiente aplicar migración `009` | 2026-09-02 | Código y 46 tests completos, contra dobles. Migración `009_administracion_usuarios.sql` (columna `perfil.actualizado_por` + trigger `perfil_before_update`) pendiente de que el dueño la aplique — fila nueva de §3 |
 | T-25 | Endurecimiento, privacidad y paso a producción | PENDIENTE | — | La única tarea que toca `prod` |
 | R-01 | Registro explícito de ausencias | PENDIENTE | — | Oleada v1 / F-01 · Migración `006_registro_ausencias` |
 | R-02 | Justificación de una ausencia | PENDIENTE | — | Oleada v1 / F-01 · Migración `007_justificacion_ausencia` |
@@ -832,6 +939,7 @@ pantallas del requisito 2.
 | 8 | Aplicar `006_arreglo_limite_tasa_ambiguo` y verificar T-18 con `npm run probar-rls` | T-18 | ~~`git pull`, `npm run migrate` y `npm run probar-rls`~~ | **RESUELTA 2026-09-01** — hizo falta más de una vuelta y cada una encontró algo. (1) `npm run migrate`: `005` y `006` aplicadas, confirmadas con `npm run migrate -- --estado`. (2) Primera `probar-rls`: el ambiguo resuelto, pero 6 fallos propios de la batería (P-12) y nueve rechazos que aprobaban sin mirar el motivo (P-10). (3) Segunda `probar-rls`, tras corregir ambos: **67 comprobaciones, 0 omitidas, 0 fallidas, "ningún acceso prohibido tuvo éxito"**. T-18 cerrada |
 | 9 | Aplicar la migración `007_rpc_buscar_alumnos` en `dev`, **después** de las filas 4 a 8 | T-20 | ~~`git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `7`, y ejecutar también `npm run probar-rls` (nueva sección 8b: cinco comprobaciones de `buscar_alumnos_activos`)~~ | **RESUELTA 2026-09-02** — aplicada por el dueño con `npm run migrate`. **Verificada:** `npm run migrate -- --estado` lista `007` con hash `792e0a398c55`, y `esquema_version()` devuelve **`8`**, no `7`: el dueño aplicó `007` y `008` en la misma pasada, y como el runner va en orden numérico y aborta al primer error, un `8` en el ledger implica que `007` entró antes y sin fallo (mismo razonamiento que la fila 4 con el `3`). `npm run probar-rls`: la sección 8b entera en `[OK]` — las cinco comprobaciones de `buscar_alumnos_activos`, incluidas «la respuesta no trae contacto ni personas de referencia» y «un `student` no puede llamarla» |
 | 10 | Aplicar la migración `008_rpc_actualizar_asistencia` en `dev`, **después** de la fila 9 (`007`) | T-21 | ~~`git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `8`, y ejecutar también `npm run probar-rls` (nueva sección 8c: `actualizar_asistencia` — edición propia/ajena, ventana de 7 días, anular sin motivo, cambiar alumno/slot; sección 5 ampliada con UPDATE/DELETE directo denegados)~~ | **RESUELTA 2026-09-02** — aplicada por el dueño con `npm run migrate`. **Verificada:** hash `d7e1a1f47001` en el ledger y `esquema_version()` = `8`. `npm run probar-rls` contra `dev`: **89 comprobaciones, 0 omitidas, 0 fallidas**, «ningún acceso prohibido tuvo éxito» — sección 8c completa (teacher edita lo suyo y no lo ajeno, ventana de 7 días que el `administrator` no tiene, anular exige motivo, la fila anulada sigue existiendo, dos modificaciones dejan dos filas de historial con los valores previos, cambio de alumno y de slot con sus tres rechazos) y sección 5 con el `UPDATE`/`DELETE` directo denegados. **La primera pasada dio 1 omitida** (`actualizar_asistencia / cambiar alumno`): no era la RPC sino un bug del propio fixture —leía `centro_referencia_id` de la tabla base, columna que el GRANT de `003` no concede a `authenticated` ni siquiera siendo `administrator`, y el `exception when others` se tragaba el «permission denied»—; arreglado en la sesión interactiva del dueño (commit `bee1602`, lee el centro por `alumno_ficha` y ahora el motivo real sale en el mensaje del OMITIDO) |
+| 11 | Aplicar la migración `009_administracion_usuarios` en `dev`, **después** de la fila 10 (`008`) | T-24 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `9`, y ejecutar también `npm run probar-rls` (nueva sección 8e: aislamiento de `perfil` entre roles ajenos, y el trigger `perfil_before_update` rechazando desactivar/degradar al único `administrator` activo) | PENDIENTE |
 
 ---
 

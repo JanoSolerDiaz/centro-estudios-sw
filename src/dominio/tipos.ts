@@ -31,6 +31,10 @@ export interface Perfil {
   readonly bloqueado: boolean;
   readonly creado_en: string;
   readonly actualizado_en: string;
+  /** Quién hizo el último cambio sobre este perfil (T-24, `009_administracion_usuarios.sql`). Lo
+   * fija el trigger `perfil_before_update`, nunca el cliente. `null` en un perfil nunca modificado
+   * tras su creación. */
+  readonly actualizado_por: string | null;
 }
 
 export interface CentroEstudios {

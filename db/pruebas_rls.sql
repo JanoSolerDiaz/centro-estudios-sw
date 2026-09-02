@@ -1610,6 +1610,128 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8e. perfil (T-24, db/009_administracion_usuarios.sql) — aislamiento
+--     entre roles sobre perfiles AJENOS (criterio de aceptación de T-24:
+--     "un teacher y un student reciben error al leer o modificar perfiles
+--     ajenos") y el trigger perfil_before_update que protege al último
+--     administrator activo (requisito 4). La lectura/edición de la PROPIA
+--     fila de cada rol ya está cubierta desde T-09 (comentario de la
+--     sección 6) y no se repite aquí.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_admin_id uuid;
+begin
+  select id into v_admin_id from _fixture_usuarios where rol = 'administrator';
+
+  if v_admin_id is null then
+    perform pg_temp.omitir('perfil / teacher no lee perfiles ajenos (debe fallar)', 'no hay administrator en este entorno');
+    perform pg_temp.omitir('perfil / teacher no puede modificar perfiles ajenos (debe fallar)', 'no hay administrator en este entorno');
+  elsif not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('perfil / teacher no lee perfiles ajenos (debe fallar)', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('perfil / teacher no puede modificar perfiles ajenos (debe fallar)', 'no hay teacher en este entorno');
+  else
+    declare
+      v_visto boolean;
+      v_filas integer;
+    begin
+      perform pg_temp.impersonar('teacher');
+      select exists (select 1 from public.perfil where id = v_admin_id) into v_visto;
+      perform pg_temp.registrar('perfil / teacher no lee perfiles ajenos (debe fallar)', 'prohibido', not v_visto, format('visto=%s', v_visto));
+      perform pg_temp.dejar_de_impersonar();
+    exception when others then
+      perform pg_temp.registrar('perfil / teacher no lee perfiles ajenos (debe fallar)', 'prohibido', false, sqlerrm);
+    end;
+
+    begin
+      perform pg_temp.impersonar('teacher');
+      update public.perfil set nombre = '__prueba_rls__nombre_ajeno' where id = v_admin_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('perfil / teacher no puede modificar perfiles ajenos (debe fallar)', 'prohibido', v_filas = 0, format('filas_afectadas=%s', v_filas));
+      perform pg_temp.dejar_de_impersonar();
+    exception when others then
+      perform pg_temp.registrar_prohibido('perfil / teacher no puede modificar perfiles ajenos (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+    end;
+  end if;
+
+  if v_admin_id is null then
+    perform pg_temp.omitir('perfil / student no lee perfiles ajenos (debe fallar)', 'no hay administrator en este entorno');
+    perform pg_temp.omitir('perfil / student no puede modificar perfiles ajenos (debe fallar)', 'no hay administrator en este entorno');
+  elsif not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('perfil / student no lee perfiles ajenos (debe fallar)', 'no hay student en este entorno');
+    perform pg_temp.omitir('perfil / student no puede modificar perfiles ajenos (debe fallar)', 'no hay student en este entorno');
+  else
+    declare
+      v_visto boolean;
+      v_filas integer;
+    begin
+      perform pg_temp.impersonar('student');
+      select exists (select 1 from public.perfil where id = v_admin_id) into v_visto;
+      perform pg_temp.registrar('perfil / student no lee perfiles ajenos (debe fallar)', 'prohibido', not v_visto, format('visto=%s', v_visto));
+      perform pg_temp.dejar_de_impersonar();
+    exception when others then
+      perform pg_temp.registrar('perfil / student no lee perfiles ajenos (debe fallar)', 'prohibido', false, sqlerrm);
+    end;
+
+    begin
+      perform pg_temp.impersonar('student');
+      update public.perfil set nombre = '__prueba_rls__nombre_ajeno' where id = v_admin_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('perfil / student no puede modificar perfiles ajenos (debe fallar)', 'prohibido', v_filas = 0, format('filas_afectadas=%s', v_filas));
+      perform pg_temp.dejar_de_impersonar();
+    exception when others then
+      perform pg_temp.registrar_prohibido('perfil / student no puede modificar perfiles ajenos (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+    end;
+  end if;
+end $$;
+
+-- El trigger perfil_before_update (requisito 4) se comprueba dejando, dentro de esta misma
+-- transacción, EXACTAMENTE un único administrator activo (el fixture) — desactivando primero
+-- cualquier otro que ya exista en este entorno — para que la comprobación no dependa de cuántos
+-- administrator reales tenga `dev` hoy. Todo desaparece con el `rollback` final (sección 9).
+do $$
+declare
+  v_admin_id uuid;
+begin
+  if not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('perfil / no se puede desactivar al último administrator (debe fallar)', 'no hay administrator en este entorno');
+    perform pg_temp.omitir('perfil / no se puede degradar al último administrator (debe fallar)', 'no hay administrator en este entorno');
+    return;
+  end if;
+
+  select id into v_admin_id from _fixture_usuarios where rol = 'administrator';
+  perform pg_temp.impersonar('administrator');
+
+  -- Deja al fixture como único administrator activo, silenciando cualquier error si el trigger de
+  -- turno lo impidiera (no debería: cada desactivación deja siempre otro administrator activo
+  -- distinto — el propio fixture — hasta la última).
+  begin
+    update public.perfil set activo = false
+     where rol = 'administrator' and activo and id <> v_admin_id;
+  exception when others then
+    null;
+  end;
+
+  begin
+    update public.perfil set activo = false where id = v_admin_id;
+    perform pg_temp.registrar('perfil / no se puede desactivar al último administrator (debe fallar)', 'prohibido', false, 'se desactivó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('perfil / no se puede desactivar al último administrator (debe fallar)', array['%último administrator%'], sqlerrm);
+  end;
+
+  begin
+    update public.perfil set rol = 'teacher' where id = v_admin_id;
+    perform pg_temp.registrar('perfil / no se puede degradar al último administrator (debe fallar)', 'prohibido', false, 'se degradó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('perfil / no se puede degradar al último administrator (debe fallar)', array['%último administrator%'], sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

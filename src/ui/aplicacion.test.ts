@@ -28,6 +28,7 @@ const PERFIL_ADMIN: Perfil = {
   bloqueado: false,
   creado_en: '2026-01-01T00:00:00.000Z',
   actualizado_en: '2026-01-01T00:00:00.000Z',
+  actualizado_por: null,
 };
 
 function crearGestorSesionFalso(estadoInicial: EstadoSesion): {
@@ -478,6 +479,23 @@ void test('administrator con appAdministrador: "Histórico" navega a la pantalla
   assert.match(contenedor.textContent, /Histórico de asistencia/);
   assert.ok(contenedor.querySelector('#historico-filtro-profesor'));
   assert.ok(contenedor.querySelector('#historico-filtro-centro'));
+});
+
+void test('administrator con appAdministrador: "Usuarios" navega a la pantalla de administración de usuarios (T-24)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonUsuarios = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Usuarios');
+  assert.ok(botonUsuarios);
+  botonUsuarios.click();
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.querySelector('#usuarios-filtro-rol'));
+  assert.match(contenedor.textContent, /No hay ningún usuario/);
 });
 
 void test('teacher con appProfesor: "Histórico" navega a la pantalla de histórico, sin selector de profesor ni de centro', async () => {

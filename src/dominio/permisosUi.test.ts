@@ -9,6 +9,7 @@ import {
   puedeGestionarCentros,
   puedeGestionarFichaAlumno,
   puedeGestionarHorarios,
+  puedeGestionarUsuarios,
   puedeUsarPasarLista,
   puedeVerAvatarEnCards,
   puedeVerHistorico,
@@ -26,6 +27,7 @@ void test('solo administrator gestiona centros, fichas, horarios y personas de r
     assert.equal(puedeGestionarHorarios(rol), esperado, `puedeGestionarHorarios(${rol})`);
     assert.equal(puedeVerPersonasReferencia(rol), esperado, `puedeVerPersonasReferencia(${rol})`);
     assert.equal(puedeEditarAsistenciaDeCualquiera(rol), esperado, `puedeEditarAsistenciaDeCualquiera(${rol})`);
+    assert.equal(puedeGestionarUsuarios(rol), esperado, `puedeGestionarUsuarios(${rol})`);
   }
 });
 

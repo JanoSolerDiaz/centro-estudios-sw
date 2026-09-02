@@ -52,6 +52,7 @@ import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferen
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
 import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
 import { listarProfesoresActivos, resolverNombresProfesores } from '../datos/profesores.ts';
+import { listarUsuarios, actualizarUsuario } from '../datos/usuarios.ts';
 import {
   registrarAsistencia,
   listarAsistenciaDeHoy,
@@ -73,6 +74,7 @@ import { mostrarPantallaPasarLista } from './pantallaPasarLista.ts';
 import { mostrarPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
 import { mostrarPantallaMiHorario } from './pantallaMiHorario.ts';
 import { mostrarPantallaHistorico } from './pantallaHistorico.ts';
+import { mostrarPantallaUsuarios } from './pantallaUsuarios.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -172,11 +174,15 @@ function mostrarAppAdministrador(
   enlaceHistorico.addEventListener('click', () => {
     router.navegar({ nombre: 'historico' });
   });
+  const enlaceUsuarios = crearBoton(documento, 'Usuarios', 'button');
+  enlaceUsuarios.addEventListener('click', () => {
+    router.navegar({ nombre: 'usuarios' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, enlaceHistorico, botonSalir);
+  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, enlaceHistorico, enlaceUsuarios, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
@@ -242,6 +248,15 @@ function mostrarAppAdministrador(
         listarProfesoresParaFiltro: () => listarProfesoresActivos(app.postgrest),
         listarCentrosParaFiltro: () => listarCentros(app.postgrest),
         descargador: crearDescargadorNavegador(documento),
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'usuarios') {
+      mostrarPantallaUsuarios(areaPantalla, {
+        rol: perfil.rol,
+        listarUsuarios: (opciones) => listarUsuarios(app.postgrest, opciones),
+        actualizarUsuario: (id, cambios) => actualizarUsuario(app.postgrest, id, cambios),
       });
       return;
     }

@@ -89,6 +89,14 @@ export function puedeExportarConDatosDeContacto(rol: Rol): boolean {
   return rol === 'administrator';
 }
 
+/** Administración de usuarios y roles (T-24): listado, cambio de rol, desactivación. Exclusivamente
+ * `administrator` — ni `teacher` ni `student` gestionan cuentas, ni siquiera la propia (para eso
+ * está la pantalla de "sin acceso" o el propio panel de perfil de cada uno, fuera del alcance de
+ * T-24). */
+export function puedeGestionarUsuarios(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
 /** Columnas de `alumno` con las que merece la pena pintar un formulario o una card para `rol`: no
  * es una lista de lo que el dato PUEDE tener, es una lista de lo que no tiene sentido dibujar
  * porque el servidor nunca lo va a devolver para ese rol (`003_politicas_rls.sql`, requisito 4 de

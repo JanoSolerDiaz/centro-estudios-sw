@@ -290,6 +290,32 @@ alguien lo intentara desde otro sitio. `actualizado_en`/`actualizado_por` los fi
 (`BEFORE UPDATE`), no esta función; la copia en `asistencia_historial` la hace el trigger `AFTER
 UPDATE` (`001`), con la fila tal como estaba justo antes de este `UPDATE`.
 
+## Administración de usuarios (`009_administracion_usuarios.sql`, T-24)
+
+Su spec dice "Migración: No", pero el requisito 4 ("el último `administrator` activo no puede
+desactivarse ni degradarse a sí mismo; la regla se implementa en la base de datos") es DDL por
+definición — mismo criterio que T-09/T-20/T-23 aplicaron antes: la dependencia real no siempre
+coincide con la de la spec. El resto del alcance de T-24 (listado, edición de nombre, cambio de
+rol, desactivación, vínculo `alumno.usuario_id`) no necesita nada nuevo: el `UPDATE` de
+`administrator` sobre cualquier fila de `perfil` ya estaba concedido y aislado por RLS desde el
+bootstrap (`perfil_admin_actualizar`), y `alumno.usuario_id` existe desde `001`.
+
+- **`perfil.actualizado_por`** (columna nueva): quién hizo el último cambio sobre ese perfil, mismo
+  patrón que `asistencia.actualizado_por` (`001`) — lo fija el trigger, nunca el cliente.
+- **Trigger `perfil_before_update`** sustituye al genérico `perfil_tocar_actualizado_en` del
+  bootstrap (mismo criterio que `asistencia_proteger_inmutables` sustituyó a `tocar_actualizado_en`
+  para `asistencia` en `001`): sigue tocando `actualizado_en`/`actualizado_por`, y además aborta un
+  `UPDATE` que dejaría al sistema sin ningún `administrator` activo — se dispara solo cuando la fila
+  ANTES del cambio era un `administrator` activo, el cambio le quita esa condición (cambia de rol o
+  se desactiva), y no queda **ninguna otra** fila con `rol = 'administrator' and activo` distinta de
+  ella misma. No necesita `SECURITY DEFINER`: quien ejecuta el `UPDATE` ya tiene que ser
+  `administrator` (única política de `UPDATE` sobre `perfil`), y un `administrator` ya puede leer
+  todas las filas de `perfil` (`perfil_admin_leer_todos`) — el `SELECT` del trigger no pide ningún
+  privilegio que el llamante no tuviera ya.
+- **Requisito 3 de T-24** (alta de usuario, forzar contraseña, revocar sesión — todo lo que exige
+  `service_role`) sigue sin automatizar, documentado como procedimiento manual en `DEVELOPERS.md`,
+  tal como pide su propia spec.
+
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 
 Ampliación de T-09 acordada por el dueño el 2026-08-27 (§5/§6#5 de `SEGUIMIENTO.md`), aplicada

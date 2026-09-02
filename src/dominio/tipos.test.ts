@@ -10,7 +10,17 @@ import assert from 'node:assert/strict';
 import { crearFetchSimulado } from '../datos/pruebas/dobleHttp.ts';
 
 const FORMAS: Readonly<Record<string, readonly string[]>> = {
-  perfil: ['id', 'nombre', 'rol', 'activo', 'intentos_fallidos', 'bloqueado', 'creado_en', 'actualizado_en'],
+  perfil: [
+    'id',
+    'nombre',
+    'rol',
+    'activo',
+    'intentos_fallidos',
+    'bloqueado',
+    'creado_en',
+    'actualizado_en',
+    'actualizado_por',
+  ],
   centro_estudios: ['id', 'nombre', 'activo', 'creado_en', 'actualizado_en'],
   alumno: [
     'id',
@@ -111,6 +121,7 @@ const FILA_EJEMPLO: Readonly<Record<string, Record<string, unknown>>> = {
     bloqueado: false,
     creado_en: 'x',
     actualizado_en: 'x',
+    actualizado_por: null,
   },
   centro_estudios: { id: 'c1', nombre: 'IES Uno', activo: true, creado_en: 'x', actualizado_en: 'x' },
   alumno: {

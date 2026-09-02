@@ -48,6 +48,10 @@ void test('analizarRuta: "#/historico" es la pantalla de histórico (T-23)', () 
   assert.deepEqual(analizarRuta('#/historico'), { nombre: 'historico' });
 });
 
+void test('analizarRuta: "#/usuarios" es la pantalla de administración de usuarios (T-24)', () => {
+  assert.deepEqual(analizarRuta('#/usuarios'), { nombre: 'usuarios' });
+});
+
 void test('analizarRuta: funciona igual sin el "#" inicial', () => {
   assert.deepEqual(analizarRuta('/centros'), { nombre: 'centros' });
 });
@@ -60,6 +64,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'alumno-detalle', alumnoId: 'abc-123' },
     { nombre: 'registros' },
     { nombre: 'historico' },
+    { nombre: 'usuarios' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);

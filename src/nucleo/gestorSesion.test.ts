@@ -28,6 +28,7 @@ const PERFIL_ADMIN: Perfil = {
   bloqueado: false,
   creado_en: '2026-01-01T00:00:00.000Z',
   actualizado_en: '2026-01-01T00:00:00.000Z',
+  actualizado_por: null,
 };
 
 function crearRelojMutable(inicial: Date): { reloj: Reloj; avanzar: (ms: number) => void } {
