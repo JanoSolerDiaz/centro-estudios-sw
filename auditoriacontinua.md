@@ -47,9 +47,9 @@
 | #2 | 2026-08-29 | Autorización (RLS) / calidad de la batería de pruebas | alta | RESUELTO (2026-09-01) | `db/pruebas_rls.sql` (T-10, requisito 5 de su spec: "batería de aislamiento ejecutable") no contiene ni una sola sentencia `UPDATE`, `DELETE` ni `TRUNCATE` en sus 552 líneas — confirmado por `grep -i` sobre el fichero completo, cero coincidencias: solo ejercita `INSERT` y `SELECT`. Consecuencia concreta: ninguna política `UPDATE` (`slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`) tiene un caso que la ejercite, ni en su rama "debe fallar" (teacher) ni en la "debe funcionar" (administrator); y `persona_referencia_admin_todo` — la única política `for all` del esquema, y la que gobierna la única tabla con `DELETE` real — solo se prueba en su rama `INSERT`: nadie ha comprobado, ni en SQL estático ni en ejecución real, que bloquee un `UPDATE`/`DELETE` de un `teacher` ni que los permita a `administrator`. Tampoco se intenta nunca un `TRUNCATE` por `authenticated`, pese a ser el privilegio que el propio proyecto señala como el más peligroso (ya causó el incidente de `000b_arreglo_permisos.sql`). Lectura directa de `003_politicas_rls.sql` confirma que las políticas están escritas de forma correcta y simétrica (idéntica condición booleana en `USING` y `WITH CHECK`, válida por diseño para las cuatro operaciones a la vez), así que no hay indicio de vulnerabilidad activa hoy — pero la propia batería que debía demostrarlo, no lo demuestra, y hoy tampoco puede ejecutarse contra `dev` en ningún caso (sin `teacher` de prueba, con `002`/`003` todavía sin aplicar). Dado que este proyecto exige explícitamente no conformarse con "está verde" cuando la cobertura de la lógica crítica es superficial, se registra como severidad alta: debe cerrarse — añadiendo los casos que faltan de `UPDATE`/`DELETE` por tabla y un intento de `TRUNCATE` por `authenticated` — antes de dar T-10 por verificada en ejecución, no solo en SQL estático. **Resuelto:** **P-04** (urgente, 2026-08-31) añadió los casos de `UPDATE`/`DELETE` que faltaban para `centro_estudios`, `alumno`, `slot_horario` y `persona_referencia` (la política `for all`, ahora probada en sus cuatro operaciones), más una sección nueva de `TRUNCATE` por `authenticated` sobre las ocho tablas de `public`. En el camino salió una regresión real — **P-08**: la sección 1b de P-04 renombraba el fixture del que dependían las secciones 2/3/4, y esas devolvían en cascada sin ejecutar diez comprobaciones, en silencio, sin ninguna fila `FALLO`; se encontró **ejecutando la batería contra `dev` real, no leyéndola** (ni el auditor ni el propio agente que la escribió la habían visto leyendo el SQL), y se corrigió enlazando los fixtures por `id` (`_fixture_datos`) en vez de por nombre mutable. Verificado por este auditor de dos formas: (a) lectura del SQL actual (`db/pruebas_rls.sql`, secciones 3-4b, 823-1081) confirma casos reales positivos y negativos de `UPDATE`/`DELETE` para las cuatro tablas y una sección 8 dedicada a `TRUNCATE`; (b) `roadmap/SEGUIMIENTO.md` §3 fila 5 registra la ejecución real contra `dev` del 2026-08-31: **51 comprobaciones, 3 omitidas (bucket de avatares, entonces vacío — motivo legítimo), 0 fallidas**, incluyendo el aislamiento entre dos profesores, el bloqueo de `email_alumno`/`telefono_alumno` para `teacher`, y `TRUNCATE` denegado en las ocho tablas para `authenticated` y `teacher`. T-10 pasó de `BLOQUEADA` a `COMPLETADA` con esa verificación. Queda un residuo de baja severidad, ya autodetectado y correctamente registrado por el propio proyecto (no es hallazgo nuevo de este auditor): **P-06** (el barrido obligatorio de aislamiento no incluye al rol `anon`, la única superficie realmente no autenticada) y **P-07(a)** (el veredicto de `probar-rls` no distingue en su mensaje final una comprobación omitida de una realmente pasada — sí las cuenta y lista por separado, pero no "grita" cuando quedan casos sin ejercitar) siguen `PENDIENTE` en `SEGUIMIENTO.md` §5, sin urgencia, correctamente trazados. | `db/pruebas_rls.sql`; políticas afectadas en `db/003_politicas_rls.sql` (`persona_referencia_admin_todo`, `slot_horario_admin_actualizar`, `centro_estudios_admin_actualizar`, `alumno_admin_actualizar`); origen: auditoría #2; resuelto por P-04/P-08, `SEGUIMIENTO.md` §3 fila 5 |
 | #3 | 2026-08-29 | Minimización de datos | baja | RESUELTO (2026-09-01) | `src/datos/alumnos.ts`: el `select` de `listarAlumnos` (constante `SELECT_CON_CENTRO`) incluye `avatar_ruta` en el payload de red del listado de administrator, aunque `pantallaFichaAlumno.ts` no lo pinta en ninguna fila de esa lista hoy. No es una fuga real — el único consumidor de esa función es la pantalla de `administrator`, que ya tiene acceso legítimo a esa columna, y RLS reduce a cero filas la misma consulta para cualquier otro rol — pero es superficie de más que conviene recortar cuando T-14/T-19 le den un uso real al avatar, para no arrastrar el hábito a un listado que algún día podría compartirse con `teacher`. **Resuelto:** **P-02** (2026-08-31, sesión de T-14) recortó `avatar_ruta` del listado: `listarAlumnos` usa ahora `SELECT_LISTADO` (columnas explícitas, sin `avatar_ruta`) en vez de `SELECT_CON_CENTRO`, y el tipo `AlumnoListado` (`Omit<AlumnoConCentro, 'avatar_ruta'>`) refleja el recorte también en el tipo, no solo en la cadena de consulta. Verificado por este auditor con `grep -n "avatar_ruta" src/datos/alumnos.ts`: la única mención que queda es el comentario que documenta el propio recorte (`alumnos.ts:67-71,89`). | `src/datos/alumnos.ts` (`SELECT_LISTADO`, `AlumnoListado`, `listarAlumnos`); origen: auditoría #2; resuelto por P-02, `SEGUIMIENTO.md` §5 |
 | #4 | 2026-08-29 | Gobernanza documental | baja | RESUELTO (2026-09-01) | `db/MODELO.md` línea 194 sigue diciendo, en la sección de `evento_error`, que su lectura tiene "política todavía por escribir (T-10)" — nota que no se actualizó cuando T-10 escribió de verdad `evento_error_admin_leer` en `003_politicas_rls.sql`. El resto del propio documento (línea 221 en adelante, "Políticas RLS por rol") y la matriz de `DECISIONES_TECNICAS.md` sí están al día y son correctos; es una única frase residual, sin ningún impacto funcional ni de seguridad. **Resuelto:** **P-03** (2026-08-31) actualizó la línea: ahora nombra `evento_error_admin_leer` (`003_politicas_rls.sql`, T-10) en vez de "todavía por escribir". Verificado por este auditor con `grep -n "todavía por escribir\|por escribir" db/MODELO.md`: cero coincidencias. | `db/MODELO.md:194`; origen: auditoría #2; resuelto por P-03, `SEGUIMIENTO.md` §5 |
-| #5 | 2026-09-01 | Gobernanza documental | baja | ABIERTO | `db/MODELO.md:296` (sección T-14, avatar) sigue diciendo "falta únicamente el punto de montaje real en una pantalla (T-16)" — nota escrita en la sesión de T-14 (2026-08-31), antes de que T-16 existiera. T-16 ya está `COMPLETADA` (mismo día) y el bloque de avatar ya está montado de verdad: `src/ui/pantallaFichaAlumno.ts` monta `montarBloqueAvatar` (línea 524, cableado en la línea 1097). Mismo patrón exacto que el hallazgo #4 ya cerrado: una frase de estado que no se revisó al completar la tarea que dejaba pendiente, sin ningún impacto funcional ni de seguridad. | `db/MODELO.md:296`; `src/ui/pantallaFichaAlumno.ts:524,1097`; origen: auditoría #5 (2026-09-01) |
-| #6 | 2026-09-01 | Gobernanza documental | baja | ABIERTO | Numeración cruzada de las preguntas abiertas #12/#13 de §6 de `SEGUIMIENTO.md` (T-18, retroactividad/duplicados): la tabla de §6 es internamente coherente (línea 496: `#12` = duplicado mismo alumno/slot/día; línea 497: `#13` = ventana retroactiva máxima), y así la etiqueta también `db/005_rpc_registrar_asistencia.sql:26` (duplicados = "pregunta abierta #12"). Pero la propia narrativa de la sesión de T-18 en `SEGUIMIENTO.md` las intercambia: la línea 37 llama "#12" a la ventana retroactiva (debería ser #13) y la línea 43 llama "#13" al duplicado (debería ser #12); `roadmap/DECISIONES_TECNICAS.md:147` repite el mismo intercambio ("pregunta abierta #12... para la primera", refiriéndose a la ventana retroactiva). Sin impacto funcional: el código usa en los dos casos el valor conservador por defecto (7 días / rechazar duplicado) documentado en la spec, no una lectura equivocada de la pregunta; es solo una referencia cruzada mal etiquetada para quien intente localizar la pregunta por su número desde la narrativa en vez de desde la tabla. | `roadmap/SEGUIMIENTO.md:37,43` (narrativa) vs. `:496-497` (tabla, correcta); `roadmap/DECISIONES_TECNICAS.md:147`; `db/005_rpc_registrar_asistencia.sql:26` (correcto); origen: auditoría #5 (2026-09-01) |
-| #7 | 2026-09-01 | Calidad de código (higiene) | baja | ABIERTO | `columnasVisiblesFichaAlumno` (`src/dominio/permisosUi.ts:56`) está definida y testeada (`permisosUi.test.ts:47-62`, dos casos: `teacher`/`student` ven solo columnas de identificación, `administrator` ve también las de contacto) pero ninguna pantalla la importa ni la usa (`grep -rn "columnasVisiblesFichaAlumno" src/` solo devuelve su propia definición y su test) — código muerto, no un control de acceso activo. No es una fuga: la protección real de las columnas de contacto vive en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`, ninguno de los dos depende de esta función. Conviene o bien conectarla a la pantalla de ficha (si la intención era filtrar columnas en el cliente también) o eliminarla, para no acumular una función que aparenta ser parte del control de acceso sin estar en el camino real. | `src/dominio/permisosUi.ts:56`; `src/dominio/permisosUi.test.ts:47-62`; origen: auditoría #5 (2026-09-01) |
+| #5 | 2026-09-01 | Gobernanza documental | baja | RESUELTO (2026-09-02) | `db/MODELO.md:296` (sección T-14, avatar) sigue diciendo "falta únicamente el punto de montaje real en una pantalla (T-16)" — nota escrita en la sesión de T-14 (2026-08-31), antes de que T-16 existiera. T-16 ya está `COMPLETADA` (mismo día) y el bloque de avatar ya está montado de verdad: `src/ui/pantallaFichaAlumno.ts` monta `montarBloqueAvatar` (línea 524, cableado en la línea 1097). Mismo patrón exacto que el hallazgo #4 ya cerrado: una frase de estado que no se revisó al completar la tarea que dejaba pendiente, sin ningún impacto funcional ni de seguridad. **Resuelto:** **P-13** (2026-09-02) actualizó `db/MODELO.md:371-372`: ya no dice "falta únicamente el punto de montaje", dice que está montado de verdad en `pantallaFichaAlumno.ts` (`montarBloqueAvatar`) desde T-16. Verificado por este auditor con `git diff` de la línea y `grep -n "falta únicamente\|por escribir" db/MODELO.md`: cero coincidencias. | `db/MODELO.md:296→371-372`; `src/ui/pantallaFichaAlumno.ts:524,1097`; origen: auditoría #5 (2026-09-01); resuelto por P-13, `SEGUIMIENTO.md` §5 |
+| #6 | 2026-09-01 | Gobernanza documental | baja | RESUELTO (2026-09-02) | Numeración cruzada de las preguntas abiertas #12/#13 de §6 de `SEGUIMIENTO.md` (T-18, retroactividad/duplicados): la tabla de §6 es internamente coherente (línea 496: `#12` = duplicado mismo alumno/slot/día; línea 497: `#13` = ventana retroactiva máxima), y así la etiqueta también `db/005_rpc_registrar_asistencia.sql:26` (duplicados = "pregunta abierta #12"). Pero la propia narrativa de la sesión de T-18 en `SEGUIMIENTO.md` las intercambia: la línea 37 llama "#12" a la ventana retroactiva (debería ser #13) y la línea 43 llama "#13" al duplicado (debería ser #12); `roadmap/DECISIONES_TECNICAS.md:147` repite el mismo intercambio ("pregunta abierta #12... para la primera", refiriéndose a la ventana retroactiva). Sin impacto funcional: el código usa en los dos casos el valor conservador por defecto (7 días / rechazar duplicado) documentado en la spec, no una lectura equivocada de la pregunta; es solo una referencia cruzada mal etiquetada para quien intente localizar la pregunta por su número desde la narrativa en vez de desde la tabla. **Resuelto:** **P-14** (2026-09-02) corrigió las dos menciones narrativas de `SEGUIMIENTO.md` (ventana retroactiva = #13, duplicado = #12) y la de `DECISIONES_TECNICAS.md:147`. Verificado por este auditor con `grep -n "pregunta abierta #1[23]"` sobre los dos ficheros: las tres menciones narrativas restantes ya coinciden con la tabla de §6. | `roadmap/SEGUIMIENTO.md:37,43` (narrativa, ya corregida) vs. `:496-497` (tabla, correcta); `roadmap/DECISIONES_TECNICAS.md:147` (ya corregida); `db/005_rpc_registrar_asistencia.sql:26` (correcto); origen: auditoría #5 (2026-09-01); resuelto por P-14, `SEGUIMIENTO.md` §5 |
+| #7 | 2026-09-01 | Calidad de código (higiene) | baja | RESUELTO (2026-09-02) | `columnasVisiblesFichaAlumno` (`src/dominio/permisosUi.ts:56`) está definida y testeada (`permisosUi.test.ts:47-62`, dos casos: `teacher`/`student` ven solo columnas de identificación, `administrator` ve también las de contacto) pero ninguna pantalla la importa ni la usa (`grep -rn "columnasVisiblesFichaAlumno" src/` solo devuelve su propia definición y su test) — código muerto, no un control de acceso activo. No es una fuga: la protección real de las columnas de contacto vive en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`, ninguno de los dos depende de esta función. Conviene o bien conectarla a la pantalla de ficha (si la intención era filtrar columnas en el cliente también) o eliminarla, para no acumular una función que aparenta ser parte del control de acceso sin estar en el camino real. **Resuelto:** **P-15** (2026-09-02) la eliminó, junto con sus dos tests, en vez de conectarla: no existe ninguna pantalla de ficha para `teacher` en el roadmap ni puede existir dentro del alcance actual (§0.2 es permanente: "el `teacher`... no gestiona fichas ni ve datos de contacto ni personas de referencia"). Verificado por este auditor con `grep -rn "columnasVisiblesFichaAlumno" src/`: cero coincidencias, y `permisosUi.ts` sustituye su hueco por `puedeGestionarUsuarios` (T-24), con consumidor real en `pantallaUsuarios.ts:42`. | `src/dominio/permisosUi.ts:56` (eliminada); `src/dominio/permisosUi.test.ts:47-62` (eliminado); origen: auditoría #5 (2026-09-01); resuelto por P-15, `SEGUIMIENTO.md` §5 |
 
 ---
 
@@ -58,6 +58,153 @@
 > Cada pasada: fecha, hallazgos y conclusiones. Append, la más reciente arriba. Prestar
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
+
+### Auditoría 2026-09-03
+
+**Alcance real de esta pasada — siete commits, una tarea nueva (T-24) BLOQUEADA por su propia
+migración, y cierre en código de los tres hallazgos de higiene que quedaban abiertos.** `git log
+a8d8754..HEAD` (`a8d8754` es el commit de la auditoría anterior, 2026-09-02) muestra siete commits
+nuevos: `bee1602` (afinado de un mensaje de omisión en `db/pruebas_rls.sql`), `a7edaf1` (filas 9/10
+de §3 de `SEGUIMIENTO.md` marcadas `RESUELTA`: `007`/`008` aplicadas y verificadas en `dev`),
+`8d76645` (**T-24**, administración de usuarios y roles: código y tests completos, **BLOQUEADA por
+la migración `009`**), `c5cff96` (**P-05/P-13/P-14/P-15**: diagnóstico de CLI y backlog documental —
+cierra los hallazgos #5, #6 y #7 de este documento), `18fd2ba` (**P-06/P-07(a)**: barrido de RLS del
+rol `anon`, y aviso explícito de comprobaciones omitidas en el veredicto de `probar-rls`), `3cbad9a`
+(sesión de verificación sin tarea vertebral desbloqueada, backlog `P-XX` agotado) y `8f6064e`
+(noveno ciclo del PM: renumeración prospectiva de los ficheros de migración que reservaban
+R-01/R-02/R-03/R-06/R-12, de `006`-`010` a `010`-`014`, porque T-18/T-20/T-21/T-24 ya habían
+consumido esos números de verdad). Ninguna R-XX ha entrado en desarrollo todavía: la oleada v1 sigue
+sin arrancar, a la espera de que el MVP completo (T-00 a T-25) esté `COMPLETADA`/`DESPLEGADA EN
+PRODUCCIÓN`.
+
+**Metodología.** `git checkout develop && git pull origin develop` limpio, sin nada por delante ni
+por detrás. Verificación directa en vivo de los cuatro comandos de §0.1 — `npm ci` (130 paquetes, 0
+vulnerabilidades), `npm run typecheck`, `npm run lint`, `npm run build`, los cuatro en verde — y
+`npm test`: **942 tests, 942 pass, 0 fail** (antes 891, +51 desde la pasada anterior, coherente con
+el volumen de T-24). Confirmados contra la API de GitHub Actions los runs de CI en `develop`: los 30
+más recientes, incluido el del commit actual (`8f6064e`), todos `completed`/`success`. `git status`
+limpio antes y después. Barrido de secretos sobre `dist/` recién construido (`grep -rniE` de
+`service_role`/`SUPABASE_ACCESS_TOKEN`/JWT/contraseñas en claro): cero coincidencias reales; ningún
+`.env*`/`config.js` trackeado (`.gitignore` los cubre los tres). `git log a8d8754..HEAD --
+roadmap/HOJA_DE_RUTA.md` vacío: sin ninguna edición del dueño en esta pasada, el documento sigue
+inmutable. `package.json` sigue con `dependencies` vacío y el mismo `devDependencies` de siempre —
+sin framework, sin SDK de Supabase, sin `fetch` de aplicación fuera de `src/datos/`.
+
+Dado que el lote es pequeño y su pieza de mayor riesgo (T-24, gestión de roles) toca directamente el
+control de acceso del sistema, el propio auditor leyó línea a línea, sin delegar en subagentes:
+`db/009_administracion_usuarios.sql` completo, el diff íntegro de `db/pruebas_rls.sql` (secciones
+8e y 8f, nuevas), `src/datos/usuarios.ts`, `src/dominio/administracionUsuarios.ts` y
+`src/ui/pantallaUsuarios.ts` (los tramos de deshabilitado del botón/`<select>` de rol), el diff
+completo de `roadmap/DECISIONES_TECNICAS.md`, `SEGUIMIENTO.md` y `ROADMAP_PRODUCTO.md` contra la
+pasada anterior, y `db/000_bootstrap_perfil.sql` para confirmar el esquema y las políticas de
+`perfil` sobre las que se apoya T-24.
+
+**Punto de control: rol `student` cerrado y privilegios de tabla, con superficie nueva — el
+barrido de `anon` que faltaba (P-06), sin hallazgo.** La sección 8f nueva de `db/pruebas_rls.sql`
+(líneas 1735-1782, leída completa) ejercita `pg_temp.impersonar_anon()` —ya definida desde antes,
+pero código muerto hasta ahora, tal como señalaba el propio P-06— contra las nueve tablas de
+`public` más `storage.objects`, esperando `permission denied` (rechazo de PRIVILEGIO, no de RLS:
+`anon` no tiene ningún `GRANT` de tabla en absoluto, a diferencia de `student`, que sí lo tiene y
+por eso su barrido de la sección 6 espera `0` filas en vez de una excepción) y aceptando cualquiera
+de los dos desenlaces solo para `storage.objects`, cuyo privilegio por defecto de Supabase no está
+documentado en ningún fichero de este repositorio. La distinción entre los dos mecanismos de
+rechazo está razonada explícitamente en `DECISIONES_TECNICAS.md` y coincide con lo que el propio
+`003_politicas_rls.sql` hace (`revoke all ... from anon` en cada migración desde `001`). Queda,
+correctamente, sin ejecutar todavía contra `dev` real: es SQL nuevo, a la espera de que el dueño
+corra `npm run probar-rls` de nuevo.
+
+**Punto de control nuevo de esta pasada: administración de usuarios y roles (T-24) — código y
+tests completos, sin hallazgo, y correctamente BLOQUEADA hasta que se aplique `009`.** El requisito
+más sensible de T-24 —que el último `administrator` activo no pueda desactivarse ni degradarse a sí
+mismo— se implementa en la base de datos, no en el cliente: el trigger `perfil_before_update`
+(`db/009_administracion_usuarios.sql`) sustituye al genérico `perfil_tocar_actualizado_en` del
+bootstrap, sigue fijando `actualizado_en`/`actualizado_por` él mismo (nunca el cliente, mismo patrón
+que `asistencia.actualizado_por` de T-07) y aborta cualquier `UPDATE` que deje al sistema sin ningún
+otro `administrator` activo, comprobado con una subconsulta sobre `perfil` que excluye la propia fila
+(`id <> old.id`). No necesita `SECURITY DEFINER` —razonado explícitamente en `DECISIONES_TECNICAS.md`
+y verificado por este auditor: quien ejecuta el `UPDATE` ya tiene que ser `administrator` (única
+política de `UPDATE` sobre `perfil`, `perfil_admin_actualizar`, del bootstrap) y ya puede leer todas
+las filas de `perfil` (`perfil_admin_leer_todos`), así que el `SELECT` del trigger no pide ningún
+privilegio que el llamante no tuviera ya. El rechazo usa `raise exception` sin `errcode 42501` a
+propósito (PostgREST lo traduce a `400`, no a `403`), para que `erroresDominio.ts` conserve el
+mensaje real del trigger en vez de sustituirlo por el genérico de `SinPermiso` — comprobado
+directamente en `src/datos/usuarios.ts` y su comentario de cabecera. La sección 8e nueva de
+`db/pruebas_rls.sql` (líneas 1613-1733, leída completa) prueba las dos caras: `teacher`/`student` no
+leen ni modifican perfiles ajenos (consulta y `UPDATE` directos, sin RPC de por medio), y —dentro de
+la misma transacción, dejando deliberadamente un único `administrator` activo para no depender de
+cuántos haya hoy en el entorno real— ni desactivar ni degradar al último `administrator` tiene
+éxito. Todo esto es código listo, no una vía de escritura real todavía: `db/APLICADAS.md` confirma
+`009` **sin aplicar** en `dev` (sección "Pendiente de aplicar"), y T-24 figura correctamente
+`BLOQUEADA` en `SEGUIMIENTO.md` §3 fila 11, no `COMPLETADA`.
+
+**Punto de control: rol `student` cerrado, alcance de los datos personales — sin hallazgo en el
+resto de T-24.** `perfil` (esquema confirmado en `db/000_bootstrap_perfil.sql:66-73`) solo tiene
+`id`, `nombre`, `rol`, `activo`, `creado_en`, `actualizado_en` y ahora `actualizado_por` — ningún
+dato de contacto ni de salud, y `pantallaUsuarios.ts` no ofrece ninguna vista a `teacher`/`student`,
+ni siquiera de solo lectura (a diferencia de `pantallaCentros.ts`/`pantallaHistorico.ts`, donde
+`teacher` sí ve una versión reducida): decisión razonada en `DECISIONES_TECNICAS.md` y coherente con
+que §0.2 dice que `teacher` "no gestiona fichas ni ve datos de contacto ni personas de referencia".
+`listarUsuarios`/`actualizarUsuario` (`src/datos/usuarios.ts`) consultan `perfil` directamente, sin
+RPC —correcto: el `UPDATE` de `administrator` ya estaba concedido y aislado por RLS desde el
+bootstrap, y no hace falta una capa nueva solo para colar la comprobación del requisito 4, que ya
+resuelve el trigger sobre la MISMA vía de escritura (protege también un `UPDATE` directo, cosa que
+una RPC nueva no habría hecho)—, y ni siquiera `teacher`/`student` verían datos ajenos si
+manipularan el cliente para forzar la llamada: `perfil_leer_propio` los limita a su propia fila.
+
+**Punto de control: privacidad del panel — el requisito que exige `service_role` sigue siendo
+procedimiento manual, no una pantalla.** `DEVELOPERS.md` documenta las tres operaciones de T-24 que
+sí exigirían la clave de administración de Supabase (alta de usuario, forzar contraseña, revocar
+sesión) como procedimiento manual del dueño desde el panel, nunca automatizadas desde el cliente —
+consistente con §0.2 ("esa clave nunca entra en el navegador") y con el mismo criterio ya aplicado al
+desbloqueo de cuenta de T-09/P-01.
+
+**Calidad real de los tests de T-24 — sustancial, no cosmética.** El test de `pantallaUsuarios.ts`
+que comprueba el botón "Desactivar" del único `administrator` activo no se conforma con leer el
+atributo `disabled`: fuerza un `.click()` sobre el botón deshabilitado y comprueba que la llamada al
+servidor nunca se dispara (`assert.equal(llamadas, 0, 'un botón deshabilitado no dispara su evento
+click, ni en jsdom ni en un navegador real')`), y otro test equivalente fuerza el evento `change`
+del `<select>` de rol saltándose el atributo para comprobar la segunda barrera dentro del propio
+manejador. `DECISIONES_TECNICAS.md` documenta con honestidad por qué el botón NO lleva esa segunda
+barrera (un elemento `disabled` nunca dispara su evento, así que la comprobación quedaría muerta e
+intestable — se retiró tras encontrarlo con un test real) mientras que el `<select>` sí la conserva
+(un evento `change` sí puede llegar por una vía que `disabled` no bloquea con la misma garantía): es
+exactamente el tipo de diferencia de tratamiento entre dos controles similares que merece quedar
+razonada por escrito, y lo está.
+
+**Cierre de los hallazgos #5, #6 y #7 — verificado en código, no por confianza en lo que dice
+`SEGUIMIENTO.md`.** Los tres se marcan `RESUELTO` en el registro de arriba con evidencia directa:
+`db/MODELO.md:371-372` ya no dice "falta únicamente el punto de montaje" (P-13); las dos menciones
+narrativas de `SEGUIMIENTO.md` y la de `DECISIONES_TECNICAS.md:147` ya usan #12/#13 en el mismo
+sentido que la tabla de §6 (P-14); y `columnasVisiblesFichaAlumno` ya no existe en
+`src/dominio/permisosUi.ts` — `grep -rn` sobre `src/` no devuelve ningún resultado (P-15, eliminada
+en vez de conectada, con razonamiento explícito de por qué conectarla habría sido construir fuera
+del alcance permanente de §0.2). Ningún hallazgo `ABIERTO` queda en el registro tras esta pasada.
+
+**Coherencia entre lo decidido y lo ejecutado — sin hallazgo.** La renumeración del noveno ciclo de
+PM (`8f6064e`) es prospectiva sobre specs todavía sin implementar (R-01/R-02/R-03/R-06/R-12), no una
+desviación de una tarea ya ejecutada, y así queda clasificada correctamente — no genera fila en §7 de
+`SEGUIMIENTO.md`, reservado para renumeraciones reales durante la implementación (como sí les pasó a
+T-18/T-20). El diff completo de `DECISIONES_TECNICAS.md` desde la pasada anterior (catorce filas
+nuevas, T-24/P-05/P-06/P-07(a)/P-15) se contrastó contra el SQL/código real y coincide en todos los
+casos, incluida la razón de por qué T-24 necesitó migración pese a declarar "Migración: No" en su
+spec —mismo criterio ya aplicado antes por T-09/T-20/T-23, no una excepción nueva—. `SEGUIMIENTO.md`
+§7 no registra ninguna desviación nueva de este lote más allá de la ya conocida renumeración de
+ficheros de migración prospectivos, que corresponde a §1, no a §7.
+
+**Conclusión.** Lote pequeño y disciplinado: una tarea nueva con su pieza más sensible —el
+invariante que impide dejar el sistema sin ningún `administrator`— implementada donde debe (un
+trigger en la base de datos, no una comprobación de cliente), razonada por escrito con el mismo rigor
+que el resto del proyecto, y correctamente retenida como código listo hasta que el dueño aplique su
+migración. El hueco de cobertura que señalaba el propio proyecto (P-06, el barrido de RLS nunca
+ejercitaba `anon`) ya está cerrado en SQL, a la espera de su primera ejecución real. Los tres
+hallazgos de higiene que quedaban abiertos desde hace dos pasadas (#5, #6, #7) se cierran los tres en
+esta, con evidencia directa de código — el registro de hallazgos queda sin ningún `ABIERTO` por
+primera vez desde que existe este documento. La próxima auditoría con sustancia real de seguridad
+llega en cuanto el dueño aplique `009` y se ejecute `npm run probar-rls` (secciones 8e y 8f, con sus
+casos ya escritos y revisados en SQL estático), momento en el que T-24 dejará de ser "código listo"
+para pasar a ser "control de acceso de usuarios y roles verificado en ejecución real" — o con T-25
+(propagación a producción), la primera vez que cualquier decisión de este documento se somete a un
+entorno real fuera de `dev`.
 
 ### Auditoría 2026-09-02
 
