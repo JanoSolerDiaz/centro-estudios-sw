@@ -10,7 +10,24 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-03 (sesión de arreglo urgente — `P-16`) — el dueño ejecutó
+**Última actualización:** 2026-09-03 (sesión de verificación, rutina programada) — sin tarea
+vertebral desbloqueada: `git checkout develop && git pull` trajo los 11 commits de la sesión de
+arreglo urgente `P-16` (ya en `origin/develop` al empezar), y desde ahí, nada ha cambiado. Revisado
+`auditoriacontinua.md`: cero hallazgos `ABIERTO` (sin cambio desde la pasada del auditor del
+2026-09-03). Revisado `db/APLICADAS.md`: `009_administracion_usuarios.sql` sigue en la sección
+"Pendiente de aplicar", el dueño todavía no ha ejecutado `npm run migrate`; T-24 sigue `BLOQUEADA` en
+§1 y la fila 11 de §3 sigue `PENDIENTE`, sin cambio. T-25 sigue sin poder arrancar (depende de T-24) y
+la oleada v1 (`R-01` a `R-12`) sigue esperando el MVP en producción. Revisado el backlog completo de
+§5: las dieciséis `P-XX` (`P-01` a `P-16`) siguen `RESUELTA`, ninguna pendiente. Repetida la
+verificación pre-push completa sin ningún commit de programador entre medias: `npm ci` (130 paquetes,
+0 vulnerabilidades), `npm run typecheck`, `npm run lint` y `npm run build` en verde, y `npm test`:
+**943 tests, 943 pass, 0 fail** — la misma cifra que dejó la sesión de `P-16`. Barrido de secretos
+sobre `dist/` recién construido: cero coincidencias reales (solo nombres de campo y el propio patrón
+de `registro.ts`). `git status` limpio antes y después. No se fabrica ninguna `P-XX` ni `R-XX` nueva
+para justificar el ciclo: revisado el backlog de §5 y `auditoriacontinua.md` completos sin encontrar
+ningún candidato legítimo.
+
+**Sesión anterior (2026-09-03, "arreglo urgente — `P-16`"):** el dueño ejecutó
 `npm run probar-rls` y la batería **entera** murió antes de la primera comprobación:
 `ERROR 42601: "v_filas" is not a known variable` en la línea 1650 de `db/pruebas_rls.sql`. Causa
 raíz: en plpgsql un `declare` pertenece SOLO al `begin … end;` que lo sigue, y la sección 8e
@@ -31,7 +48,7 @@ verificación de esta misma mañana, justo debajo, dio `typecheck`/`lint`/`build
 verde **con este defecto ya dentro del repositorio**: ninguna de las cuatro puertas mira dentro de
 la batería de RLS, y de ahí que `P-16` añada la comprobación estática y no solo mueva la línea.
 
-**Sesión anterior (2026-09-03, "verificación"):** sin tarea vertebral desbloqueada:
+**Sesión previa a esa (2026-09-03, "verificación"):** sin tarea vertebral desbloqueada:
 T-24 sigue `BLOQUEADA — pendiente aplicar migración 009` (fila 11 de §3, sin cambio, sin acción del
 dueño todavía), T-25 sigue sin poder arrancar y la oleada v1 sigue esperando a que el MVP T-00 a T-25
 esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. `git checkout develop && git pull` trajo 9 commits
@@ -48,12 +65,12 @@ del 2026-09-03. Barrido de secretos sobre `dist/` recién construido: cero coinc
 ciclo: revisado el backlog de §5 y `auditoriacontinua.md` completos sin encontrar ningún candidato
 legítimo.
 
-**Sesión previa a esa (2026-09-02, "noveno ciclo del PM"):** sin tarea vertebral desbloqueada ni `P-XX`/
+**Dos sesiones antes (2026-09-02, "noveno ciclo del PM"):** sin tarea vertebral desbloqueada ni `P-XX`/
 `R-XX` nueva; único cambio real, una corrección de numeración prospectiva en `ROADMAP_PRODUCTO.md`
 (los números de migración que reservaban las specs de R-01/R-02/R-03/R-06/R-12, `006` a `010`, ya los
 había consumido de verdad el desarrollo de T-18/T-20/T-21/T-24; renumerados a `010`-`014`).
 
-**Sesión previa a esa (2026-09-02, "verificación"):** sin tarea vertebral desbloqueada, sin `P-XX`
+**Tres sesiones antes (2026-09-02, "verificación"):** sin tarea vertebral desbloqueada, sin `P-XX`
 pendiente — comprobado el estado de partida (T-24 `BLOQUEADA` por `009`, backlog de §5 agotado) y
 repetida la verificación pre-push completa sin ningún commit de programador entre medias: `npm ci`
 limpio, `typecheck`/`lint`/`build` en verde y `npm test`: **942 tests, 942 pass, 0 fail**, la misma
