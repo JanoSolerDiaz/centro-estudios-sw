@@ -8,37 +8,31 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-02 — noveno ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
-reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` no registra ningún hallazgo
-nuevo desde el octavo ciclo — su pasada del 2026-09-02 confirma T-19/T-22/T-23 completas y T-20/T-21
-con código listo pero `BLOQUEADA`, sin hallazgo nuevo de producto ni de arquitectura; los tres
-`ABIERTO` de higiene (#5, #6, #7) siguen exactamente donde los dejó el octavo ciclo, ya resueltos en
-código por P-13/P-14/P-15 (`SEGUIMIENTO.md` §5), a la espera solo de que el propio auditor los
-cierre en su documento — no genera trabajo nuevo de este ciclo.
+**Última actualización:** 2026-09-03 — décimo ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
+reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sigue sin ningún hallazgo
+`ABIERTO` (los siete, `#1` a `#7`, `RESUELTO`): nada que convertir en R-XX ni en backlog técnico.
 
-**Desarrollo real desde la última revisión: T-24 (código y tests completos, `BLOQUEADA` — pendiente
-aplicar la migración `009`) y backlog documental/de diagnóstico (P-05 a P-15, todas `RESUELTA`).**
-Ninguna R-XX ha entrado en desarrollo: v1 sigue sin arrancar, a la espera de que el MVP completo
-(T-00 a T-25) esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN` — hoy quedan T-20, T-21 y T-24
-`BLOQUEADA` (pendientes de que el dueño aplique `007`/`008`/`009`) y T-25 sin poder arrancar. Nada
-que mover a `ROADMAP_HISTORICO.md` esta vez.
+**Desarrollo real desde la última revisión: solo T-24 (código y tests completos, `BLOQUEADA` —
+pendiente aplicar la migración `009`) y tres sesiones de verificación sin cambio de estado.** Ninguna
+R-XX ha entrado en desarrollo: v1 sigue sin arrancar, a la espera de que el MVP completo (T-00 a
+T-25) esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. Nada que mover a `ROADMAP_HISTORICO.md` esta vez.
 
-**Corrección de este ciclo, la única con contenido real: los números de migración reservados para
-R-01/R-02/R-03/R-06/R-12 (`006` a `010`) ya no están libres.** Cuando se escribieron esas cinco
-specs, `006`-`010` eran los siguientes números disponibles; desde entonces T-18 (arreglo de
-`aplicar_limite_tasa`), T-20, T-21 y T-24 los han consumido de verdad (`006_arreglo_limite_tasa_ambiguo.sql`
-a `009_administracion_usuarios.sql`, ver `db/APLICADAS.md`). Si esas cinco specs no se corrigen
-antes de que alguien implemente R-01, la primera sesión que llegue a escribir
-`006_registro_ausencias.sql` choca con un fichero ya aplicado y con un hash ya registrado en el
-ledger. Renumeradas a los cinco siguientes números realmente libres, en el mismo orden relativo en
-que ya aparecían: R-01 `006`→**`010`**, R-02 `007`→**`011`**, R-03 `008`→**`012`**, R-06
-`009`→**`013`**, R-12 `010`→**`014`**. Es una corrección de numeración prospectiva sobre specs
-todavía sin implementar, no una desviación de una tarea ya ejecutada: no genera fila en §7 de
-`SEGUIMIENTO.md` (eso es para renumeraciones reales durante la implementación, como ya le pasó a
-T-18/T-20), solo actualiza esta spec y la nota informativa de §1 de `SEGUIMIENTO.md`. Revisado el
-resto de las doce R-XX contra el avance de T-24: ninguna depende de esa tarea, sin más cambios.
-**No se añade ninguna R-XX nueva en este ciclo:** las doce ya especificadas siguen cubriendo el
-hueco real entre el MVP y el objetivo de producto.
+**Único contenido real de este ciclo: una R-XX existente se amplía para cerrar un hueco real de
+producto, detectado al releer F-03 con ojos frescos en vez de solo repasar el estado.** R-06
+("Sustitución puntual de profesor en un slot") solo cubría la mitad del problema que su propia fase
+plantea — "un profesor falta un día" — para el caso en que **hay** quien lo cubra. Falta el caso
+igual de real en que **no** lo hay: la clase simplemente no se da ese día. Sin esto, la única forma
+de reflejarlo hoy sería no pasar lista (indistinguible de "el profesor aún no ha llegado", R-01) o
+marcar a cada alumno como ausente (que penaliza al alumno en R-04 por una clase que no dependía de
+él) — ninguna de las dos es honesta, y las dos rompen la fiabilidad del registro que es la misión
+del producto. **R-06 se amplía a "Excepción puntual de un slot: sustitución o cancelación"**,
+mismo número, misma fase, migración renombrada de `013_sustitucion_profesor` a `013_excepcion_slot`
+(no se ha implementado nada todavía: no hay tabla que migrar ni desviación que registrar en §7,
+igual que las renumeraciones prospectivas de ciclos anteriores). La cancelación reutiliza el mismo
+patrón de exclusión de "sesiones esperadas" que R-12 (`esDiaCerrado`) pero a nivel de slot en vez de
+centro entero, así que R-04 gana esa misma dependencia. Detalle completo en la spec de R-06 más
+abajo. **Revisadas las once R-XX restantes contra el estado actual: sin más cambios** — el resto del
+backlog sigue cubriendo el hueco real entre el MVP y el objetivo de producto.
 
 ---
 
@@ -95,7 +89,8 @@ ni toca al rol `student`.
   hacia fuera: el informe que se enseña a una familia y el aviso cuando algo requiere que se
   enteren. R-04, R-05.
 - **F-03 — Continuidad operativa.** Lo que mantiene el producto fiable cuando la realidad de un
-  centro no es la ideal: un profesor falta, o el aula no tiene buena conexión. R-06, R-07.
+  centro no es la ideal: un profesor falta —con o sin quien lo cubra—, o el aula no tiene buena
+  conexión. R-06, R-07.
 
 > Quedan fuera de esta oleada, por depender de una decisión del dueño y anotadas en §6 de
 > `SEGUIMIENTO.md`: el envío automático (no solo preparado) del aviso a la familia, y cualquier
@@ -294,7 +289,7 @@ luego declarado cerrado por error sigue íntegra en el histórico.
 ---
 
 ### R-04 — Informe mensual por alumno
-**Oleada / Fase:** v1 / F-02 · **Migración:** No · **Depende de:** T-23, R-01, R-02, R-03, R-12
+**Oleada / Fase:** v1 / F-02 · **Migración:** No · **Depende de:** T-23, R-01, R-02, R-03, R-06, R-12
 **Origen:** roadmap
 
 **Objetivo:** que `administrator` obtenga en un clic el resumen mensual que hoy tendría que
@@ -304,10 +299,12 @@ que se enseña a una familia o se archiva.
 
 **Requisitos:**
 1. Desde la ficha de alumno o desde el histórico (T-23), generar el informe de un mes natural
-   elegido: sesiones esperadas según el horario vigente cada semana de ese mes **y excluyendo los
-   días marcados como cierre del centro (R-12, `esDiaCerrado`)**, entradas registradas, ausencias
-   (justificadas/injustificadas), retroactivos, anuladas (visibles pero no contadas como
-   asistencia), y horas reales acumuladas cuando R-03 tiene datos.
+   elegido: sesiones esperadas según el horario vigente cada semana de ese mes **excluyendo los
+   días marcados como cierre del centro (R-12, `esDiaCerrado`) y los días en que el propio slot del
+   alumno quedó cancelado (R-06)** — una clase cancelada por falta de profesor y sin sustituto no
+   cuenta como sesión esperada de ningún alumno de ese slot, igual que no cuenta un día festivo —,
+   entradas registradas, ausencias (justificadas/injustificadas), retroactivos, anuladas (visibles
+   pero no contadas como asistencia), y horas reales acumuladas cuando R-03 tiene datos.
 2. Exportable a PDF —generado en cliente sin librería de terceros, con impresión de HTML o
    `canvas` nativo— y a CSV, con cabecera de alumno, centro, mes y fecha de generación.
 3. El cálculo de sesiones esperadas usa los slots vigentes de cada semana del mes (snapshot
@@ -355,31 +352,55 @@ reservada al dueño (pregunta abierta en §6 de `SEGUIMIENTO.md`).
 
 ---
 
-### R-06 — Sustitución puntual de profesor en un slot
-**Oleada / Fase:** v1 / F-03 · **Migración:** Sí (`013_sustitucion_profesor`) · **Depende de:** T-15, T-17, T-18
+### R-06 — Excepción puntual de un slot: sustitución o cancelación
+**Oleada / Fase:** v1 / F-03 · **Migración:** Sí (`013_excepcion_slot`) · **Depende de:** T-15, T-17, T-18
 **Origen:** roadmap
 
-**Objetivo:** un profesor falta un día y otro cubre su clase — hoy eso obligaría a tocar el
+**Objetivo:** un profesor falta un día. A veces otro cubre su clase — hoy eso obligaría a tocar el
 horario recurrente (arrastrando el cambio hacia atrás y hacia delante) o a registrar la asistencia
 desde una cuenta que no es la del profesor real, perdiendo la trazabilidad de quién dio la clase.
-Hace falta cubrir un slot un día concreto sin alterar el horario.
+Otras veces no hay quien la cubra y la clase, sencillamente, no se da — y hoy eso no tiene ninguna
+forma honesta de quedar dicho: no pasar lista se confunde con "el profesor aún no ha llegado"
+(R-01), y marcar a cada alumno como ausente penaliza en el informe mensual (R-04) a quien no tuvo
+ninguna culpa de que la clase no se diera. Ambos casos son la misma idea —una excepción de un solo
+día sobre un slot recurrente, sin tocar el horario ni el pasado— y se resuelven con la misma tarea.
 
 **Requisitos:**
-1. `administrator` asigna una sustitución: slot, fecha concreta y profesor sustituto. No modifica
-   el slot recurrente ni su vigencia (T-15): es una excepción de un solo día.
-2. Ese día, el motor de propuesta (T-17) presenta ese slot al profesor sustituto en lugar del
-   titular, y el titular no lo ve ese día. El resto de días, sin cambios.
-3. Los registros de asistencia creados ese día quedan atribuidos al profesor sustituto —autor
-   real— y la fila conserva una marca de que fue una sustitución, visible en «Registros» y en el
-   histórico, coherente con "la hora real, no la teórica" y con no ocultar quién hizo qué.
-4. Una sustitución no puede crearse retroactivamente para alterar quién aparece como autor de un
-   registro ya existente — eso sería reescribir historia (§0.2).
+1. Para un slot y una fecha concreta, `administrator` declara una excepción de uno de dos tipos:
+   **sustitución** (otro profesor cubre la clase) o **cancelación** (no hay clase, con motivo breve
+   en texto libre — "profesor de baja", "imprevisto", sin dato de alumno). Ninguna de las dos
+   modifica el slot recurrente ni su vigencia (T-15): son excepciones de un solo día.
+2. **Sustitución:** ese día, el motor de propuesta (T-17) presenta ese slot al profesor sustituto
+   en lugar del titular, y el titular no lo ve. Los registros de asistencia creados ese día quedan
+   atribuidos al profesor sustituto —autor real— y la fila conserva una marca de que fue una
+   sustitución, visible en «Registros» y en el histórico, coherente con "la hora real, no la
+   teórica" y con no ocultar quién hizo qué. El resto de días, sin cambios.
+3. **Cancelación:** ese día, el slot no se ofrece a ningún profesor en pasar lista —ni al titular
+   ni a nadie— y no se crea ninguna fila de asistencia para ningún alumno del slot: ni ausencias
+   (R-01) ni entradas. No es que los alumnos faltaron: es que la clase no se dio, y el registro no
+   debe decir lo contrario.
+4. «Mi horario» (T-22) del profesor titular muestra ese día el slot marcado como «Cubierto por
+   [sustituto]» o «Cancelada — <motivo>», nunca como «Sin clases este día» ni como el slot normal,
+   para que no piense que tiene que pasar lista.
+5. Ninguna de las dos excepciones puede declararse retroactivamente sobre un slot que ya tiene
+   registros de asistencia ese día — sustituir o cancelar a posteriori alteraría quién aparece
+   como autor, o borraría de hecho una clase que sí se dio: eso es reescribir historia (§0.2), y se
+   rechaza con aviso.
+6. La cancelación excluye ese día de "sesiones esperadas" para los alumnos de ese slot en el
+   informe mensual (R-04), mismo principio que `esDiaCerrado` (R-12) pero a nivel de slot en vez de
+   centro entero. La sustitución sigue contando como sesión esperada y dada: hubo clase, solo
+   cambió quién la impartió.
+7. Avisar a las familias de una clase cancelada queda fuera del alcance de esta tarea; si se
+   quiere en el futuro, es una ampliación del mecanismo ya construido por R-05, no una pieza nueva.
 
 **Bloqueo humano:** ninguno.
 
 **Criterio de aceptación:** el día de la sustitución, el sustituto ve el slot en «Mi horario»
 (T-22) y el titular no; los registros de ese día muestran al sustituto como profesor y una marca
-de sustitución; al día siguiente el horario vuelve a la normalidad sin intervención.
+de sustitución. El día de una cancelación, ningún profesor ve el slot en pasar lista, no se crea
+ninguna fila de asistencia, y el informe mensual (R-04) de los alumnos de ese slot no cuenta ese
+día como sesión esperada. Un intento de sustituir o cancelar un slot que ya tiene registros ese día
+se rechaza. Al día siguiente el horario vuelve a la normalidad sin intervención.
 
 ---
 

@@ -10,23 +10,40 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-03 (tercera sesión de verificación, rutina programada) — sin tarea
-vertebral desbloqueada: `git checkout develop && git pull` trajo la segunda sesión de verificación de
-hoy (commit `3332aad`, ya en `origin/develop` al empezar), y desde ahí, nada ha cambiado — mismo día,
-sin ninguna acción del dueño todavía. Revisado `auditoriacontinua.md`: sus siete hallazgos (`#1` a
-`#7`) siguen `RESUELTO`, cero `ABIERTO`, sin cambio. Revisado `db/APLICADAS.md`:
-`009_administracion_usuarios.sql` sigue en la sección "Pendiente de aplicar", el dueño todavía no ha
-ejecutado `npm run migrate`; T-24 sigue `BLOQUEADA` en §1 y la fila 11 de §3 sigue `PENDIENTE`, sin
-cambio. T-25 sigue sin poder arrancar (depende de T-24) y la oleada v1 (`R-01` a `R-12`) sigue
-esperando el MVP en producción. Revisado el backlog completo de §5: las dieciséis `P-XX` (`P-01` a
-`P-16`) siguen `RESUELTA`, ninguna pendiente. Repetida la verificación pre-push completa sin ningún
-commit de programador entre medias: `npm ci` (130 paquetes, 0 vulnerabilidades), `npm run typecheck`,
-`npm run lint` y `npm run build` en verde, y `npm test`: **943 tests, 943 pass, 0 fail** — la misma
-cifra que las dos sesiones de verificación anteriores de hoy y que la sesión de `P-16`. Barrido de
+**Última actualización:** 2026-09-03 (décimo ciclo del PM, rutina de producto) — sin tarea vertebral
+desbloqueada ni `P-XX` nueva; `git checkout develop && git pull` trajo la tercera sesión de
+verificación de hoy (commit `5d4d2b3`, ya en `origin/develop` al empezar). Revisado `auditoriacontinua.md`:
+sus siete hallazgos siguen `RESUELTO`, cero `ABIERTO` — nada que convertir. Revisado `FEEDBACK.md`:
+sigue sin entradas `nuevo` reales (fila plantilla vacía) — nada que convertir. **Único contenido real
+del ciclo: R-06 se amplía** de "sustitución puntual de profesor" a "excepción puntual de un slot:
+sustitución o cancelación" — releyendo F-03 con ojos de producto en vez de solo repasar estado, el
+caso de "el profesor falta y NO hay quien lo cubra" quedaba sin ninguna forma honesta de registrarse
+(no pasar lista se confunde con un retraso, R-01; marcar a cada alumno ausente penaliza en R-04 a
+quien no tuvo culpa). Mismo número de R-XX, misma migración renombrada (`013_excepcion_slot`, nada
+aplicado todavía, no genera fila en §7): detalle completo en `ROADMAP_PRODUCTO.md`. R-04 gana la
+dependencia de R-06 (excluir de "sesiones esperadas" un slot cancelado, igual que ya hace con
+`esDiaCerrado` de R-12). Revisadas las once R-XX restantes: sin más cambios. T-24 sigue `BLOQUEADA`
+en §1 (pendiente aplicar `009`, fila 11 de §3, sin cambio) y la oleada v1 sigue esperando el MVP en
+producción. No se toca código en este ciclo: sin verificación pre-push, sin build, sin tests — es
+una sesión de producto, no de desarrollo.
+
+**Sesión anterior (2026-09-03, "tercera sesión de verificación"):** sin tarea vertebral desbloqueada:
+`git checkout develop && git pull` trajo la segunda sesión de verificación de hoy (commit `3332aad`,
+ya en `origin/develop` al empezar), y desde ahí, nada había cambiado — mismo día, sin ninguna acción
+del dueño todavía. Revisado `auditoriacontinua.md`: sus siete hallazgos (`#1` a `#7`) seguían
+`RESUELTO`, cero `ABIERTO`, sin cambio. Revisado `db/APLICADAS.md`: `009_administracion_usuarios.sql`
+seguía en la sección "Pendiente de aplicar", el dueño todavía no había ejecutado `npm run migrate`;
+T-24 seguía `BLOQUEADA` en §1 y la fila 11 de §3 seguía `PENDIENTE`, sin cambio. T-25 seguía sin
+poder arrancar (depende de T-24) y la oleada v1 (`R-01` a `R-12`) seguía esperando el MVP en
+producción. Revisado el backlog completo de §5: las dieciséis `P-XX` (`P-01` a `P-16`) seguían
+`RESUELTA`, ninguna pendiente. Repetida la verificación pre-push completa sin ningún commit de
+programador entre medias: `npm ci` (130 paquetes, 0 vulnerabilidades), `npm run typecheck`, `npm run
+lint` y `npm run build` en verde, y `npm test`: **943 tests, 943 pass, 0 fail** — la misma cifra que
+las dos sesiones de verificación anteriores de ese día y que la sesión de `P-16`. Barrido de
 secretos sobre `dist/` recién construido: cero coincidencias reales (solo nombres de campo y el
-propio patrón de `registro.ts`). `git status` limpio antes y después. No se fabrica ninguna `P-XX` ni
-`R-XX` nueva para justificar el ciclo: revisado el backlog de §5 y `auditoriacontinua.md` completos
-sin encontrar ningún candidato legítimo.
+propio patrón de `registro.ts`). `git status` limpio antes y después. No se fabricó ninguna `P-XX`
+ni `R-XX` nueva para justificar el ciclo: revisado el backlog de §5 y `auditoriacontinua.md`
+completos sin encontrar ningún candidato legítimo.
 
 **Sesión anterior (2026-09-03, "segunda sesión de verificación"):** sin tarea vertebral desbloqueada:
 `git checkout develop && git pull` trajo la sesión de verificación anterior (commit `5adb6b0`, ya en
@@ -965,9 +982,9 @@ pantallas del requisito 2.
 | R-02 | Justificación de una ausencia | PENDIENTE | — | Oleada v1 / F-01 · Migración `011_justificacion_ausencia` (renumerada por el PM el 2026-09-02: `007` lo ocupó ya T-20) |
 | R-03 | Registro de salida y cómputo de horas reales | PENDIENTE | — | Oleada v1 / F-01 · Migración `012_registro_salida` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) |
 | R-12 | Calendario de cierres del centro (festivos y vacaciones) | PENDIENTE | — | Oleada v1 / F-01 · Migración `014_calendario_cierres` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) · añadida por el PM el 2026-08-28, dependencia nueva de R-04 |
-| R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) |
+| R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
 | R-05 | Aviso de ausencia injustificada listo para enviar | PENDIENTE | — | Oleada v1 / F-02 · sin envío automático |
-| R-06 | Sustitución puntual de profesor en un slot | PENDIENTE | — | Oleada v1 / F-03 · Migración `013_sustitucion_profesor` (renumerada por el PM el 2026-09-02: `009` lo ocupó ya T-24) |
+| R-06 | Excepción puntual de un slot: sustitución o cancelación | PENDIENTE | — | Oleada v1 / F-03 · Migración `013_excepcion_slot` · ampliada por el PM el 2026-09-03 (antes solo "sustitución"; añade el caso de cancelación sin sustituto, misma migración) |
 | R-07 | Pasar lista con conexión intermitente | PENDIENTE | — | Oleada v1 / F-03 · solo cliente |
 | R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
 | R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |

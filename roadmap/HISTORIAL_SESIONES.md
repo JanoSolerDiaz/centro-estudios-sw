@@ -37,6 +37,48 @@
 
 ---
 
+### Sesión 2026-09-03 (rutina de producto) — décimo ciclo del PM
+
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **décimo ciclo del PM: una R-XX existente
+ampliada (R-06), ninguna R-XX nueva, ninguna entrada de backlog nueva, sin cambios de estado de
+T-XX/R-XX.**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: décimo ciclo del PM — R-06 se amplía a
+"sustitución o cancelación", R-04 gana la dependencia)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `009_administracion_usuarios.sql`
+sigue pendiente de que el dueño la aplique, fila 11 de §3, sin cambio esta sesión)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada; R-06
+reescrita como "Excepción puntual de un slot: sustitución o cancelación", migración renombrada de
+`013_sustitucion_profesor` a `013_excepcion_slot`; R-04 gana la dependencia de R-06 y su exclusión
+de slots cancelados; narrativa de F-03 ajustada), `roadmap/SEGUIMIENTO.md` (cabecera y filas de R-04/
+R-06 en §1), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — es una ampliación de spec de una R-XX
+todavía sin implementar (no hay tabla ni código que migrar), no una decisión de arquitectura ni una
+desviación de una tarea ya ejecutada (eso es lo que registraría §7 de `SEGUIMIENTO.md`)
+**Hallazgos del auditor atendidos:** ninguno — `auditoriacontinua.md` sigue con sus siete hallazgos
+`RESUELTO`, cero `ABIERTO`; nada que convertir
+**Hallazgos:** F-03 ("Continuidad operativa") ya anticipaba dos problemas — un profesor falta, o el
+aula no tiene buena conexión — pero R-06 solo especificaba la mitad del primero: el caso en que
+**hay** quien cubra la clase. El caso en que **no** lo hay quedaba sin ninguna forma honesta de
+registrarse: no pasar lista se confunde con un profesor que llega tarde (R-01), y marcar a cada
+alumno ausente penaliza en el informe mensual (R-04) a quien no tuvo culpa de que la clase no se
+diera. Se amplía R-06 a "sustitución o cancelación" en vez de abrir una R-XX nueva, porque comparten
+exactamente el mismo patrón de datos (una excepción de un día sobre un slot recurrente, sin tocar el
+horario ni el pasado) y la misma migración sin implementar todavía — separar habría duplicado
+infraestructura para dos facetas de la misma idea. `FEEDBACK.md` revisado (sin entradas `nuevo`
+reales, fila plantilla vacía). Revisadas las once R-XX restantes contra el estado actual: sin más
+cambios que hacer
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** en cuanto el dueño aplique `009_administracion_usuarios.sql` y confirme la fila 11
+de §3, T-24 pasa a `COMPLETADA` y queda por evaluar si T-25 puede arrancar. La oleada v1 (R-01 en
+cabeza) sigue esperando a que el MVP completo esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. Cuando
+arranque R-06, su sesión debe leer la spec ampliada completa antes de escribir `013_excepcion_slot`.
+
+---
+
 ### Sesión 2026-09-03 (tercera verificación, rutina programada) — sin tarea vertebral desbloqueada, backlog agotado
 
 **Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25
