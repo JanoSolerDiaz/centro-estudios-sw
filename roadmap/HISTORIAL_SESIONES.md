@@ -37,6 +37,50 @@
 
 ---
 
+### Sesión 2026-09-03 (arreglo urgente) — P-16: la batería de RLS no compilaba
+
+**Tarea(s):** `P-16` (urgente, §0.3) — ninguna T-XX/R-XX: la cola vertebral sigue bloqueada (T-24
+espera la migración `009`, sin cambio)
+**Estado resultante:** `P-16` **IMPLEMENTADA Y VERIFICADA EN EJECUCIÓN**
+**Commits a `develop`:** ver commit de esta sesión (P-16: `v_filas` al ámbito del `do` en la
+sección 8e de `db/pruebas_rls.sql`, más el test estático de ámbitos)
+**Migraciones aplicadas:** ninguna — `db/pruebas_rls.sql` no es una migración (no pasa por el
+runner ni tiene hash en el ledger); `009_administracion_usuarios.sql` sigue pendiente del dueño
+(fila 11 de §3, sin cambio)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (sección 8e: `v_filas` sube al `declare`
+del `do`, fuera de los dos sub-bloques), `herramientas/migraciones/pruebasRlsEstatico.test.ts`
+(quinto test: ámbitos `declare`/`begin`/`end;`), `roadmap/SEGUIMIENTO.md` (cabecera y fila
+`P-16` en §5), `roadmap/DECISIONES_TECNICAS.md` (dos filas), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (**943**, antes 942) · build ✅
+**Health check post-deploy:** N/A (no se despliega nada: SQL de prueba y un test)
+**Ejecución real contra `dev`** (`npm run probar-rls` en la máquina del dueño, con su
+`.env.local`, §0.1): **105 comprobaciones, 0 omitidas, 0 fallidas**, «ningún acceso prohibido tuvo éxito».
+Antes del arreglo, la misma orden devolvía `ERROR 42601: "v_filas" is not a known variable` y
+**ninguna** comprobación llegaba a ejecutarse
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-03, P-16): por qué
+`v_filas` sube al `do` en vez de duplicar el `declare` en cada sub-bloque, y por qué el test de
+ámbitos hace un seguimiento literal de `declare`/`begin`/`end;` en vez de parsear plpgsql
+**Hallazgos del auditor atendidos:** ninguno — `P-16` es un hallazgo de ejecución del dueño, no del
+auditor; los tres `ABIERTO` de higiene (#5, #6, #7) siguen resueltos en código (P-13/P-14/P-15)
+**Hallazgos:** en plpgsql un `declare` pertenece solo al `begin … end;` que lo sigue; la sección
+8e (T-24) declaraba `v_filas` en el sub-bloque del `SELECT` y la leía en el `begin … end;`
+hermano del `UPDATE`. Por ser un error de COMPILACIÓN del `do`, y viajar el fichero en una sola
+sentencia a la Management API, el fallo no era local a la sección 8e: **inhabilitaba las 105
+comprobaciones**. T-24 pasó `typecheck`, `lint`, 942 tests y `build` con este defecto dentro,
+porque ninguna de esas cuatro puertas mira dentro de un `do $$ … $$`. Tercera vez que un defecto de
+la propia batería la inhabilita en bloque o en silencio (P-08, P-12): de ahí que el arreglo incluya
+la comprobación estática, no solo la línea movida
+**Tareas autopropuestas (P-XX):** `P-16` registrada en §5 de `SEGUIMIENTO.md` y ejecutada en esta
+misma sesión por ser urgente (§0.3: la batería de RLS estaba inservible). Backlog de §5 otra vez
+completo en `RESUELTA`/`IMPLEMENTADA`
+**Próximo paso:** sin cambio respecto a la sesión anterior — en cuanto el dueño aplique
+`009_administracion_usuarios.sql` y confirme la fila 11 de §3, T-24 pasa a `COMPLETADA` y queda
+por evaluar si T-25 puede arrancar.
+
+---
+
 ### Sesión 2026-09-03 (verificación) — sin tarea vertebral desbloqueada, backlog agotado
 
 **Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25

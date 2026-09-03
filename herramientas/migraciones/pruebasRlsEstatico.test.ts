@@ -79,3 +79,81 @@ void test('los delimitadores $$ de plpgsql están intactos y emparejados', () =>
     'hay un cuerpo de función abierto con `as $` en vez de `as $$` (típico de una sustitución de texto que se comió un $)',
   );
 });
+
+/**
+ * P-16: toda variable `v_…` que se lea tiene que estar declarada en un ámbito que la contenga.
+ *
+ * En plpgsql un `declare` pertenece al `begin … end;` que lo sigue, y nada más: un segundo
+ * `begin … end;` HERMANO ya no ve esas variables. La sección 8e las declaraba en el primer
+ * sub-bloque (el del SELECT) y las leía en el segundo (el del UPDATE), así que el `do` entero
+ * fallaba al compilar con «"v_filas" is not a known variable» — y como es un error de compilación
+ * y el fichero se envía en una sola sentencia, tumbaba la batería COMPLETA, no solo su sección.
+ *
+ * El seguimiento de ámbitos es deliberadamente literal: sirve porque el fichero se escribe con
+ * un `declare`/`begin`/`end;` por línea. Si eso deja de ser cierto, este test avisará con falsos
+ * positivos antes de dejar pasar un falso negativo.
+ */
+void test('ninguna variable v_ se lee fuera del ámbito que la declara', () => {
+  const sinComentario = (linea: string): string => {
+    let enCadena = false;
+    for (let i = 0; i < linea.length; i += 1) {
+      if (linea[i] === "'") enCadena = !enCadena;
+      else if (!enCadena && linea[i] === '-' && linea[i + 1] === '-') return linea.slice(0, i);
+    }
+    return linea;
+  };
+
+  const ambitos: Set<string>[] = [];
+  let declarando: Set<string> | null = null;
+  const fueraDeAmbito: string[] = [];
+
+  LINEAS.forEach((cruda, indice) => {
+    const linea = sinComentario(cruda).trim();
+    if (linea === '') return;
+    const nombreDeclarado = (texto: string): string | null =>
+      /^([a-z_][a-z0-9_]*)\s+\S/i.exec(texto)?.[1] ?? null;
+
+    if (declarando !== null) {
+      if (/^begin\b/i.test(linea)) {
+        ambitos.push(declarando);
+        declarando = null;
+        return;
+      }
+      const nombre = nombreDeclarado(linea);
+      if (nombre !== null) declarando.add(nombre);
+      return; // las propias declaraciones no se comprueban
+    }
+
+    if (/^declare\b/i.test(linea)) {
+      declarando = new Set();
+      const resto = linea.replace(/^declare\b/i, '').trim();
+      const nombre = resto === '' ? null : nombreDeclarado(resto);
+      if (nombre !== null) declarando.add(nombre);
+      return;
+    }
+    // `begin;` a secas es la transacción del fichero (línea 42), no un bloque plpgsql.
+    if (/^begin\b(?!\s*;)/i.test(linea)) {
+      ambitos.push(new Set());
+      return;
+    }
+    if (/^end\s*(\$\$)?\s*;/i.test(linea)) {
+      ambitos.pop(); // `end if;` y `end loop;` no cierran ámbito y no encajan aquí
+      return;
+    }
+
+    for (const referencia of linea.match(/\bv_[a-z0-9_]*/gi) ?? []) {
+      if (!ambitos.some((ambito) => ambito.has(referencia))) {
+        fueraDeAmbito.push(`${String(indice + 1)}: ${referencia} — ${linea}`);
+      }
+    }
+  });
+
+  assert.deepEqual(ambitos, [], 'quedaron bloques begin sin su end;: el seguimiento de ámbitos no cuadra');
+  assert.deepEqual(
+    fueraDeAmbito,
+    [],
+    'estas variables se leen desde un bloque que no las declara ni está dentro del que lo hace. ' +
+      'Declara la variable en el `declare` del bloque que la usa, o súbela al `declare` del `do` ' +
+      'que contiene a los dos.',
+  );
+});

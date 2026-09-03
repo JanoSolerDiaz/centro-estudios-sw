@@ -1622,6 +1622,7 @@ end $$;
 do $$
 declare
   v_admin_id uuid;
+  v_filas    integer;
 begin
   select id into v_admin_id from _fixture_usuarios where rol = 'administrator';
 
@@ -1634,7 +1635,6 @@ begin
   else
     declare
       v_visto boolean;
-      v_filas integer;
     begin
       perform pg_temp.impersonar('teacher');
       select exists (select 1 from public.perfil where id = v_admin_id) into v_visto;
@@ -1664,7 +1664,6 @@ begin
   else
     declare
       v_visto boolean;
-      v_filas integer;
     begin
       perform pg_temp.impersonar('student');
       select exists (select 1 from public.perfil where id = v_admin_id) into v_visto;

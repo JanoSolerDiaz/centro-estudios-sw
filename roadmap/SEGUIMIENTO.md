@@ -10,7 +10,28 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-03 (sesión de verificación) — sin tarea vertebral desbloqueada:
+**Última actualización:** 2026-09-03 (sesión de arreglo urgente — `P-16`) — el dueño ejecutó
+`npm run probar-rls` y la batería **entera** murió antes de la primera comprobación:
+`ERROR 42601: "v_filas" is not a known variable` en la línea 1650 de `db/pruebas_rls.sql`. Causa
+raíz: en plpgsql un `declare` pertenece SOLO al `begin … end;` que lo sigue, y la sección 8e
+(añadida por T-24, commit `8d76645`) declaraba `v_filas` en el primer sub-bloque —el del
+`SELECT`— y la leía en el segundo, un `begin … end;` **hermano** que ya no la ve. Como es un
+error de COMPILACIÓN del `do` y el fichero viaja en una sola sentencia a la Management API, no
+tumbaba una comprobación: tumbaba las 105. **Arreglado** subiendo `v_filas` al `declare` del
+propio `do` (un solo sitio para las dos ramas, `teacher` y `student`, mismo patrón que la
+sección 4b) y **blindado** con un quinto test estático en
+`herramientas/migraciones/pruebasRlsEstatico.test.ts`: sigue los ámbitos `declare`/`begin`/`end;`
+del fichero y falla si alguna variable `v_…` se lee desde un bloque que no la declara ni está
+dentro del que lo hace — comprobado que sobre el fichero roto señala las seis referencias de las
+líneas 1650/1651/1680/1681. Verificación completa en verde (`typecheck`, `lint`, 943 tests
+—antes 942—, `build`) y, esta vez sí, **ejecución real de `npm run probar-rls` contra `dev`:
+105 comprobaciones, 0 omitidas, 0 fallidas**, que es la primera vez que la batería corre entera sin
+una sola omisión. Detalle en §5 (`P-16`) y en `DECISIONES_TECNICAS.md`. Nótese que la sesión de
+verificación de esta misma mañana, justo debajo, dio `typecheck`/`lint`/`build` y 942 tests en
+verde **con este defecto ya dentro del repositorio**: ninguna de las cuatro puertas mira dentro de
+la batería de RLS, y de ahí que `P-16` añada la comprobación estática y no solo mueva la línea.
+
+**Sesión anterior (2026-09-03, "verificación"):** sin tarea vertebral desbloqueada:
 T-24 sigue `BLOQUEADA — pendiente aplicar migración 009` (fila 11 de §3, sin cambio, sin acción del
 dueño todavía), T-25 sigue sin poder arrancar y la oleada v1 sigue esperando a que el MVP T-00 a T-25
 esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. `git checkout develop && git pull` trajo 9 commits
@@ -27,7 +48,7 @@ del 2026-09-03. Barrido de secretos sobre `dist/` recién construido: cero coinc
 ciclo: revisado el backlog de §5 y `auditoriacontinua.md` completos sin encontrar ningún candidato
 legítimo.
 
-**Sesión anterior (2026-09-02, "noveno ciclo del PM"):** sin tarea vertebral desbloqueada ni `P-XX`/
+**Sesión previa a esa (2026-09-02, "noveno ciclo del PM"):** sin tarea vertebral desbloqueada ni `P-XX`/
 `R-XX` nueva; único cambio real, una corrección de numeración prospectiva en `ROADMAP_PRODUCTO.md`
 (los números de migración que reservaban las specs de R-01/R-02/R-03/R-06/R-12, `006` a `010`, ya los
 había consumido de verdad el desarrollo de T-18/T-20/T-21/T-24; renumerados a `010`-`014`).
@@ -990,6 +1011,7 @@ pantallas del requisito 2.
 | P-13 | **Backlog técnico (higiene documental, no urgente): actualizar una frase residual de `db/MODELO.md` sobre el avatar.** La línea 296 (sección T-14) sigue diciendo "falta únicamente el punto de montaje real en una pantalla (T-16)", escrita antes de que T-16 existiera. T-16 ya está `COMPLETADA` y el bloque de avatar ya está montado de verdad en `src/ui/pantallaFichaAlumno.ts` (`montarBloqueAvatar`, línea 524, cableado en la 1097). Mismo patrón exacto que el hallazgo #4, ya cerrado por P-03 | origen: hallazgo #5 de `auditoriacontinua.md` (severidad baja, gobernanza documental) | **RESUELTA 2026-09-02** — `db/MODELO.md:371-372` ya no dice "falta únicamente el punto de montaje"; dice que está montado de verdad en `pantallaFichaAlumno.ts` (`montarBloqueAvatar`), desde T-16 | — |
 | P-14 | **Backlog técnico (higiene documental, no urgente): corregir la numeración cruzada de las preguntas abiertas #12/#13 de §6 de este documento.** La tabla de §6 es correcta (`#12` = duplicado mismo alumno/slot/día; `#13` = ventana retroactiva máxima), pero la narrativa de la sesión de T-18 más arriba en este mismo fichero intercambia los dos números, y `DECISIONES_TECNICAS.md:147` repite el mismo intercambio. Sin impacto funcional (el código usa en los dos casos el valor conservador correcto): es solo una referencia cruzada mal etiquetada para quien busque la pregunta por su número desde la narrativa en vez de desde la tabla | origen: hallazgo #6 de `auditoriacontinua.md` (severidad baja, gobernanza documental) | **RESUELTA 2026-09-02** — corregidas las dos menciones narrativas de este documento (línea 539: ventana retroactiva = #13; línea 545: duplicado = #12) y la de `DECISIONES_TECNICAS.md:147`, ya alineadas con la tabla de §6 | — |
 | P-15 | **Backlog técnico (código muerto, no urgente): `columnasVisiblesFichaAlumno` no la usa ninguna pantalla.** `src/dominio/permisosUi.ts:56` la define y la testea (`permisosUi.test.ts:47-62`), pero `grep -rn "columnasVisiblesFichaAlumno" src/` solo devuelve su propia definición y su test — no hay ningún consumidor real. No es una fuga (la protección real de las columnas de contacto vive en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`, ninguno de los dos depende de esta función), pero acumula una función que aparenta ser parte del control de acceso sin estar en el camino real. El programador debe decidir, al atenderla, entre conectarla a la pantalla de ficha (si la intención original era filtrar columnas también en el cliente) o eliminarla | origen: hallazgo #7 de `auditoriacontinua.md` (severidad baja, calidad de código) | **RESUELTA 2026-09-02 — eliminada, no conectada.** No existe ninguna pantalla de ficha para `teacher` en el roadmap ni puede existir dentro del alcance actual (§0.2: `teacher` "no gestiona fichas ni ve datos de contacto ni personas de referencia", regla permanente); el escenario que la función preveía está prohibido, no solo pendiente. La protección real de las columnas de contacto sigue viviendo en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`. Detalle en `DECISIONES_TECNICAS.md` | — |
+| P-16 | **Urgente (§0.3): un `declare` mal colocado en la sección 8e tumbaba la batería de RLS COMPLETA, no una comprobación.** `db/pruebas_rls.sql` declaraba `v_filas` (y `v_visto`) en el `declare` del primer sub-bloque de cada rama de la sección 8e —el que hace el `SELECT` del perfil ajeno— y leía `v_filas` en el SEGUNDO `begin … end;`, que es **hermano** del primero, no hijo: en plpgsql un `declare` pertenece solo al bloque que lo sigue, así que ahí la variable no existe. Y como el error es de COMPILACIÓN del `do` (`42601: "v_filas" is not a known variable`) y el fichero se envía a la Management API en una sola sentencia, no fallaba la sección 8e: no llegaba a ejecutarse **ninguna** comprobación del fichero. **Arreglado** subiendo `v_filas` al `declare` del propio `do`, que es donde ya vivía `v_admin_id` y sirve a las dos ramas (`teacher` y `student`) — mismo patrón que la sección 4b, en vez de repetir un `declare` por sub-bloque. **Blindado** con un quinto test en `herramientas/migraciones/pruebasRlsEstatico.test.ts`, que sigue los ámbitos `declare`/`begin`/`end;` del fichero y falla si una variable `v_…` se lee desde un bloque que no la declara ni está dentro del que lo hace | **El fallo lo encontró la ejecución real, no la lectura**: T-24 escribió la sección 8e el 2026-09-02 y pasó `typecheck`, `lint`, 942 tests y `build` — ninguna de esas cuatro puertas mira dentro de un `do $$ … $$`, y los cuatro tests estáticos que ya existían (P-10/P-12) cubrían otras tres formas de romper este fichero, no los ámbitos. Es además la tercera vez que un defecto de la propia batería la inhabilita en silencio o en bloque (P-08 la cascada de fixtures, P-12 la fila compuesta): la herramienta que demuestra el aislamiento de datos vuelve a ser la pieza menos protegida del proyecto, y por eso el arreglo incluye la comprobación estática y no solo la línea movida. Origen: ejecución del dueño del 2026-09-03 | **IMPLEMENTADA Y VERIFICADA EN EJECUCIÓN 2026-09-03** — `npm run probar-rls` contra `dev`: **105 comprobaciones, 0 omitidas, 0 fallidas**, «ningún acceso prohibido tuvo éxito». Es la primera ejecución de la batería sin una sola omisión (las 3 legítimas del bucket de T-14 las cerró P-09 con sus propios fixtures). Las cuatro comprobaciones de la sección 8e que T-24 nunca llegó a ver correr aparecen ahora en verde por su motivo: `perfil / teacher no puede modificar perfiles ajenos` y su gemela de `student` con `filas_afectadas=0`. Criterio de cierre del blindaje, comprobado antes de commitear: con el fichero revertido al estado roto, el test nuevo falla nombrando las seis referencias fuera de ámbito (líneas 1650/1651/1680/1681); con el arreglo, pasa | — |
 
 ---
 
