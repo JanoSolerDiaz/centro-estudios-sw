@@ -10,22 +10,22 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-03 (sesión de verificación, rutina programada) — sin tarea
-vertebral desbloqueada: `git checkout develop && git pull` trajo los 11 commits de la sesión de
-arreglo urgente `P-16` (ya en `origin/develop` al empezar), y desde ahí, nada ha cambiado. Revisado
-`auditoriacontinua.md`: cero hallazgos `ABIERTO` (sin cambio desde la pasada del auditor del
-2026-09-03). Revisado `db/APLICADAS.md`: `009_administracion_usuarios.sql` sigue en la sección
-"Pendiente de aplicar", el dueño todavía no ha ejecutado `npm run migrate`; T-24 sigue `BLOQUEADA` en
-§1 y la fila 11 de §3 sigue `PENDIENTE`, sin cambio. T-25 sigue sin poder arrancar (depende de T-24) y
-la oleada v1 (`R-01` a `R-12`) sigue esperando el MVP en producción. Revisado el backlog completo de
+**Última actualización:** 2026-09-03 (segunda sesión de verificación, rutina programada) — sin tarea
+vertebral desbloqueada: `git checkout develop && git pull` trajo la sesión de verificación anterior
+(commit `5adb6b0`, ya en `origin/develop` al empezar), y desde ahí, nada ha cambiado — mismo día,
+sin ninguna acción del dueño todavía. Revisado `auditoriacontinua.md`: cero hallazgos `ABIERTO`, sin
+cambio. Revisado `db/APLICADAS.md`: `009_administracion_usuarios.sql` sigue en la sección "Pendiente
+de aplicar", el dueño todavía no ha ejecutado `npm run migrate`; T-24 sigue `BLOQUEADA` en §1 y la
+fila 11 de §3 sigue `PENDIENTE`, sin cambio. T-25 sigue sin poder arrancar (depende de T-24) y la
+oleada v1 (`R-01` a `R-12`) sigue esperando el MVP en producción. Revisado el backlog completo de
 §5: las dieciséis `P-XX` (`P-01` a `P-16`) siguen `RESUELTA`, ninguna pendiente. Repetida la
 verificación pre-push completa sin ningún commit de programador entre medias: `npm ci` (130 paquetes,
 0 vulnerabilidades), `npm run typecheck`, `npm run lint` y `npm run build` en verde, y `npm test`:
-**943 tests, 943 pass, 0 fail** — la misma cifra que dejó la sesión de `P-16`. Barrido de secretos
-sobre `dist/` recién construido: cero coincidencias reales (solo nombres de campo y el propio patrón
-de `registro.ts`). `git status` limpio antes y después. No se fabrica ninguna `P-XX` ni `R-XX` nueva
-para justificar el ciclo: revisado el backlog de §5 y `auditoriacontinua.md` completos sin encontrar
-ningún candidato legítimo.
+**943 tests, 943 pass, 0 fail** — la misma cifra que la sesión de verificación anterior y que la
+sesión de `P-16`. Barrido de secretos sobre `dist/` recién construido: cero coincidencias reales
+(solo nombres de campo y el propio patrón de `registro.ts`). `git status` limpio antes y después. No
+se fabrica ninguna `P-XX` ni `R-XX` nueva para justificar el ciclo: revisado el backlog de §5 y
+`auditoriacontinua.md` completos sin encontrar ningún candidato legítimo.
 
 **Sesión anterior (2026-09-03, "arreglo urgente — `P-16`"):** el dueño ejecutó
 `npm run probar-rls` y la batería **entera** murió antes de la primera comprobación:
