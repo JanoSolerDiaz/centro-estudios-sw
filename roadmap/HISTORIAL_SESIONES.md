@@ -37,6 +37,40 @@
 
 ---
 
+### Sesión 2026-09-03 (verificación) — sin tarea vertebral desbloqueada, backlog agotado
+
+**Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25
+depende de T-24, las R-XX esperan al MVP en producción — sin cambio desde la sesión anterior).
+Ninguna `P-XX`: las quince (`P-01` a `P-15`) de §5 de `SEGUIMIENTO.md` siguen `RESUELTA`.
+**Estado resultante:** sin cambio. T-24 sigue `BLOQUEADA — pendiente aplicar migración 009` en §1
+(fila 11 de §3 sigue `PENDIENTE`). `auditoriacontinua.md` (pasada del 2026-09-03, ya en el repositorio
+al empezar esta sesión) cerró en su documento los tres hallazgos de higiene que quedaban `ABIERTO`
+(#5, #6, #7): el registro de hallazgos queda sin ningún `ABIERTO` por primera vez desde que existe el
+documento.
+**Commits a `develop`:** solo actualización de documentación de este ciclo (cabecera de
+`SEGUIMIENTO.md` y esta entrada de `HISTORIAL_SESIONES.md`); ningún cambio de `src/`, `db/` ni
+`herramientas/`.
+**Migraciones aplicadas:** ninguna (el agente nunca aplica DDL). `009_administracion_usuarios.sql`
+sigue pendiente de que el dueño la aplique (fila 11 de §3, sin cambio esta sesión).
+**Propagación a prod pendiente:** T-25 (única tarea que toca `prod`), sin poder arrancar todavía.
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada).
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades) · tipos ✅ · lint ✅ ·
+tests ✅ (942/942, misma cifra que la pasada de auditoría del 2026-09-03) · build ✅. Barrido de
+secretos sobre `dist/`: cero coincidencias reales. `git status` limpio antes y después.
+**Health check post-deploy:** no aplica (sin código nuevo desplegado).
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`.
+**Hallazgos del auditor atendidos:** ninguno de esta sesión — los tres que quedaban `ABIERTO` (#5,
+#6, #7) ya los cerró el propio auditor en su pasada del 2026-09-03, antes de que esta sesión empezara.
+**Hallazgos:** ninguno nuevo — revisión completa de §5 (backlog P-XX) y de `auditoriacontinua.md` sin
+encontrar ningún candidato legítimo que proponer. No se fabrica ninguna P-XX para justificar el ciclo.
+**Tareas autopropuestas (P-XX):** ninguna.
+**Próximo paso:** en cuanto el dueño aplique `009_administracion_usuarios.sql` y confirme la fila 11
+de §3 (`esquema_version()` = `9`, `npm run probar-rls` con la nueva sección 8e), T-24 pasa a
+`COMPLETADA` y queda por evaluar si T-25 puede arrancar.
+
+---
+
 ### Sesión 2026-09-02 (rutina de producto) — noveno ciclo del PM
 
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)

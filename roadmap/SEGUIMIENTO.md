@@ -10,43 +10,33 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-02 (noveno ciclo del PM) — sin tarea vertebral desbloqueada ni
-`P-XX`/`R-XX` nueva; el único cambio real de este ciclo es una corrección de numeración prospectiva
-en `ROADMAP_PRODUCTO.md`: los números de migración que las specs de R-01/R-02/R-03/R-06/R-12
-reservaban (`006` a `010`) ya los ha consumido de verdad el desarrollo de T-18/T-20/T-21/T-24 desde
-el octavo ciclo del PM (2026-09-01); renumerados a `010`-`014` (detalle en la cabecera de
-`ROADMAP_PRODUCTO.md` y en las notas de estas cinco filas más abajo en este mismo §1), para que la
-sesión que implemente R-01 no choque con un fichero ya aplicado. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales: nada que convertir. Revisado `auditoriacontinua.md` (pasada del 2026-09-02, sin
-hallazgo nuevo): ningún `ABIERTO` de severidad alta; los tres de severidad baja (#5, #6, #7) siguen
-resueltos en código desde el ciclo anterior (`P-13`/`P-14`/`P-15`), a la espera solo de que el propio
-auditor los cierre en su documento. Revisado §5 completo: las quince `P-XX` (`P-01` a `P-15`) siguen
-`RESUELTA`. `009_administracion_usuarios.sql` sigue **sin aplicar** (fila 11 de §3, sin cambio), así
-que T-24 sigue `BLOQUEADA`, T-25 sigue sin poder arrancar y la oleada v1 sigue sin arrancar (espera a
-que el MVP T-00 a T-25 esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`, decisión de producto explícita
-en `ROADMAP_PRODUCTO.md`, no solo dependencia técnica). No se fabrica ninguna R-XX ni P-XX nueva para
-justificar el ciclo: revisadas las doce R-XX ya especificadas contra el avance real (T-24), ninguna
-depende de esa tarea y ninguna necesita cambio más allá de la renumeración ya hecha.
+**Última actualización:** 2026-09-03 (sesión de verificación) — sin tarea vertebral desbloqueada:
+T-24 sigue `BLOQUEADA — pendiente aplicar migración 009` (fila 11 de §3, sin cambio, sin acción del
+dueño todavía), T-25 sigue sin poder arrancar y la oleada v1 sigue esperando a que el MVP T-00 a T-25
+esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. `git checkout develop && git pull` trajo 9 commits
+nuevos desde el punto de partida de esta sesión (la pasada del auditor del 2026-09-03, que cerró en su
+documento los tres hallazgos de higiene que quedaban `ABIERTO` — #5, #6, #7 — dejando el registro de
+`auditoriacontinua.md` **sin ningún hallazgo `ABIERTO`** por primera vez desde que existe el
+documento, y el noveno ciclo del PM). Sin ningún hallazgo de severidad alta que atender como `P-XX`
+urgente y sin ninguna `P-XX` pendiente en §5 (las quince, `P-01` a `P-15`, siguen `RESUELTA`), esta
+sesión repitió la verificación pre-push completa sin ningún commit de programador entre medias: `npm
+ci` (130 paquetes, 0 vulnerabilidades), `npm run typecheck`, `npm run lint` y `npm run build` en
+verde, y `npm test`: **942 tests, 942 pass, 0 fail**, la misma cifra exacta que la pasada de auditoría
+del 2026-09-03. Barrido de secretos sobre `dist/` recién construido: cero coincidencias reales.
+`git status` limpio antes y después. No se fabrica ninguna R-XX ni P-XX nueva para justificar el
+ciclo: revisado el backlog de §5 y `auditoriacontinua.md` completos sin encontrar ningún candidato
+legítimo.
 
-**Sesión anterior (2026-09-02, "verificación"):** sin tarea vertebral desbloqueada, sin `P-XX`
+**Sesión anterior (2026-09-02, "noveno ciclo del PM"):** sin tarea vertebral desbloqueada ni `P-XX`/
+`R-XX` nueva; único cambio real, una corrección de numeración prospectiva en `ROADMAP_PRODUCTO.md`
+(los números de migración que reservaban las specs de R-01/R-02/R-03/R-06/R-12, `006` a `010`, ya los
+había consumido de verdad el desarrollo de T-18/T-20/T-21/T-24; renumerados a `010`-`014`).
+
+**Sesión previa a esa (2026-09-02, "verificación"):** sin tarea vertebral desbloqueada, sin `P-XX`
 pendiente — comprobado el estado de partida (T-24 `BLOQUEADA` por `009`, backlog de §5 agotado) y
 repetida la verificación pre-push completa sin ningún commit de programador entre medias: `npm ci`
 limpio, `typecheck`/`lint`/`build` en verde y `npm test`: **942 tests, 942 pass, 0 fail**, la misma
 cifra exacta que la sesión de `P-06`/`P-07(a)`. `git status` limpio antes y después.
-
-**Sesión previa a esa (2026-09-02, "backlog P-XX, continuación"):** con T-24 ya bloqueada por `009` y sin
-ninguna tarea vertebral desbloqueada, atendió las dos últimas `P-XX` pendientes — `P-06` (barrido de
-`anon` en `db/pruebas_rls.sql`, sección 8f) y `P-07(a)` (`avisoOmisiones` en el veredicto de
-`probar-rls`) — commit `18fd2ba`, dejando el backlog de §5 completo en `RESUELTA`.
-
-**Sesión previa a esa (2026-09-02, "T-23 COMPLETADA"):** desbloqueó T-20 y T-21 en este §1 y anotó
-`007`/`008` en `db/APLICADAS.md`, confirmadas por el dueño en la fila 9 y 10 de §3. Con eso resuelto,
-la siguiente tarea de la cola era **T-24 (administración de usuarios y roles)**, que esa sesión dejó
-con **código y tests COMPLETOS, BLOQUEADA por la migración `009`**: su spec dice "Migración: No",
-pero el requisito 4 ("el último `administrator` activo no puede desactivarse ni degradarse a sí
-mismo; la regla se implementa en la base de datos") es DDL por definición — mismo criterio de
-"comprobar la dependencia real antes de dar la spec por buena" que ya aplicaron T-09/T-20/T-23,
-detallado en `DECISIONES_TECNICAS.md`.
 
 **T-24 — Administración de usuarios y roles — código y tests COMPLETOS, BLOQUEADA por la migración
 `009`.** Deja al rol `administrator` realmente operativo sobre los otros dos: listado con filtro por
