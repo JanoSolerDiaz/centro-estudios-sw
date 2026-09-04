@@ -59,6 +59,118 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-09-04
+
+**Alcance real de esta pasada — el lote más pequeño auditado hasta hoy: seis commits, un único
+arreglo de código (`P-16`, ya urgente y ya resuelto antes de que esta pasada empezara) y cinco
+commits sin ningún cambio de código.** `git log 3f7d251..HEAD` (`3f7d251` es el commit de la
+auditoría anterior, 2026-09-03) muestra seis commits: `07f4e80` y `5adb6b0`/`3332aad`/`5d4d2b3` (tres
+"sesiones de verificación" del mismo día, cada una repite la comprobación pre-push completa sin tocar
+código ni documentación funcional, solo el hub `SEGUIMIENTO.md`/`HISTORIAL_SESIONES.md`), `863cd1b`
+(**P-16**, el único cambio de código real de todo el lote) y `7a40dcb` (décimo ciclo del PM, amplía la
+spec de R-06 sin tocar ningún fichero de `db/` ni de `src/`). Ninguna tarea T-XX ni R-XX avanzó: T-24
+sigue exactamente donde la dejó la pasada anterior, `BLOQUEADA` por la migración `009`, sin ninguna
+acción del dueño todavía (`db/APLICADAS.md` la sigue listando en "Pendiente de aplicar"); T-25 y la
+oleada v1 siguen sin poder arrancar.
+
+**Metodología.** `git checkout develop && git pull` limpio, sin nada por delante ni por detrás.
+Verificación directa en vivo de los cuatro comandos de §0.1 — `npm ci` (130 paquetes, 0
+vulnerabilidades), `npm run typecheck`, `npm run lint`, `npm run build`, los cuatro en verde — y
+`npm test`: **943 tests, 943 pass, 0 fail** (misma cifra que documentan los seis commits de este
+lote: sin cambio desde `P-16`). Confirmados contra la API de GitHub Actions los runs de CI en
+`develop`: los 15 más recientes, incluido el del commit actual (`7a40dcb`, run `33794596203`), todos
+`completed`/`success` — 63 runs en total en el histórico del workflow, sin ninguno en rojo.
+`git status` limpio antes y después. Barrido de secretos sobre `dist/` recién construido (`grep -rniE`
+de `service_role`/`SUPABASE_ACCESS_TOKEN`/JWT en base64/contraseñas en claro): cero coincidencias.
+`package.json` sigue sin la clave `dependencies` (ni siquiera vacía): mismo `devDependencies` de
+siempre, sin framework, sin SDK de Supabase. `git log 3f7d251..HEAD -- roadmap/HOJA_DE_RUTA.md`
+vacío: sin ninguna edición del dueño en esta pasada, el documento sigue inmutable. `.github/workflows/ci.yml`
+sin cambios: sigue ejecutando `npm ci` → `typecheck` → `lint` → `test` → `build` sin ningún paso
+salteado ni condición que los desactive.
+
+Dado que el único cambio de código del lote toca precisamente la herramienta que demuestra el
+aislamiento entre roles — la tercera vez que un defecto de la propia batería de RLS la inhabilita en
+silencio o en bloque, después de P-08 y P-12 —, el propio auditor leyó línea a línea, sin delegar en
+subagentes: el diff completo de `863cd1b` sobre `db/pruebas_rls.sql` (las cuatro líneas movidas),
+el fichero íntegro `herramientas/migraciones/pruebasRlsEstatico.test.ts` (los cinco tests, incluido el
+seguimiento de ámbitos `declare`/`begin`/`end;` nuevo), el diff completo de `roadmap/SEGUIMIENTO.md` y
+`DECISIONES_TECNICAS.md` contra la pasada anterior, y el diff completo de `roadmap/ROADMAP_PRODUCTO.md`
+(la ampliación de R-06). Además, `db/APLICADAS.md`, `db/003_politicas_rls.sql` (`grep` dirigido a
+`TRUNCATE`, `to anon` y `student`) y `db/009_administracion_usuarios.sql` se recontrastaron contra el
+disco para confirmar que ningún fichero de `db/*.sql` distinto de `pruebas_rls.sql` cambió una sola
+letra desde la pasada anterior — así que ningún punto de control permanente sobre el esquema real
+(RLS, `GRANT`, triggers, bucket de avatares) necesita releerse entero esta vez: ya lo hizo, con
+sustancia, la auditoría del 2026-09-03, y el diff de esta pasada no lo toca.
+
+**Punto de control: calidad real de los tests, guardas del runner — `P-16` es exactamente el tipo de
+arreglo que demuestra que la red de seguridad funciona, no que falló.** El defecto que corrige (`v_filas`
+declarada en un sub-bloque de la sección 8e y leída en su hermano, un error de ámbito de plpgsql que
+tumbaba las 105 comprobaciones de la batería entera, no solo la sección 8e) es un fallo de
+COMPILACIÓN del bloque `do`, no de lógica: ninguna de las cuatro puertas de CI (`typecheck`, `lint`,
+`test`, `build`) mira dentro de una cadena SQL, así que ninguna podía haberlo detectado, y de hecho no
+lo detectaron — las tres sesiones de verificación de esa misma mañana pasaron las cuatro puertas en
+verde con el fichero ya roto. Lo encontró la única vía que podía encontrarlo: la ejecución real de
+`npm run probar-rls` contra `dev` por el dueño. El arreglo en sí es correcto y mínimo (sube `v_filas`
+al `declare` del `do`, mismo patrón ya usado en la sección 4b, sin tocar ninguna lógica de
+comprobación) y viene con una guarda nueva y bien dirigida: un quinto test estático en
+`pruebasRlsEstatico.test.ts` que seguí línea a línea (líneas 96-159) — sigue los ámbitos
+`declare`/`begin`/`end;` del fichero de forma deliberadamente literal (documentado así en su propio
+comentario: "si el formato del fichero cambia, avisa con un FALSO POSITIVO, no con un falso negativo
+silencioso", la asimetría correcta para una guarda que no puede permitirse fallar callada) y falla si
+cualquier variable `v_…` se lee fuera del ámbito que la declara. Verificado por este auditor
+revirtiendo mentalmente el fichero al estado roto contra la lógica del test: las seis referencias de
+las líneas 1650/1651/1680/1681 (`v_filas` y `v_visto` en el segundo `begin…end;` de cada rama)
+quedarían fuera de cualquier ámbito abierto, tal como el commit documenta haber comprobado. Es la
+tercera guarda de este tipo que el proyecto añade sobre la misma herramienta (P-10: ningún `except
+when others` aprueba a ciegas; P-12: la fila devuelta por una RPC se expande, no se mete entera en un
+campo) — un patrón sano de "cada vez que la batería se rompe, la rotura queda imposible de repetir",
+no un síntoma de fragilidad creciente: las tres roturas fueron errores de SQL dentro de un `do $$…$$`
+que ninguna herramienta del ecosistema (TypeScript, ESLint, Node) puede analizar, así que cada una
+necesitaba su propia guarda a medida, y las tres ya la tienen.
+
+**Verificación en ejecución real, no solo documentada — 105 comprobaciones, 0 omitidas, 0
+fallidas, la primera vez sin ninguna omisión.** `SEGUIMIENTO.md` registra que el dueño ejecutó
+`npm run probar-rls` contra `dev` tras el arreglo y obtuvo el resultado de arriba, incluyendo por
+primera vez las cuatro comprobaciones de la sección 8e (T-24, aislamiento de `perfil` entre roles
+ajenos) que la sesión que las escribió nunca llegó a ver correr porque el fichero no compilaba
+todavía. Este auditor no tiene credenciales de Supabase en este entorno (confirmado: ningún
+`.env*` cargado, ninguna variable `SUPABASE_*`/`*_TOKEN` en el entorno del proceso) y no puede
+reproducir esa ejecución — la acepta, como en pasadas anteriores, por ser una cifra específica y
+contrastable con el propio SQL (105 es exactamente el recuento de bloques `pg_temp.registrar_prohibido`/
+`pg_temp.registrar` del fichero, no una cifra redonda inventada) y por venir acompañada del detalle de
+qué comprobaciones nuevas aparecieron y con qué motivo exacto (`filas_afectadas=0`), no de una
+afirmación genérica. Sigue siendo, como en toda pasada anterior, el dueño quien ejecuta el runner —
+nunca este auditor ni ningún agente — y el registro documental es la única fuente disponible para
+verificarlo desde este entorno.
+
+**Coherencia entre lo decidido y lo ejecutado — sin hallazgo.** La ampliación de R-06 (`7a40dcb`) es
+un cambio de spec sobre una tarea sin implementar todavía (`Migración: Sí`, `013_excepcion_slot`,
+pero sin ningún fichero `013_*` creado): no hay código ni migración que contrastar, y por tanto no genera fila
+en §7 de `SEGUIMIENTO.md` (correcto, mismo criterio que las renumeraciones prospectivas de ciclos
+anteriores) ni afecta a ningún punto de control de seguridad de este documento. La única dependencia
+nueva que introduce (R-04 gana a R-06) es coherente con el propio razonamiento del ciclo y no choca
+con ninguna decisión previa de `DECISIONES_TECNICAS.md`. Nada en las cinco sesiones de verificación
+ni en el ciclo de PM contradice §0.2 ni ninguna fila de `DECISIONES_TECNICAS.md`.
+
+**Reevaluación de hallazgos `ABIERTO` — no aplica, el registro sigue vacío.** Los siete hallazgos
+históricos (`#1` a `#7`) siguen `RESUELTO`, sin ningún cambio de código que los reabra. No se abre
+ningún hallazgo nuevo en esta pasada: el único cambio de código del lote (`P-16`) es una corrección ya
+verificada en ejecución real antes de que esta auditoría empezara, con su propia guarda de regresión,
+y el resto del lote es documentación de estado sin ningún cambio de comportamiento.
+
+**Conclusión.** Pasada de vigilancia, no de descubrimiento: el lote más pequeño auditado hasta hoy,
+sin ninguna superficie nueva de seguridad que revisar (ningún fichero de `db/*.sql` cambió salvo
+`pruebas_rls.sql`, y ese cambio ya lo verificó en ejecución real quien lo escribió). Lo único que
+merece quedar dicho con claridad es que la batería de RLS —la pieza que sostiene la confianza de este
+proyecto en que sus políticas hacen lo que dicen— ha fallado en bloque tres veces (P-08, P-12, P-16) y
+las tres veces el proyecto respondió con una guarda estática nueva en vez de solo arreglar la línea;
+es la señal correcta de un equipo que trata los fallos de su propia red de seguridad como el hallazgo
+más serio posible, no como ruido. T-24 sigue con su código y sus tests completos esperando solo a que
+el dueño ejecute `npm run migrate`; no hay nada más que este proyecto pueda hacer para adelantar esa
+espera. La próxima auditoría con sustancia real de seguridad llega en cuanto el dueño aplique `009`,
+momento en el que T-24 pasará de "código listo" a "control de acceso de usuarios y roles verificado en
+producción de datos real" — o con la primera implementación de una R-XX de la oleada v1.
+
 ### Auditoría 2026-09-03
 
 **Alcance real de esta pasada — siete commits, una tarea nueva (T-24) BLOQUEADA por su propia
