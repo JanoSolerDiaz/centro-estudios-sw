@@ -1,0 +1,19 @@
+# GestorAcademia — cabeceras de seguridad del hosting estático (T-25, requisito 1).
+#
+# Formato `_headers` de Netlify / Cloudflare Pages (ambos lo leen igual desde la raíz del
+# sitio publicado, sin configuración adicional). El proveedor real sigue `<pendiente>`
+# (§0.1 de HOJA_DE_RUTA.md) — ver roadmap/PRODUCCION_T25.md §1 para las instrucciones
+# equivalentes en Vercel (`vercel.json`) y para por qué GitHub Pages NO vale (no soporta
+# cabeceras HTTP propias, solo archivos estáticos).
+#
+# Sustituir <PROJECT_REF_PROD> por el "project ref" real de Supabase (https://<ref>.supabase.co)
+# en cuanto exista el proyecto de producción (requisito 5, bloqueo humano). Hasta entonces este
+# fichero no puede probarse contra un despliegue real: es la pieza que falta para dar el
+# requisito 1 por completo verificado (ver checklist en PRODUCCION_T25.md).
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://<PROJECT_REF_PROD>.supabase.co; connect-src 'self' https://<PROJECT_REF_PROD>.supabase.co; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Frame-Options: DENY

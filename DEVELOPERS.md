@@ -646,6 +646,29 @@ base de datos, no la interfaz — si alguna vez hiciera falta saltárselo en una
 ejemplo, para retirar al único administrador sin ascender antes a nadie), la única vía es, de
 nuevo, el editor SQL del panel de Supabase.
 
+## Producción (T-25)
+
+El detalle completo (cabeceras de seguridad, revisión de superficie de ataque tabla por tabla/RPC/
+bucket, inventario RGPD y procedimiento de anonimización, riesgo residual del panel y del token,
+y el checklist exacto de qué falta para el primer despliegue) vive en
+`roadmap/PRODUCCION_T25.md`. Resumen para quien solo necesita el mapa:
+
+- **Cabeceras de seguridad:** `_headers` en la raíz (formato Netlify/Cloudflare Pages) trae la
+  `Content-Security-Policy` y el resto de cabeceras ya escritas, pendientes solo de sustituir
+  `<PROJECT_REF_PROD>` por el proyecto real y de que el dueño elija proveedor de hosting
+  (`<pendiente>` desde el inicio del proyecto, §0.1 de `HOJA_DE_RUTA.md`) — GitHub Pages queda
+  descartado porque no admite cabeceras HTTP propias.
+- **Textos legales:** borradores en `legal/` (aviso legal, política de privacidad, consentimiento
+  de tratamiento, consentimiento de imagen del menor), cada uno marcado como tal con su propio
+  checklist de aprobación. Ninguno es válido hasta que el dueño los revise y lo confirme.
+- **Paso a producción:** el agente nunca lo ejecuta (§0.1). Cuando el dueño lo haga: crear el
+  proyecto, `npm run migrate -- --entorno=prod` con `PERMITIR_PROD=1` (aplica las diez migraciones
+  en orden con un solo comando), verificar `esquema_version()` = `9`, ejecutar
+  `npm run probar-rls` contra `prod` y guardar su salida, crear el primer `administrator` de
+  producción, y anotar la columna `prod` de `db/APLICADAS.md`.
+- **Copias de seguridad:** activarlas y **verificar una restauración real**, no solo confiar en
+  que Supabase las hace — el criterio de aceptación de T-25 lo exige explícitamente.
+
 ## Sobre las importaciones `.ts`
 
 El código fuente importa módulos hermanos con extensión `.ts` (p. ej.

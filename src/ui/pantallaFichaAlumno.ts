@@ -524,6 +524,10 @@ function montarBloqueAvatar(contenedorBloque: HTMLElement, deps: DependenciasBlo
   let error = '';
 
   const zonaError = crearZonaMensaje(documento, 'alert');
+  const notaConsentimiento = crearElemento(documento, 'p', {
+    texto:
+      'Aviso provisional (T-25 sustituirá este texto por el definitivo del centro): subir la fotografía de un alumno menor de edad requiere el consentimiento informado de su tutor legal para el uso de su imagen, distinto del consentimiento general de tratamiento de datos. Obtener ese consentimiento es responsabilidad del centro, no de esta aplicación.',
+  });
   const previsualizacion = documento.createElement('div');
   const inputArchivo = documento.createElement('input');
   inputArchivo.type = 'file';
@@ -643,7 +647,7 @@ function montarBloqueAvatar(contenedorBloque: HTMLElement, deps: DependenciasBlo
     })();
   });
 
-  contenedorBloque.append(previsualizacion, zonaError, etiquetaArchivo, inputArchivo, botonSubir, botonQuitar);
+  contenedorBloque.append(previsualizacion, notaConsentimiento, zonaError, etiquetaArchivo, inputArchivo, botonSubir, botonQuitar);
   pintar();
   void cargarUrlSiHace();
 }

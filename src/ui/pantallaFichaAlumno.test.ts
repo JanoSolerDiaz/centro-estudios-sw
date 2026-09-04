@@ -425,6 +425,14 @@ void test('bloque de avatar: sin foto, muestra el monograma con las iniciales', 
   assert.equal(contenedor.querySelector('img'), null);
 });
 
+void test('bloque de avatar: muestra el aviso provisional de consentimiento del tutor legal (T-14 req. 8 / T-25)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(contenedor, crearDepsFalsas({ alumnoId: 'a1', obtenerAlumno: () => Promise.resolve(crearFicha()) }));
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /consentimiento informado de su tutor legal/);
+  assert.match(contenedor.textContent, /responsabilidad del centro/);
+});
+
 void test('bloque de avatar: con avatar_ruta, pide la URL firmada y pinta la imagen', async () => {
   const contenedor = crearContenedorDePruebas();
   let rutaPedida: string | undefined;

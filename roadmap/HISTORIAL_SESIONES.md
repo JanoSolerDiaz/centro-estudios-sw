@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-09-04 (rutina programada) — T-25 arrancada: escrito todo lo que no exige credenciales ni decisión del dueño
+**Tarea(s):** T-25 (Endurecimiento, privacidad y paso a producción)
+**Estado resultante:** BLOQUEADA — pendiente crear el proyecto de producción, aplicar las diez migraciones, verificar `db/pruebas_rls.sql` contra `prod`, respaldo verificado y aprobación de los textos legales (fila 12 de §3, nueva)
+**Commits a `develop`:** ver el commit de esta sesión
+**Migraciones aplicadas:** ninguna — T-25 tiene `Migración: No` en su propia spec (propaga las existentes, no crea ninguna nueva)
+**Propagación a prod pendiente:** la de siempre, columna `prod` de `db/APLICADAS.md` vacía en sus diez filas — es precisamente lo que la fila 12 nueva de §3 y `roadmap/PRODUCCION_T25.md` §5 dejan como procedimiento exacto para cuando el dueño lo ejecute
+**Archivos creados/modificados:** `roadmap/PRODUCCION_T25.md` (nuevo, requisitos 1/2/3/7/8/9 con detalle completo y checklist final), `_headers` (nuevo, cabeceras de seguridad formato Netlify/Cloudflare Pages), `legal/AVISO_LEGAL.md` / `POLITICA_PRIVACIDAD.md` / `CONSENTIMIENTO_TRATAMIENTO.md` / `CONSENTIMIENTO_IMAGEN_MENOR.md` (nuevos, borradores marcados), `README.md` (nuevo, no existía), `DEVELOPERS.md` (sección "Producción (T-25)"), `src/ui/pantallaFichaAlumno.ts` (aviso provisional de consentimiento del tutor legal junto al control de subida de avatar — hueco real de T-14 requisito 8, cerrado aquí porque T-25 requisito 4 asume su existencia), `src/ui/pantallaFichaAlumno.test.ts` (+1 test), `roadmap/SEGUIMIENTO.md` (§1, §3 fila 12 nueva, §6 pregunta #15 nueva, cabecera), `roadmap/DECISIONES_TECNICAS.md` (+5 filas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (944/944, antes 943) · build ✅
+**Health check post-deploy:** N/A — sin proveedor de hosting elegido todavía (`<pendiente>`, pregunta #15 de §6), no hay ninguna URL desplegada contra la que ejecutar `npm run health`
+**Decisiones tomadas:** 5 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-04, todas `T-25`): documento propio para el detalle de T-25 en vez de dentro de `SEGUIMIENTO.md`; `_headers` en formato Netlify/Cloudflare Pages escrito ya, sin esperar la elección de proveedor; procedimiento de anonimización como secuencia de operaciones ya existentes, sin RPC ni pantalla nueva; y por qué el aviso de consentimiento de T-14 se corrige en esta sesión y no como P-XX urgente aparte
+**Hallazgos del auditor atendidos:** ninguno — el registro de `auditoriacontinua.md` seguía con sus siete hallazgos `RESUELTO`, cero `ABIERTO`, comprobado al empezar (no había ninguna urgencia P-XX que anteponer a la cola)
+**Hallazgos:** T-14 (`COMPLETADA` desde 2026-08-31, auditada varias veces desde entonces sin que nadie lo detectara) nunca implementó el aviso de consentimiento de su propio requisito 8 en la interfaz, a pesar de que `HOJA_DE_RUTA.md` §0.2 lo exige como norma permanente. Corregido en el mismo commit de esta sesión, con test — no se abre una fila nueva de deuda técnica porque queda resuelto de inmediato, no pendiente
+**Tareas autopropuestas (P-XX):** ninguna — el arreglo del aviso de consentimiento no es una P-XX (no es una mejora de alcance nuevo: es un requisito ya escrito en la spec de T-14 que faltaba por implementar, y la propia spec de T-25 asume su existencia)
+**Próximo paso:** nada de la columna vertebral queda por hacer del lado del agente — T-25 es la última tarea del MVP y lo único pendiente es la fila 12 de §3 (acción del dueño) y la pregunta #15 de §6 (elección de proveedor de hosting). La siguiente sesión de desarrollo debe: (a) comprobar si el dueño ya respondió la pregunta #15 o resolvió la fila 12, y en tal caso completar lo que falte de T-25 (sustituir `<PROJECT_REF_PROD>` en `_headers`, o si eligió Vercel, trasladar su contenido a `vercel.json`); (b) si sigue sin respuesta, no hay ninguna tarea vertebral más que ejecutar — el backlog de §5 (P-XX) está agotado (según la última verificación) y la oleada v1 (R-01 a R-12) depende explícitamente de que el MVP (T-00 a T-25) esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN` antes de empezar, así que toca repetir la verificación pre-push completa y revisar `auditoriacontinua.md`/`FEEDBACK.md`, como las sesiones de verificación anteriores
+
+---
+
 ### Sesión 2026-09-04 (interactiva, a petición del dueño) — T-24 COMPLETADA: el bloqueo de `009` era falso desde el 2026-09-03
 **Tarea(s):** T-24 (desbloqueo y cierre) · corrección de bookkeeping de `db/APLICADAS.md` y §3
 **Estado resultante:** COMPLETADA
