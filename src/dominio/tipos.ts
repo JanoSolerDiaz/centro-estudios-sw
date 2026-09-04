@@ -106,7 +106,7 @@ export interface SlotHorario {
 }
 
 export type OrigenAsistencia = 'slot' | 'manual';
-export type EstadoAsistencia = 'valida' | 'anulada';
+export type EstadoAsistencia = 'valida' | 'anulada' | 'ausente';
 
 export interface Asistencia {
   readonly id: string;

@@ -101,6 +101,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     buscarAlumnos: overrides.buscarAlumnos ?? (() => Promise.resolve([])),
     actualizar: overrides.actualizar ?? noImplementado('actualizar'),
     registrarOlvidado: overrides.registrarOlvidado ?? noImplementado('registrarOlvidado'),
+    registrarAusencia: overrides.registrarAusencia ?? noImplementado('registrarAusencia'),
     generarPeticionId:
       overrides.generarPeticionId ??
       (() => {
@@ -307,6 +308,28 @@ void test('un registro anulado se muestra tachado y con su motivo', async () => 
   assert.ok(item);
   assert.equal((item as HTMLElement).style.textDecoration, 'line-through');
   assert.match(contenedor.textContent, /Registrado por error/);
+});
+
+void test('un registro de ausencia (R-01) se distingue en el listado, sin el tachado de una anulación', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot()]),
+      listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente' })]),
+    }),
+  );
+  await esperarMicrotareas();
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  selectSlot.value = 'slot-1';
+  dispararEvento(selectSlot, 'change');
+  await esperarMicrotareas();
+
+  const item = contenedor.querySelector('li[data-registro-id="asistencia-1"] span');
+  assert.ok(item);
+  assert.match(item.textContent, /\(ausente\)/);
+  assert.notEqual((item as HTMLElement).style.textDecoration, 'line-through');
 });
 
 // --- Acciones de edición --------------------------------------------------------------------------
@@ -545,4 +568,123 @@ void test('añadir un registro olvidado: registra por slot para el alumno del sl
   assert.equal(entrada.slotId, 'slot-1');
   assert.ok(entrada.peticionId);
   assert.equal(contenedor.textContent.includes('Añadir registro olvidado para Ana García López'), false); // el formulario se cierra tras registrar
+});
+
+// --- Marcar ausente (R-01) -------------------------------------------------------------------------
+
+void test('marcar ausente: pide confirmación explícita antes de llamar a registrarAusencia', async () => {
+  let llamadas = 0;
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      reloj: crearRelojFijo(INSTANTE),
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot()]),
+      listarRegistros: () => Promise.resolve([]),
+      registrarAusencia: () => {
+        llamadas += 1;
+        return Promise.resolve(crearAsistencia({ id: 'asistencia-nueva', estado: 'ausente' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  selectSlot.value = 'slot-1';
+  dispararEvento(selectSlot, 'change');
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar ausente').click();
+  assert.equal(llamadas, 0);
+  assert.match(contenedor.textContent, /¿Marcar ausente a Ana García López el 2026-08-26\?/);
+});
+
+void test('marcar ausente: confirmar registra por slot, con la hora de inicio del slot ese día', async () => {
+  let entradaRecibida: unknown;
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      reloj: crearRelojFijo(INSTANTE),
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot()]),
+      listarRegistros: () => Promise.resolve([]),
+      registrarAusencia: (entrada) => {
+        entradaRecibida = entrada;
+        return Promise.resolve(crearAsistencia({ id: 'asistencia-nueva', estado: 'ausente' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  selectSlot.value = 'slot-1';
+  dispararEvento(selectSlot, 'change');
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar ausente').click();
+  botonPorTexto(contenedor, 'Confirmar ausencia').click();
+  await esperarMicrotareas();
+
+  assert.ok(entradaRecibida);
+  const entrada = entradaRecibida as { alumnoId: string; slotId: string; peticionId: string; ocurridoEn?: Date };
+  assert.equal(entrada.alumnoId, 'alumno-1');
+  assert.equal(entrada.slotId, 'slot-1');
+  assert.ok(entrada.peticionId);
+  assert.equal(contenedor.textContent.includes('¿Marcar ausente'), false); // la confirmación se cierra tras registrar
+});
+
+void test('marcar ausente: "Cancelar" no llama a registrarAusencia y vuelve al botón inicial', async () => {
+  let llamadas = 0;
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      reloj: crearRelojFijo(INSTANTE),
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot()]),
+      listarRegistros: () => Promise.resolve([]),
+      registrarAusencia: () => {
+        llamadas += 1;
+        return Promise.resolve(crearAsistencia({ estado: 'ausente' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  selectSlot.value = 'slot-1';
+  dispararEvento(selectSlot, 'change');
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar ausente').click();
+  botonPorTexto(contenedor, 'Cancelar').click();
+
+  assert.equal(llamadas, 0);
+  assert.doesNotThrow(() => botonPorTexto(contenedor, 'Marcar ausente'));
+});
+
+void test('marcar ausente: un error del servidor se muestra sin perder la confirmación (se puede reintentar)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      reloj: crearRelojFijo(INSTANTE),
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot()]),
+      listarRegistros: () => Promise.resolve([]),
+      registrarAusencia: () => Promise.reject(new SinPermiso()),
+    }),
+  );
+  await esperarMicrotareas();
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  selectSlot.value = 'slot-1';
+  dispararEvento(selectSlot, 'change');
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar ausente').click();
+  botonPorTexto(contenedor, 'Confirmar ausencia').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /No tienes permiso/);
+  // La confirmación sigue abierta: se puede reintentar sin volver a pulsar "Marcar ausente".
+  assert.doesNotThrow(() => botonPorTexto(contenedor, 'Confirmar ausencia'));
 });

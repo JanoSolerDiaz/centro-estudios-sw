@@ -33,6 +33,7 @@ const ETIQUETA_ORIGEN: Readonly<Record<OrigenAsistencia, string>> = {
 const ETIQUETA_ESTADO: Readonly<Record<EstadoAsistencia, string>> = {
   valida: 'Válida',
   anulada: 'Anulada',
+  ausente: 'Ausente',
 };
 
 /** Misma etiqueta que usa la columna "Origen" del CSV — exportada para que la tabla en pantalla

@@ -163,10 +163,45 @@ export async function listarAsistenciaDeHoy(
   return cliente
     .desde<Asistencia>(TABLA)
     .eq('profesor_id', profesorId)
-    .eq('estado', 'valida')
+    .in('estado', ['valida', 'ausente'])
     .gte('ocurrido_en', inicioUtc.toISOString())
     .lte('ocurrido_en', new Date(finUtc.getTime() - 1).toISOString())
     .seleccionar();
+}
+
+export interface RegistrarAusenciaEntrada {
+  readonly alumnoId: string;
+  readonly slotId: string;
+  /** `null`/omitido para una ausencia marcada en vivo (la RPC usa `now()` del servidor). Informado
+   * (p. ej. al cerrar los registros de un día pasado desde `pantallaRegistrosSlot.ts`), atribuye la
+   * ausencia a ese instante — la RPC decide el valor final de `es_retroactivo`. */
+  readonly ocurridoEn?: Date | null;
+  readonly nota?: string | null;
+  readonly peticionId: string;
+  /** Solo tiene efecto si quien llama es `administrator`: registra en nombre de este profesor en
+   * vez de la identidad de la sesión, mismo criterio que `RegistrarAsistenciaEntrada`. */
+  readonly profesorId?: string | null;
+}
+
+/** Marca como ausente a un alumno de UN slot (R-01, requisito 2), vía la RPC `SECURITY DEFINER`
+ * `registrar_ausencia` (`db/010_registro_ausencias.sql`) — siempre de origen `slot`: una ausencia es
+ * "no vino a lo que tocaba", nunca de un alumno extra que no tenía nada previsto. Reutiliza el mismo
+ * limitador de cliente y la misma clave que `registrarAsistencia` (cupo compartido del profesor). */
+export async function registrarAusencia(
+  deps: DependenciasAsistencia,
+  usuarioId: string,
+  entrada: RegistrarAusenciaEntrada,
+): Promise<Asistencia> {
+  deps.limitador?.comprobar(claveLimiteTasa(usuarioId, entrada.profesorId));
+
+  return deps.postgrest.rpc<Asistencia>('registrar_ausencia', {
+    p_alumno_id: entrada.alumnoId,
+    p_slot_id: entrada.slotId,
+    p_peticion_id: entrada.peticionId,
+    p_ocurrido_en: entrada.ocurridoEn ? entrada.ocurridoEn.toISOString() : null,
+    p_nota: entrada.nota ?? null,
+    p_profesor_id: entrada.profesorId ?? null,
+  });
 }
 
 export interface FiltroHistorico {

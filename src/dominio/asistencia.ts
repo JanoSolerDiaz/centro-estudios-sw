@@ -146,14 +146,15 @@ export function claveRegistroPorSlot(alumnoId: string, slotId: string): string {
 }
 
 /** Indexa `asistencias` (ya acotadas a "hoy" por quien llama) por `claveRegistroPorSlot`, para que
- * la pantalla de pasar lista (T-19) resuelva en O(1) si una card concreta ya está registrada. Solo
- * indexa filas de origen `slot` (`slot_id` no nulo) y `estado = 'valida'`: un registro `manual`
- * (alumno extra, T-20) no bloquea ni marca ninguna card de la rejilla, y uno `anulado` no cuenta
- * como registrado — mismo criterio que la restricción parcial de la base de datos. */
+ * la pantalla de pasar lista (T-19) resuelva en O(1) si una card concreta ya está registrada o
+ * marcada ausente. Solo indexa filas de origen `slot` (`slot_id` no nulo) con `estado` `'valida'` o
+ * `'ausente'` (R-01): un registro `manual` (alumno extra, T-20) no bloquea ni marca ninguna card de
+ * la rejilla, y uno `anulado` no cuenta como activo — mismo criterio EXACTO que el índice único
+ * parcial `asistencia_uq_alumno_slot_dia_activa` de `db/010_registro_ausencias.sql`. */
 export function registrosDeHoyPorAlumnoSlot(asistencias: readonly Asistencia[]): ReadonlyMap<string, Asistencia> {
   const mapa = new Map<string, Asistencia>();
   for (const fila of asistencias) {
-    if (fila.slot_id !== null && fila.estado === 'valida') {
+    if (fila.slot_id !== null && (fila.estado === 'valida' || fila.estado === 'ausente')) {
       mapa.set(claveRegistroPorSlot(fila.alumno_id, fila.slot_id), fila);
     }
   }

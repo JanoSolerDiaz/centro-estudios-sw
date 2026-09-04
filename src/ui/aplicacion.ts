@@ -55,6 +55,7 @@ import { listarProfesoresActivos, resolverNombresProfesores } from '../datos/pro
 import { listarUsuarios, actualizarUsuario } from '../datos/usuarios.ts';
 import {
   registrarAsistencia,
+  registrarAusencia,
   listarAsistenciaDeHoy,
   actualizarAsistencia,
   listarRegistrosDeSlotYFecha,
@@ -230,6 +231,7 @@ function mostrarAppAdministrador(
         buscarAlumnos: (texto) => buscarAlumnosParaExtra(app.postgrest, texto),
         actualizar: (profesorDuenoId, entrada) => actualizarAsistencia({ postgrest: app.postgrest }, profesorDuenoId, entrada),
         registrarOlvidado: (entrada) => registrarAsistencia({ postgrest: app.postgrest }, perfil.id, entrada),
+        registrarAusencia: (entrada) => registrarAusencia({ postgrest: app.postgrest }, perfil.id, entrada),
         generarPeticionId: () => crypto.randomUUID(),
       });
       return;
@@ -413,6 +415,12 @@ function mostrarAppProfesor(
             perfil.id,
             entrada,
           ),
+        registrarAusencia: (entrada) =>
+          registrarAusencia(
+            { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+            perfil.id,
+            entrada,
+          ),
         generarPeticionId: () => crypto.randomUUID(),
       });
       return;
@@ -445,6 +453,12 @@ function mostrarAppProfesor(
       cargarAsistenciaDeHoy: (instante) => listarAsistenciaDeHoy(app.postgrest, perfil.id, instante),
       registrar: (entrada) =>
         registrarAsistencia(
+          { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+          perfil.id,
+          entrada,
+        ),
+      registrarAusencia: (entrada) =>
+        registrarAusencia(
           { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
           perfil.id,
           entrada,

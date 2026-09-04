@@ -203,6 +203,13 @@ void test('registrosDeHoyPorAlumnoSlot: ignora un registro anulado', () => {
   assert.equal(mapa.size, 0);
 });
 
+void test('registrosDeHoyPorAlumnoSlot: indexa también una fila marcada ausente (R-01), no solo válida', () => {
+  const fila = crearAsistencia({ estado: 'ausente' });
+  const mapa = registrosDeHoyPorAlumnoSlot([fila]);
+  assert.equal(mapa.get(claveRegistroPorSlot('alumno-1', 'slot-1')), fila);
+  assert.equal(mapa.size, 1);
+});
+
 void test('registrosDeHoyPorAlumnoSlot: ignora un registro manual (sin slot_id)', () => {
   const fila = crearAsistencia({ origen: 'manual', slot_id: null, slot_dia_semana: null, slot_hora_inicio: null, slot_hora_fin: null });
   const mapa = registrosDeHoyPorAlumnoSlot([fila]);

@@ -1780,6 +1780,140 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8g. registrar_ausencia (R-01, db/010_registro_ausencias.sql) — alta
+--     de una ausencia explícita. Crea su PROPIO slot de prueba, nunca
+--     reutiliza slot_prueba (sección 4): para cuando se llega aquí puede
+--     seguir ocupado por el registro 'valida' de la sección 7b, o ya
+--     liberado por "cambiar el slot atribuido" de la sección 8c —
+--     depender de cuál de los dos ha pasado sería la misma fragilidad
+--     que P-08 ya corrigió una vez. Mismo criterio exacto que el
+--     v_slot_b_id propio de la sección 8c.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id   uuid := pg_temp.dato('alumno_prueba');
+  v_teacher_id  uuid;
+  v_teacher2_id uuid;
+  v_slot_id     uuid;
+  v_fila        public.asistencia%rowtype;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
+
+  if v_alumno_id is null or not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('registrar_ausencia / teacher marca ausente', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_ausencia / duplicado: ya hay una ausencia ese día (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_ausencia / duplicado: el alumno ya está presente ese día (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_ausencia / slot de otro profesor (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_ausencia / student no puede llamar (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('registrar_ausencia / anular una ausencia exige motivo, igual que una entrada', 'falta el alumno o el teacher de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, 4, '08:00', '09:00', current_date)
+      returning id into v_slot_id;
+  exception when others then
+    v_slot_id := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_slot_id is null then
+    perform pg_temp.omitir('registrar_ausencia / teacher marca ausente', 'no se pudo crear el slot de prueba propio de esta sección');
+    perform pg_temp.omitir('registrar_ausencia / duplicado: ya hay una ausencia ese día (debe fallar)', 'no se pudo crear el slot de prueba propio de esta sección');
+    perform pg_temp.omitir('registrar_ausencia / duplicado: el alumno ya está presente ese día (debe fallar)', 'no se pudo crear el slot de prueba propio de esta sección');
+    perform pg_temp.omitir('registrar_ausencia / slot de otro profesor (debe fallar)', 'no se pudo crear el slot de prueba propio de esta sección');
+    perform pg_temp.omitir('registrar_ausencia / anular una ausencia exige motivo, igual que una entrada', 'no se pudo crear el slot de prueba propio de esta sección');
+  else
+    -- teacher marca ausente al alumno de su propio slot: permitido.
+    perform pg_temp.impersonar('teacher');
+    begin
+      select * into v_fila from public.registrar_ausencia(
+        p_alumno_id => v_alumno_id, p_slot_id => v_slot_id, p_peticion_id => gen_random_uuid()
+      );
+      perform pg_temp.registrar(
+        'registrar_ausencia / teacher marca ausente', 'permitido',
+        v_fila.estado = 'ausente' and v_fila.origen = 'slot' and v_fila.slot_id = v_slot_id
+      );
+    exception when others then
+      perform pg_temp.registrar('registrar_ausencia / teacher marca ausente', 'permitido', false, sqlerrm);
+    end;
+
+    if v_fila.id is null then
+      perform pg_temp.omitir('registrar_ausencia / duplicado: ya hay una ausencia ese día (debe fallar)', 'no se creó la ausencia inicial de esta sección');
+      perform pg_temp.omitir('registrar_ausencia / duplicado: el alumno ya está presente ese día (debe fallar)', 'no se creó la ausencia inicial de esta sección');
+      perform pg_temp.omitir('registrar_ausencia / anular una ausencia exige motivo, igual que una entrada', 'no se creó la ausencia inicial de esta sección');
+    else
+      -- Segundo intento de marcar ausente el MISMO alumno/slot/día: choca con
+      -- asistencia_uq_alumno_slot_dia_activa (sección 2 de 010_registro_ausencias.sql).
+      begin
+        perform public.registrar_ausencia(p_alumno_id => v_alumno_id, p_slot_id => v_slot_id, p_peticion_id => gen_random_uuid());
+        perform pg_temp.registrar('registrar_ausencia / duplicado: ya hay una ausencia ese día (debe fallar)', 'prohibido', false, 'se insertó sin error');
+      exception when others then
+        perform pg_temp.registrar_prohibido('registrar_ausencia / duplicado: ya hay una ausencia ese día (debe fallar)', array['%asistencia_uq_alumno_slot_dia_activa%'], sqlerrm);
+      end;
+
+      -- Registrar PRESENCIA sobre el mismo alumno/slot/día ya marcado ausente: el MISMO índice
+      -- ahora cubre 'valida' Y 'ausente' a la vez (requisito 2 de R-01, "un segundo registro del
+      -- mismo alumno en el mismo slot y día se rechaza"), así que también debe chocar.
+      begin
+        perform public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'slot', p_slot_id => v_slot_id, p_peticion_id => gen_random_uuid());
+        perform pg_temp.registrar('registrar_ausencia / duplicado: el alumno ya está presente ese día (debe fallar)', 'prohibido', false, 'se insertó sin error');
+      exception when others then
+        perform pg_temp.registrar_prohibido('registrar_ausencia / duplicado: el alumno ya está presente ese día (debe fallar)', array['%asistencia_uq_alumno_slot_dia_activa%'], sqlerrm);
+      end;
+
+      -- Anular la ausencia exige motivo, igual que anular una entrada (criterio de aceptación de
+      -- R-01) — sin ningún cambio en actualizar_asistencia, que ya trata cualquier estado de
+      -- partida de forma genérica.
+      begin
+        perform public.actualizar_asistencia(p_asistencia_id => v_fila.id, p_anular => true);
+        perform pg_temp.registrar('registrar_ausencia / anular una ausencia exige motivo, igual que una entrada', 'prohibido', false, 'se anuló sin motivo');
+      exception when others then
+        perform pg_temp.registrar_prohibido('registrar_ausencia / anular una ausencia exige motivo, igual que una entrada', array['%exige un motivo%'], sqlerrm);
+      end;
+    end if;
+
+    perform pg_temp.dejar_de_impersonar();
+
+    -- Slot de OTRO profesor (teacher2): debe rechazarse.
+    if v_teacher2_id is null then
+      perform pg_temp.omitir('registrar_ausencia / slot de otro profesor (debe fallar)', 'no hay un segundo teacher en este entorno');
+    else
+      perform pg_temp.impersonar('teacher2');
+      begin
+        perform public.registrar_ausencia(p_alumno_id => v_alumno_id, p_slot_id => v_slot_id, p_peticion_id => gen_random_uuid());
+        perform pg_temp.registrar('registrar_ausencia / slot de otro profesor (debe fallar)', 'prohibido', false, 'se insertó sin error');
+      exception when others then
+        perform pg_temp.registrar_prohibido('registrar_ausencia / slot de otro profesor (debe fallar)', array['%pertenece a otro profesor%'], sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end if;
+  end if;
+
+  -- student: sin acceso alguno (§0.2), tampoco a esta RPC. Independiente del slot de prueba de
+  -- arriba: se comprueba aunque no se haya podido crear.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('registrar_ausencia / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  elsif v_slot_id is null then
+    perform pg_temp.omitir('registrar_ausencia / student no puede llamar (debe fallar)', 'no se pudo crear el slot de prueba propio de esta sección');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.registrar_ausencia(p_alumno_id => v_alumno_id, p_slot_id => v_slot_id, p_peticion_id => gen_random_uuid());
+      perform pg_temp.registrar('registrar_ausencia / student no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('registrar_ausencia / student no puede llamar (debe fallar)', array['%solo administrator o teacher pueden registrar una ausencia%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

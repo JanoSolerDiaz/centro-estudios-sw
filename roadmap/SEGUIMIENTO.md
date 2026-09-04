@@ -10,7 +10,56 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-04 (rutina programada) — **T-25 arrancada: todo lo que no exige
+**Última actualización:** 2026-09-04 (rutina programada, segunda del día) — **R-01 arrancada, la
+primera tarea de la oleada v1.** T-25 sigue `BLOQUEADA` en §1 esperando exclusivamente al dueño (fila
+12 de §3, sin cambio: crear el proyecto de producción, aplicar las diez migraciones, verificar
+`probar-rls` contra `prod`, respaldo verificado y aprobación de los textos legales — nada de eso lo
+puede hacer el agente), así que esta sesión tomó la siguiente tarea pendiente de §1: R-01, "Registro
+explícito de ausencias", primera de la oleada v1 (spec en `roadmap/ROADMAP_PRODUCTO.md`). Su
+requisito 2 exige DDL por definición (una RPC nueva y un `CHECK` de `estado` que solo el esquema
+puede ampliar), así que sigue el procedimiento de §0.1: migración nueva
+`db/010_registro_ausencias.sql` escrita y empujada, fila 13 nueva de §3, R-01 pasa a `BLOQUEADA` —
+pero **todo el código y los tests que consumen ese esquema se escriben igual, contra dobles**, en vez
+de esperar. Tres piezas en la migración: (1) `estado` admite `'ausente'` junto a `'valida'`/`'anulada'`;
+(2) el índice de duplicado de `005` (`asistencia_uq_alumno_slot_dia_valida`, inmutable, no se edita)
+se sustituye por `asistencia_uq_alumno_slot_dia_activa`, que cubre `'valida'` Y `'ausente'` a la vez
+— un alumno solo puede tener UN registro activo (presente o ausente) por slot y día; (3) RPC nueva
+`registrar_ausencia(...)`, `SECURITY DEFINER`, separada de `registrar_asistencia` (nunca un parámetro
+`p_estado` añadido a esa función: son dos intenciones distintas, y esto deja intacto su contrato ya
+probado), siempre `origen = 'slot'` (una ausencia es "no vino a lo que tocaba"; un alumno "extra" no
+tocaba nada). Anular una ausencia no necesitó ningún cambio en `actualizar_asistencia`
+(`008`): ya trata `p_anular`/`p_motivo_anulacion` de forma genérica sobre cualquier `estado` de
+partida. Dominio (`dominio/tipos.ts#EstadoAsistencia` con el tercer valor;
+`dominio/asistencia.ts#registrosDeHoyPorAlumnoSlot` indexa ahora también `'ausente'`), datos
+(`datos/asistencia.ts#registrarAusencia`, nueva; `listarAsistenciaDeHoy` trae ahora `valida` E
+`ausente`), UI: en pasar lista (`pantallaPasarLista.ts`) cada card gana un `<button>` HERMANO "Marcar
+ausente" (nunca anidado dentro del principal — un `<button>` no admite contenido interactivo válido
+dentro), con su propio `peticionId` de idempotencia y su propio protector de doble toque; en
+«Registros» (`pantallaRegistrosSlot.ts`), junto a "Añadir registro olvidado", un "Marcar ausente" con
+confirmación explícita (mismo patrón que anular, sin motivo porque R-01 no lo exige). Histórico y CSV
+(`historicoAsistencia.ts`) distinguen ya `'ausente'` de `'valida'`/`'anulada'` en su columna Estado, y
+el listado de «Registros» muestra "(ausente)" junto al nombre, sin el tachado de una anulación. Nueva
+sección **8g** en `db/pruebas_rls.sql` (alta de ausencia por `teacher`, duplicado contra el nuevo
+índice tanto si ya había presencia como si ya había ausencia, slot de otro profesor, `student` sin
+acceso, anular exige motivo) — con su propio slot de prueba, nunca reutiliza `slot_prueba` de la
+sección 4 (que a esta altura del fichero puede estar libre u ocupado según qué secciones anteriores
+hayan corrido con éxito: la misma fragilidad de clave mutable que ya corrigió **P-08**). Nuevo fichero
+estático `herramientas/migraciones/rpcRegistrarAusencia.test.ts` (mismo patrón que el de `005`/`008`).
+**30 tests nuevos (974 en total, antes 944):** 11 estáticos de la migración
+(`rpcRegistrarAusencia.test.ts`), 1 de dominio (`registrosDeHoyPorAlumnoSlot` indexa también
+`'ausente'`), 5 de datos (`registrarAusencia`: cuerpo de la RPC, retroactivo, en nombre de otro,
+conflicto, limitador compartido), 8 de pasar lista (control secundario distinguible, flujo completo,
+idempotencia propia, doble toque, ya marcado al abrir, conflicto reconciliado al estado real, error) y
+5 de «Registros» (distinción visual sin tachado, confirmación explícita, alta, cancelar, error). El
+resto de la diferencia son ajustes de tests ya existentes que no suman fila nueva al recuento (mismo
+criterio de sesiones anteriores): `listarAsistenciaDeHoy` ahora espera `in.(valida,ausente)` en vez de
+`eq.valida`, y `etiquetaEstadoAsistencia`/`historicoAsistencia.test.ts` amplían un test ya existente
+con el caso `'ausente'`. Verificación pre-push completa en verde: `npm run typecheck`, `npm run lint`,
+`npm test` (974/974) y `npm run build`. **Nota de entorno:** `node_modules/` no existía al empezar
+esta sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) fue el primer paso antes
+de poder ejecutar nada.
+
+**Sesión anterior (2026-09-04, "T-25 arrancada"):** **T-25 arrancada: todo lo que no exige
 una decisión o una credencial del dueño está escrito; pasa a `BLOQUEADA` en §1, no `COMPLETADA`,
 porque su propio criterio de aceptación es literal y cinco de sus puntos dependen de él.** T-24
 seguía `COMPLETADA` desde la sesión anterior y sin ningún hallazgo `ABIERTO` de severidad alta en
@@ -1058,7 +1107,7 @@ pantallas del requisito 2.
 | T-23 | Consulta y exportación del histórico | COMPLETADA | 2026-09-01 | Sin migración: `SELECT` sobre `asistencia` ya concedido desde T-10. `dominio/historicoAsistencia.ts` (CSV), `nucleo/csv.ts` (utilidad genérica), `datos/asistencia.ts#listarHistoricoAsistencia`/`listarHistoricoAsistenciaCompleto`, `ui/pantallaHistorico.ts` (nueva, primer `<table>` real del proyecto). `db/pruebas_rls.sql` sección 8d nueva (aislamiento de lectura). 73 tests nuevos (891 en total, antes 818) |
 | T-24 | Administración de usuarios y roles | COMPLETADA | 2026-09-04 | Código y 46 tests completos, contra dobles. Migración `009_administracion_usuarios.sql` (columna `perfil.actualizado_por` + trigger `perfil_before_update`) **aplicada y verificada** en `dev` (fila 11 de §3, **RESUELTA 2026-09-04**): el ledger trae `009` con hash idéntico al SHA-256 del fichero en disco, y la sección 8e de `npm run probar-rls` pasó ya el 2026-09-03. Estuvo marcada `BLOQUEADA` dos días de más — ver la entrada del 2026-09-04 en `HISTORIAL_SESIONES.md` |
 | T-25 | Endurecimiento, privacidad y paso a producción | BLOQUEADA — pendiente crear el proyecto de producción, aplicar las diez migraciones, verificar `db/pruebas_rls.sql` contra `prod`, respaldo verificado y aprobación de los textos legales (fila 12 de §3) | 2026-09-04 | Requisitos 2, 3, 7, 8 y 9 completos; 1 y 4 escritos pero pendientes de un dato/decisión del dueño (proveedor de hosting, aprobación legal); 5 y 6 son DDL/infraestructura que el agente nunca ejecuta (§0.1). Detalle completo, checklist exacto y por qué en `roadmap/PRODUCCION_T25.md`. En el camino, corregido un hueco real de T-14 (requisito 8, aviso de consentimiento del avatar ausente de la interfaz) |
-| R-01 | Registro explícito de ausencias | PENDIENTE | — | Oleada v1 / F-01 · Migración `010_registro_ausencias` (renumerada por el PM el 2026-09-02: `006` lo ocupó ya T-18) |
+| R-01 | Registro explícito de ausencias | BLOQUEADA — pendiente aplicar migración `010` (fila 13 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `010_registro_ausencias.sql` (renumerada por el PM el 2026-09-02: `006` lo ocupó ya T-18) escrita y empujada, todavía sin aplicar |
 | R-02 | Justificación de una ausencia | PENDIENTE | — | Oleada v1 / F-01 · Migración `011_justificacion_ausencia` (renumerada por el PM el 2026-09-02: `007` lo ocupó ya T-20) |
 | R-03 | Registro de salida y cómputo de horas reales | PENDIENTE | — | Oleada v1 / F-01 · Migración `012_registro_salida` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) |
 | R-12 | Calendario de cierres del centro (festivos y vacaciones) | PENDIENTE | — | Oleada v1 / F-01 · Migración `014_calendario_cierres` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) · añadida por el PM el 2026-08-28, dependencia nueva de R-04 |
@@ -1104,6 +1153,7 @@ pantallas del requisito 2.
 | 10 | Aplicar la migración `008_rpc_actualizar_asistencia` en `dev`, **después** de la fila 9 (`007`) | T-21 | ~~`git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `8`, y ejecutar también `npm run probar-rls` (nueva sección 8c: `actualizar_asistencia` — edición propia/ajena, ventana de 7 días, anular sin motivo, cambiar alumno/slot; sección 5 ampliada con UPDATE/DELETE directo denegados)~~ | **RESUELTA 2026-09-02** — aplicada por el dueño con `npm run migrate`. **Verificada:** hash `d7e1a1f47001` en el ledger y `esquema_version()` = `8`. `npm run probar-rls` contra `dev`: **89 comprobaciones, 0 omitidas, 0 fallidas**, «ningún acceso prohibido tuvo éxito» — sección 8c completa (teacher edita lo suyo y no lo ajeno, ventana de 7 días que el `administrator` no tiene, anular exige motivo, la fila anulada sigue existiendo, dos modificaciones dejan dos filas de historial con los valores previos, cambio de alumno y de slot con sus tres rechazos) y sección 5 con el `UPDATE`/`DELETE` directo denegados. **La primera pasada dio 1 omitida** (`actualizar_asistencia / cambiar alumno`): no era la RPC sino un bug del propio fixture —leía `centro_referencia_id` de la tabla base, columna que el GRANT de `003` no concede a `authenticated` ni siquiera siendo `administrator`, y el `exception when others` se tragaba el «permission denied»—; arreglado en la sesión interactiva del dueño (commit `bee1602`, lee el centro por `alumno_ficha` y ahora el motivo real sale en el mensaje del OMITIDO) |
 | 11 | Aplicar la migración `009_administracion_usuarios` en `dev`, **después** de la fila 10 (`008`) | T-24 | ~~`git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `9`, y ejecutar también `npm run probar-rls` (nueva sección 8e: aislamiento de `perfil` entre roles ajenos, y el trigger `perfil_before_update` rechazando desactivar/degradar al único `administrator` activo)~~ | **RESUELTA 2026-09-04** — aplicada por el dueño con `npm run migrate`, **en algún momento del 2026-09-03 o antes**, sin que se anotara aquí. Confirmado el 2026-09-04 por dos vías independientes: (1) `npm run migrate` no encuentra ninguna migración pendiente y `npm run migrate -- --estado` lista la fila `009 009_administracion_usuarios` con hash `0d996c48420d06a528a34841eb10735bb678c8733870f986e3d3f8bf0e4bd882`, **idéntico** al SHA-256 del fichero en disco (si difiriera, `planificar()` habría abortado con `ErrorHashCambiado` en vez de callar); (2) la ejecución de `npm run probar-rls` del 2026-09-03 dio 105 comprobaciones, 0 omitidas, 0 fallidas, y las dos comprobaciones de la sección 8e sobre `perfil_before_update` exigen `%último administrator%` en `sqlerrm` — sin el trigger, los dos `UPDATE` habrían pasado sin error y la batería habría cantado dos fallos. **La fecha exacta no se registró y no es recuperable desde el ledger** (`esquema_migracion` no guarda instante de aplicación); se anota como `<= 2026-09-03`. T-24 pasa a `COMPLETADA` |
 | 12 | Ejecutar el paso a producción de T-25: crear el proyecto de producción, aportar sus credenciales, elegir proveedor de hosting (pregunta #15 de §6), aplicar las diez migraciones (`000` a `009`) con `npm run migrate -- --entorno=prod` y `PERMITIR_PROD=1`, ejecutar `npm run probar-rls` contra `prod` y guardar su salida, crear el primer `administrator` de producción, configurar y **verificar** una restauración de respaldo real, y aprobar o corregir los cuatro textos legales de `legal/` | T-25 | Procedimiento exacto, paso a paso, en `roadmap/PRODUCCION_T25.md` §5-§6. No es una migración suelta (no genera una fila por cada una de las diez, §0.1.7): es la propagación completa, de una sola vez | PENDIENTE |
+| 13 | Aplicar la migración `010_registro_ausencias` en `dev`, **después** de la fila 11 (`009`) | R-01 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `10`, y ejecutar también `npm run probar-rls` (nueva sección 8g: alta de ausencia por `teacher`, duplicado alumno+slot+día contra `asistencia_uq_alumno_slot_dia_activa` con presencia Y con ausencia ya existente, `student` sin acceso a `registrar_ausencia`, anular una ausencia con motivo) | PENDIENTE |
 
 ---
 

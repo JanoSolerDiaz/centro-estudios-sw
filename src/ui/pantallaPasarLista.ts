@@ -64,7 +64,7 @@ import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 import { crearElemento } from './dom.ts';
 import { crearZonaMensaje, crearBoton } from './formularios.ts';
 import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
-import type { RegistrarAsistenciaEntrada } from '../datos/asistencia.ts';
+import type { RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { AlumnoConRutaAvatar } from '../datos/avatarAlumno.ts';
 import { Conflicto } from '../datos/erroresDominio.ts';
 
@@ -82,6 +82,9 @@ export interface DependenciasPantallaPasarLista {
   cargarPropuesta(): Promise<readonly SlotConAlumno[]>;
   cargarAsistenciaDeHoy(instante: Date): Promise<readonly Asistencia[]>;
   registrar(entrada: RegistrarAsistenciaEntrada): Promise<Asistencia>;
+  /** Marca ausente a un alumno de un slot (R-01, requisito 1) — control secundario de la card,
+   * distinguible del toque simple que registra presencia. */
+  registrarAusencia(entrada: RegistrarAusenciaEntrada): Promise<Asistencia>;
   /** Firma en lote (§0.2) las URL de la derivada `mini` (96 px, requisito 2) de los alumnos con
    * avatar que todavía no se hayan pedido. */
   obtenerUrlsAvataresMini(alumnos: readonly AlumnoConRutaAvatar[]): Promise<ReadonlyMap<string, string>>;
@@ -105,15 +108,36 @@ export interface DependenciasPantallaPasarLista {
   readonly tolerancia?: number;
 }
 
-type FaseTarjeta = 'pendiente' | 'enviando' | 'registrado' | 'error';
+type FaseTarjeta = 'pendiente' | 'enviando' | 'registrado' | 'ausente' | 'error';
 
 interface EstadoTarjeta {
   readonly alumno: AlumnoParaPropuesta;
   readonly slot: SlotHorario;
   readonly fase: FaseTarjeta;
+  /** Clave de idempotencia de un intento de registrar PRESENTE (toque principal). */
   readonly peticionId: string;
+  /** Clave de idempotencia de un intento de marcar AUSENTE (R-01, control secundario) — nunca la
+   * misma que `peticionId`: son dos intenciones distintas (`datos/asistencia.ts`, cabecera del
+   * módulo), y reutilizar una para la otra confundiría la protección de idempotencia del servidor
+   * con la de una escritura que el profesor nunca pidió. */
+  readonly peticionIdAusente: string;
   readonly asistencia?: Asistencia;
   readonly mensajeError?: string;
+}
+
+/** Fase terminal que corresponde a `fila` una vez el servidor la confirma — la MISMA fila puede
+ * llegar aquí tanto por un alta directa como por la reconciliación de un `Conflicto` (R-01: el
+ * duplicado puede ser con una fila de presencia O de ausencia ya existente). */
+function faseDeAsistencia(fila: Asistencia): 'registrado' | 'ausente' {
+  return fila.estado === 'ausente' ? 'ausente' : 'registrado';
+}
+
+interface FocoTarjeta {
+  readonly clave: string;
+  /** `true` si el elemento con foco era el control secundario "Marcar ausente" (R-01), no la card
+   * principal — así el repintado restaura el foco en el control correcto, nunca siempre en el
+   * principal por defecto. */
+  readonly ausente: boolean;
 }
 
 /** "Alumno extra" (T-20): sin slot, nunca pasa por la fase 'pendiente' — seleccionarlo en el
@@ -181,6 +205,10 @@ function textoEstadoTarjeta(tarjeta: ConEstadoDeTarjeta, zonaHoraria: string): s
     case 'registrado': {
       const hora = tarjeta.asistencia ? instanteLocal(new Date(tarjeta.asistencia.registrado_en), zonaHoraria).horaMinuto : '';
       return `Registrado a las ${hora}`;
+    }
+    case 'ausente': {
+      const hora = tarjeta.asistencia ? instanteLocal(new Date(tarjeta.asistencia.registrado_en), zonaHoraria).horaMinuto : '';
+      return `Ausente (marcado a las ${hora})`;
     }
     case 'error':
       return `Pendiente — ${tarjeta.mensajeError ?? 'No se ha podido registrar.'}`;
@@ -298,8 +326,22 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     return avatarWrap;
   }
 
-  function crearTarjetaElemento(clave: string, tarjeta: EstadoTarjeta, avatares: ReadonlyMap<string, string>): HTMLButtonElement {
+  /** Card de slot (T-19) más el control secundario de R-01. El toque simple (botón principal, el
+   * mismo de siempre — requisito 3 de T-19, "la card entera es el objetivo táctil") registra
+   * presencia; "Marcar ausente" es un `<button>` HERMANO, nunca anidado dentro del principal (un
+   * `<button>` no puede contener otro elemento interactivo válido) — cumple el requisito 1 de R-01:
+   * un control "distinguible del toque simple", nunca el mismo gesto con doble significado. */
+  function crearTarjetaElemento(clave: string, tarjeta: EstadoTarjeta, avatares: ReadonlyMap<string, string>): HTMLElement {
     const { alumno } = tarjeta;
+    const resuelta = tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando';
+
+    const contenedorTarjeta = documento.createElement('div');
+    contenedorTarjeta.setAttribute('role', 'group');
+    contenedorTarjeta.setAttribute('aria-label', `${alumno.nombre} ${alumno.primer_apellido}`);
+    contenedorTarjeta.style.display = 'flex';
+    contenedorTarjeta.style.flexDirection = 'column';
+    contenedorTarjeta.style.gap = '4px';
+
     const boton = documento.createElement('button');
     boton.type = 'button';
     boton.dataset.clave = clave;
@@ -313,7 +355,8 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     boton.style.border = '2px solid #374151';
     boton.style.borderRadius = '8px';
     boton.style.fontSize = '16px';
-    boton.style.backgroundColor = tarjeta.fase === 'registrado' ? '#DCFCE7' : tarjeta.fase === 'error' ? '#FEE2E2' : '#FFFFFF';
+    boton.style.backgroundColor =
+      tarjeta.fase === 'registrado' ? '#DCFCE7' : tarjeta.fase === 'ausente' ? '#FEF3C7' : tarjeta.fase === 'error' ? '#FEE2E2' : '#FFFFFF';
 
     boton.append(crearAvatarWrap(alumno, avatares));
 
@@ -331,13 +374,34 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       'aria-label',
       `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}. ${textoEstado}`,
     );
-    boton.disabled = tarjeta.fase === 'registrado' || tarjeta.fase === 'enviando';
+    boton.disabled = resuelta;
 
     boton.addEventListener('click', () => {
       void obtenerProtector(clave)();
     });
 
-    return boton;
+    const botonAusente = documento.createElement('button');
+    botonAusente.type = 'button';
+    botonAusente.dataset.ausenteClave = clave;
+    botonAusente.style.minHeight = '44px';
+    botonAusente.style.padding = '4px 8px';
+    botonAusente.style.border = '2px dashed #92400E';
+    botonAusente.style.borderRadius = '8px';
+    botonAusente.style.fontSize = '13px';
+    botonAusente.style.backgroundColor = tarjeta.fase === 'ausente' ? '#FEF3C7' : '#FFFFFF';
+    botonAusente.textContent = tarjeta.fase === 'ausente' ? 'Marcado ausente' : 'Marcar ausente';
+    botonAusente.setAttribute(
+      'aria-label',
+      `Marcar ausente a ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`,
+    );
+    botonAusente.disabled = resuelta;
+
+    botonAusente.addEventListener('click', () => {
+      void obtenerProtectorAusencia(clave)();
+    });
+
+    contenedorTarjeta.append(boton, botonAusente);
+    return contenedorTarjeta;
   }
 
   /** "Alumno extra" (T-20, requisito 5): misma card que una de slot —avatar, monograma, nombre,
@@ -399,11 +463,17 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     return boton;
   }
 
-  function elementoConFoco(): string | null {
+  function elementoConFoco(): FocoTarjeta | null {
     // Sin `instanceof HTMLElement`: esa clase vive en `window`, y este módulo nunca referencia un
     // global del navegador directamente (mismo criterio que el resto de `src/ui/`, que recibe
-    // `documento` por parámetro) — buscar el atributo `data-clave` basta para reconocer la card.
-    return documento.activeElement?.getAttribute('data-clave') ?? null;
+    // `documento` por parámetro) — buscar el atributo `data-*` basta para reconocer la card.
+    const activo = documento.activeElement;
+    const clave = activo?.getAttribute('data-clave');
+    if (clave) {
+      return { clave, ausente: false };
+    }
+    const claveAusente = activo?.getAttribute('data-ausente-clave');
+    return claveAusente ? { clave: claveAusente, ausente: true } : null;
   }
 
   function pintar(estado: EstadoPantalla): void {
@@ -418,13 +488,15 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       return;
     }
 
-    const claveEnfocada = elementoConFoco();
+    const foco = elementoConFoco();
+    const claveEnfocada = foco?.clave ?? null;
     rejilla.textContent = '';
     for (const [clave, tarjeta] of estado.tarjetas) {
       const elemento = crearTarjetaElemento(clave, tarjeta, estado.avatares);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
-        elemento.focus();
+        const selector = foco?.ausente ? '[data-ausente-clave]' : '[data-clave]';
+        elemento.querySelector<HTMLElement>(selector)?.focus();
       }
     }
     // Los "alumno extra" (T-20) van al final de la MISMA rejilla — "una card más en la lista de la
@@ -444,7 +516,14 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const clave = claveRegistroPorSlot(alumno.id, slot.id);
       const registro = registrosHoyCache.get(clave);
       if (registro) {
-        nuevo.set(clave, { alumno, slot, fase: 'registrado', peticionId: registro.peticion_id, asistencia: registro });
+        nuevo.set(clave, {
+          alumno,
+          slot,
+          fase: faseDeAsistencia(registro),
+          peticionId: registro.peticion_id,
+          peticionIdAusente: registro.peticion_id,
+          asistencia: registro,
+        });
         continue;
       }
       const previa = anterior.get(clave);
@@ -452,7 +531,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         nuevo.set(clave, previa);
         continue;
       }
-      nuevo.set(clave, { alumno, slot, fase: 'pendiente', peticionId: deps.generarPeticionId() });
+      nuevo.set(clave, { alumno, slot, fase: 'pendiente', peticionId: deps.generarPeticionId(), peticionIdAusente: deps.generarPeticionId() });
     }
     // Una petición en curso nunca desaparece de la rejilla aunque el tramo horario cambie mientras
     // se espera la respuesta del servidor (p. ej. la ventana de tolerancia se cierra justo en ese
@@ -524,13 +603,25 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     });
   }
 
+  /** Reconcilia un `Conflicto` (409) tanto de `manejarToque` como de `manejarAusente` (R-01): en
+   * los dos casos la fila ya existe de verdad en el servidor —presente O ausente, indistinguibles
+   * por diseño en el propio conflicto (`asistencia_peticion_id_unico` o
+   * `asistencia_uq_alumno_slot_dia_activa`, `db/010_registro_ausencias.sql`)—, así que la card
+   * pasa al estado terminal que corresponda a la fila REAL, no al que se intentó escribir. */
   async function reconciliarConflicto(clave: string, tarjeta: EstadoTarjeta): Promise<void> {
     try {
       const registros = await deps.cargarAsistenciaDeHoy(almacen.obtener().instante);
       registrosHoyCache = registrosDeHoyPorAlumnoSlot(registros);
       const fila = registrosHoyCache.get(clave);
       if (fila) {
-        fijarTarjeta(clave, { alumno: tarjeta.alumno, slot: tarjeta.slot, fase: 'registrado', peticionId: tarjeta.peticionId, asistencia: fila });
+        fijarTarjeta(clave, {
+          alumno: tarjeta.alumno,
+          slot: tarjeta.slot,
+          fase: faseDeAsistencia(fila),
+          peticionId: tarjeta.peticionId,
+          peticionIdAusente: tarjeta.peticionIdAusente,
+          asistencia: fila,
+        });
         return;
       }
       fijarTarjeta(clave, {
@@ -538,6 +629,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         slot: tarjeta.slot,
         fase: 'error',
         peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
         mensajeError: 'Ya hay un registro para este alumno hoy, pero no se ha podido recuperar. Actualiza la pantalla.',
       });
     } catch (error) {
@@ -546,6 +638,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         slot: tarjeta.slot,
         fase: 'error',
         peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
         mensajeError: mensajeAmigable(error),
       });
     }
@@ -553,10 +646,16 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
   async function manejarToque(clave: string): Promise<void> {
     const tarjeta = almacen.obtener().tarjetas.get(clave);
-    if (!tarjeta || tarjeta.fase === 'registrado' || tarjeta.fase === 'enviando') {
+    if (!tarjeta || tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando') {
       return;
     }
-    fijarTarjeta(clave, { alumno: tarjeta.alumno, slot: tarjeta.slot, fase: 'enviando', peticionId: tarjeta.peticionId });
+    fijarTarjeta(clave, {
+      alumno: tarjeta.alumno,
+      slot: tarjeta.slot,
+      fase: 'enviando',
+      peticionId: tarjeta.peticionId,
+      peticionIdAusente: tarjeta.peticionIdAusente,
+    });
     try {
       const fila = await deps.registrar({
         alumnoId: tarjeta.alumno.id,
@@ -565,13 +664,73 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         peticionId: tarjeta.peticionId,
       });
       registrosHoyCache = new Map([...registrosHoyCache, [clave, fila]]);
-      fijarTarjeta(clave, { alumno: tarjeta.alumno, slot: tarjeta.slot, fase: 'registrado', peticionId: tarjeta.peticionId, asistencia: fila });
+      fijarTarjeta(clave, {
+        alumno: tarjeta.alumno,
+        slot: tarjeta.slot,
+        fase: faseDeAsistencia(fila),
+        peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
+        asistencia: fila,
+      });
     } catch (error) {
       if (error instanceof Conflicto) {
         await reconciliarConflicto(clave, tarjeta);
         return;
       }
-      fijarTarjeta(clave, { alumno: tarjeta.alumno, slot: tarjeta.slot, fase: 'error', peticionId: tarjeta.peticionId, mensajeError: mensajeAmigable(error) });
+      fijarTarjeta(clave, {
+        alumno: tarjeta.alumno,
+        slot: tarjeta.slot,
+        fase: 'error',
+        peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
+        mensajeError: mensajeAmigable(error),
+      });
+    }
+  }
+
+  /** Control secundario de R-01: marca ausente al alumno de `clave`, con el MISMO régimen de
+   * idempotencia y reconciliación de `Conflicto` que `manejarToque`, pero con `peticionIdAusente`
+   * (una intención distinta) y la RPC `registrarAusencia`. */
+  async function manejarAusente(clave: string): Promise<void> {
+    const tarjeta = almacen.obtener().tarjetas.get(clave);
+    if (!tarjeta || tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando') {
+      return;
+    }
+    fijarTarjeta(clave, {
+      alumno: tarjeta.alumno,
+      slot: tarjeta.slot,
+      fase: 'enviando',
+      peticionId: tarjeta.peticionId,
+      peticionIdAusente: tarjeta.peticionIdAusente,
+    });
+    try {
+      const fila = await deps.registrarAusencia({
+        alumnoId: tarjeta.alumno.id,
+        slotId: tarjeta.slot.id,
+        peticionId: tarjeta.peticionIdAusente,
+      });
+      registrosHoyCache = new Map([...registrosHoyCache, [clave, fila]]);
+      fijarTarjeta(clave, {
+        alumno: tarjeta.alumno,
+        slot: tarjeta.slot,
+        fase: faseDeAsistencia(fila),
+        peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
+        asistencia: fila,
+      });
+    } catch (error) {
+      if (error instanceof Conflicto) {
+        await reconciliarConflicto(clave, tarjeta);
+        return;
+      }
+      fijarTarjeta(clave, {
+        alumno: tarjeta.alumno,
+        slot: tarjeta.slot,
+        fase: 'error',
+        peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
+        mensajeError: mensajeAmigable(error),
+      });
     }
   }
 
@@ -580,6 +739,19 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     if (!protector) {
       protector = crearProtectorDobleToque(() => manejarToque(clave));
       protectoresTarjeta.set(clave, protector);
+    }
+    return protector;
+  }
+
+  /** Protector de doble toque INDEPENDIENTE del de `obtenerProtector` (clave propia con sufijo,
+   * nunca la misma entrada del mapa): un doble toque en "Marcar ausente" no debe compartir el
+   * `enCurso` del toque principal, ni al revés — son dos acciones distintas de la misma card. */
+  function obtenerProtectorAusencia(clave: string): () => Promise<void> {
+    const claveProtector = `${clave}:ausente`;
+    let protector = protectoresTarjeta.get(claveProtector);
+    if (!protector) {
+      protector = crearProtectorDobleToque(() => manejarAusente(clave));
+      protectoresTarjeta.set(claveProtector, protector);
     }
     return protector;
   }

@@ -87,6 +87,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     cargarPropuesta: overrides.cargarPropuesta ?? noImplementado('cargarPropuesta'),
     cargarAsistenciaDeHoy: overrides.cargarAsistenciaDeHoy ?? (() => Promise.resolve([])),
     registrar: overrides.registrar ?? noImplementado('registrar'),
+    registrarAusencia: overrides.registrarAusencia ?? noImplementado('registrarAusencia'),
     obtenerUrlsAvataresMini: overrides.obtenerUrlsAvataresMini ?? (() => Promise.resolve(new Map())),
     generarPeticionId:
       overrides.generarPeticionId ??
@@ -449,6 +450,218 @@ void test('un Conflicto (409) nunca se muestra como error: se relee el registro 
   assert.match(boton.textContent, /Registrado a las 17:29/);
   assert.equal(boton.disabled, true);
   assert.equal(llamadasCargarHoy, 2);
+});
+
+// --- Marcar ausente (R-01): control secundario, distinguible del toque simple --------------------
+
+function botonAusenteDeTarjeta(contenedor: HTMLElement): HTMLButtonElement[] {
+  return Array.from(contenedor.querySelectorAll<HTMLButtonElement>('button[data-ausente-clave]'));
+}
+
+void test('cada card ofrece un control "Marcar ausente" distinto del botón principal, nunca anidado dentro de él', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  const botonPrincipal = botonesDeTarjeta(contenedor)[0];
+  const botonAusente = botonAusenteDeTarjeta(contenedor)[0];
+  assert.ok(botonPrincipal);
+  assert.ok(botonAusente);
+  assert.notEqual(botonPrincipal, botonAusente);
+  // Dos <button> HERMANOS, nunca uno anidado dentro del otro (un <button> no admite contenido
+  // interactivo válido) — requisito 1 de R-01: "un gesto distinguible, nunca el mismo doble".
+  assert.equal(botonPrincipal.contains(botonAusente), false);
+  assert.match(botonAusente.textContent, /Marcar ausente/);
+});
+
+void test('flujo completo: "Marcar ausente" registra la ausencia y la card queda marcada como tal, sin tocar registrar()', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  let entradaRecibida: unknown;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: () => Promise.reject(new Error('no se esperaba una llamada a registrar (presencia)')),
+      registrarAusencia: (entrada) => {
+        entradaRecibida = entrada;
+        return Promise.resolve(crearAsistencia({ estado: 'ausente', registrado_en: '2026-08-26T15:31:42.000Z' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAusenteDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(entradaRecibida, {
+    alumnoId: 'alumno-1',
+    slotId: 'slot-1',
+    peticionId: 'peticion-cliente-2',
+  });
+
+  const botonPrincipal = botonesDeTarjeta(contenedor)[0];
+  const botonAusente = botonAusenteDeTarjeta(contenedor)[0];
+  assert.ok(botonPrincipal);
+  assert.ok(botonAusente);
+  assert.match(botonPrincipal.textContent, /Ausente/);
+  assert.equal(botonPrincipal.disabled, true);
+  assert.equal(botonAusente.disabled, true);
+});
+
+void test('marcar ausente usa un peticionId propio, distinto del de registrar presencia (dos intenciones)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const peticiones: { presencia?: string; ausencia?: string } = {};
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: (entrada) => {
+        peticiones.presencia = entrada.peticionId;
+        return Promise.resolve(crearAsistencia());
+      },
+      registrarAusencia: (entrada) => {
+        peticiones.ausencia = entrada.peticionId;
+        return Promise.reject(new ErrorDeRed());
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAusenteDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.ok(peticiones.ausencia);
+  assert.notEqual(peticiones.ausencia, undefined);
+  assert.notEqual(peticiones.ausencia, 'peticion-cliente-1');
+});
+
+void test('mientras se marca la ausencia, los dos controles de la card quedan deshabilitados', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  let resolver: ((fila: Asistencia) => void) | undefined;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrarAusencia: () => new Promise((resolve) => { resolver = resolve; }),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAusenteDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(botonesDeTarjeta(contenedor)[0]?.disabled, true);
+  assert.equal(botonAusenteDeTarjeta(contenedor)[0]?.disabled, true);
+
+  assert.ok(resolver);
+  resolver(crearAsistencia({ estado: 'ausente' }));
+  await esperarMicrotareas();
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Ausente/);
+});
+
+void test('un doble toque en "Marcar ausente" mientras está en curso no dispara una segunda petición', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  let llamadas = 0;
+  let resolver: ((fila: Asistencia) => void) | undefined;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrarAusencia: () => {
+        llamadas += 1;
+        return new Promise((resolve) => { resolver = resolve; });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAusenteDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  botonAusenteDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 1);
+  assert.ok(resolver);
+  resolver(crearAsistencia({ estado: 'ausente' }));
+});
+
+void test('un alumno ya marcado ausente al abrir la pantalla aparece como tal, con el botón principal deshabilitado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ estado: 'ausente', registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonPrincipal = botonesDeTarjeta(contenedor)[0];
+  const botonAusente = botonAusenteDeTarjeta(contenedor)[0];
+  assert.ok(botonPrincipal);
+  assert.ok(botonAusente);
+  assert.match(botonPrincipal.textContent, /Ausente/);
+  assert.equal(botonPrincipal.disabled, true);
+  assert.equal(botonAusente.disabled, true);
+});
+
+void test('un Conflicto (409) al marcar ausente relee el registro real: si ya estaba presente, la card pasa a registrado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const filaYaPresente = crearAsistencia({ registrado_en: '2026-08-26T15:29:50.000Z' });
+  let llamadasCargarHoy = 0;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => {
+        llamadasCargarHoy += 1;
+        return Promise.resolve(llamadasCargarHoy === 1 ? [] : [filaYaPresente]);
+      },
+      registrarAusencia: () => Promise.reject(new Conflicto()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAusenteDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  const botonPrincipal = botonesDeTarjeta(contenedor)[0];
+  assert.ok(botonPrincipal);
+  assert.doesNotMatch(botonPrincipal.textContent, /conflicto/i);
+  assert.match(botonPrincipal.textContent, /Registrado a las 17:29/);
+  assert.equal(llamadasCargarHoy, 2);
+});
+
+void test('un error al marcar ausente deja los dos controles reactivados, con el mensaje en la card', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrarAusencia: () => Promise.reject(new ErrorDeRed()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAusenteDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  const botonPrincipal = botonesDeTarjeta(contenedor)[0];
+  const botonAusente = botonAusenteDeTarjeta(contenedor)[0];
+  assert.ok(botonPrincipal);
+  assert.ok(botonAusente);
+  assert.match(botonPrincipal.textContent, /No se ha podido conectar/);
+  assert.equal(botonPrincipal.disabled, false);
+  assert.equal(botonAusente.disabled, false);
 });
 
 // --- Avatares: monograma primero, lote único, imagen rota deja el monograma ----------------------

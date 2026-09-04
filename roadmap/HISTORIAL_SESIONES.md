@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-09-04 (rutina programada, segunda del día) — R-01 arrancada: código y tests completos, `BLOQUEADA` por la migración `010`
+**Tarea(s):** R-01 (Registro explícito de ausencias, oleada v1 / F-01)
+**Estado resultante:** BLOQUEADA — pendiente aplicar la migración `010_registro_ausencias.sql` (fila 13 de §3, nueva)
+**Commits a `develop`:** ver el commit de esta sesión
+**Migraciones aplicadas:** ninguna. `db/010_registro_ausencias.sql` escrita y empujada (§0.1: el agente nunca aplica DDL): añade `'ausente'` al `CHECK` de `asistencia.estado`, sustituye el índice `asistencia_uq_alumno_slot_dia_valida` (`005`, inmutable) por `asistencia_uq_alumno_slot_dia_activa` (cubre `'valida'` y `'ausente'`), y la RPC `registrar_ausencia(...)` `SECURITY DEFINER`
+**Propagación a prod pendiente:** la de siempre (columna `prod` de `db/APLICADAS.md`, se hace de una vez en T-25); `010` se anota en la sección "Pendiente de aplicar" de `APLICADAS.md`, fuera de la tabla, sin hash
+**Archivos creados/modificados:** `db/010_registro_ausencias.sql` (nuevo), `herramientas/migraciones/rpcRegistrarAusencia.test.ts` (nuevo, 11 tests), `db/pruebas_rls.sql` (sección 8g nueva), `db/MODELO.md` (fila `estado` de `asistencia`, nota de duplicados, sección nueva de `registrar_ausencia`), `db/APLICADAS.md` (nota de pendiente), `src/dominio/tipos.ts` (`EstadoAsistencia` gana `'ausente'`), `src/dominio/asistencia.ts` + test (`registrosDeHoyPorAlumnoSlot` indexa también `'ausente'`), `src/datos/asistencia.ts` + test (`registrarAusencia` nuevo; `listarAsistenciaDeHoy` trae `valida` e `ausente`), `src/dominio/historicoAsistencia.ts` + test (`ETIQUETA_ESTADO` gana `ausente: 'Ausente'`), `src/ui/pantallaPasarLista.ts` + test (control secundario "Marcar ausente", `<button>` hermano del principal, con `peticionIdAusente` propio), `src/ui/pantallaRegistrosSlot.ts` + test ("Marcar ausente" junto a "Añadir registro olvidado", con confirmación explícita; listado distingue `(ausente)`), `src/ui/aplicacion.ts` (wiring de `registrarAusencia` en las dos rutas de `pantallaRegistrosSlot`/`pantallaPasarLista`), `roadmap/SEGUIMIENTO.md` (cabecera, §1, §3 fila 13 nueva), `roadmap/DECISIONES_TECNICAS.md` (+6 filas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (974/974, antes 944) · build ✅
+**Health check post-deploy:** N/A — sin proveedor de hosting elegido todavía (`<pendiente>`, pregunta #15 de §6), no hay ninguna URL desplegada
+**Decisiones tomadas:** 6 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-04, todas `R-01`): RPC nueva y separada en vez de un parámetro/sobrecarga de `registrar_asistencia`; un único índice ampliado en vez de dos paralelos; el control secundario como `<button>` hermano, nunca anidado; dos `peticionId` independientes por card (presencia/ausencia); confirmación explícita sin motivo en «Registros»
+**Hallazgos del auditor atendidos:** ninguno — `auditoriacontinua.md` seguía con sus siete hallazgos `RESUELTO`, cero `ABIERTO`, comprobado al empezar
+**Hallazgos:** ninguno nuevo. `node_modules/` no existía al empezar la sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) antes de poder ejecutar nada
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** R-01 sigue latente hasta que el dueño aplique `010` (fila 13 de §3) y confirme; mientras tanto, la siguiente sesión de desarrollo pasa a R-02 ("Justificación de una ausencia", depende de R-01 y T-13) — su código también puede escribirse contra dobles sin esperar a que `010` esté aplicada, ya que R-01 ya dejó el tipo `EstadoAsistencia`/`estado = 'ausente'` disponible en el dominio
+
+---
+
 ### Sesión 2026-09-04 (rutina programada) — T-25 arrancada: escrito todo lo que no exige credenciales ni decisión del dueño
 **Tarea(s):** T-25 (Endurecimiento, privacidad y paso a producción)
 **Estado resultante:** BLOQUEADA — pendiente crear el proyecto de producción, aplicar las diez migraciones, verificar `db/pruebas_rls.sql` contra `prod`, respaldo verificado y aprobación de los textos legales (fila 12 de §3, nueva)

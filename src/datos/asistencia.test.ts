@@ -7,6 +7,7 @@ import { crearLimitadorTasa, ErrorLimiteAlcanzado } from '../nucleo/limitadorTas
 import { crearLogger, type EntradaLog } from '../nucleo/registro.ts';
 import {
   registrarAsistencia,
+  registrarAusencia,
   listarAsistenciaDeHoy,
   actualizarAsistencia,
   listarRegistrosDeSlotYFecha,
@@ -215,7 +216,84 @@ void test('el límite de cliente se cuenta sobre el profesor objetivo (profesorI
   limitador.comprobar('asistencia:admin-1');
 });
 
-void test('listarAsistenciaDeHoy: una única petición, acotada al profesor, estado válido y al día natural del centro', async () => {
+void test('registrarAusencia llama a la RPC registrar_ausencia con el cuerpo esperado (marcada en vivo)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const FILA_AUSENTE: Asistencia = { ...FILA, origen: 'slot', slot_id: 'slot1', estado: 'ausente' };
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: FILA_AUSENTE };
+  });
+
+  const fila = await registrarAusencia({ postgrest }, 'p1', { alumnoId: 'al1', slotId: 'slot1', peticionId: 'peticion-1' });
+
+  assert.ok(peticion);
+  assert.equal(peticion.url, 'https://proyecto.supabase.co/rest/v1/rpc/registrar_ausencia');
+  assert.equal(peticion.metodo, 'POST');
+  assert.deepEqual(peticion.cuerpo, {
+    p_alumno_id: 'al1',
+    p_slot_id: 'slot1',
+    p_peticion_id: 'peticion-1',
+    p_ocurrido_en: null,
+    p_nota: null,
+    p_profesor_id: null,
+  });
+  assert.deepEqual(fila, FILA_AUSENTE);
+});
+
+void test('registrarAusencia envía ocurrido_en como ISO cuando se marca una ausencia de un día pasado', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, estado: 'ausente' } };
+  });
+  const ocurridoEn = new Date('2026-08-30T10:00:00.000Z');
+
+  await registrarAusencia({ postgrest }, 'p1', { alumnoId: 'al1', slotId: 'slot1', peticionId: 'peticion-2', ocurridoEn });
+
+  assert.ok(peticion);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_ocurrido_en, ocurridoEn.toISOString());
+});
+
+void test('registrarAusencia (administrator) envía profesorId como p_profesor_id', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, estado: 'ausente', profesor_id: 'profesor-objetivo' } };
+  });
+
+  await registrarAusencia({ postgrest }, 'admin-1', {
+    alumnoId: 'al1',
+    slotId: 'slot1',
+    peticionId: 'peticion-3',
+    profesorId: 'profesor-objetivo',
+  });
+
+  assert.ok(peticion);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_profesor_id, 'profesor-objetivo');
+});
+
+void test('un segundo registro (presente o ausente) del mismo alumno/slot/día llega como Conflicto (409)', async () => {
+  const postgrest = crearCliente(() => ({ estado: 409, cuerpo: { message: 'duplicate key value' } }));
+
+  await assert.rejects(
+    () => registrarAusencia({ postgrest }, 'p1', { alumnoId: 'al1', slotId: 'slot1', peticionId: 'peticion-1' }),
+    Conflicto,
+  );
+});
+
+void test('registrarAusencia comparte el limitador de cliente con registrarAsistencia (misma clave por profesor)', () => {
+  const reloj = crearRelojFijo(new Date('2026-08-31T09:00:00.000Z'));
+  const limitador = crearLimitadorTasa({ maximo: 1, ventanaMs: 60_000, reloj });
+  const postgrest = crearCliente(() => ({ estado: 200, cuerpo: { ...FILA, estado: 'ausente' } }));
+
+  void registrarAusencia({ postgrest, limitador }, 'p1', { alumnoId: 'al1', slotId: 'slot1', peticionId: 'peticion-1' });
+
+  assert.throws(() => {
+    limitador.comprobar('asistencia:p1');
+  }, ErrorLimiteAlcanzado);
+});
+
+void test('listarAsistenciaDeHoy: una única petición, acotada al profesor, estado válido/ausente (R-01) y al día natural del centro', async () => {
   let peticion: PeticionSimulada | undefined;
   const postgrest = crearCliente((p) => {
     peticion = p;
@@ -230,7 +308,7 @@ void test('listarAsistenciaDeHoy: una única petición, acotada al profesor, est
   const url = new URL(peticion.url);
   assert.equal(url.pathname, '/rest/v1/asistencia');
   assert.equal(url.searchParams.get('profesor_id'), 'eq.p1');
-  assert.equal(url.searchParams.get('estado'), 'eq.valida');
+  assert.equal(url.searchParams.get('estado'), 'in.(valida,ausente)');
   // El punto de los milisegundos es un carácter reservado de PostgREST (`codificadorValores.ts`):
   // el valor viaja entrecomillado, como cualquier otro valor de texto con "." en un filtro.
   assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-08-25T22:00:00.000Z"', 'lte."2026-08-26T21:59:59.999Z"']);

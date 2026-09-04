@@ -70,8 +70,19 @@ Lo que **no** cubren: que el valor de esta tabla corresponda al del ledger remot
 > que el agente tenga que fabricar un hash de una migración que no está aplicada. Se mueve a la
 > tabla de arriba, con su hash real, en cuanto el dueño confirme (§3 de `SEGUIMIENTO.md`).
 
-*(Ninguna. `009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada;
-su fila está en la tabla de arriba.)*
+**`010_registro_ausencias.sql`** (R-01, "registro explícito de ausencias") — escrita y empujada a
+`develop` el 2026-09-04, todavía sin aplicar. Añade `'ausente'` al `CHECK` de `asistencia.estado`,
+sustituye el índice de duplicado `asistencia_uq_alumno_slot_dia_valida` (`005`, inmutable, no se
+edita) por uno más amplio (`asistencia_uq_alumno_slot_dia_activa`, cubre también `'ausente'`) y añade
+la RPC `registrar_ausencia(...)`, `SECURITY DEFINER`. Qué debe ver el dueño al terminar: `git pull` +
+`npm run migrate` en local, comprobar que `esquema_version()` devuelve `10`, y ejecutar también
+`npm run probar-rls` (nueva sección 8g de `db/pruebas_rls.sql`: alta de ausencia por `teacher`,
+duplicado alumno+slot+día contra la nueva restricción, `student` sin acceso). Fila 13 de §3 de
+`SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `010` es posterior y no forma parte
+de las diez migraciones de su paso a producción.
+
+*(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
+en la tabla de arriba.)*
 
 > **Lección del 2026-09-04, segunda vez que pasa lo mismo** (la primera, el 2026-08-31 con
 > `002`/`003`/`004`: §3 las daba por `RESUELTA` y esta tabla solo tenía `001`). Una migración puede

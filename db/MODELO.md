@@ -150,7 +150,7 @@ ausencia, ya anulada, etc.).
 | `es_retroactivo` | booleano | sí | Verdadero si `ocurrido_en` y `registrado_en` difieren en más de 5 minutos. Lo comprueba un `CHECK`, no puede quedar inconsistente con las otras dos columnas. |
 | `origen` | texto | sí | `slot` (venía de un horario) o `manual` (alumno "extra", añadido a mano). |
 | `slot_id` + snapshot (`slot_dia_semana`, `slot_hora_inicio`, `slot_hora_fin`, `slot_asignatura_o_grupo`) | — | solo si `origen = 'slot'` | Copia congelada del slot en el momento de registrar, no una referencia viva. |
-| `estado` | texto | sí | `valida` o `anulada`. Anular es un `UPDATE`, nunca un `DELETE`: la fila permanece, con su motivo. |
+| `estado` | texto | sí | `valida`, `anulada` o `ausente` (R-01, `010_registro_ausencias.sql`: "no hay fila" ya no es la única forma de decir que un alumno faltó). Anular es un `UPDATE`, nunca un `DELETE`: la fila permanece, con su motivo — también sobre una fila `ausente` (se anula igual que una `valida`). |
 | `motivo_anulacion` | texto | obligatorio si `estado = 'anulada'` | — |
 | `nota` | texto | no | Comentario libre del profesor. |
 | `actualizado_en` / `actualizado_por` | fecha / uuid | no (hasta el primer `UPDATE`) | Los fija el propio trigger a partir de `now()`/`auth.uid()`, nunca el cliente. |
@@ -234,9 +234,13 @@ T-17) del registro.
 
 **Duplicados (requisito 4 de T-18, decisión por defecto — pregunta abierta #12 de §6):** un segundo
 registro del MISMO alumno en el MISMO slot y día se rechaza, mediante una restricción `unique`
-parcial de verdad (`asistencia_uq_alumno_slot_dia_valida`, sobre `(alumno_id, slot_id, fecha local)`
-donde `estado = 'valida'` y `slot_id is not null`) — no una comprobación a mano, para que también
-proteja contra dos llamadas concurrentes. Un `peticion_id` repetido choca por su parte con
+parcial de verdad — no una comprobación a mano, para que también proteja contra dos llamadas
+concurrentes. **Desde R-01 (`010_registro_ausencias.sql`)** el índice original
+(`asistencia_uq_alumno_slot_dia_valida`, solo `estado = 'valida'`) fue sustituido por
+`asistencia_uq_alumno_slot_dia_activa`, sobre `(alumno_id, slot_id, fecha local)` donde `estado in
+('valida', 'ausente')` y `slot_id is not null` — un alumno solo puede tener UN registro activo
+(presente o ausente) por slot y día; `005` no se edita (inmutable), el índice se sustituye en la
+migración nueva. Un `peticion_id` repetido choca por su parte con
 `asistencia_peticion_id_unico` (ya existente desde `001_esquema_inicial`): la propia línea de la
 tabla `asistencia` de arriba ya lo explica ("el segundo intento choca con la restricción `unique`
 en vez de crear una fila repetida") — **no** hay una comprobación de idempotencia que devuelva en
@@ -315,6 +319,29 @@ bootstrap (`perfil_admin_actualizar`), y `alumno.usuario_id` existe desde `001`.
 - **Requisito 3 de T-24** (alta de usuario, forzar contraseña, revocar sesión — todo lo que exige
   `service_role`) sigue sin automatizar, documentado como procedimiento manual en `DEVELOPERS.md`,
   tal como pide su propia spec.
+
+## `registrar_ausencia` (`010_registro_ausencias.sql`, R-01)
+
+Única vía de alta de una fila `estado = 'ausente'` — RPC nueva y separada de `registrar_asistencia`
+(no un parámetro `p_estado` añadido a esa función, ni una sobrecarga: son dos intenciones distintas,
+y esto deja intacta la firma ya probada de `registrar_asistencia`). `SECURITY DEFINER`, mismas
+validaciones y en el mismo orden que `registrar_asistencia` (quién llama y en nombre de quién,
+límite de abuso con la MISMA clave compartida `'asistencia:' || profesor_id`, ventana de `ocurrido_en`
+de 7 días, alumno activo), con una diferencia deliberada: **siempre `origen = 'slot'`**, sin
+parámetro `p_origen` — una ausencia es "no vino a lo que tocaba", y un alumno "extra" (T-20) por
+definición no tocaba nada a lo que pudiera faltar. El slot debe existir, pertenecer al profesor que
+registra, corresponder al alumno indicado y estar vigente en la fecha del registro — mismas
+comprobaciones exactas que la rama `slot` de `registrar_asistencia`.
+
+**Duplicados:** protegidos por el mismo índice `asistencia_uq_alumno_slot_dia_activa` que ahora
+cubre `'valida'` y `'ausente'` a la vez (ver la nota de la sección `registrar_asistencia` de arriba)
+— un segundo registro del mismo alumno/slot/día, sea presente o ausente, choca con la restricción de
+base de datos, nunca con una comprobación de cliente.
+
+**Anular una ausencia** no necesita ningún cambio en `actualizar_asistencia`: esa función ya trata
+`p_anular`/`p_motivo_anulacion` de forma genérica sobre cualquier `estado` de partida, así que
+`'ausente' -> 'anulada'` funciona exactamente igual que `'valida' -> 'anulada'`, con el mismo motivo
+obligatorio.
 
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 

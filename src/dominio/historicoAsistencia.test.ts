@@ -141,9 +141,10 @@ void test('etiquetaOrigenAsistencia: slot es "Horario", manual es "Extra"', () =
   assert.equal(etiquetaOrigenAsistencia('manual'), 'Extra');
 });
 
-void test('etiquetaEstadoAsistencia: valida es "Válida", anulada es "Anulada"', () => {
+void test('etiquetaEstadoAsistencia: valida es "Válida", anulada es "Anulada", ausente es "Ausente" (R-01)', () => {
   assert.equal(etiquetaEstadoAsistencia('valida'), 'Válida');
   assert.equal(etiquetaEstadoAsistencia('anulada'), 'Anulada');
+  assert.equal(etiquetaEstadoAsistencia('ausente'), 'Ausente');
 });
 
 // --- No-retroactividad (requisito 2 de T-23): el CSV nunca depende de un SlotHorario vigente -----

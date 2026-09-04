@@ -46,7 +46,7 @@ import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts'
 import { motivoAnulacionValido, puedeCambiarSlotAtribuido } from '../dominio/asistencia.ts';
 import { puedeEditarAsistenciaDeCualquiera } from '../dominio/permisosUi.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
-import type { ActualizarAsistenciaEntrada, RegistrarAsistenciaEntrada } from '../datos/asistencia.ts';
+import type { ActualizarAsistenciaEntrada, RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { ProfesorParaSelector } from '../datos/profesores.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import { crearElemento } from './dom.ts';
@@ -77,6 +77,10 @@ export interface DependenciasPantallaRegistrosSlot {
    * (es el mismo para todas las filas de la pantalla: el dueño del slot elegido). */
   actualizar(profesorDuenoId: string, entrada: ActualizarAsistenciaEntrada): Promise<Asistencia>;
   registrarOlvidado(entrada: RegistrarAsistenciaEntrada): Promise<Asistencia>;
+  /** Marca ausente al alumno del slot elegido (R-01, requisito 1: "o desde «Registros»") — solo
+   * tiene sentido cuando ese alumno todavía no tiene ningún registro ese día, igual que "Añadir
+   * registro olvidado"; el propio índice único de la base de datos es quien de verdad lo impide. */
+  registrarAusencia(entrada: RegistrarAusenciaEntrada): Promise<Asistencia>;
   generarPeticionId(): string;
 }
 
@@ -126,6 +130,11 @@ interface EstadoPantalla {
   readonly olvidadoNota: string;
   readonly olvidadoGuardando: boolean;
   readonly olvidadoError: string;
+  /** R-01: "Marcar ausente" desde Registros, mismo criterio de confirmación explícita que anular
+   * (requisito 8 de T-21) — aquí sin motivo, porque R-01 no lo exige. */
+  readonly ausenteConfirmando: boolean;
+  readonly ausenteGuardando: boolean;
+  readonly ausenteError: string;
 }
 
 /** `HH:MM` a partir de un `timestamptz` de PostgREST, en la zona horaria del centro — para
@@ -192,6 +201,9 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     olvidadoNota: '',
     olvidadoGuardando: false,
     olvidadoError: '',
+    ausenteConfirmando: false,
+    ausenteGuardando: false,
+    ausenteError: '',
   });
 
   function actualizarFila(id: string, cambios: Partial<EstadoFila>): void {
@@ -539,8 +551,9 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
       li.dataset.registroId = registro.id;
 
       const nombreAlumno = estado.nombresAlumno.get(registro.alumno_id) ?? 'Alumno';
+      const sufijoEstado = registro.estado === 'anulada' ? ' (anulada)' : registro.estado === 'ausente' ? ' (ausente)' : '';
       const lineaTexto = [
-        registro.estado === 'anulada' ? `${nombreAlumno} (anulada)` : nombreAlumno,
+        `${nombreAlumno}${sufijoEstado}`,
         formatearFechaHora(registro.ocurrido_en),
         registro.origen === 'slot' ? 'por horario' : 'extra',
         registro.es_retroactivo ? 'retroactivo' : null,
@@ -579,6 +592,59 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
   // --- Añadir un registro olvidado (requisito 4, sexto punto) ---------------------------------------
 
+  /** "Marcar ausente" (R-01, requisito 1: "o desde «Registros»"), junto a "Añadir registro
+   * olvidado": mismo alumno del slot elegido, mismo criterio de confirmación explícita que anular
+   * (requisito 8 de T-21), pero sin motivo obligatorio — R-01 no lo exige. Vive en la misma zona
+   * (`zonaOlvidado`) que "Añadir registro olvidado" porque las dos son la única forma de cerrar el
+   * hueco de un alumno del slot que todavía no tiene ningún registro ese día; el propio índice
+   * único de la base de datos (`asistencia_uq_alumno_slot_dia_activa`) es quien de verdad impide
+   * marcar ausente a quien ya tiene una fila. */
+  function pintarAusente(contenedorAcciones: HTMLElement, slotElegido: SlotConAlumno, estado: EstadoPantalla): void {
+    if (!estado.ausenteConfirmando) {
+      const botonAusente = crearBoton(documento, 'Marcar ausente', 'button');
+      botonAusente.addEventListener('click', () => {
+        almacen.actualizar({ ausenteConfirmando: true, ausenteError: '' });
+      });
+      contenedorAcciones.append(botonAusente);
+      return;
+    }
+
+    if (estado.ausenteError) {
+      const mensaje = crearZonaMensaje(documento, 'alert');
+      mensaje.textContent = estado.ausenteError;
+      contenedorAcciones.append(mensaje);
+    }
+    const confirmacion = crearElemento(documento, 'p', {
+      texto: `¿Marcar ausente a ${nombreCompletoAlumno(slotElegido.alumno)} el ${estado.fechaIso}?`,
+    });
+    const botonConfirmarAusente = crearBoton(documento, 'Confirmar ausencia', 'button');
+    botonConfirmarAusente.disabled = estado.ausenteGuardando;
+    botonConfirmarAusente.addEventListener('click', () => {
+      void (async () => {
+        almacen.actualizar({ ausenteGuardando: true, ausenteError: '' });
+        try {
+          const fila = await deps.registrarAusencia({
+            alumnoId: slotElegido.alumno_id,
+            slotId: slotElegido.id,
+            peticionId: deps.generarPeticionId(),
+            ocurridoEn: instanteDesdeFechaYHora(estado.fechaIso, slotElegido.hora_inicio),
+          });
+          reemplazarRegistro(fila);
+          const nombresAlumno = new Map(almacen.obtener().nombresAlumno);
+          nombresAlumno.set(fila.alumno_id, nombreCompletoAlumno(slotElegido.alumno));
+          almacen.actualizar({ ausenteConfirmando: false, ausenteGuardando: false, nombresAlumno });
+        } catch (error) {
+          almacen.actualizar({ ausenteGuardando: false, ausenteError: mensajeAmigable(error) });
+        }
+      })();
+    });
+    const botonCancelarAusente = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelarAusente.addEventListener('click', () => {
+      almacen.actualizar({ ausenteConfirmando: false, ausenteError: '' });
+    });
+    contenedorAcciones.append(confirmacion, botonConfirmarAusente, botonCancelarAusente);
+  }
+
   function pintarOlvidado(): void {
     const estado = almacen.obtener();
     zonaOlvidado.textContent = '';
@@ -588,11 +654,14 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     }
 
     if (!estado.olvidadoAbierto) {
-      const boton = crearBoton(documento, 'Añadir registro olvidado', 'button');
-      boton.addEventListener('click', () => {
+      const acciones = crearElemento(documento, 'div');
+      const botonOlvidado = crearBoton(documento, 'Añadir registro olvidado', 'button');
+      botonOlvidado.addEventListener('click', () => {
         almacen.actualizar({ olvidadoAbierto: true, olvidadoHora: slotElegido.hora_inicio, olvidadoError: '' });
       });
-      zonaOlvidado.append(boton);
+      acciones.append(botonOlvidado);
+      pintarAusente(acciones, slotElegido, estado);
+      zonaOlvidado.append(acciones);
       return;
     }
 
