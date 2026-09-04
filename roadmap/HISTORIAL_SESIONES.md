@@ -37,6 +37,44 @@
 
 ---
 
+### Sesión 2026-09-04 (verificación, rutina programada) — sin tarea vertebral desbloqueada, backlog agotado
+
+**Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25
+depende de T-24, las R-XX de la oleada v1 esperan al MVP en producción — sin cambio desde la pasada
+del auditor de hoy). Ninguna `P-XX`: las dieciséis (`P-01` a `P-16`) de §5 de `SEGUIMIENTO.md` siguen
+`RESUELTA`.
+**Estado resultante:** sin cambio. `git checkout develop && git pull` trajo la pasada del auditor de
+hoy (commit `2bc9463`, ya en `origin/develop` al empezar) y, desde ahí, nada ha cambiado. T-24 sigue
+`BLOQUEADA — pendiente aplicar migración 009` en §1 (fila 11 de §3 sigue `PENDIENTE`;
+`db/APLICADAS.md` confirma que `009_administracion_usuarios.sql` sigue en "Pendiente de aplicar", el
+dueño todavía no ha ejecutado `npm run migrate`). `auditoriacontinua.md` revisado por completo: sus
+siete hallazgos (`#1` a `#7`) siguen `RESUELTO`, cero `ABIERTO`. `FEEDBACK.md` revisado: sigue sin
+entradas `nuevo` reales (fila plantilla vacía).
+**Commits a `develop`:** solo actualización de documentación de este ciclo (cabecera de
+`SEGUIMIENTO.md` y esta entrada de `HISTORIAL_SESIONES.md`); ningún cambio de `src/`, `db/` ni
+`herramientas/`.
+**Migraciones aplicadas:** ninguna (el agente nunca aplica DDL). `009_administracion_usuarios.sql`
+sigue pendiente de que el dueño la aplique (fila 11 de §3, sin cambio esta sesión).
+**Propagación a prod pendiente:** T-25 (única tarea que toca `prod`), sin poder arrancar todavía.
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada).
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades) · tipos ✅ · lint ✅ ·
+tests ✅ (943/943, misma cifra que la pasada del auditor de hoy) · build ✅. Barrido de secretos sobre
+`dist/` recién construido: cero coincidencias reales. `git status` limpio antes y después.
+**Health check post-deploy:** no aplica (sin código nuevo desplegado).
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`.
+**Hallazgos del auditor atendidos:** ninguno de esta sesión — el registro sigue sin ningún `ABIERTO`
+desde la pasada del auditor del 2026-09-04.
+**Hallazgos:** ninguno nuevo — revisión completa de §5 (backlog P-XX) y de `auditoriacontinua.md` sin
+encontrar ningún candidato legítimo que proponer. No se fabrica ninguna P-XX para justificar el ciclo.
+**Tareas autopropuestas (P-XX):** ninguna.
+**Próximo paso:** en cuanto el dueño aplique `009_administracion_usuarios.sql` y confirme la fila 11
+de §3 (`esquema_version()` = `9`, `npm run probar-rls` con la nueva sección 8e), T-24 pasa a
+`COMPLETADA` y queda por evaluar si T-25 puede arrancar. La oleada v1 (R-01 en cabeza) sigue esperando
+a que el MVP completo esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`.
+
+---
+
 ### Sesión 2026-09-03 (rutina de producto) — décimo ciclo del PM
 
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
