@@ -12,14 +12,16 @@
  * `deps.slotInicialId` es lo que "mi horario" (T-22) usa para enlazar directo a los registros de UN
  * slot concreto sin pasar por el selector.
  *
- * Seis acciones de edición (requisito 4 de T-21, más "justificar" de R-02), cada una su propio
- * mini-formulario dentro del panel de edición de la fila — nunca un formulario único de
- * "corrección": cambiar el alumno (búsqueda, reutiliza `buscar_alumnos_activos` de T-20), ajustar la
- * hora, cambiar el slot atribuido (solo ofrecida si `puedeCambiarSlotAtribuido`, T-21), anular
- * (motivo obligatorio), editar la nota y justificar una ausencia (solo ofrecida si
+ * Ocho acciones de edición (requisito 4 de T-21, más "justificar" de R-02 y "marcar/ajustar salida"
+ * de R-03), cada una su propio mini-formulario dentro del panel de edición de la fila — nunca un
+ * formulario único de "corrección": cambiar el alumno (búsqueda, reutiliza `buscar_alumnos_activos`
+ * de T-20), ajustar la hora, cambiar el slot atribuido (solo ofrecida si `puedeCambiarSlotAtribuido`,
+ * T-21), anular (motivo obligatorio), editar la nota, justificar una ausencia (solo ofrecida si
  * `puedeJustificarAusencia`, R-02: motivo de una lista corta cerrada + nota opcional, sin
- * confirmación explícita). "Añadir un registro olvidado" (sexto punto del requisito de T-21) es una
- * acción de pantalla, no de fila:
+ * confirmación explícita) y marcar/ajustar la salida (R-03: un único botón con la hora real del
+ * servidor mientras no haya salida, `<input type="time">` para corregirla después — nunca las dos
+ * ofrecidas a la vez, ver `puedeMarcarSalida`). "Añadir un registro olvidado" (sexto punto del
+ * requisito de T-21) es una acción de pantalla, no de fila:
  * llama a `registrar_asistencia` (T-18) con `ocurrido_en` declarado, para el alumno del slot
  * elegido. Anular y cambiar el alumno exigen confirmación explícita con el dato viejo y el nuevo a
  * la vista (requisito 8) — mismo patrón de "confirmando .../botón Confirmar/botón Cancelar" que
@@ -52,6 +54,9 @@ import {
   MOTIVOS_JUSTIFICACION_AUSENCIA,
   puedeCambiarSlotAtribuido,
   puedeJustificarAusencia,
+  puedeMarcarSalida,
+  duracionRealMinutos,
+  duracionTeoricaMinutos,
 } from '../dominio/asistencia.ts';
 import { etiquetaMotivoJustificacion } from '../dominio/historicoAsistencia.ts';
 import { puedeEditarAsistenciaDeCualquiera } from '../dominio/permisosUi.ts';
@@ -100,6 +105,10 @@ interface EstadoFila {
   readonly error: string;
   readonly nota: string;
   readonly ocurridoEnLocal: string;
+  /** Ajustar la salida (R-03, requisito 4) — solo tiene sentido cuando ya hay una salida marcada
+   * (`registro.ocurrido_en_salida !== null`); "marcar salida" por primera vez no usa este campo, va
+   * directa con la hora real del servidor (sin formulario, un único botón). */
+  readonly ocurridoEnSalidaLocal: string;
   readonly textoBusquedaAlumno: string;
   readonly resultadosBusquedaAlumno: readonly ResultadoBusquedaAlumno[];
   readonly candidatoAlumno: ResultadoBusquedaAlumno | null;
@@ -120,6 +129,7 @@ const ESTADO_FILA_INICIAL: EstadoFila = {
   error: '',
   nota: '',
   ocurridoEnLocal: '',
+  ocurridoEnSalidaLocal: '',
   textoBusquedaAlumno: '',
   resultadosBusquedaAlumno: [],
   candidatoAlumno: null,
@@ -190,6 +200,20 @@ function formatearFechaHora(iso: string, zonaHoraria: string = ZONA_HORARIA_CENT
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(iso));
+}
+
+/** Frase de la columna de detalle con la salida y la duración (R-03, requisito 3: "junto a la
+ * duración teórica del slot"), vacía si todavía no hay salida marcada — mismo criterio de "leer solo
+ * el snapshot de la propia fila" que el resto de esta pantalla. */
+function textoSalida(registro: Asistencia, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): string {
+  if (!registro.ocurrido_en_salida) {
+    return '';
+  }
+  const real = duracionRealMinutos(new Date(registro.ocurrido_en), new Date(registro.ocurrido_en_salida));
+  const teorica =
+    registro.slot_hora_inicio && registro.slot_hora_fin ? duracionTeoricaMinutos(registro.slot_hora_inicio, registro.slot_hora_fin) : null;
+  const duracion = teorica === null ? `${String(real)} min` : `${String(real)} min (teórica ${String(teorica)} min)`;
+  return ` Salida a las ${formatearFechaHora(registro.ocurrido_en_salida, zonaHoraria)}. Duración real: ${duracion}.`;
 }
 
 export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: DependenciasPantallaRegistrosSlot): void {
@@ -419,6 +443,36 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     });
     bloqueHora.append(etiquetaHora, campoHora, botonGuardarHora);
     panel.append(bloqueHora);
+
+    // Salida (R-03): "marcar" (primer toque, un único botón, hora real del servidor — sin campo que
+    // rellenar) o "ajustar" (una salida ya marcada, mismo patrón que "Ajustar la hora" de arriba)
+    // — nunca las dos cosas ofrecidas a la vez, ver puedeMarcarSalida.
+    const bloqueSalida = crearElemento(documento, 'div');
+    if (puedeMarcarSalida(registro)) {
+      const botonMarcarSalida = crearBoton(documento, 'Marcar salida', 'button');
+      botonMarcarSalida.disabled = filaEstado.guardando;
+      botonMarcarSalida.addEventListener('click', () => {
+        void ejecutar({ asistenciaId: registro.id, marcarSalida: true });
+      });
+      bloqueSalida.append(botonMarcarSalida);
+    } else if (registro.ocurrido_en_salida) {
+      const etiquetaSalida = crearElemento(documento, 'label', { texto: 'Salida', atributos: { for: `salida-${registro.id}` } });
+      const campoSalida = documento.createElement('input');
+      campoSalida.type = 'time';
+      campoSalida.id = `salida-${registro.id}`;
+      campoSalida.value = filaEstado.ocurridoEnSalidaLocal || horaLocalHHMM(registro.ocurrido_en_salida);
+      campoSalida.addEventListener('input', () => {
+        actualizarFila(registro.id, { ocurridoEnSalidaLocal: campoSalida.value });
+      });
+      const botonGuardarSalida = crearBoton(documento, 'Guardar salida', 'button');
+      botonGuardarSalida.disabled = filaEstado.guardando;
+      botonGuardarSalida.addEventListener('click', () => {
+        const fechaDelRegistro = fechaLocalISO(new Date(registro.ocurrido_en_salida ?? registro.ocurrido_en));
+        void ejecutar({ asistenciaId: registro.id, ocurridoEnSalida: instanteDesdeFechaYHora(fechaDelRegistro, campoSalida.value) });
+      });
+      bloqueSalida.append(etiquetaSalida, campoSalida, botonGuardarSalida);
+    }
+    panel.append(bloqueSalida);
 
     // Cambiar el slot atribuido (solo si tiene sentido: registro de origen "slot").
     if (puedeCambiarSlot) {
@@ -652,7 +706,7 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
                 registro.nota_justificacion ? ` ${registro.nota_justificacion}` : ''
               }`
             : ''
-        }`,
+        }${textoSalida(registro)}`,
       });
       li.append(detalle);
 

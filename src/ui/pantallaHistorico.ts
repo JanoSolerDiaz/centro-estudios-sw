@@ -7,10 +7,11 @@
  * visible, reutilizando exactamente los mismos filtros.
  *
  * Primera pantalla del proyecto que usa un `<table>` real en vez del patrón de `div`/`span` de
- * `pantallaListadoAlumnos.ts`: es la primera vez que hace falta mostrar una tabla de verdad (nueve
- * columnas por fila, la novena — "Justificación" — añadida por R-02), y un lector de pantalla se
- * beneficia de `<th scope="col">` frente a una lista de bloques sin relación tabular declarada
- * (decisión documentada en `DECISIONES_TECNICAS.md`).
+ * `pantallaListadoAlumnos.ts`: es la primera vez que hace falta mostrar una tabla de verdad (once
+ * columnas por fila — la novena, "Justificación", añadida por R-02; "Salida" y "Duración", décima y
+ * undécima, añadidas por R-03), y un lector de pantalla se beneficia de `<th scope="col">` frente a
+ * una lista de bloques sin relación tabular declarada (decisión documentada en
+ * `DECISIONES_TECNICAS.md`).
  *
  * Los nombres de alumno y profesor se resuelven en LOTE (nunca una petición por fila, §0.2) sobre
  * los ids que aparecen en la página actual — o, para la exportación, sobre los ids de TODO el
@@ -36,6 +37,7 @@ import {
   generarCsvHistorico,
   type FilaHistoricoResueltaConContacto,
 } from '../dominio/historicoAsistencia.ts';
+import { duracionRealMinutos, duracionTeoricaMinutos } from '../dominio/asistencia.ts';
 import { fechaHoraLocalLegible } from '../dominio/slots.ts';
 import type { FiltroHistorico, ResultadoHistorico } from '../datos/asistencia.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
@@ -374,6 +376,20 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     }
   }
 
+  /** Columna "Duración" (R-03, requisito 3): real y teórica juntas cuando hay salida marcada, solo
+   * la teórica si aún no la hay (mientras siga en curso o se olvidara cerrar), vacía si el registro
+   * no tiene snapshot de slot (origen `manual`) ni salida — nada que calcular en ningún caso. Lee
+   * exclusivamente el snapshot ya guardado en la propia fila, nunca un `SlotHorario` vigente
+   * (no-retroactividad, §0.2), mismo criterio que el resto de esta pantalla y del CSV. */
+  function textoDuracion(fila: Asistencia): string {
+    const teorica = fila.slot_hora_inicio && fila.slot_hora_fin ? duracionTeoricaMinutos(fila.slot_hora_inicio, fila.slot_hora_fin) : null;
+    if (fila.ocurrido_en_salida) {
+      const real = duracionRealMinutos(new Date(fila.ocurrido_en), new Date(fila.ocurrido_en_salida));
+      return teorica === null ? `${String(real)} min` : `${String(real)} min (teórica ${String(teorica)} min)`;
+    }
+    return teorica === null ? '' : `Teórica: ${String(teorica)} min`;
+  }
+
   function pintarFila(fila: Asistencia, nombres: MapaNombres): HTMLTableRowElement {
     const tr = documento.createElement('tr');
     const celdas = [
@@ -386,6 +402,8 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
       etiquetaEstadoAsistencia(fila.estado),
       fila.motivo_justificacion ? etiquetaMotivoJustificacion(fila.motivo_justificacion) : fila.estado === 'ausente' ? 'Sin justificar' : '',
       tieneModificaciones(fila) ? 'Sí' : 'No',
+      fila.ocurrido_en_salida ? fechaHoraLocalLegible(new Date(fila.ocurrido_en_salida), zonaHoraria) : '',
+      textoDuracion(fila),
     ];
     for (const texto of celdas) {
       tr.append(crearElemento(documento, 'td', { texto }));
@@ -451,6 +469,8 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
       'Estado',
       'Justificación',
       'Modificado',
+      'Salida',
+      'Duración',
     ]) {
       filaCabecera.append(crearElemento(documento, 'th', { texto, atributos: { scope: 'col' } }));
     }

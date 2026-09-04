@@ -96,6 +96,23 @@ justificar un registro que no está ausente rechazado). Fila 14 de §3 de `SEGUI
 (BLOQUEADA, ver fila 12) queda inafectada: `011` es posterior y no forma parte de las diez migraciones
 de su paso a producción.
 
+**`012_registro_salida.sql`** (R-03, "registro de salida y cómputo de horas reales") — escrita y
+empujada a `develop` el 2026-09-04, todavía sin aplicar. Añade la columna `ocurrido_en_salida` a
+`asistencia`/`asistencia_historial` (`CHECK`: nula, o posterior a `ocurrido_en`), sustituye el trigger
+de copia a historial (`asistencia_copiar_a_historial()`, `001`, inmutable, no se edita ese fichero)
+para que incluya la columna nueva, y sustituye `actualizar_asistencia` (`011`, inmutable) por una
+versión con dos parámetros nuevos (`p_marcar_salida`, con la hora real del servidor vía
+`clock_timestamp()`; `p_ocurrido_en_salida`, para ajustar una salida ya marcada) — `drop function` +
+`create function` con la firma completa, no una segunda sobrecarga. Qué debe ver el dueño al
+terminar: `git pull` + `npm run migrate` en local, comprobar que `esquema_version()` devuelve `12`, y
+ejecutar también `npm run probar-rls` (nueva sección 8i de `db/pruebas_rls.sql`: marcar salida dentro
+de la ventana del profesor, ajustar una salida ya marcada, marcar dos veces rechazado, ajustar a una
+hora anterior o igual a la entrada rechazado, marcar y ajustar combinados en la misma llamada
+rechazado, ajustar una salida no marcada rechazado, marcar salida de una ausencia rechazado, fuera de
+la ventana rechazado para `teacher` y aceptado para `administrator`). Fila 15 de §3 de
+`SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `012` es posterior y no forma parte
+de las diez migraciones de su paso a producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

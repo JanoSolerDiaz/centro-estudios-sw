@@ -18,6 +18,7 @@
 
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { Asistencia, MotivoJustificacionAusencia, OrigenAsistencia, Rol } from './tipos.ts';
+import { minutosDesdeMedianoche } from './slotHorario.ts';
 
 /** Margen entre `ocurrido_en` y `registrado_en` por debajo del cual un registro se considera "en
  * vivo" y no retroactivo. Debe coincidir EXACTAMENTE con el `CHECK asistencia_retroactivo_coherente`
@@ -171,6 +172,57 @@ export function puedeCambiarSlotAtribuido(registro: Pick<Asistencia, 'origen'>):
  * aquí no hace falta comparar porque quien llama ya acota la consulta a "hoy" con `limitesDiaLocal`). */
 export function claveRegistroPorSlot(alumnoId: string, slotId: string): string {
   return `${alumnoId}:${slotId}`;
+}
+
+/** ¿Tiene sentido ofrecer "marcar salida" (requisito 1 de R-03) sobre `registro`? Solo un registro
+ * `estado === 'valida'` (presente) sin salida marcada todavía — una ausencia no tiene entrada que
+ * cerrar, y una salida ya marcada se corrige con el ajuste (`ocurridoEnSalidaValido`), no
+ * volviéndola a marcar. La RPC aplica la misma condición exacta (`v_estado_final <> 'valida'` /
+ * `v_actual.ocurrido_en_salida is not null`, `db/012_registro_salida.sql`) y la rechaza si se
+ * intenta de todos modos; esta función es solo para que la interfaz no ofrezca la acción donde no
+ * puede funcionar nunca. */
+export function puedeMarcarSalida(registro: Pick<Asistencia, 'estado' | 'ocurrido_en_salida'>): boolean {
+  return registro.estado === 'valida' && registro.ocurrido_en_salida === null;
+}
+
+/**
+ * ¿Es válido `ocurridoEnSalida` como AJUSTE de una salida ya marcada (requisito 4 de R-03: "editable
+ * con el mismo régimen que la hora de entrada")? Rechaza un instante en el futuro (relativo a
+ * `ahora`), uno anterior o igual a `ocurridoEnEntrada` (no se puede salir antes o en el mismo
+ * instante en que se entró) y uno que supere `ventanaMaximaDias` hacia atrás — misma ventana
+ * conservadora que `ocurridoEnValido`. No decide si HAY una salida que ajustar (`puedeMarcarSalida`
+ * cubre lo contrario, "todavía no tiene"); esta función solo valida el VALOR propuesto.
+ */
+export function ocurridoEnSalidaValido(
+  ocurridoEnSalida: Date,
+  ocurridoEnEntrada: Date,
+  ahora: Date,
+  ventanaMaximaDias: number = VENTANA_RETROACTIVA_MAXIMA_DIAS,
+): boolean {
+  if (ocurridoEnSalida.getTime() > ahora.getTime()) {
+    return false;
+  }
+  if (ocurridoEnSalida.getTime() <= ocurridoEnEntrada.getTime()) {
+    return false;
+  }
+  const limiteMs = ventanaMaximaDias * 24 * 60 * 60 * 1000;
+  return ahora.getTime() - ocurridoEnSalida.getTime() <= limiteMs;
+}
+
+/** Duración real en minutos entre la entrada y la salida (requisito 3 de R-03), redondeada al
+ * minuto — solo tiene sentido llamarla cuando la salida existe (`ocurrido_en_salida !== null`);
+ * quien llama es responsable de esa comprobación, esta función no la repite. */
+export function duracionRealMinutos(ocurridoEnEntrada: Date, ocurridoEnSalida: Date): number {
+  return Math.round((ocurridoEnSalida.getTime() - ocurridoEnEntrada.getTime()) / 60_000);
+}
+
+/** Duración TEÓRICA del slot en minutos (requisito 3 de R-03: "junto a la duración teórica del
+ * slot"), a partir del snapshot inmutable que guarda la propia fila de asistencia
+ * (`slot_hora_inicio`/`slot_hora_fin`) — nunca de un `SlotHorario` vigente, que podría haber
+ * cambiado después (no-retroactividad, §0.2). Reutiliza `minutosDesdeMedianoche` de
+ * `slotHorario.ts` en vez de duplicar el análisis de `HH:MM`. */
+export function duracionTeoricaMinutos(slotHoraInicio: string, slotHoraFin: string): number {
+  return minutosDesdeMedianoche(slotHoraFin) - minutosDesdeMedianoche(slotHoraInicio);
 }
 
 /** Indexa `asistencias` (ya acotadas a "hoy" por quien llama) por `claveRegistroPorSlot`, para que

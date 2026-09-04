@@ -58,6 +58,7 @@ import {
   registrarAusencia,
   listarAsistenciaDeHoy,
   actualizarAsistencia,
+  marcarSalidaAsistencia,
   listarRegistrosDeSlotYFecha,
   listarHistorialDeAsistencia,
   listarHistoricoAsistencia,
@@ -462,6 +463,12 @@ function mostrarAppProfesor(
           { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
           perfil.id,
           entrada,
+        ),
+      marcarSalida: (asistenciaId) =>
+        marcarSalidaAsistencia(
+          { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+          perfil.id,
+          asistenciaId,
         ),
       obtenerUrlsAvataresMini: (alumnos) => urlsAvataresEnLote(app.almacenamiento, alumnos, 'mini'),
       generarPeticionId: () => crypto.randomUUID(),

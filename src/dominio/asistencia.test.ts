@@ -17,6 +17,10 @@ import {
   motivoJustificacionValido,
   puedeJustificarAusencia,
   MOTIVOS_JUSTIFICACION_AUSENCIA,
+  puedeMarcarSalida,
+  ocurridoEnSalidaValido,
+  duracionRealMinutos,
+  duracionTeoricaMinutos,
   type RegistroAsistencia,
   type UsuarioAutenticado,
 } from './asistencia.ts';
@@ -29,6 +33,7 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     profesor_id: 'profesor-1',
     registrado_en: '2026-08-26T09:00:00.000Z',
     ocurrido_en: '2026-08-26T09:00:00.000Z',
+    ocurrido_en_salida: null,
     es_retroactivo: false,
     origen: 'slot',
     slot_id: 'slot-1',
@@ -270,4 +275,76 @@ void test('puedeJustificarAusencia: solo tiene sentido sobre un registro con est
   assert.equal(puedeJustificarAusencia({ estado: 'ausente' }), true);
   assert.equal(puedeJustificarAusencia({ estado: 'valida' }), false);
   assert.equal(puedeJustificarAusencia({ estado: 'anulada' }), false);
+});
+
+// --- Registro de salida y cómputo de horas reales (R-03) ------------------------------------
+
+void test('puedeMarcarSalida: solo un registro presente sin salida marcada todavía', () => {
+  assert.equal(puedeMarcarSalida({ estado: 'valida', ocurrido_en_salida: null }), true);
+  assert.equal(puedeMarcarSalida({ estado: 'valida', ocurrido_en_salida: '2026-08-26T10:00:00.000Z' }), false);
+  assert.equal(puedeMarcarSalida({ estado: 'ausente', ocurrido_en_salida: null }), false);
+  assert.equal(puedeMarcarSalida({ estado: 'anulada', ocurrido_en_salida: null }), false);
+});
+
+void test('ocurridoEnSalidaValido: rechaza un instante en el futuro respecto a ahora', () => {
+  const entrada = new Date('2026-08-26T09:00:00.000Z');
+  const ahora = new Date('2026-08-26T10:00:00.000Z');
+  const salida = new Date('2026-08-26T10:00:00.001Z');
+  assert.equal(ocurridoEnSalidaValido(salida, entrada, ahora), false);
+});
+
+void test('ocurridoEnSalidaValido: acepta el mismo instante que ahora (cerrar en vivo)', () => {
+  const entrada = new Date('2026-08-26T09:00:00.000Z');
+  const ahora = new Date('2026-08-26T10:00:00.000Z');
+  assert.equal(ocurridoEnSalidaValido(ahora, entrada, ahora), true);
+});
+
+void test('ocurridoEnSalidaValido: rechaza un instante anterior o igual a la entrada', () => {
+  const entrada = new Date('2026-08-26T09:00:00.000Z');
+  const ahora = new Date('2026-08-26T10:00:00.000Z');
+  assert.equal(ocurridoEnSalidaValido(entrada, entrada, ahora), false);
+  assert.equal(ocurridoEnSalidaValido(new Date(entrada.getTime() - 1), entrada, ahora), false);
+});
+
+void test('ocurridoEnSalidaValido: acepta justo por encima de la entrada', () => {
+  const entrada = new Date('2026-08-26T09:00:00.000Z');
+  const ahora = new Date('2026-08-26T10:00:00.000Z');
+  assert.equal(ocurridoEnSalidaValido(new Date(entrada.getTime() + 1), entrada, ahora), true);
+});
+
+void test('ocurridoEnSalidaValido: rechaza justo por encima de la ventana máxima hacia atrás', () => {
+  const ahora = new Date('2026-08-26T09:00:00.000Z');
+  const limiteMs = VENTANA_RETROACTIVA_MAXIMA_DIAS * 24 * 60 * 60 * 1000;
+  const entrada = new Date(ahora.getTime() - limiteMs - 2000);
+  const salida = new Date(ahora.getTime() - limiteMs - 1);
+  assert.equal(ocurridoEnSalidaValido(salida, entrada, ahora), false);
+});
+
+void test('ocurridoEnSalidaValido: la ventana máxima es configurable', () => {
+  const ahora = new Date('2026-08-26T09:00:00.000Z');
+  const entrada = new Date(ahora.getTime() - 5 * 24 * 60 * 60 * 1000);
+  const salida = new Date(ahora.getTime() - 3 * 24 * 60 * 60 * 1000);
+  assert.equal(ocurridoEnSalidaValido(salida, entrada, ahora, 2), false);
+  assert.equal(ocurridoEnSalidaValido(salida, entrada, ahora, 3), true);
+});
+
+void test('duracionRealMinutos: calcula la diferencia entre entrada y salida en minutos, redondeada', () => {
+  const entrada = new Date('2026-08-26T09:00:00.000Z');
+  const salida = new Date('2026-08-26T10:15:30.000Z');
+  assert.equal(duracionRealMinutos(entrada, salida), 76);
+});
+
+void test('duracionRealMinutos: una clase de 45 minutos exactos', () => {
+  const entrada = new Date('2026-08-26T09:00:00.000Z');
+  const salida = new Date('2026-08-26T09:45:00.000Z');
+  assert.equal(duracionRealMinutos(entrada, salida), 45);
+});
+
+void test('duracionTeoricaMinutos: calcula los minutos entre hora_inicio y hora_fin del slot', () => {
+  assert.equal(duracionTeoricaMinutos('09:00', '10:00'), 60);
+  assert.equal(duracionTeoricaMinutos('09:00', '09:45'), 45);
+});
+
+void test('duracionTeoricaMinutos: ignora los segundos del formato HH:MM:SS de PostgREST', () => {
+  assert.equal(duracionTeoricaMinutos('09:00:00', '10:30:00'), 90);
 });

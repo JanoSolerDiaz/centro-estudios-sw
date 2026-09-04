@@ -147,6 +147,7 @@ ausencia, ya anulada, etc.).
 | `alumno_id` / `profesor_id` | uuid | sí | Quién y quién lo registró. |
 | `registrado_en` | fecha y hora | sí | El instante en que la fila se **creó**. Lo fija el servidor y es **inmutable**: ni la propia RPC de edición puede cambiarlo, lo impide un trigger. |
 | `ocurrido_en` | fecha y hora | sí | El momento **atribuido** a la asistencia. Es lo que se edita al corregir una hora. En un registro tomado en vivo coincide con `registrado_en`; en uno añadido después, no. |
+| `ocurrido_en_salida` | fecha y hora | no | Hora de salida (R-03, `012_registro_salida.sql`), `NULL` mientras no se cierre la entrada — opcional, no bloquea nada. La fija el servidor al "marcar salida" (`clock_timestamp()`, nunca un valor del cliente); editable después dentro de la misma ventana que `ocurrido_en`. `CHECK`: nula, o estrictamente posterior a `ocurrido_en`. |
 | `es_retroactivo` | booleano | sí | Verdadero si `ocurrido_en` y `registrado_en` difieren en más de 5 minutos. Lo comprueba un `CHECK`, no puede quedar inconsistente con las otras dos columnas. |
 | `origen` | texto | sí | `slot` (venía de un horario) o `manual` (alumno "extra", añadido a mano). |
 | `slot_id` + snapshot (`slot_dia_semana`, `slot_hora_inicio`, `slot_hora_fin`, `slot_asignatura_o_grupo`) | — | solo si `origen = 'slot'` | Copia congelada del slot en el momento de registrar, no una referencia viva. |
@@ -272,8 +273,9 @@ mute datos, y el propio rebote del cliente ya acota la frecuencia real de petici
 ## `actualizar_asistencia` (`008_rpc_actualizar_asistencia.sql`, T-21)
 
 Única vía de modificación de una fila de `asistencia` ya existente — el `UPDATE` directo está
-revocado (ver arriba). `SECURITY DEFINER`, seis acciones combinables en una sola llamada (la sexta,
-"justificar", la añadió R-02 sobre la firma original de T-21 — ver más abajo):
+revocado (ver arriba). `SECURITY DEFINER`, ocho acciones combinables en una sola llamada (la sexta,
+"justificar", la añadió R-02; la séptima y la octava, "marcar salida" y "ajustar salida", las añadió
+R-03 — ver más abajo, ambas secciones):
 
 - **Cambiar el alumno** (`p_alumno_id`): valida que exista y esté activo, igual que el alta.
 - **Ajustar la hora** (`p_ocurrido_en`): mismas reglas que el alta (nunca en el futuro, nunca más de
@@ -291,6 +293,13 @@ revocado (ver arriba). `SECURITY DEFINER`, seis acciones combinables en una sola
   sobre un registro cuyo `estado` ANTES de esta llamada sea `'ausente'`; `p_motivo_justificacion`
   obligatorio, de la lista corta cerrada. No cambia `estado`, no reabre la edición de hora ni de
   alumno (esas siguen gobernadas por sus propios parámetros) y no ofrece "des-justificar".
+- **Marcar salida** (`p_marcar_salida`, R-03): solo sobre un registro que, tras esta misma llamada,
+  quede `estado = 'valida'` y todavía sin `ocurrido_en_salida`; fija `clock_timestamp()`, nunca un
+  valor del cliente ni `now()` (ver la sección "Registro de salida" más abajo).
+- **Ajustar la salida** (`p_ocurrido_en_salida`, R-03): corrige una salida YA marcada a un instante
+  explícito, mismo régimen que `p_ocurrido_en` sobre la entrada (nunca en el futuro, nunca más de 7
+  días atrás, y siempre posterior a la entrada). Mutuamente excluyente con `p_marcar_salida` en la
+  misma llamada. No existe "desmarcar": no hay forma de volver `ocurrido_en_salida` a `null`.
 
 **Autorización, antes de tocar nada más:** `administrator` sobre cualquier registro, sin límite
 temporal; `teacher` solo sobre `profesor_id = auth.uid()` y dentro de `VENTANA_EDICION_TEACHER_DIAS`
@@ -373,6 +382,38 @@ criterio que `009` sustituyó `perfil_tocar_actualizado_en`— para que la copia
 incluya también `motivo_justificacion`/`nota_justificacion`; ambas columnas se añaden también a esa
 tabla (append-only, sin `CHECK` de lista cerrada allí: es un histórico de lo que hubo, no un estado
 vigente que deba seguir siendo válido).
+
+## Registro de salida (`012_registro_salida.sql`, R-03)
+
+A diferencia de R-01 (RPC nueva, CREACIÓN distinta), marcar/ajustar la salida es una acción sobre un
+registro YA existente, igual que "justificar" de R-02 — se añade a `actualizar_asistencia` como dos
+acciones más, no una RPC aparte. Mismo procedimiento de sustitución que `011` (`drop function` con la
+firma exacta de esa migración, seguido de `create function` con la firma completa: los once
+parámetros de `011` más los dos nuevos), sin tocar los ficheros `008`/`011`.
+
+**Decisión de reloj — `clock_timestamp()`, nunca `now()`.** `now()` (alias de
+`transaction_timestamp()`) devuelve el MISMO instante durante toda una transacción. Tanto una llamada
+real (marcar salida justo después de registrar la entrada, en teoría la misma transacción HTTP) como,
+sobre todo, `db/pruebas_rls.sql` (que corre el fichero ENTERO en un único `begin ... rollback`) harían
+que "marcar salida" devolviera el mismo instante que `ocurrido_en`, violando la propia comprobación de
+"la salida tiene que ser posterior a la entrada" por una razón puramente artificial de cómo Postgres
+resuelve `now()`, no un error de la lógica de negocio. `clock_timestamp()` sí avanza en tiempo real
+dentro de la misma transacción.
+
+**Sin ningún `CHECK` que ate `ocurrido_en_salida` a `estado = 'valida'`** — mismo criterio exacto que
+`motivo_justificacion` en R-02: si lo tuviera, anular DESPUÉS un registro que ya tiene salida
+(`actualizar_asistencia` ya lo permite sin cambios) violaría el `CHECK` en el mismo `UPDATE` que lo
+anula. La regla "solo se marca salida de un registro presente" vive en la RPC, evaluada una vez al
+marcar, no como invariante permanente de la fila.
+
+**Autorización: sin ningún código nuevo**, mismo razonamiento que R-02 — la ventana de edición del
+profesor y el privilegio ilimitado de `administrator` ya gobiernan toda la función desde su primer
+`if`.
+
+**Trigger de historial sustituido** una vez más (mismo patrón que `009`/`011`) para que la copia a
+`asistencia_historial` incluya también `ocurrido_en_salida` — es lo que satisface el requisito 4 de
+R-03 ("ajustar la salida... queda trazado en `asistencia_historial`") sin ningún código adicional: el
+trigger ya existente lo hace gratis en cuanto la columna existe y el `UPDATE` la toca.
 
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 

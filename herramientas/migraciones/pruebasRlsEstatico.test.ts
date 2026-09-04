@@ -57,8 +57,10 @@ void test('las comprobaciones que leen la fila devuelta por una RPC expanden sus
   );
   // 4 de la sección 7b (T-18) + 2 de la sección 8c (T-21: los dos registros 'manual' de partida que
   // luego se editan con actualizar_asistencia) + 1 de la sección 8h (R-02: el registro 'valida' que
-  // se crea para comprobar que justificar lo rechaza).
-  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.registrar_asistencia\(/g) ?? []).length, 7);
+  // se crea para comprobar que justificar lo rechaza) + 2 de la sección 8i (R-03: el registro
+  // 'valida' de origen slot que luego se cierra con salida, y el 'manual' que comprueba que ajustar
+  // una salida no marcada se rechaza).
+  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.registrar_asistencia\(/g) ?? []).length, 9);
 
   assert.doesNotMatch(
     CONTENIDO,
@@ -68,8 +70,10 @@ void test('las comprobaciones que leen la fila devuelta por una RPC expanden sus
   // Sección 8c (T-21): anular con motivo, teacher2 editor rechazado no cuenta (no llega a SELECT),
   // administrator edita lo de otro, cambiar alumno, cambiar el slot atribuido, administrator sin
   // límite de ventana — seis usos reales de la fila devuelta. Sección 8h (R-02): justificar dentro
-  // de la ventana (teacher) y administrator justifica fuera de la ventana — dos usos más.
-  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.actualizar_asistencia\(/g) ?? []).length, 8);
+  // de la ventana (teacher) y administrator justifica fuera de la ventana — dos usos más. Sección
+  // 8i (R-03): marcar salida dentro de la ventana, ajustar una salida ya marcada y administrator
+  // marca salida fuera de la ventana — tres usos más.
+  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.actualizar_asistencia\(/g) ?? []).length, 11);
 });
 
 void test('los delimitadores $$ de plpgsql están intactos y emparejados', () => {

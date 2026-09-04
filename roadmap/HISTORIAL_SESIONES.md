@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-09-04 (rutina programada, cuarta del día) — R-03 arrancada: código y tests completos, `BLOQUEADA` por la migración `012`
+**Tarea(s):** R-03 (Registro de salida y cómputo de horas reales, oleada v1 / F-01)
+**Estado resultante:** BLOQUEADA — pendiente aplicar la migración `012_registro_salida.sql` (fila 15 de §3, nueva)
+**Commits a `develop`:** ver el commit de esta sesión
+**Migraciones aplicadas:** ninguna. `db/012_registro_salida.sql` escrita y empujada (§0.1: el agente nunca aplica DDL): añade `asistencia.ocurrido_en_salida` (`CHECK`: nula o posterior a `ocurrido_en`), la misma columna en `asistencia_historial`, sustituye el trigger `asistencia_copiar_a_historial()` (`001`, inmutable) para copiarla, y sustituye `actualizar_asistencia` (`011`, inmutable) — `drop function` + `create function` con la firma completa, no `create or replace` — con la séptima y octava acción combinable "marcar salida"/"ajustar salida"
+**Propagación a prod pendiente:** la de siempre (columna `prod` de `db/APLICADAS.md`, se hace de una vez en T-25); `012` se anota en la sección "Pendiente de aplicar" de `APLICADAS.md`, fuera de la tabla, sin hash
+**Archivos creados/modificados:** `db/012_registro_salida.sql` (nuevo), `herramientas/migraciones/registroSalida.test.ts` (nuevo, 15 tests), `db/pruebas_rls.sql` (sección 8i nueva), `herramientas/migraciones/pruebasRlsEstatico.test.ts` (recuentos hardcodeados de `select * into v_fila from public...` actualizados), `db/MODELO.md` (fila `ocurrido_en_salida` de `asistencia`, sección `actualizar_asistencia` a ocho acciones, sección nueva de la migración), `db/APLICADAS.md` (nota de pendiente), `src/dominio/tipos.ts` (`Asistencia`/`AsistenciaHistorial` ganan `ocurrido_en_salida`), `src/dominio/asistencia.ts` + test (`puedeMarcarSalida`, `ocurridoEnSalidaValido`, `duracionRealMinutos`, `duracionTeoricaMinutos`), `src/dominio/historicoAsistencia.ts` + test (tres columnas nuevas de CSV: "Hora de salida", "Duración real (min)", "Duración teórica (min)"), `src/datos/asistencia.ts` + test (`ActualizarAsistenciaEntrada` gana `marcarSalida`/`ocurridoEnSalida`, más `marcarSalidaAsistencia`), `src/ui/pantallaPasarLista.ts` + test (tercer control "Marcar salida"), `src/ui/pantallaRegistrosSlot.ts` + test (bloque "Marcar/Ajustar salida"), `src/ui/pantallaHistorico.ts` + test (columnas "Salida"/"Duración"), `src/ui/aplicacion.ts` (dependencia `marcarSalida` cableada en pasar lista), literales `Asistencia`/`AsistenciaHistorial` de varios ficheros de test actualizados con la columna nueva, `roadmap/SEGUIMIENTO.md` (cabecera, §1, §3 fila 15 nueva), `roadmap/DECISIONES_TECNICAS.md` (+5 filas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1056/1056, antes 1001) · build ✅
+**Health check post-deploy:** N/A — sin proveedor de hosting elegido todavía (`<pendiente>`, pregunta #15 de §6), no hay ninguna URL desplegada
+**Decisiones tomadas:** 5 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-04, todas `R-03`): marcar/ajustar salida como séptimo y octavo parámetros combinables de `actualizar_asistencia` en vez de una RPC nueva; `clock_timestamp()` en vez de `now()` para "marcar salida", para no colisionar con la entrada dentro de la misma transacción; sin `CHECK` que ate `ocurrido_en_salida` a `estado = 'valida'`, para no bloquear anular un registro con salida ya marcada; dos parámetros distintos y mutuamente excluyentes (`p_marcar_salida`/`p_ocurrido_en_salida`) en vez de sobrecargar `null` con dos significados; el trigger de historial sustituido para no dejar una laguna de auditoría
+**Hallazgos del auditor atendidos:** ninguno — `auditoriacontinua.md` seguía con sus siete hallazgos `RESUELTO`, cero `ABIERTO`, comprobado al empezar
+**Hallazgos:** ninguno nuevo. `node_modules/` no existía al empezar la sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) antes de poder ejecutar nada
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** R-03 sigue latente hasta que el dueño aplique `010`, `011` y `012` (filas 13, 14 y 15 de §3, en ese orden) y confirme; mientras tanto, la siguiente sesión de desarrollo pasa a R-12 ("Calendario de cierres del centro", depende de T-15, `COMPLETADA`) — su código también puede escribirse contra dobles sin esperar a que `010`/`011`/`012` estén aplicadas
+
+---
+
 ### Sesión 2026-09-04 (rutina programada, tercera del día) — R-02 arrancada: código y tests completos, `BLOQUEADA` por la migración `011`
 **Tarea(s):** R-02 (Justificación de una ausencia, oleada v1 / F-01)
 **Estado resultante:** BLOQUEADA — pendiente aplicar la migración `011_justificacion_ausencia.sql` (fila 14 de §3, nueva)

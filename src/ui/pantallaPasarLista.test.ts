@@ -57,6 +57,7 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     profesor_id: 'profesor-1',
     registrado_en: '2026-08-26T15:30:05.000Z',
     ocurrido_en: '2026-08-26T15:30:05.000Z',
+    ocurrido_en_salida: null,
     es_retroactivo: false,
     origen: 'slot',
     slot_id: 'slot-1',
@@ -90,6 +91,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     cargarAsistenciaDeHoy: overrides.cargarAsistenciaDeHoy ?? (() => Promise.resolve([])),
     registrar: overrides.registrar ?? noImplementado('registrar'),
     registrarAusencia: overrides.registrarAusencia ?? noImplementado('registrarAusencia'),
+    marcarSalida: overrides.marcarSalida ?? noImplementado('marcarSalida'),
     obtenerUrlsAvataresMini: overrides.obtenerUrlsAvataresMini ?? (() => Promise.resolve(new Map())),
     generarPeticionId:
       overrides.generarPeticionId ??
@@ -664,6 +666,204 @@ void test('un error al marcar ausente deja los dos controles reactivados, con el
   assert.match(botonPrincipal.textContent, /No se ha podido conectar/);
   assert.equal(botonPrincipal.disabled, false);
   assert.equal(botonAusente.disabled, false);
+});
+
+// --- Marcar salida (R-03): tercer control, hermano de los otros dos ------------------------------
+
+function botonSalidaDeTarjeta(contenedor: HTMLElement): HTMLButtonElement[] {
+  return Array.from(contenedor.querySelectorAll<HTMLButtonElement>('button[data-salida-clave]'));
+}
+
+void test('una card ya registrada ofrece "Marcar salida", un tercer control hermano de los otros dos', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  const botonPrincipal = botonesDeTarjeta(contenedor)[0];
+  const botonAusente = botonAusenteDeTarjeta(contenedor)[0];
+  const botonSalida = botonSalidaDeTarjeta(contenedor)[0];
+  assert.ok(botonPrincipal);
+  assert.ok(botonAusente);
+  assert.ok(botonSalida);
+  assert.notEqual(botonSalida, botonPrincipal);
+  assert.notEqual(botonSalida, botonAusente);
+  assert.equal(botonPrincipal.contains(botonSalida), false);
+  assert.match(botonSalida.textContent, /Marcar salida/);
+});
+
+void test('una card pendiente (todavía sin registrar) no ofrece "Marcar salida"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
+});
+
+void test('una card marcada ausente no ofrece "Marcar salida"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ estado: 'ausente', registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
+});
+
+void test('una card con la salida ya marcada deja de ofrecer "Marcar salida"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z', ocurrido_en_salida: '2026-08-26T16:00:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Salida a las 18:00/);
+});
+
+void test('flujo completo: "Marcar salida" llama a deps.marcarSalida con el id del registro y actualiza la card', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ id: 'asistencia-1', registrado_en: '2026-08-26T15:05:00.000Z' });
+  let idRecibido: string | undefined;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      marcarSalida: (asistenciaId) => {
+        idRecibido = asistenciaId;
+        return Promise.resolve({ ...fila, ocurrido_en_salida: '2026-08-26T16:00:00.000Z' });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(idRecibido, 'asistencia-1');
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Salida a las 18:00/);
+});
+
+void test('mientras se marca la salida, el botón queda deshabilitado con un texto propio', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  let resolver: ((fila: Asistencia) => void) | undefined;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      marcarSalida: () => new Promise((resolve) => { resolver = resolve; }),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  const botonEnCurso = botonSalidaDeTarjeta(contenedor)[0];
+  assert.ok(botonEnCurso);
+  assert.equal(botonEnCurso.disabled, true);
+  assert.match(botonEnCurso.textContent, /Marcando salida…/);
+
+  assert.ok(resolver);
+  resolver({ ...fila, ocurrido_en_salida: '2026-08-26T16:00:00.000Z' });
+  await esperarMicrotareas();
+});
+
+void test('un doble toque en "Marcar salida" mientras está en curso no dispara una segunda petición', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  let llamadas = 0;
+  let resolver: ((fila: Asistencia) => void) | undefined;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      marcarSalida: () => {
+        llamadas += 1;
+        return new Promise((resolve) => { resolver = resolve; });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 1);
+  assert.ok(resolver);
+  resolver({ ...fila, ocurrido_en_salida: '2026-08-26T16:00:00.000Z' });
+});
+
+void test('un error al marcar salida deja el botón reactivado, con el mensaje visible', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      marcarSalida: () => Promise.reject(new ErrorDeRed()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  const botonSalida = botonSalidaDeTarjeta(contenedor)[0];
+  assert.ok(botonSalida);
+  assert.equal(botonSalida.disabled, false);
+  assert.match(contenedor.textContent, /No se ha podido conectar/);
+});
+
+void test('si la respuesta se pierde pero la salida sí llegó a marcarse, la reconciliación no muestra ningún error', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const filaSinSalida = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  const filaConSalida = { ...filaSinSalida, ocurrido_en_salida: '2026-08-26T16:00:00.000Z' };
+  let llamadasCargarHoy = 0;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => {
+        llamadasCargarHoy += 1;
+        return Promise.resolve(llamadasCargarHoy === 1 ? [filaSinSalida] : [filaConSalida]);
+      },
+      marcarSalida: () => Promise.reject(new ErrorDeRed()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadasCargarHoy, 2);
+  assert.doesNotMatch(contenedor.textContent, /No se ha podido conectar/);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Salida a las 18:00/);
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
 });
 
 // --- Avatares: monograma primero, lote único, imagen rota deja el monograma ----------------------

@@ -17,6 +17,7 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     profesor_id: 'p1',
     registrado_en: '2026-08-26T15:31:00.000Z',
     ocurrido_en: '2026-08-26T15:30:00.000Z',
+    ocurrido_en_salida: null,
     es_retroactivo: false,
     origen: 'slot',
     slot_id: 'slot1',
@@ -212,6 +213,79 @@ void test('una ausencia sin justificar muestra "Sin justificar" en la columna Ju
   );
   await esperarMicrotareas();
   assert.match(contenedor.textContent, /Sin justificar/);
+});
+
+// --- Registro de salida y cómputo de horas reales (R-03) -----------------------------------
+
+void test('la cabecera de la tabla incluye las columnas Salida y Duración (R-03)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      listarHistorico: () => Promise.resolve({ filas: [crearAsistencia()], totalAproximado: 1 }),
+    }),
+  );
+  await esperarMicrotareas();
+  const cabeceras = [...contenedor.querySelectorAll('th')].map((th) => th.textContent);
+  assert.ok(cabeceras.includes('Salida'));
+  assert.ok(cabeceras.includes('Duración'));
+});
+
+void test('con salida marcada, muestra la hora de salida y la duración real junto a la teórica', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      listarHistorico: () =>
+        Promise.resolve({
+          filas: [crearAsistencia({ ocurrido_en: '2026-08-26T15:30:00.000Z', ocurrido_en_salida: '2026-08-26T16:15:00.000Z' })],
+          totalAproximado: 1,
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /45 min \(teórica 60 min\)/);
+});
+
+void test('sin salida marcada, la columna Duración muestra solo la teórica', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      listarHistorico: () => Promise.resolve({ filas: [crearAsistencia({ ocurrido_en_salida: null })], totalAproximado: 1 }),
+    }),
+  );
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /Teórica: 60 min/);
+});
+
+void test('un registro manual (sin snapshot de slot ni salida) deja la columna Duración vacía', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      listarHistorico: () =>
+        Promise.resolve({
+          filas: [
+            crearAsistencia({
+              origen: 'manual',
+              slot_id: null,
+              slot_hora_inicio: null,
+              slot_hora_fin: null,
+              ocurrido_en_salida: null,
+            }),
+          ],
+          totalAproximado: 1,
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+  const filas = [...contenedor.querySelectorAll('tbody tr')];
+  assert.equal(filas.length, 1);
+  const fila = filas[0];
+  assert.ok(fila);
+  const celdas = [...fila.querySelectorAll('td')].map((td) => td.textContent);
+  assert.equal(celdas.at(-1), '');
 });
 
 void test('una fila anulada y retroactiva se muestra correctamente', async () => {

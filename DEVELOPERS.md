@@ -202,13 +202,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `usuarioId`), nunca sobre quien llama. `entrada.origen = 'manual'`/`slotId: null`/`nota` es el
     camino de "alumno extra" (T-20): la misma RPC, sin ningún cambio. Desde T-21:
     `actualizarAsistencia(deps, profesorDuenoId, entrada)` — llama a `actualizar_asistencia`
-    (`db/008_rpc_actualizar_asistencia.sql`, ampliada por `db/011_justificacion_ausencia.sql`, R-02),
-    la única vía de modificación de un registro ya existente; `entrada.nota`/`entrada.notaProvista`
-    es el único par tri-estado del módulo (sin `notaProvista: true`, `nota` se ignora, para poder
-    vaciarla sin confundirlo con "no tocarla`"). Desde R-02: `entrada.justificar` +
-    `entrada.motivoJustificacion` (de `MotivoJustificacionAusencia`, lista corta cerrada) +
-    `entrada.notaJustificacion` — justificar solo tiene efecto sobre un registro `estado === 'ausente'`,
-    la RPC lo rechaza si no.
+    (`db/008_rpc_actualizar_asistencia.sql`, ampliada por `db/011_justificacion_ausencia.sql` R-02 y
+    `db/012_registro_salida.sql` R-03), la única vía de modificación de un registro ya existente;
+    `entrada.nota`/`entrada.notaProvista` es el único par tri-estado del módulo (sin
+    `notaProvista: true`, `nota` se ignora, para poder vaciarla sin confundirlo con "no tocarla`").
+    Desde R-02: `entrada.justificar` + `entrada.motivoJustificacion` (de
+    `MotivoJustificacionAusencia`, lista corta cerrada) + `entrada.notaJustificacion` — justificar
+    solo tiene efecto sobre un registro `estado === 'ausente'`, la RPC lo rechaza si no. Desde R-03:
+    `entrada.marcarSalida` (cierra con la hora real del servidor, `clock_timestamp()` en la RPC —
+    nunca un valor del cliente) y `entrada.ocurridoEnSalida` (ajusta una salida YA marcada, mismo
+    régimen que `entrada.ocurridoEn` sobre la entrada), mutuamente excluyentes en la misma llamada; y
+    `marcarSalidaAsistencia(deps, profesorDuenoId, asistenciaId)`, un atajo de un solo parámetro sobre
+    `actualizarAsistencia` para pantallas (pasar lista) que solo necesitan esa acción, sin construir
+    el resto de `ActualizarAsistenciaEntrada`.
     `listarRegistrosDeSlotYFecha(cliente, slotId, fecha, zona?)` — registros de un slot en CUALQUIER
     fecha, cualquier estado (a diferencia de `listarAsistenciaDeHoy`, siempre "hoy" y solo válidos).
     `listarHistorialDeAsistencia(cliente, asistenciaId)` — lee `asistencia_historial`, solo tiene
@@ -435,6 +441,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     mismo pipeline de `cargarAvataresPendientes` que las cards de slot. Un `Conflicto` en un extra NO
     se reconcilia como en una card de slot (no hay clave alumno+slot+día con la que releer): se trata
     como cualquier otro error, documentado como limitación conocida en `DECISIONES_TECNICAS.md`.
+    Desde R-03: una card ya registrada gana un TERCER control hermano, "Marcar salida"
+    (`deps.marcarSalida(asistenciaId)`, sobre `datos/asistencia.ts#marcarSalidaAsistencia`), ofrecido
+    solo mientras `puedeMarcarSalida` — con su propio protector de doble toque y su propia
+    reconciliación tras un error (releer `cargarAsistenciaDeHoy`, mismo criterio que un `Conflicto`:
+    un "ya tiene salida" no distingue un segundo toque real de una respuesta perdida de uno que sí
+    llegó a escribirse).
   - `comboboxAlumnoExtra.ts` (T-20) — `montarComboboxAlumnoExtra(contenedor, deps)`: combobox
     accesible escrito a mano (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`,
     flechas/Enter/Escape, región `role="status"` que hace de anuncio `aria-live`). Rebote de 250 ms
@@ -477,7 +489,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     declarado. El historial completo de una fila (`asistencia_historial`) solo se ofrece desplegar
     para `administrator`, el único rol con política de lectura sobre esa tabla. "Quién registró/
     modificó" se muestra por fecha, no por nombre — simplificación deliberada, documentada en el
-    propio fichero (`DECISIONES_TECNICAS.md`).
+    propio fichero (`DECISIONES_TECNICAS.md`). Desde R-03: bloque "Marcar salida"/"Ajustar salida"
+    por fila — un único botón (`puedeMarcarSalida`) mientras no hay salida marcada, con la hora real
+    del servidor; un `<input type="time">` para corregirla después, nunca las dos ofertas a la vez —
+    y la columna de detalle gana la hora de salida y la duración real junto a la teórica
+    (`duracionRealMinutos`/`duracionTeoricaMinutos`, `dominio/asistencia.ts`).
   - `pantallaHistorico.ts` (T-23) — `mostrarPantallaHistorico(contenedor, deps)`: consulta
     transversal del histórico completo (no de un solo slot, a diferencia de
     `pantallaRegistrosSlot.ts`), para `administrator` (todo el centro) y `teacher` (solo lo suyo, por
@@ -498,7 +514,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     cada fila se resuelven en LOTE por id (`resolverIdentificacionAlumnos`/`resolverNombresProfesores`,
     nunca un embed anidado de PostgREST); un id que la RLS de quien consulta no puede resolver (p. ej.
     un alumno de baja para un `teacher`) se muestra con una etiqueta de repuesto explícita. La consulta
-    deja traza mínima en el log (`logAuditoria.info`, solo ids y página, nunca un nombre).
+    deja traza mínima en el log (`logAuditoria.info`, solo ids y página, nunca un nombre). Desde R-03:
+    la tabla gana las columnas "Salida" y "Duración" (real junto a la teórica cuando hay salida
+    marcada, solo la teórica si aún no la hay), y el CSV gana "Hora de salida", "Duración real (min)"
+    y "Duración teórica (min)".
   - `pantallaUsuarios.ts` (T-24, nuevo) — `mostrarPantallaUsuarios(contenedor, deps)`: listado con
     filtro por rol y estado y búsqueda por nombre, edición de nombre inline (mismo patrón que
     "Editar" de `pantallaCentros.ts`), un `<select>` de rol por fila y desactivación con

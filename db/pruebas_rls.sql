@@ -2045,6 +2045,180 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8i. Registro de salida (R-03, db/012_registro_salida.sql) —
+--     actualizar_asistencia gana las acciones "marcar salida" y
+--     "ajustar salida". Crea sus PROPIOS slots (nunca reutiliza
+--     slot_prueba de la sección 4, mismo criterio que 8g/8h). El
+--     registro "fuera de ventana" se fabrica con un INSERT directo del
+--     rol de conexión (nunca `authenticated`, mismo aviso que 8c/8h).
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id   uuid := pg_temp.dato('alumno_prueba');
+  v_teacher_id  uuid;
+  v_slot_id     uuid;
+  v_slot_id2    uuid;
+  v_fila        public.asistencia%rowtype;
+  v_valida_id   uuid;
+  v_vieja_id    uuid;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+
+  if v_alumno_id is null or not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida dentro de la ventana (teacher)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / ajustar una salida ya marcada, todavía posterior a la entrada', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida dos veces (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / ajustar la salida a una hora anterior o igual a la entrada (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / marcar y ajustar la salida en la misma llamada (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / ajustar una salida no marcada (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida de una ausencia (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida fuera de la ventana del profesor (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / administrator marca salida fuera de la ventana del profesor', 'falta el alumno o el teacher de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, 1, '08:00', '09:00', current_date)
+      returning id into v_slot_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, 2, '08:00', '09:00', current_date)
+      returning id into v_slot_id2;
+  exception when others then
+    v_slot_id := null;
+    v_slot_id2 := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_slot_id is null or v_slot_id2 is null then
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida dentro de la ventana (teacher)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / ajustar una salida ya marcada, todavía posterior a la entrada', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida dos veces (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / ajustar la salida a una hora anterior o igual a la entrada (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / marcar y ajustar la salida en la misma llamada (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / ajustar una salida no marcada (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida de una ausencia (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+  else
+    perform pg_temp.impersonar('teacher');
+
+    -- Marcar salida dentro de la ventana: permitido, con la hora real del servidor
+    -- (clock_timestamp(), nunca now() — ver la cabecera de 012_registro_salida.sql: dentro de esta
+    -- misma transacción now() es constante, así que now() habría dado la misma hora que la entrada).
+    select * into v_fila from public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => gen_random_uuid(), p_slot_id => v_slot_id);
+    v_valida_id := v_fila.id;
+    begin
+      select * into v_fila from public.actualizar_asistencia(p_asistencia_id => v_valida_id, p_marcar_salida => true);
+      perform pg_temp.registrar(
+        'actualizar_asistencia / marcar salida dentro de la ventana (teacher)', 'permitido',
+        v_fila.ocurrido_en_salida is not null and v_fila.ocurrido_en_salida > v_fila.ocurrido_en
+      );
+    exception when others then
+      perform pg_temp.registrar('actualizar_asistencia / marcar salida dentro de la ventana (teacher)', 'permitido', false, sqlerrm);
+    end;
+
+    -- Ajustar una salida ya marcada, a un valor todavía válido (requisito 4 de R-03, "editable con
+    -- el mismo régimen que la hora de entrada"): clock_timestamp() de nuevo, no now() (ver la
+    -- cabecera de 012), así que es un instante real posterior tanto a la entrada como a la primera
+    -- salida marcada arriba, y nunca "en el futuro" respecto al propio clock_timestamp() de la RPC.
+    begin
+      select * into v_fila from public.actualizar_asistencia(p_asistencia_id => v_valida_id, p_ocurrido_en_salida => clock_timestamp());
+      perform pg_temp.registrar(
+        'actualizar_asistencia / ajustar una salida ya marcada, todavía posterior a la entrada', 'permitido',
+        v_fila.ocurrido_en_salida is not null and v_fila.ocurrido_en_salida > v_fila.ocurrido_en
+      );
+    exception when others then
+      perform pg_temp.registrar('actualizar_asistencia / ajustar una salida ya marcada, todavía posterior a la entrada', 'permitido', false, sqlerrm);
+    end;
+
+    -- Marcarla una segunda vez: debe rechazarse (para corregirla se usa el ajuste de arriba).
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_valida_id, p_marcar_salida => true);
+      perform pg_temp.registrar('actualizar_asistencia / marcar salida dos veces (debe fallar)', 'prohibido', false, 'se marcó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / marcar salida dos veces (debe fallar)', array['%ya tiene una hora de salida%'], sqlerrm);
+    end;
+
+    -- Ajustar la salida a una hora anterior o igual a la entrada: debe rechazarse.
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_valida_id, p_ocurrido_en_salida => now() - interval '1 day');
+      perform pg_temp.registrar('actualizar_asistencia / ajustar la salida a una hora anterior o igual a la entrada (debe fallar)', 'prohibido', false, 'se ajustó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / ajustar la salida a una hora anterior o igual a la entrada (debe fallar)', array['%anterior o igual a la entrada%'], sqlerrm);
+    end;
+
+    -- Marcar y ajustar en la misma llamada: combinación no admitida.
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_valida_id, p_marcar_salida => true, p_ocurrido_en_salida => now());
+      perform pg_temp.registrar('actualizar_asistencia / marcar y ajustar la salida en la misma llamada (debe fallar)', 'prohibido', false, 'se ejecutó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / marcar y ajustar la salida en la misma llamada (debe fallar)', array['%no se puede marcar y ajustar%'], sqlerrm);
+    end;
+
+    -- Ajustar una salida que todavía no se ha marcado (registro 'manual' nuevo, sin salida): rechazado.
+    select * into v_fila from public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid());
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_fila.id, p_ocurrido_en_salida => now());
+      perform pg_temp.registrar('actualizar_asistencia / ajustar una salida no marcada (debe fallar)', 'prohibido', false, 'se ajustó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / ajustar una salida no marcada (debe fallar)', array['%márcala antes de ajustarla%'], sqlerrm);
+    end;
+
+    -- Marcar salida de una ausencia (R-01): rechazado, solo tiene sentido sobre un registro
+    -- presente. Slot PROPIO distinto del de arriba (v_slot_id2): el de arriba ya tiene un registro
+    -- 'valida' activo para este alumno/día y chocaría con asistencia_uq_alumno_slot_dia_activa.
+    select * into v_fila from public.registrar_ausencia(p_alumno_id => v_alumno_id, p_slot_id => v_slot_id2, p_peticion_id => gen_random_uuid());
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_fila.id, p_marcar_salida => true);
+      perform pg_temp.registrar('actualizar_asistencia / marcar salida de una ausencia (debe fallar)', 'prohibido', false, 'se marcó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / marcar salida de una ausencia (debe fallar)', array['%registro presente%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- Fuera de la ventana de edición del profesor (criterio de aceptación de R-03): un registro
+  -- 'valida' fabricado con registrado_en de hace 10 días — mismo aviso que las secciones 8c/8h,
+  -- INSERT directo del rol de conexión, nunca de authenticated.
+  begin
+    insert into public.asistencia (alumno_id, profesor_id, registrado_en, ocurrido_en, es_retroactivo, origen, estado, peticion_id)
+      values (v_alumno_id, v_teacher_id, now() - interval '10 days', now() - interval '10 days', false, 'manual', 'valida', gen_random_uuid())
+      returning id into v_vieja_id;
+  exception when others then
+    v_vieja_id := null;
+  end;
+
+  if v_vieja_id is null then
+    perform pg_temp.omitir('actualizar_asistencia / marcar salida fuera de la ventana del profesor (debe fallar)', 'no se pudo fabricar el registro antiguo de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / administrator marca salida fuera de la ventana del profesor', 'no se pudo fabricar el registro antiguo de prueba');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_vieja_id, p_marcar_salida => true);
+      perform pg_temp.registrar('actualizar_asistencia / marcar salida fuera de la ventana del profesor (debe fallar)', 'prohibido', false, 'se marcó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / marcar salida fuera de la ventana del profesor (debe fallar)', array['%ventana de edición%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+
+    if not pg_temp.hay_fixture('administrator') then
+      perform pg_temp.omitir('actualizar_asistencia / administrator marca salida fuera de la ventana del profesor', 'no hay administrator en este entorno');
+    else
+      perform pg_temp.impersonar('administrator');
+      begin
+        select * into v_fila from public.actualizar_asistencia(p_asistencia_id => v_vieja_id, p_marcar_salida => true);
+        perform pg_temp.registrar('actualizar_asistencia / administrator marca salida fuera de la ventana del profesor', 'permitido', v_fila.ocurrido_en_salida is not null);
+      exception when others then
+        perform pg_temp.registrar('actualizar_asistencia / administrator marca salida fuera de la ventana del profesor', 'permitido', false, sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end if;
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

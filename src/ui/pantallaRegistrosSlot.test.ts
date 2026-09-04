@@ -55,6 +55,7 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     profesor_id: 'profesor-1',
     registrado_en: '2026-08-26T15:30:05.000Z',
     ocurrido_en: '2026-08-26T15:30:05.000Z',
+    ocurrido_en_salida: null,
     es_retroactivo: false,
     origen: 'slot',
     slot_id: 'slot-1',
@@ -483,6 +484,98 @@ void test('una ausencia ya justificada se muestra como "(ausente, justificada)" 
   assert.match(contenedor.textContent, /\(ausente, justificada\)/);
 });
 
+// --- Marcar / ajustar la salida (R-03) --------------------------------------------------------
+
+void test('marcar salida se ofrece sobre un registro presente sin salida todavía', async () => {
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida', ocurrido_en_salida: null })]),
+  });
+
+  assert.ok(contenedor.textContent.includes('Marcar salida'));
+  assert.equal(contenedor.textContent.includes('Guardar salida'), false);
+});
+
+void test('marcar salida no se ofrece sobre una ausencia ni sobre un registro anulado', async () => {
+  const contenedorAusente = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', ocurrido_en_salida: null })]),
+  });
+  assert.equal(contenedorAusente.textContent.includes('Marcar salida'), false);
+
+  const contenedorAnulada = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'anulada', motivo_anulacion: 'x', ocurrido_en_salida: null })]),
+  });
+  assert.equal(contenedorAnulada.textContent.includes('Marcar salida'), false);
+});
+
+void test('marcar salida: llama a actualizar con marcarSalida: true, sin ningún otro campo', async () => {
+  let entradaRecibida: unknown;
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida', ocurrido_en_salida: null })]),
+    actualizar: (_id, entrada) => {
+      entradaRecibida = entrada;
+      return Promise.resolve(crearAsistencia({ ocurrido_en_salida: '2026-08-26T16:30:00.000Z' }));
+    },
+  });
+
+  botonPorTexto(contenedor, 'Marcar salida').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(entradaRecibida, { asistenciaId: 'asistencia-1', marcarSalida: true });
+});
+
+void test('con una salida ya marcada, se ofrece "Guardar salida" (ajuste) en vez de "Marcar salida"', async () => {
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida', ocurrido_en_salida: '2026-08-26T16:30:00.000Z' })]),
+  });
+
+  assert.equal(contenedor.textContent.includes('Marcar salida'), false);
+  const campoSalida = contenedor.querySelector<HTMLInputElement>('#salida-asistencia-1');
+  assert.ok(campoSalida);
+  // '2026-08-26T16:30:00.000Z' en Europe/Madrid (CEST, UTC+2 en agosto) son las 18:30 locales.
+  assert.equal(campoSalida.value, '18:30'); // prellenado con la hora ya marcada
+  assert.ok(contenedor.textContent.includes('Guardar salida'));
+});
+
+void test('ajustar la salida: llama a actualizar con ocurridoEnSalida en el instante elegido', async () => {
+  let entradaRecibida: unknown;
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida', ocurrido_en_salida: '2026-08-26T16:30:00.000Z' })]),
+    actualizar: (_id, entrada) => {
+      entradaRecibida = entrada;
+      return Promise.resolve(crearAsistencia({ ocurrido_en_salida: '2026-08-26T16:45:00.000Z' }));
+    },
+  });
+
+  const campoSalida = contenedor.querySelector<HTMLInputElement>('#salida-asistencia-1');
+  assert.ok(campoSalida);
+  campoSalida.value = '16:45';
+  dispararEvento(campoSalida, 'input');
+
+  botonPorTexto(contenedor, 'Guardar salida').click();
+  await esperarMicrotareas();
+
+  assert.ok(entradaRecibida);
+  const entrada = entradaRecibida as { asistenciaId: string; ocurridoEnSalida: Date };
+  assert.equal(entrada.asistenciaId, 'asistencia-1');
+  assert.ok(entrada.ocurridoEnSalida instanceof Date);
+  // '16:45' es hora LOCAL (Europe/Madrid, CEST = UTC+2 en agosto): el instante UTC resultante es 14:45.
+  assert.equal(entrada.ocurridoEnSalida.toISOString(), '2026-08-26T14:45:00.000Z');
+});
+
+void test('la fila muestra la hora de salida y la duración real una vez marcada', async () => {
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () =>
+      Promise.resolve([
+        crearAsistencia({
+          ocurrido_en: '2026-08-26T15:30:00.000Z',
+          ocurrido_en_salida: '2026-08-26T16:15:00.000Z',
+        }),
+      ]),
+  });
+
+  assert.match(contenedor.textContent, /Duración real: 45 min \(teórica 60 min\)/);
+});
+
 void test('cambiar el alumno: buscar, elegir un resultado, confirmar con el dato viejo y el nuevo a la vista', async () => {
   let entradaRecibida: unknown;
   const contenedor = await montarConUnRegistro({
@@ -573,6 +666,7 @@ void test('administrator puede desplegar el historial completo de una fila', asy
     profesor_id: 'profesor-1',
     registrado_en: '2026-08-26T15:00:00.000Z',
     ocurrido_en: '2026-08-26T15:00:00.000Z',
+    ocurrido_en_salida: null,
     es_retroactivo: false,
     origen: 'slot',
     slot_id: 'slot-1',

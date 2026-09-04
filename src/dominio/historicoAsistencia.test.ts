@@ -20,6 +20,7 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     profesor_id: 'profesor-1',
     registrado_en: '2026-08-26T15:30:05.000Z',
     ocurrido_en: '2026-08-26T15:30:05.000Z',
+    ocurrido_en_salida: null,
     es_retroactivo: false,
     origen: 'slot',
     slot_id: 'slot-1',
@@ -60,18 +61,18 @@ void test('tieneModificaciones: true en cuanto actualizado_en tiene un valor', (
 
 // --- cabecerasCsvHistorico / filaCsvHistorico ----------------------------------------------
 
-void test('cabecerasCsvHistorico: sin contacto, las doce columnas fijas (R-02 añade Justificación y Nota de justificación)', () => {
+void test('cabecerasCsvHistorico: sin contacto, las quince columnas fijas (R-03 añade Hora de salida y las dos duraciones)', () => {
   assert.deepEqual(cabecerasCsvHistorico(), CABECERAS_CSV_HISTORICO);
-  assert.equal(cabecerasCsvHistorico().length, 12);
+  assert.equal(cabecerasCsvHistorico().length, 15);
 });
 
 void test('cabecerasCsvHistorico: con contacto, añade email y teléfono al final', () => {
   const cabeceras = cabecerasCsvHistorico({ incluirContacto: true });
   assert.deepEqual(cabeceras.slice(-2), ['Email del alumno', 'Teléfono del alumno']);
-  assert.equal(cabeceras.length, 14);
+  assert.equal(cabeceras.length, 17);
 });
 
-void test('filaCsvHistorico: compone las doce columnas en el orden de la cabecera', () => {
+void test('filaCsvHistorico: compone las quince columnas en el orden de la cabecera', () => {
   const fila = crearFila({
     asistencia: crearAsistencia({
       ocurrido_en: '2026-08-26T15:30:00.000Z',
@@ -88,6 +89,9 @@ void test('filaCsvHistorico: compone las doce columnas en el orden de la cabecer
     'María García Pérez',
     'Juan López',
     '26/08/2026 17:30',
+    '',
+    '',
+    '60',
     '26/08/2026 17:31',
     'Horario',
     'No',
@@ -105,8 +109,8 @@ void test('filaCsvHistorico: fila anulada trae el motivo y "Anulada"', () => {
     asistencia: crearAsistencia({ estado: 'anulada', motivo_anulacion: 'Registrado por error' }),
   });
   const valores = filaCsvHistorico(fila);
-  assert.equal(valores[6], 'Anulada');
-  assert.equal(valores[7], 'Registrado por error');
+  assert.equal(valores[9], 'Anulada');
+  assert.equal(valores[10], 'Registrado por error');
 });
 
 // --- Justificación de una ausencia (R-02) --------------------------------------------------
@@ -120,36 +124,69 @@ void test('filaCsvHistorico: ausencia justificada trae la etiqueta del motivo y 
     }),
   });
   const valores = filaCsvHistorico(fila);
-  assert.equal(valores[6], 'Ausente');
-  assert.equal(valores[8], 'Cita médica');
-  assert.equal(valores[9], 'Justificante adjunto en papel');
+  assert.equal(valores[9], 'Ausente');
+  assert.equal(valores[11], 'Cita médica');
+  assert.equal(valores[12], 'Justificante adjunto en papel');
 });
 
 void test('filaCsvHistorico: ausencia sin justificar deja vacías las columnas de justificación', () => {
   const fila = crearFila({ asistencia: crearAsistencia({ estado: 'ausente' }) });
   const valores = filaCsvHistorico(fila);
-  assert.equal(valores[8], '');
-  assert.equal(valores[9], '');
+  assert.equal(valores[11], '');
+  assert.equal(valores[12], '');
 });
 
 void test('filaCsvHistorico: fila retroactiva marca "Sí" en la columna Retroactivo', () => {
   const fila = crearFila({ asistencia: crearAsistencia({ es_retroactivo: true }) });
-  assert.equal(filaCsvHistorico(fila)[5], 'Sí');
+  assert.equal(filaCsvHistorico(fila)[8], 'Sí');
 });
 
 void test('filaCsvHistorico: origen manual se etiqueta "Extra"', () => {
   const fila = crearFila({ asistencia: crearAsistencia({ origen: 'manual', slot_id: null }) });
-  assert.equal(filaCsvHistorico(fila)[4], 'Extra');
+  assert.equal(filaCsvHistorico(fila)[7], 'Extra');
 });
 
 void test('filaCsvHistorico: modificado se marca "Sí" cuando actualizado_en no es null', () => {
   const fila = crearFila({ asistencia: crearAsistencia({ actualizado_en: '2026-08-27T09:00:00.000Z' }) });
-  assert.equal(filaCsvHistorico(fila)[10], 'Sí');
+  assert.equal(filaCsvHistorico(fila)[13], 'Sí');
 });
 
 void test('filaCsvHistorico: sin incluirContacto, nunca añade email ni teléfono aunque la fila los traiga', () => {
   const fila = crearFila({ emailAlumno: 'madre@example.com', telefonoAlumno: '600111222' });
-  assert.equal(filaCsvHistorico(fila).length, 12);
+  assert.equal(filaCsvHistorico(fila).length, 15);
+});
+
+// --- Registro de salida y cómputo de horas reales (R-03) -----------------------------------
+
+void test('filaCsvHistorico: con salida marcada, muestra la hora de salida y la duración real', () => {
+  const fila = crearFila({
+    asistencia: crearAsistencia({
+      ocurrido_en: '2026-08-26T15:30:00.000Z',
+      ocurrido_en_salida: '2026-08-26T16:15:00.000Z',
+    }),
+  });
+  const valores = filaCsvHistorico(fila);
+  assert.equal(valores[3], '26/08/2026 18:15');
+  assert.equal(valores[4], '45');
+});
+
+void test('filaCsvHistorico: sin salida marcada, "Hora de salida" y "Duración real" quedan vacías', () => {
+  const fila = crearFila({ asistencia: crearAsistencia({ ocurrido_en_salida: null }) });
+  const valores = filaCsvHistorico(fila);
+  assert.equal(valores[3], '');
+  assert.equal(valores[4], '');
+});
+
+void test('filaCsvHistorico: "Duración teórica" sale del snapshot del slot, no depende de si hay salida', () => {
+  const fila = crearFila({ asistencia: crearAsistencia({ slot_hora_inicio: '09:00', slot_hora_fin: '10:30', ocurrido_en_salida: null }) });
+  assert.equal(filaCsvHistorico(fila)[5], '90');
+});
+
+void test('filaCsvHistorico: un registro manual (sin slot) deja "Duración teórica" vacía', () => {
+  const fila = crearFila({
+    asistencia: crearAsistencia({ origen: 'manual', slot_id: null, slot_hora_inicio: null, slot_hora_fin: null }),
+  });
+  assert.equal(filaCsvHistorico(fila)[5], '');
 });
 
 void test('filaCsvHistorico: con incluirContacto, añade email y teléfono al final', () => {

@@ -10,6 +10,7 @@ import {
   registrarAusencia,
   listarAsistenciaDeHoy,
   actualizarAsistencia,
+  marcarSalidaAsistencia,
   listarRegistrosDeSlotYFecha,
   listarHistorialDeAsistencia,
   listarHistoricoAsistencia,
@@ -24,6 +25,7 @@ const FILA: Asistencia = {
   profesor_id: 'p1',
   registrado_en: '2026-08-31T09:00:00.000Z',
   ocurrido_en: '2026-08-31T09:00:00.000Z',
+  ocurrido_en_salida: null,
   es_retroactivo: false,
   origen: 'manual',
   slot_id: null,
@@ -359,6 +361,8 @@ void test('actualizarAsistencia llama a la RPC actualizar_asistencia con el cuer
     p_justificar: false,
     p_motivo_justificacion: null,
     p_nota_justificacion: null,
+    p_marcar_salida: false,
+    p_ocurrido_en_salida: null,
   });
   assert.deepEqual(fila, { ...FILA, nota: 'Llegó tarde' });
 });
@@ -492,6 +496,92 @@ void test('actualizarAsistencia: el limitador de cliente (T-06) se comprueba con
   assert.throws(() => {
     limitador.comprobar('asistencia:profesor-dueno');
   }, ErrorLimiteAlcanzado);
+});
+
+void test('actualizarAsistencia: marcar salida (R-03) envía p_marcar_salida y p_ocurrido_en_salida null', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, ocurrido_en_salida: '2026-08-31T10:00:00.000Z' } };
+  });
+
+  const fila = await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', marcarSalida: true });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_marcar_salida, true);
+  assert.equal(cuerpo.p_ocurrido_en_salida, null);
+  assert.equal(fila.ocurrido_en_salida, '2026-08-31T10:00:00.000Z');
+});
+
+void test('actualizarAsistencia: ajustar la salida (R-03) envía p_ocurrido_en_salida en ISO y p_marcar_salida false', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: FILA };
+  });
+  const ocurridoEnSalida = new Date('2026-08-31T10:15:00.000Z');
+
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', ocurridoEnSalida });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_marcar_salida, false);
+  assert.equal(cuerpo.p_ocurrido_en_salida, ocurridoEnSalida.toISOString());
+});
+
+void test('actualizarAsistencia: sin marcarSalida ni ocurridoEnSalida, los dos parámetros viajan en su valor "no tocar"', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: FILA };
+  });
+
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', nota: 'x', notaProvista: true });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_marcar_salida, false);
+  assert.equal(cuerpo.p_ocurrido_en_salida, null);
+});
+
+void test('marcarSalidaAsistencia: llama a actualizarAsistencia con marcarSalida:true, sin tocar ningún otro campo', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, ocurrido_en_salida: '2026-08-31T10:00:00.000Z' } };
+  });
+
+  const fila = await marcarSalidaAsistencia({ postgrest }, 'p1', 'as1');
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_asistencia_id, 'as1');
+  assert.equal(cuerpo.p_marcar_salida, true);
+  assert.equal(cuerpo.p_anular, false);
+  assert.equal(cuerpo.p_justificar, false);
+  assert.equal(fila.ocurrido_en_salida, '2026-08-31T10:00:00.000Z');
+});
+
+void test('marcarSalidaAsistencia: el límite de cliente se comprueba con la clave del profesor DUEÑO del registro', () => {
+  const reloj = crearRelojFijo(new Date('2026-08-31T09:00:00.000Z'));
+  const limitador = crearLimitadorTasa({ maximo: 1, ventanaMs: 60_000, reloj });
+  const postgrest = crearCliente(() => ({ estado: 200, cuerpo: FILA }));
+
+  void marcarSalidaAsistencia({ postgrest, limitador }, 'profesor-dueno', 'as1');
+
+  assert.throws(() => {
+    limitador.comprobar('asistencia:profesor-dueno');
+  }, ErrorLimiteAlcanzado);
+});
+
+void test('marcarSalidaAsistencia: marcar dos veces llega como ErrorDeValidacion (400)', async () => {
+  const postgrest = crearCliente(() => ({
+    estado: 400,
+    cuerpo: { message: 'actualizar_asistencia: el registro ya tiene una hora de salida; para corregirla, ajústala' },
+  }));
+
+  await assert.rejects(() => marcarSalidaAsistencia({ postgrest }, 'p1', 'as1'), ErrorDeValidacion);
 });
 
 void test('listarRegistrosDeSlotYFecha: una única petición, acotada al slot y al día natural de fecha (cualquier estado)', async () => {

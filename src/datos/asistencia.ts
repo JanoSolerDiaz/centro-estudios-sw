@@ -101,15 +101,25 @@ export interface ActualizarAsistenciaEntrada {
   readonly justificar?: boolean;
   readonly motivoJustificacion?: MotivoJustificacionAusencia | null;
   readonly notaJustificacion?: string | null;
+  /** Marcar salida (R-03, requisito 1) con la hora real del servidor — la RPC ignora cualquier
+   * instante que el cliente pudiera enviar para esta acción, mismo criterio que `registrado_en` al
+   * registrar. Mutuamente excluyente con `ocurridoEnSalida` en la misma llamada: la RPC rechaza las
+   * dos a la vez (`puedeMarcarSalida`/`ocurridoEnSalidaValido`, `dominio/asistencia.ts`). */
+  readonly marcarSalida?: boolean;
+  /** Ajustar una salida YA marcada a un instante explícito (R-03, requisito 4) — mismo régimen que
+   * `ocurridoEn` sobre la entrada. La RPC la rechaza si el registro todavía no tiene ninguna salida
+   * marcada: no es una forma alternativa de "marcar", solo de corregir un valor que ya existe. */
+  readonly ocurridoEnSalida?: Date | null;
 }
 
 /** Modifica un registro de asistencia ya existente (T-21, con la acción "justificar" de R-02
- * añadida en `db/011_justificacion_ausencia.sql`), vía la RPC `SECURITY DEFINER`
- * `actualizar_asistencia` — el UPDATE directo sobre `asistencia` está revocado, igual que el INSERT
- * (T-18): esta es la ÚNICA puerta de modificación. `profesorDuenoId` es el `profesor_id` DUEÑO del
- * registro (no necesariamente quien llama: un `administrator` edita registros de cualquier
- * profesor) — es la clave del límite de cliente de T-06, defensa en profundidad; el límite
- * autoritativo lo aplica la RPC sobre el mismo dueño. */
+ * añadida en `db/011_justificacion_ausencia.sql` y "marcar/ajustar salida" de R-03 añadida en
+ * `db/012_registro_salida.sql`), vía la RPC `SECURITY DEFINER` `actualizar_asistencia` — el UPDATE
+ * directo sobre `asistencia` está revocado, igual que el INSERT (T-18): esta es la ÚNICA puerta de
+ * modificación. `profesorDuenoId` es el `profesor_id` DUEÑO del registro (no necesariamente quien
+ * llama: un `administrator` edita registros de cualquier profesor) — es la clave del límite de
+ * cliente de T-06, defensa en profundidad; el límite autoritativo lo aplica la RPC sobre el mismo
+ * dueño. */
 export async function actualizarAsistencia(
   deps: DependenciasAsistencia,
   profesorDuenoId: string,
@@ -129,7 +139,21 @@ export async function actualizarAsistencia(
     p_justificar: entrada.justificar ?? false,
     p_motivo_justificacion: entrada.motivoJustificacion ?? null,
     p_nota_justificacion: entrada.notaJustificacion ?? null,
+    p_marcar_salida: entrada.marcarSalida ?? false,
+    p_ocurrido_en_salida: entrada.ocurridoEnSalida ? entrada.ocurridoEnSalida.toISOString() : null,
   });
+}
+
+/** Marca la salida de un registro YA presente (R-03, requisito 1), con la hora real del servidor —
+ * atajo de un único parámetro sobre `actualizarAsistencia` para pantallas que solo necesitan esta
+ * acción (pasar lista, T-19: "un segundo toque sobre la card ya registrada"), sin tener que conocer
+ * el resto de la forma de `ActualizarAsistenciaEntrada`. */
+export async function marcarSalidaAsistencia(
+  deps: DependenciasAsistencia,
+  profesorDuenoId: string,
+  asistenciaId: string,
+): Promise<Asistencia> {
+  return actualizarAsistencia(deps, profesorDuenoId, { asistenciaId, marcarSalida: true });
 }
 
 /** Registros de UN slot concreto en el día natural (`limitesDiaLocal`, `dominio/slots.ts`) que

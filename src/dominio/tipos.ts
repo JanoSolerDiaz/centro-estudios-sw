@@ -118,6 +118,11 @@ export interface Asistencia {
   readonly profesor_id: string;
   readonly registrado_en: string;
   readonly ocurrido_en: string;
+  /** Hora de salida (R-03), `null` mientras no se cierre la entrada — opcional, nunca bloquea nada
+   * aguas abajo (requisito 2). La fija el servidor al "marcar salida" (`ocurrido_en_salida is null`,
+   * `db/012_registro_salida.sql`), nunca el cliente; editable después dentro de la misma ventana que
+   * `ocurrido_en` (requisito 4). */
+  readonly ocurrido_en_salida: string | null;
   readonly es_retroactivo: boolean;
   readonly origen: OrigenAsistencia;
   readonly slot_id: string | null;
@@ -147,6 +152,7 @@ export interface AsistenciaHistorial {
   readonly profesor_id: string;
   readonly registrado_en: string;
   readonly ocurrido_en: string;
+  readonly ocurrido_en_salida: string | null;
   readonly es_retroactivo: boolean;
   readonly origen: OrigenAsistencia;
   readonly slot_id: string | null;

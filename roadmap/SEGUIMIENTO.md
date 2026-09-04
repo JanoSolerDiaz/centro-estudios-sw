@@ -10,8 +10,76 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-04 (rutina programada, tercera del día) — **R-02 arrancada,
-segunda tarea de la oleada v1.** R-01 sigue `BLOQUEADA` en §1 esperando exclusivamente al dueño (fila
+**Última actualización:** 2026-09-04 (rutina programada, cuarta del día) — **R-03 arrancada, tercera
+tarea de la oleada v1.** R-01 y R-02 siguen `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas
+13 y 14 de §3, sin cambio: aplicar las migraciones `010` y `011`), así que esta sesión tomó la
+siguiente tarea PENDIENTE de §1: R-03, "Registro de salida y cómputo de horas reales" (spec en
+`roadmap/ROADMAP_PRODUCTO.md`), que depende de T-18/T-21 (ambas `COMPLETADA`) — no depende de R-01 ni
+R-02 conceptualmente, así que se escribe contra los mismos dobles sin esperar a que las dos anteriores
+se apliquen de verdad. Su requisito 1 exige DDL por definición (una columna nueva con `CHECK` de
+coherencia y dos acciones nuevas de una RPC), así que sigue el procedimiento de §0.1: migración nueva
+`db/012_registro_salida.sql` escrita y empujada, fila 15 nueva de §3, R-03 pasa a `BLOQUEADA`.
+**Decisión de diseño clave, documentada en `DECISIONES_TECNICAS.md`:** igual que R-02, "marcar/ajustar
+salida" no es una RPC nueva — encaja como séptima y octava acción combinable de `actualizar_asistencia`
+(T-21), porque opera sobre un registro YA EXISTENTE, a diferencia de R-01 (`registrar_ausencia`, una
+intención de CREACIÓN distinta). Migración `012`: (1) columna `asistencia.ocurrido_en_salida`
+(`timestamptz` nullable, `CHECK`: nula o estrictamente posterior a `ocurrido_en`), deliberadamente SIN
+ningún `CHECK` que la ate a `estado = 'valida'` — mismo motivo exacto que R-02 con
+`motivo_justificacion`: anular DESPUÉS un registro que ya tiene salida violaría el `CHECK` en el mismo
+`UPDATE` que lo anula; (2) misma columna en `asistencia_historial` + trigger
+`asistencia_copiar_a_historial()` sustituido una vez más (mismo patrón que `009`/`011`); (3)
+`actualizar_asistencia` gana la séptima y octava acción: `p_marcar_salida` (cierra con la hora real
+del SERVIDOR) y `p_ocurrido_en_salida` (ajusta una salida YA marcada a un valor explícito), mutuamente
+excluyentes en la misma llamada. **Decisión de reloj, la pieza más delicada de esta sesión:** marcar
+salida usa `clock_timestamp()`, NUNCA `now()` — `now()` es constante durante toda una transacción, y
+tanto una llamada real como, sobre todo, `db/pruebas_rls.sql` (que corre el fichero ENTERO en un único
+`begin...rollback`) harían que la salida coincidiera exactamente con la entrada, violando la propia
+comprobación "la salida es posterior a la entrada" por un artefacto de Postgres, no un error de
+lógica. Autorización sin ningún código nuevo: la ventana de edición del profesor y el privilegio
+ilimitado de `administrator` ya gobiernan toda la función desde su primer `if`. Dominio
+(`dominio/asistencia.ts#puedeMarcarSalida`/`ocurridoEnSalidaValido`/`duracionRealMinutos`/
+`duracionTeoricaMinutos`, cuatro funciones nuevas), `dominio/historicoAsistencia.ts` añade tres
+columnas al CSV ("Hora de salida", "Duración real (min)", "Duración teórica (min)"). Datos
+(`datos/asistencia.ts#ActualizarAsistenciaEntrada` gana `marcarSalida`/`ocurridoEnSalida`, más
+`marcarSalidaAsistencia`, un atajo de un solo parámetro sobre `actualizarAsistencia` para pantallas que
+solo necesitan esa acción). UI: en pasar lista (`pantallaPasarLista.ts`), un TERCER control hermano
+"Marcar salida" en la card ya registrada (requisito 1: "un segundo toque sobre la card ya
+registrada"), ofrecido solo mientras `puedeMarcarSalida`, con su propio protector de doble toque y su
+propia reconciliación tras un error (releer `cargarAsistenciaDeHoy`, mismo criterio que un `Conflicto`
+de R-01: un "ya tiene salida" no distingue un segundo toque real de una respuesta perdida de un primer
+toque que sí llegó a escribirse); en «Registros» (`pantallaRegistrosSlot.ts`), un bloque "Marcar
+salida"/"Ajustar salida" —un único botón mientras no hay salida, un `<input type="time">` para
+corregirla después, nunca las dos ofertas a la vez— y la columna de detalle gana la salida y la
+duración real junto a la teórica. `pantallaHistorico.ts` gana las columnas "Salida" y "Duración".
+Nueva sección **8i** en `db/pruebas_rls.sql` (marcar salida dentro de la ventana del profesor, ajustar
+una salida ya marcada, marcar dos veces rechazado, ajustar a una hora anterior o igual a la entrada
+rechazado, marcar y ajustar combinados rechazado, ajustar una salida no marcada rechazado, marcar
+salida de una ausencia rechazado, fuera de la ventana rechazado para `teacher` y aceptado para
+`administrator`) — con sus propios slots de prueba, nunca reutiliza `slot_prueba` de la sección 4.
+Nuevo fichero estático `herramientas/migraciones/registroSalida.test.ts` (mismo patrón que el de
+`010`/`011`); `pruebasRlsEstatico.test.ts` actualizado (los recuentos hardcodeados de `select * into
+v_fila from public.registrar_asistencia/actualizar_asistencia(` suben en 2 y 3 respectivamente, por
+los usos reales nuevos de la sección 8i). **55 tests nuevos (1056 en total, antes 1001):** 15
+estáticos de la migración (`registroSalida.test.ts`), 11 de dominio (`puedeMarcarSalida`,
+`ocurridoEnSalidaValido` con sus seis bordes, `duracionRealMinutos`, `duracionTeoricaMinutos`), 6 de
+`datos/asistencia.test.ts` (marcar salida, ajustar salida, ninguno de los dos, `marcarSalidaAsistencia`
+con su límite de cliente y su error de "ya tiene salida"), 4 de `historicoAsistencia.test.ts` (con
+salida, sin salida, teórica desde el slot, manual sin teórica), 4 de `pantallaHistorico.test.ts`
+(cabecera con las columnas nuevas, con salida, sin salida, manual vacío), 6 de
+`pantallaRegistrosSlot.test.ts` (se ofrece/no se ofrece marcar, llama con `marcarSalida`, ajuste
+ofrecido con el valor prellenado, llama con el instante elegido, muestra la duración) y 9 de
+`pantallaPasarLista.test.ts` (tercer control ofrecido/no ofrecido en sus tres exclusiones, flujo
+completo, en curso, doble toque, error reactivado, reconciliación sin error tras una respuesta
+perdida). El resto de la diferencia son ajustes de tests ya existentes que no suman fila nueva al
+recuento (mismo criterio de sesiones anteriores): todo literal `Asistencia`/`AsistenciaHistorial` de
+los tests gana la columna nueva, y `historicoAsistencia.test.ts`/`pantallaHistorico.test.ts` actualizan
+los índices y recuentos de columna del CSV/tabla (doce columnas fijas del CSV pasan a quince; la tabla
+en pantalla gana "Salida" y "Duración"). Verificación pre-push completa en verde: `npm run typecheck`,
+`npm run lint`, `npm test` (1056/1056) y `npm run build`. **Nota de entorno:** `node_modules/` no
+existía al empezar esta sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) fue el
+primer paso antes de poder ejecutar nada.
+
+**Sesión anterior (2026-09-04, "R-02 arrancada, segunda tarea de la oleada v1"):** R-01 sigue `BLOQUEADA` en §1 esperando exclusivamente al dueño (fila
 13 de §3, sin cambio: aplicar la migración `010`), y T-25 sigue `BLOQUEADA` igual (fila 12, sin
 cambio), así que esta sesión tomó la siguiente tarea PENDIENTE de §1: R-02, "Justificación de una
 ausencia" (spec en `roadmap/ROADMAP_PRODUCTO.md`), que depende de R-01 solo conceptualmente (necesita
@@ -1173,7 +1241,7 @@ pantallas del requisito 2.
 | T-25 | Endurecimiento, privacidad y paso a producción | BLOQUEADA — pendiente crear el proyecto de producción, aplicar las diez migraciones, verificar `db/pruebas_rls.sql` contra `prod`, respaldo verificado y aprobación de los textos legales (fila 12 de §3) | 2026-09-04 | Requisitos 2, 3, 7, 8 y 9 completos; 1 y 4 escritos pero pendientes de un dato/decisión del dueño (proveedor de hosting, aprobación legal); 5 y 6 son DDL/infraestructura que el agente nunca ejecuta (§0.1). Detalle completo, checklist exacto y por qué en `roadmap/PRODUCCION_T25.md`. En el camino, corregido un hueco real de T-14 (requisito 8, aviso de consentimiento del avatar ausente de la interfaz) |
 | R-01 | Registro explícito de ausencias | BLOQUEADA — pendiente aplicar migración `010` (fila 13 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `010_registro_ausencias.sql` (renumerada por el PM el 2026-09-02: `006` lo ocupó ya T-18) escrita y empujada, todavía sin aplicar |
 | R-02 | Justificación de una ausencia | BLOQUEADA — pendiente aplicar migración `011` (fila 14 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `011_justificacion_ausencia.sql` (renumerada por el PM el 2026-09-02: `007` lo ocupó ya T-20) escrita y empujada, todavía sin aplicar |
-| R-03 | Registro de salida y cómputo de horas reales | PENDIENTE | — | Oleada v1 / F-01 · Migración `012_registro_salida` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) |
+| R-03 | Registro de salida y cómputo de horas reales | BLOQUEADA — pendiente aplicar migración `012` (fila 15 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `012_registro_salida.sql` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) escrita y empujada, todavía sin aplicar |
 | R-12 | Calendario de cierres del centro (festivos y vacaciones) | PENDIENTE | — | Oleada v1 / F-01 · Migración `014_calendario_cierres` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) · añadida por el PM el 2026-08-28, dependencia nueva de R-04 |
 | R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
 | R-05 | Aviso de ausencia injustificada listo para enviar | PENDIENTE | — | Oleada v1 / F-02 · sin envío automático |
@@ -1219,6 +1287,7 @@ pantallas del requisito 2.
 | 12 | Ejecutar el paso a producción de T-25: crear el proyecto de producción, aportar sus credenciales, elegir proveedor de hosting (pregunta #15 de §6), aplicar las diez migraciones (`000` a `009`) con `npm run migrate -- --entorno=prod` y `PERMITIR_PROD=1`, ejecutar `npm run probar-rls` contra `prod` y guardar su salida, crear el primer `administrator` de producción, configurar y **verificar** una restauración de respaldo real, y aprobar o corregir los cuatro textos legales de `legal/` | T-25 | Procedimiento exacto, paso a paso, en `roadmap/PRODUCCION_T25.md` §5-§6. No es una migración suelta (no genera una fila por cada una de las diez, §0.1.7): es la propagación completa, de una sola vez | PENDIENTE |
 | 13 | Aplicar la migración `010_registro_ausencias` en `dev`, **después** de la fila 11 (`009`) | R-01 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `10`, y ejecutar también `npm run probar-rls` (nueva sección 8g: alta de ausencia por `teacher`, duplicado alumno+slot+día contra `asistencia_uq_alumno_slot_dia_activa` con presencia Y con ausencia ya existente, `student` sin acceso a `registrar_ausencia`, anular una ausencia con motivo) | PENDIENTE |
 | 14 | Aplicar la migración `011_justificacion_ausencia` en `dev`, **después** de la fila 13 (`010`) | R-02 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `11`, y ejecutar también `npm run probar-rls` (nueva sección 8h: justificar dentro de la ventana de edición del profesor, motivo fuera de la lista cerrada rechazado, justificar un registro que no está ausente rechazado, fuera de la ventana rechazado para `teacher` y aceptado para `administrator`) | PENDIENTE |
+| 15 | Aplicar la migración `012_registro_salida` en `dev`, **después** de la fila 14 (`011`) | R-03 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `12`, y ejecutar también `npm run probar-rls` (nueva sección 8i: marcar salida dentro de la ventana del profesor, ajustar una salida ya marcada, marcar dos veces rechazado, ajustar a una hora anterior o igual a la entrada rechazado, marcar y ajustar combinados en la misma llamada rechazado, ajustar una salida no marcada rechazado, marcar salida de una ausencia rechazado, fuera de la ventana rechazado para `teacher` y aceptado para `administrator`) | PENDIENTE |
 
 ---
 

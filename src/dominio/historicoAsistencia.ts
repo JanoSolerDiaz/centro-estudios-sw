@@ -14,6 +14,7 @@
 
 import type { Asistencia, EstadoAsistencia, MotivoJustificacionAusencia, OrigenAsistencia } from './tipos.ts';
 import { fechaHoraLocalLegible, ZONA_HORARIA_CENTRO_POR_DEFECTO } from './slots.ts';
+import { duracionRealMinutos, duracionTeoricaMinutos } from './asistencia.ts';
 import { documentoCsv } from '../nucleo/csv.ts';
 
 /** ¿Tiene `registro` al menos una modificación registrada (requisito 1 de T-23: "si tiene
@@ -91,6 +92,9 @@ export const CABECERAS_CSV_HISTORICO: readonly string[] = [
   'Alumno',
   'Profesor',
   'Hora atribuida',
+  'Hora de salida',
+  'Duración real (min)',
+  'Duración teórica (min)',
   'Hora de creación',
   'Origen',
   'Retroactivo',
@@ -119,10 +123,20 @@ export function filaCsvHistorico(
   zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
 ): readonly string[] {
   const { asistencia } = fila;
+  const duracionReal = asistencia.ocurrido_en_salida
+    ? String(duracionRealMinutos(new Date(asistencia.ocurrido_en), new Date(asistencia.ocurrido_en_salida)))
+    : '';
+  const duracionTeorica =
+    asistencia.slot_hora_inicio && asistencia.slot_hora_fin
+      ? String(duracionTeoricaMinutos(asistencia.slot_hora_inicio, asistencia.slot_hora_fin))
+      : '';
   const base = [
     fila.alumnoNombre,
     fila.profesorNombre,
     fechaHoraLocalLegible(new Date(asistencia.ocurrido_en), zonaHoraria),
+    asistencia.ocurrido_en_salida ? fechaHoraLocalLegible(new Date(asistencia.ocurrido_en_salida), zonaHoraria) : '',
+    duracionReal,
+    duracionTeorica,
     fechaHoraLocalLegible(new Date(asistencia.registrado_en), zonaHoraria),
     ETIQUETA_ORIGEN[asistencia.origen],
     asistencia.es_retroactivo ? 'Sí' : 'No',

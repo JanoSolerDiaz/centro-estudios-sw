@@ -19,7 +19,10 @@
  * táctil"; requisito 7, teclado): activarla llama a `deps.registrar` con el `peticionId` FIJO de
  * esa card (generado una vez por `deps.generarPeticionId`, nunca en cada intento) protegido por
  * `crearProtectorDobleToque` por CLAVE de card (T-06) — un doble toque en la MISMA card no dispara
- * una segunda petición, pero tocar dos cards distintas casi a la vez sí registra las dos.
+ * una segunda petición, pero tocar dos cards distintas casi a la vez sí registra las dos. Una card ya
+ * registrada gana un TERCER control hermano, "Marcar salida" (R-03, requisito 1: "un segundo toque
+ * sobre la card ya registrada"), ofrecido solo mientras `puedeMarcarSalida` — con la hora real del
+ * servidor, nunca un valor que este módulo pudiera fijar.
  *
  * `Conflicto` (409: mismo peticionId ya aplicado, o duplicado de negocio del mismo alumno/slot/día
  * — indistinguibles por diseño, ver `db/005_rpc_registrar_asistencia.sql` y
@@ -50,7 +53,7 @@ import {
   type PropuestaAsistencia,
   type SlotConAlumno,
 } from '../dominio/slots.ts';
-import { claveRegistroPorSlot, registrosDeHoyPorAlumnoSlot } from '../dominio/asistencia.ts';
+import { claveRegistroPorSlot, registrosDeHoyPorAlumnoSlot, puedeMarcarSalida } from '../dominio/asistencia.ts';
 import { compararAlumnosParaOrden } from '../dominio/alumno.ts';
 import { inicialesAlumno, colorMonograma } from '../dominio/avatarAlumno.ts';
 import { puedeUsarPasarLista } from '../dominio/permisosUi.ts';
@@ -85,6 +88,11 @@ export interface DependenciasPantallaPasarLista {
   /** Marca ausente a un alumno de un slot (R-01, requisito 1) — control secundario de la card,
    * distinguible del toque simple que registra presencia. */
   registrarAusencia(entrada: RegistrarAusenciaEntrada): Promise<Asistencia>;
+  /** Marca la salida de una card ya registrada (R-03, requisito 1: "un segundo toque sobre la card
+   * ya registrada") — con la hora real del servidor, nunca un valor que este módulo pudiera enviar
+   * (`datos/asistencia.ts#marcarSalidaAsistencia`, sobre `actualizar_asistencia`). Tercer control de
+   * la card, hermano de los otros dos, ofrecido solo mientras `puedeMarcarSalida`. */
+  marcarSalida(asistenciaId: string): Promise<Asistencia>;
   /** Firma en lote (§0.2) las URL de la derivada `mini` (96 px, requisito 2) de los alumnos con
    * avatar que todavía no se hayan pedido. */
   obtenerUrlsAvataresMini(alumnos: readonly AlumnoConRutaAvatar[]): Promise<ReadonlyMap<string, string>>;
@@ -123,6 +131,11 @@ interface EstadoTarjeta {
   readonly peticionIdAusente: string;
   readonly asistencia?: Asistencia;
   readonly mensajeError?: string;
+  /** Marcar salida (R-03) en curso — independiente de `fase` (que sigue en `'registrado'` mientras
+   * se marca): un tercer control que no tiene su propia fase terminal, solo un booleano de "en
+   * vuelo" y un mensaje de error propio. */
+  readonly salidaEnviando?: boolean;
+  readonly salidaError?: string;
 }
 
 /** Fase terminal que corresponde a `fila` una vez el servidor la confirma — la MISMA fila puede
@@ -134,10 +147,10 @@ function faseDeAsistencia(fila: Asistencia): 'registrado' | 'ausente' {
 
 interface FocoTarjeta {
   readonly clave: string;
-  /** `true` si el elemento con foco era el control secundario "Marcar ausente" (R-01), no la card
-   * principal — así el repintado restaura el foco en el control correcto, nunca siempre en el
+  /** Qué control de la card tenía el foco — la card principal, "Marcar ausente" (R-01) o "Marcar
+   * salida" (R-03) — así el repintado lo restaura en el control correcto, nunca siempre en el
    * principal por defecto. */
-  readonly ausente: boolean;
+  readonly control: 'principal' | 'ausente' | 'salida';
 }
 
 /** "Alumno extra" (T-20): sin slot, nunca pasa por la fase 'pendiente' — seleccionarlo en el
@@ -204,7 +217,10 @@ function textoEstadoTarjeta(tarjeta: ConEstadoDeTarjeta, zonaHoraria: string): s
       return 'Registrando…';
     case 'registrado': {
       const hora = tarjeta.asistencia ? instanteLocal(new Date(tarjeta.asistencia.registrado_en), zonaHoraria).horaMinuto : '';
-      return `Registrado a las ${hora}`;
+      const salida = tarjeta.asistencia?.ocurrido_en_salida
+        ? ` — Salida a las ${instanteLocal(new Date(tarjeta.asistencia.ocurrido_en_salida), zonaHoraria).horaMinuto}`
+        : '';
+      return `Registrado a las ${hora}${salida}`;
     }
     case 'ausente': {
       const hora = tarjeta.asistencia ? instanteLocal(new Date(tarjeta.asistencia.registrado_en), zonaHoraria).horaMinuto : '';
@@ -401,6 +417,35 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     });
 
     contenedorTarjeta.append(boton, botonAusente);
+
+    // Tercer control, hermano de los otros dos (R-03, requisito 1: "un segundo toque sobre la card
+    // ya registrada") — solo ofrecido mientras `puedeMarcarSalida`, nunca sobre una ausencia ni
+    // antes de que exista un registro de presencia real que cerrar.
+    if (tarjeta.fase === 'registrado' && tarjeta.asistencia && puedeMarcarSalida(tarjeta.asistencia)) {
+      const botonSalida = documento.createElement('button');
+      botonSalida.type = 'button';
+      botonSalida.dataset.salidaClave = clave;
+      botonSalida.style.minHeight = '44px';
+      botonSalida.style.padding = '4px 8px';
+      botonSalida.style.border = '2px dashed #1D4ED8';
+      botonSalida.style.borderRadius = '8px';
+      botonSalida.style.fontSize = '13px';
+      botonSalida.style.backgroundColor = '#FFFFFF';
+      botonSalida.textContent = tarjeta.salidaEnviando ? 'Marcando salida…' : 'Marcar salida';
+      botonSalida.setAttribute(
+        'aria-label',
+        `Marcar salida a ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`,
+      );
+      botonSalida.disabled = tarjeta.salidaEnviando === true;
+      botonSalida.addEventListener('click', () => {
+        void obtenerProtectorSalida(clave)();
+      });
+      contenedorTarjeta.append(botonSalida);
+      if (tarjeta.salidaError) {
+        contenedorTarjeta.append(crearElemento(documento, 'span', { texto: tarjeta.salidaError }));
+      }
+    }
+
     return contenedorTarjeta;
   }
 
@@ -470,10 +515,14 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const activo = documento.activeElement;
     const clave = activo?.getAttribute('data-clave');
     if (clave) {
-      return { clave, ausente: false };
+      return { clave, control: 'principal' };
     }
     const claveAusente = activo?.getAttribute('data-ausente-clave');
-    return claveAusente ? { clave: claveAusente, ausente: true } : null;
+    if (claveAusente) {
+      return { clave: claveAusente, control: 'ausente' };
+    }
+    const claveSalida = activo?.getAttribute('data-salida-clave');
+    return claveSalida ? { clave: claveSalida, control: 'salida' } : null;
   }
 
   function pintar(estado: EstadoPantalla): void {
@@ -495,7 +544,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const elemento = crearTarjetaElemento(clave, tarjeta, estado.avatares);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
-        const selector = foco?.ausente ? '[data-ausente-clave]' : '[data-clave]';
+        const selector = foco?.control === 'ausente' ? '[data-ausente-clave]' : foco?.control === 'salida' ? '[data-salida-clave]' : '[data-clave]';
         elemento.querySelector<HTMLElement>(selector)?.focus();
       }
     }
@@ -732,6 +781,71 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         mensajeError: mensajeAmigable(error),
       });
     }
+  }
+
+  /** Tercer control de R-03: marca la salida de una card ya registrada, con la hora real del
+   * servidor — sin `peticionId` propio (no es una creación: opera sobre la fila que ya existe,
+   * `tarjeta.asistencia.id`). Un error se reconcilia releyendo `cargarAsistenciaDeHoy`, igual que
+   * `reconciliarConflicto`, porque el mismo "ya tiene una hora de salida" que rechaza un segundo
+   * toque real es indistinguible de una respuesta perdida de un primer toque que sí llegó a
+   * escribirse — sin releer, el cliente no puede saber cuál de los dos pasó. Construye el estado
+   * siguiente campo a campo (nunca `{ ...tarjeta, salidaError: undefined }`: con
+   * `exactOptionalPropertyTypes` eso es un valor distinto de OMITIR la clave, que es como se limpia
+   * de verdad un error opcional) — mismo criterio que `manejarToque`/`manejarAusente`. */
+  async function manejarSalida(clave: string): Promise<void> {
+    const tarjeta = almacen.obtener().tarjetas.get(clave);
+    if (!tarjeta) {
+      return;
+    }
+    if (tarjeta.fase !== 'registrado' || !tarjeta.asistencia || !puedeMarcarSalida(tarjeta.asistencia) || tarjeta.salidaEnviando) {
+      return;
+    }
+    const { alumno, slot, fase, peticionId, peticionIdAusente } = tarjeta;
+    fijarTarjeta(clave, { alumno, slot, fase, peticionId, peticionIdAusente, asistencia: tarjeta.asistencia, salidaEnviando: true });
+    try {
+      const fila = await deps.marcarSalida(tarjeta.asistencia.id);
+      registrosHoyCache = new Map([...registrosHoyCache, [clave, fila]]);
+      fijarTarjeta(clave, { alumno, slot, fase, peticionId, peticionIdAusente, asistencia: fila, salidaEnviando: false });
+    } catch (error) {
+      try {
+        const registros = await deps.cargarAsistenciaDeHoy(almacen.obtener().instante);
+        registrosHoyCache = registrosDeHoyPorAlumnoSlot(registros);
+        const real = registrosHoyCache.get(clave);
+        fijarTarjeta(clave, {
+          alumno,
+          slot,
+          fase,
+          peticionId,
+          peticionIdAusente,
+          asistencia: real ?? tarjeta.asistencia,
+          salidaEnviando: false,
+          ...(real?.ocurrido_en_salida ? {} : { salidaError: mensajeAmigable(error) }),
+        });
+      } catch {
+        fijarTarjeta(clave, {
+          alumno,
+          slot,
+          fase,
+          peticionId,
+          peticionIdAusente,
+          asistencia: tarjeta.asistencia,
+          salidaEnviando: false,
+          salidaError: mensajeAmigable(error),
+        });
+      }
+    }
+  }
+
+  /** Protector de doble toque INDEPENDIENTE (mismo criterio que `obtenerProtectorAusencia`): un
+   * doble toque en "Marcar salida" no comparte el `enCurso` de ningún otro control de la card. */
+  function obtenerProtectorSalida(clave: string): () => Promise<void> {
+    const claveProtector = `${clave}:salida`;
+    let protector = protectoresTarjeta.get(claveProtector);
+    if (!protector) {
+      protector = crearProtectorDobleToque(() => manejarSalida(clave));
+      protectoresTarjeta.set(claveProtector, protector);
+    }
+    return protector;
   }
 
   function obtenerProtector(clave: string): () => Promise<void> {
