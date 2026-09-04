@@ -8,31 +8,29 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-03 — décimo ciclo del PM. `FEEDBACK.md` sigue sin entradas `nuevo`
-reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sigue sin ningún hallazgo
-`ABIERTO` (los siete, `#1` a `#7`, `RESUELTO`): nada que convertir en R-XX ni en backlog técnico.
+**Última actualización:** 2026-09-04 — undécimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sigue sin ningún
+hallazgo `ABIERTO` (los siete, `#1` a `#7`, `RESUELTO`): nada que convertir en R-XX ni en backlog
+técnico.
 
-**Desarrollo real desde la última revisión: solo T-24 (código y tests completos, `BLOQUEADA` —
-pendiente aplicar la migración `009`) y tres sesiones de verificación sin cambio de estado.** Ninguna
-R-XX ha entrado en desarrollo: v1 sigue sin arrancar, a la espera de que el MVP completo (T-00 a
-T-25) esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. Nada que mover a `ROADMAP_HISTORICO.md` esta vez.
+**Desarrollo real desde la última revisión: R-01, R-02 y R-03 arrancadas** (código y tests
+completos, las tres `BLOQUEADA` esperando exclusivamente que el dueño aplique sus migraciones
+`010`/`011`/`012`, en ese orden — tres sesiones de programador, no de este PM). Ninguna R-XX ha
+llegado a `DESPLEGADA EN PRODUCCIÓN` todavía: la oleada v1 sigue sin poder darse por arrancada de
+verdad hasta que el MVP completo (T-00 a T-25) esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. Nada
+que mover a `ROADMAP_HISTORICO.md` esta vez.
 
-**Único contenido real de este ciclo: una R-XX existente se amplía para cerrar un hueco real de
-producto, detectado al releer F-03 con ojos frescos en vez de solo repasar el estado.** R-06
-("Sustitución puntual de profesor en un slot") solo cubría la mitad del problema que su propia fase
-plantea — "un profesor falta un día" — para el caso en que **hay** quien lo cubra. Falta el caso
-igual de real en que **no** lo hay: la clase simplemente no se da ese día. Sin esto, la única forma
-de reflejarlo hoy sería no pasar lista (indistinguible de "el profesor aún no ha llegado", R-01) o
-marcar a cada alumno como ausente (que penaliza al alumno en R-04 por una clase que no dependía de
-él) — ninguna de las dos es honesta, y las dos rompen la fiabilidad del registro que es la misión
-del producto. **R-06 se amplía a "Excepción puntual de un slot: sustitución o cancelación"**,
-mismo número, misma fase, migración renombrada de `013_sustitucion_profesor` a `013_excepcion_slot`
-(no se ha implementado nada todavía: no hay tabla que migrar ni desviación que registrar en §7,
-igual que las renumeraciones prospectivas de ciclos anteriores). La cancelación reutiliza el mismo
-patrón de exclusión de "sesiones esperadas" que R-12 (`esDiaCerrado`) pero a nivel de slot en vez de
-centro entero, así que R-04 gana esa misma dependencia. Detalle completo en la spec de R-06 más
-abajo. **Revisadas las once R-XX restantes contra el estado actual: sin más cambios** — el resto del
-backlog sigue cubriendo el hueco real entre el MVP y el objetivo de producto.
+**Único contenido real de este ciclo: una R-XX nueva, R-13** ("Aviso de sesiones sin pasar lista en
+«Mi horario»"), detectada con la misma pregunta que ya amplió R-06 en el ciclo anterior: ¿qué pasa
+cuando falla el caso normal, no el excepcional? R-01/R-02/R-03/R-12 cierran el registro cuando el
+profesor actúa; ninguna resuelve qué pasa cuando, sencillamente, se le olvida pasar lista un día —
+un fallo humano tan real como cualquiera de los que ya cubre F-01, y que hoy solo detectaría el
+administrador, y solo si existiera ya R-11 (que ni siquiera es su pantalla, y está en la oleada
+v2). Se añade a F-01, dependiente de R-06 y R-12 para no marcar como "olvido" un día en el que,
+sencillamente, no había clase — mismo patrón de dependencia cruzada de fase que ya tiene R-04.
+Detalle completo en la spec de R-13 más abajo. **Revisadas las doce R-XX restantes contra el estado
+actual: sin más cambios** — el resto del backlog sigue cubriendo el hueco real entre el MVP y el
+objetivo de producto.
 
 ---
 
@@ -84,7 +82,9 @@ ni toca al rol `student`.
 - **F-01 — Asistencia completa.** Hoy `asistencia` solo registra entradas: una ausencia y un hueco
   sin datos se confunden, y no hay hora de salida ni duración real. R-01, R-02, R-03. Se añade R-12
   (calendario de cierres del centro): sin él, ninguna cuenta de "sesiones esperadas" aguas abajo
-  (empezando por R-04) puede ser correcta en una semana de vacaciones.
+  (empezando por R-04) puede ser correcta en una semana de vacaciones. Se añade también R-13
+  (aviso al profesor, en su propio horario, de una sesión que se le quedó sin pasar lista): sin
+  él, un olvido puntual solo lo detecta el administrador, y solo si existe R-11 (oleada v2).
 - **F-02 — Informes y aviso a familias.** Con ausencias y horas ya registrables, cerrar el círculo
   hacia fuera: el informe que se enseña a una familia y el aviso cuando algo requiere que se
   enteren. R-04, R-05.
@@ -285,6 +285,48 @@ antemano.
 cierre solapado con uno existente se rechaza; desactivar un cierre no afecta a un informe ya
 generado (documento estático) pero sí a uno generado después; una asistencia registrada un día
 luego declarado cerrado por error sigue íntegra en el histórico.
+
+---
+
+### R-13 — Aviso de sesiones sin pasar lista en «Mi horario»
+**Oleada / Fase:** v1 / F-01 · **Migración:** No · **Depende de:** T-19, T-22, R-06, R-12
+**Origen:** roadmap
+
+**Objetivo:** cerrar el ciclo diario también para quien lo vive cada día. Hoy, si un profesor
+olvida pasar lista de un slot —el aula sin cobertura, una salida con prisa, un imprevisto—, nada
+en su propia aplicación se lo recuerda: el hueco solo se detecta si alguien lo busca a mano en
+«Registros», o cuando exista R-11 (panel del administrador, oleada v2), que además no es su
+pantalla. Sin este aviso, el propio producto reproduce en silencio el fallo que dice resolver: un
+tramo sin dato que nadie nota hasta que hace falta.
+
+**Requisitos:**
+1. En «Mi horario» (T-22), cada slot propio de los últimos 7 días (misma ventana que
+   `VENTANA_EDICION_TEACHER_DIAS`, T-21) cuya hora de fin ya pasó y que no tiene ningún registro de
+   asistencia —ni entrada ni ausencia— para ninguno de sus alumnos, se marca visualmente como «sin
+   pasar lista». Es una señal, no un bloqueo ni un formulario emergente: el profesor sigue viendo
+   el resto de la pantalla con normalidad.
+2. Un toque sobre el aviso enlaza directamente a «Registros» de ese slot y esa fecha (mismo enlace
+   profundo que T-22 ya construyó para el propio día), para completar el registro retroactivo sin
+   tener que localizarlo a mano.
+3. Un slot excluido de "sesiones esperadas" por un cierre del centro vigente ese día (R-12,
+   `esDiaCerrado`) o por una cancelación de ese slot ese día (R-06) nunca se marca: no hubo clase,
+   no hay nada que registrar.
+4. Un slot cuya fecha queda fuera de la ventana de edición del profesor no se marca: pasada esa
+   ventana ya no puede corregirlo él mismo desde esta pantalla, y señalarlo sería ruido sin ninguna
+   acción posible.
+5. Ningún dato ni tabla nueva: se calcula en el cliente a partir de los slots vigentes (T-15) y de
+   la asistencia ya consultada de esos días (T-23), igual que el resto de «Mi horario». Ninguna
+   notificación push ni envío fuera de la aplicación —fuera de alcance, cero infraestructura
+   nueva—: es una señal dentro de la propia pantalla que el profesor ya abre a diario.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un slot propio de hace 2 días sin ningún registro se marca «sin pasar
+lista» y un toque lleva a «Registros» de ese slot y esa fecha; el mismo slot, si ese día estaba
+cancelado (R-06) o caía en un cierre del centro (R-12), no se marca; un slot de hace 10 días (fuera
+de la ventana de 7) tampoco se marca; un slot con al menos un registro —entrada o ausencia, de
+cualquier alumno— no se marca, aunque falten otros alumnos suyos por pasar lista individualmente
+(eso ya lo resuelve T-19).
 
 ---
 

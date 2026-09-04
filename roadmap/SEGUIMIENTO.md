@@ -10,8 +10,36 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-04 (rutina programada, cuarta del día) — **R-03 arrancada, tercera
-tarea de la oleada v1.** R-01 y R-02 siguen `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas
+**Última actualización:** 2026-09-04 (rutina programada, undécimo ciclo del PM) — **R-13 añadida al
+roadmap: aviso al profesor, en «Mi horario», de una sesión que se le quedó sin pasar lista.**
+Ciclo de producto puro, sin tocar código: `git checkout develop && git pull` trajo la sesión de
+programador de "R-03 arrancada" (commit ya en `origin/develop` al empezar), y desde ahí se revisó
+el estado completo. `auditoriacontinua.md` revisado entero: sus siete hallazgos (`#1` a `#7`)
+siguen `RESUELTO`, cero `ABIERTO` — nada que convertir en R-XX ni en backlog técnico. `FEEDBACK.md`
+revisado: sigue sin entradas `nuevo` reales (fila plantilla vacía) — nada que convertir. Backlog de
+§5 revisado completo: las dieciséis `P-XX` (`P-01` a `P-16`) siguen `RESUELTA`, ninguna pendiente.
+R-01, R-02 y R-03 siguen `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas 13, 14 y 15 de
+§3, sin cambio: aplicar `010`, `011` y `012`, en ese orden) — el MVP (T-00 a T-25) tampoco ha
+cambiado de estado, así que la oleada v1 sigue sin poder darse por arrancada de verdad, y nada se
+mueve a `ROADMAP_HISTORICO.md` esta vez. **Único contenido real del ciclo: R-13, nueva, en
+`ROADMAP_PRODUCTO.md`.** Detectada releyendo F-01 con la misma pregunta que ya amplió R-06 el ciclo
+anterior: R-01/R-02/R-03/R-12 resuelven cómo se registra una excepción cuando el profesor actúa,
+pero ninguna resuelve qué pasa cuando, sencillamente, se le olvida pasar lista un día — hoy eso
+solo lo detectaría el administrador, y solo si existiera ya R-11 (que ni siquiera es su pantalla,
+y está en la oleada v2 sin arrancar). R-13 añade, en «Mi horario» (T-22), un aviso visual —sin
+notificación push ni tabla nueva— sobre un slot propio de los últimos 7 días (misma ventana que
+T-21) ya terminado y sin ningún registro, excluyendo los días cerrados (R-12) o cancelados (R-06)
+para no marcar como "olvido" un día en que, sencillamente, no había clase; un toque enlaza a
+«Registros» de ese slot y fecha. Depende de T-19, T-22, R-06 y R-12 (misma dependencia cruzada de
+fase que ya tiene R-04). Fila nueva en §1; sin fila nueva en §3 (no exige migración) ni en §7 (no
+es una desviación de una tarea ya ejecutada). Revisadas las doce R-XX restantes contra el estado
+actual: sin más cambios. Repetida la verificación pre-push completa sin ningún commit de
+programador entre medias (esta sesión no toca `src/`, `db/` ni `herramientas/`): `npm ci` (130
+paquetes, 0 vulnerabilidades), `npm run typecheck`, `npm run lint`, `npm test` (1056/1056, misma
+cifra que la sesión de "R-03 arrancada") y `npm run build` en verde. `git status` limpio antes y
+después de los cambios de documentación.
+
+**Sesión anterior (2026-09-04, "R-03 arrancada, tercera tarea de la oleada v1"):** R-01 y R-02 siguen `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas
 13 y 14 de §3, sin cambio: aplicar las migraciones `010` y `011`), así que esta sesión tomó la
 siguiente tarea PENDIENTE de §1: R-03, "Registro de salida y cómputo de horas reales" (spec en
 `roadmap/ROADMAP_PRODUCTO.md`), que depende de T-18/T-21 (ambas `COMPLETADA`) — no depende de R-01 ni
@@ -1243,6 +1271,7 @@ pantallas del requisito 2.
 | R-02 | Justificación de una ausencia | BLOQUEADA — pendiente aplicar migración `011` (fila 14 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `011_justificacion_ausencia.sql` (renumerada por el PM el 2026-09-02: `007` lo ocupó ya T-20) escrita y empujada, todavía sin aplicar |
 | R-03 | Registro de salida y cómputo de horas reales | BLOQUEADA — pendiente aplicar migración `012` (fila 15 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `012_registro_salida.sql` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) escrita y empujada, todavía sin aplicar |
 | R-12 | Calendario de cierres del centro (festivos y vacaciones) | PENDIENTE | — | Oleada v1 / F-01 · Migración `014_calendario_cierres` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) · añadida por el PM el 2026-08-28, dependencia nueva de R-04 |
+| R-13 | Aviso de sesiones sin pasar lista en «Mi horario» | PENDIENTE | — | Oleada v1 / F-01 · Sin migración (solo cliente) · añadida por el PM el 2026-09-04, undécimo ciclo — depende de T-19, T-22, R-06 y R-12 |
 | R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
 | R-05 | Aviso de ausencia injustificada listo para enviar | PENDIENTE | — | Oleada v1 / F-02 · sin envío automático |
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | PENDIENTE | — | Oleada v1 / F-03 · Migración `013_excepcion_slot` · ampliada por el PM el 2026-09-03 (antes solo "sustitución"; añade el caso de cancelación sin sustituto, misma migración) |

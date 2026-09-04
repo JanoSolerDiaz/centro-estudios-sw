@@ -37,6 +37,49 @@
 
 ---
 
+### Sesión 2026-09-04 (rutina de producto) — undécimo ciclo del PM: R-13 añadida
+
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **undécimo ciclo del PM: una R-XX nueva
+añadida (R-13), ninguna R-XX existente modificada, ninguna entrada de backlog nueva, sin cambios de
+estado de T-XX/R-XX salvo la fila nueva de R-13 (`PENDIENTE`).**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: undécimo ciclo del PM — añade R-13,
+"Aviso de sesiones sin pasar lista en «Mi horario»")
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010`/`011`/`012` siguen pendientes
+de que el dueño las aplique, filas 13/14/15 de §3, sin cambio esta sesión)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada; R-13 nueva
+insertada entre R-12 y R-04; bullet de F-01 ampliado), `roadmap/SEGUIMIENTO.md` (cabecera; fila R-13
+nueva en §1, `PENDIENTE`), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades) · tipos ✅ · lint ✅ · tests
+✅ (1056/1056, misma cifra que la sesión de "R-03 arrancada": esta sesión no toca `src/`, `db/` ni
+`herramientas/`) · build ✅
+**Health check post-deploy:** N/A — sin cambios de código desplegado
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — R-13 es una R-XX nueva sin
+implementar todavía (no hay tabla ni código que migrar), no una decisión de arquitectura ni una
+desviación de una tarea ya ejecutada
+**Hallazgos del auditor atendidos:** ninguno — `auditoriacontinua.md` sigue con sus siete hallazgos
+`RESUELTO`, cero `ABIERTO`; nada que convertir
+**Hallazgos:** F-01 ("Asistencia completa") ya cubre cómo se registra una excepción cuando el
+profesor actúa (R-01 ausencia, R-02 justificación, R-03 salida, R-12 cierre del centro), pero
+ninguna R-XX resolvía qué pasa cuando, sencillamente, se le olvida pasar lista un día — hoy eso solo
+lo detectaría el administrador, y solo si existiera ya R-11 (panel de centro, oleada v2, ni siquiera
+su pantalla). Se añade R-13 a F-01 en vez de ampliar una R-XX existente, porque es una necesidad de
+producto distinta (una señal proactiva al profesor, no un nuevo estado de asistencia) que solo
+puede calcularse correctamente si ya existen R-06 y R-12 (para no marcar como "olvido" un día sin
+clase) — misma dependencia cruzada de fase que ya tiene R-04. `FEEDBACK.md` revisado (sin entradas
+`nuevo` reales, fila plantilla vacía). Backlog de §5 revisado completo: las dieciséis `P-XX`
+siguen `RESUELTA`, ninguna pendiente. Revisadas las doce R-XX restantes contra el estado actual: sin
+más cambios
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** R-13 queda especificada y en cola de la oleada v1, detrás de R-01/R-02/R-03/R-12
+en el orden de §1 — no bloquea nada y puede escribirse contra dobles cuando le toque turno, igual
+que el resto de la oleada. Sigue pendiente, del lado del dueño, aplicar `010`/`011`/`012` (filas
+13/14/15 de §3) para que R-01/R-02/R-03 dejen de estar `BLOQUEADA`, y ejecutar el paso a producción
+de T-25 (fila 12) para que la oleada v1 pueda darse por arrancada de verdad
+
+---
+
 ### Sesión 2026-09-04 (rutina programada, cuarta del día) — R-03 arrancada: código y tests completos, `BLOQUEADA` por la migración `012`
 **Tarea(s):** R-03 (Registro de salida y cómputo de horas reales, oleada v1 / F-01)
 **Estado resultante:** BLOQUEADA — pendiente aplicar la migración `012_registro_salida.sql` (fila 15 de §3, nueva)
