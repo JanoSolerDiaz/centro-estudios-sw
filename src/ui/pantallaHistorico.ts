@@ -7,9 +7,10 @@
  * visible, reutilizando exactamente los mismos filtros.
  *
  * Primera pantalla del proyecto que usa un `<table>` real en vez del patrón de `div`/`span` de
- * `pantallaListadoAlumnos.ts`: es la primera vez que hace falta mostrar una tabla de verdad (ocho
- * columnas por fila), y un lector de pantalla se beneficia de `<th scope="col">` frente a una lista
- * de bloques sin relación tabular declarada (decisión documentada en `DECISIONES_TECNICAS.md`).
+ * `pantallaListadoAlumnos.ts`: es la primera vez que hace falta mostrar una tabla de verdad (nueve
+ * columnas por fila, la novena — "Justificación" — añadida por R-02), y un lector de pantalla se
+ * beneficia de `<th scope="col">` frente a una lista de bloques sin relación tabular declarada
+ * (decisión documentada en `DECISIONES_TECNICAS.md`).
  *
  * Los nombres de alumno y profesor se resuelven en LOTE (nunca una petición por fila, §0.2) sobre
  * los ids que aparecen en la página actual — o, para la exportación, sobre los ids de TODO el
@@ -31,6 +32,7 @@ import {
   tieneModificaciones,
   etiquetaOrigenAsistencia,
   etiquetaEstadoAsistencia,
+  etiquetaMotivoJustificacion,
   generarCsvHistorico,
   type FilaHistoricoResueltaConContacto,
 } from '../dominio/historicoAsistencia.ts';
@@ -382,6 +384,7 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
       etiquetaOrigenAsistencia(fila.origen),
       fila.es_retroactivo ? 'Sí' : 'No',
       etiquetaEstadoAsistencia(fila.estado),
+      fila.motivo_justificacion ? etiquetaMotivoJustificacion(fila.motivo_justificacion) : fila.estado === 'ausente' ? 'Sin justificar' : '',
       tieneModificaciones(fila) ? 'Sí' : 'No',
     ];
     for (const texto of celdas) {
@@ -438,7 +441,17 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     const tabla = documento.createElement('table');
     const cabecera = documento.createElement('thead');
     const filaCabecera = documento.createElement('tr');
-    for (const texto of ['Alumno', 'Profesor', 'Hora atribuida', 'Hora de creación', 'Origen', 'Retroactivo', 'Estado', 'Modificado']) {
+    for (const texto of [
+      'Alumno',
+      'Profesor',
+      'Hora atribuida',
+      'Hora de creación',
+      'Origen',
+      'Retroactivo',
+      'Estado',
+      'Justificación',
+      'Modificado',
+    ]) {
       filaCabecera.append(crearElemento(documento, 'th', { texto, atributos: { scope: 'col' } }));
     }
     cabecera.append(filaCabecera);

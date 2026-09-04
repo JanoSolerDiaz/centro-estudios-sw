@@ -64,6 +64,8 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     slot_asignatura_o_grupo: 'Matemáticas',
     estado: 'valida',
     motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
     nota: null,
     actualizado_en: null,
     actualizado_por: null,
@@ -413,6 +415,74 @@ void test('anular exige confirmación explícita con el motivo a la vista antes 
   assert.equal(llamadas, 1);
 });
 
+// --- Justificar una ausencia (R-02) ---------------------------------------------------------
+
+void test('justificar no se ofrece sobre un registro que no está ausente', async () => {
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida' })]),
+  });
+
+  assert.equal(contenedor.textContent.includes('Guardar justificación'), false);
+});
+
+void test('justificar: el botón está deshabilitado hasta elegir un motivo de la lista cerrada', async () => {
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente' })]),
+  });
+
+  const botonJustificar = botonPorTexto(contenedor, 'Guardar justificación');
+  assert.equal(botonJustificar.disabled, true);
+
+  const selectMotivo = contenedor.querySelector<HTMLSelectElement>('#motivo-justificacion-asistencia-1');
+  assert.ok(selectMotivo);
+  selectMotivo.value = 'cita_medica';
+  dispararEvento(selectMotivo, 'change');
+
+  assert.equal(botonPorTexto(contenedor, 'Guardar justificación').disabled, false);
+});
+
+void test('justificar: llama a actualizar con justificar, motivoJustificacion y notaJustificacion', async () => {
+  let entradaRecibida: unknown;
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente' })]),
+    actualizar: (_id, entrada) => {
+      entradaRecibida = entrada;
+      return Promise.resolve(
+        crearAsistencia({ estado: 'ausente', motivo_justificacion: 'cita_medica', nota_justificacion: 'Justificante en papel' }),
+      );
+    },
+  });
+
+  const selectMotivo = contenedor.querySelector<HTMLSelectElement>('#motivo-justificacion-asistencia-1');
+  assert.ok(selectMotivo);
+  selectMotivo.value = 'cita_medica';
+  dispararEvento(selectMotivo, 'change');
+
+  const campoNotaJustificacion = contenedor.querySelector<HTMLInputElement>('#nota-justificacion-asistencia-1');
+  assert.ok(campoNotaJustificacion);
+  campoNotaJustificacion.value = 'Justificante en papel';
+  dispararEvento(campoNotaJustificacion, 'input');
+
+  botonPorTexto(contenedor, 'Guardar justificación').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(entradaRecibida, {
+    asistenciaId: 'asistencia-1',
+    justificar: true,
+    motivoJustificacion: 'cita_medica',
+    notaJustificacion: 'Justificante en papel',
+  });
+  assert.match(contenedor.textContent, /Justificación: Cita médica\. Justificante en papel/);
+});
+
+void test('una ausencia ya justificada se muestra como "(ausente, justificada)" en el listado', async () => {
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: 'enfermedad' })]),
+  });
+
+  assert.match(contenedor.textContent, /\(ausente, justificada\)/);
+});
+
 void test('cambiar el alumno: buscar, elegir un resultado, confirmar con el dato viejo y el nuevo a la vista', async () => {
   let entradaRecibida: unknown;
   const contenedor = await montarConUnRegistro({
@@ -512,6 +582,8 @@ void test('administrator puede desplegar el historial completo de una fila', asy
     slot_asignatura_o_grupo: 'Matemáticas',
     estado: 'valida',
     motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
     nota: null,
     actualizado_en: null,
     actualizado_por: null,

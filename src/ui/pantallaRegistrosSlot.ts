@@ -12,11 +12,14 @@
  * `deps.slotInicialId` es lo que "mi horario" (T-22) usa para enlazar directo a los registros de UN
  * slot concreto sin pasar por el selector.
  *
- * Cinco acciones de edición (requisito 4), cada una su propio mini-formulario dentro del panel de
- * edición de la fila — nunca un formulario único de "corrección": cambiar el alumno (búsqueda,
- * reutiliza `buscar_alumnos_activos` de T-20), ajustar la hora, cambiar el slot atribuido (solo
- * ofrecida si `puedeCambiarSlotAtribuido`, T-21), anular (motivo obligatorio) y editar la nota.
- * "Añadir un registro olvidado" (sexto punto del requisito) es una acción de pantalla, no de fila:
+ * Seis acciones de edición (requisito 4 de T-21, más "justificar" de R-02), cada una su propio
+ * mini-formulario dentro del panel de edición de la fila — nunca un formulario único de
+ * "corrección": cambiar el alumno (búsqueda, reutiliza `buscar_alumnos_activos` de T-20), ajustar la
+ * hora, cambiar el slot atribuido (solo ofrecida si `puedeCambiarSlotAtribuido`, T-21), anular
+ * (motivo obligatorio), editar la nota y justificar una ausencia (solo ofrecida si
+ * `puedeJustificarAusencia`, R-02: motivo de una lista corta cerrada + nota opcional, sin
+ * confirmación explícita). "Añadir un registro olvidado" (sexto punto del requisito de T-21) es una
+ * acción de pantalla, no de fila:
  * llama a `registrar_asistencia` (T-18) con `ocurrido_en` declarado, para el alumno del slot
  * elegido. Anular y cambiar el alumno exigen confirmación explícita con el dato viejo y el nuevo a
  * la vista (requisito 8) — mismo patrón de "confirmando .../botón Confirmar/botón Cancelar" que
@@ -36,14 +39,21 @@
  */
 
 import type { Rol } from '../dominio/tipos.ts';
-import type { Asistencia, AsistenciaHistorial } from '../dominio/tipos.ts';
+import type { Asistencia, AsistenciaHistorial, MotivoJustificacionAusencia } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import type { SlotConAlumno, AlumnoParaPropuesta } from '../dominio/slots.ts';
 import { fechaLocalISO, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
 import { slotVigenteEn } from '../dominio/slotHorario.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
-import { motivoAnulacionValido, puedeCambiarSlotAtribuido } from '../dominio/asistencia.ts';
+import {
+  motivoAnulacionValido,
+  motivoJustificacionValido,
+  MOTIVOS_JUSTIFICACION_AUSENCIA,
+  puedeCambiarSlotAtribuido,
+  puedeJustificarAusencia,
+} from '../dominio/asistencia.ts';
+import { etiquetaMotivoJustificacion } from '../dominio/historicoAsistencia.ts';
 import { puedeEditarAsistenciaDeCualquiera } from '../dominio/permisosUi.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ActualizarAsistenciaEntrada, RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
@@ -96,6 +106,11 @@ interface EstadoFila {
   readonly slotDestinoId: string;
   readonly motivoAnulacion: string;
   readonly confirmandoAnular: boolean;
+  /** Justificar una ausencia (R-02) — sin confirmación explícita (a diferencia de anular): la spec
+   * no la exige, y "editar la nota" (mismo tipo de acción, un único campo que se guarda con un
+   * botón) tampoco la lleva. */
+  readonly motivoJustificacion: MotivoJustificacionAusencia | '';
+  readonly notaJustificacion: string;
   readonly historial: readonly AsistenciaHistorial[] | null;
 }
 
@@ -111,6 +126,8 @@ const ESTADO_FILA_INICIAL: EstadoFila = {
   slotDestinoId: '',
   motivoAnulacion: '',
   confirmandoAnular: false,
+  motivoJustificacion: '',
+  notaJustificacion: '',
   historial: null,
 };
 
@@ -360,6 +377,8 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
           resultadosBusquedaAlumno: [],
           confirmandoAnular: false,
           motivoAnulacion: '',
+          motivoJustificacion: '',
+          notaJustificacion: '',
         });
       } catch (error) {
         actualizarFila(registro.id, { guardando: false, error: mensajeAmigable(error) });
@@ -509,6 +528,56 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
       panel.append(bloqueAnular);
     }
 
+    // Justificar (R-02): solo tiene sentido sobre una ausencia. Sin confirmación explícita — un
+    // único campo obligatorio (motivo) más uno opcional (nota), como el bloque de "Editar la nota".
+    if (puedeJustificarAusencia(registro)) {
+      const bloqueJustificar = crearElemento(documento, 'div');
+      const motivoActual = filaEstado.motivoJustificacion || (registro.motivo_justificacion ?? '');
+      const etiquetaMotivo = crearElemento(documento, 'label', {
+        texto: 'Motivo de la justificación',
+        atributos: { for: `motivo-justificacion-${registro.id}` },
+      });
+      const selectMotivo = documento.createElement('select');
+      selectMotivo.id = `motivo-justificacion-${registro.id}`;
+      selectMotivo.append(crearElemento(documento, 'option', { texto: 'Sin justificar', atributos: { value: '' } }));
+      for (const motivo of MOTIVOS_JUSTIFICACION_AUSENCIA) {
+        selectMotivo.append(
+          crearElemento(documento, 'option', { texto: etiquetaMotivoJustificacion(motivo), atributos: { value: motivo } }),
+        );
+      }
+      selectMotivo.value = motivoActual;
+      selectMotivo.addEventListener('change', () => {
+        actualizarFila(registro.id, { motivoJustificacion: selectMotivo.value as MotivoJustificacionAusencia | '' });
+      });
+      const campoNotaJustificacion = crearCampoTexto(
+        documento,
+        `nota-justificacion-${registro.id}`,
+        'Nota de la justificación (opcional)',
+        'text',
+        'off',
+      );
+      campoNotaJustificacion.input.required = false;
+      campoNotaJustificacion.input.value = filaEstado.notaJustificacion || (registro.nota_justificacion ?? '');
+      campoNotaJustificacion.input.addEventListener('input', () => {
+        actualizarFila(registro.id, { notaJustificacion: campoNotaJustificacion.input.value });
+      });
+      const botonJustificar = crearBoton(documento, 'Guardar justificación', 'button');
+      botonJustificar.disabled = filaEstado.guardando || !motivoJustificacionValido(selectMotivo.value || null);
+      botonJustificar.addEventListener('click', () => {
+        const motivo = selectMotivo.value;
+        if (motivoJustificacionValido(motivo || null)) {
+          void ejecutar({
+            asistenciaId: registro.id,
+            justificar: true,
+            motivoJustificacion: motivo as MotivoJustificacionAusencia,
+            notaJustificacion: campoNotaJustificacion.input.value || null,
+          });
+        }
+      });
+      bloqueJustificar.append(etiquetaMotivo, selectMotivo, campoNotaJustificacion.contenedor, botonJustificar);
+      panel.append(bloqueJustificar);
+    }
+
     // Historial completo (requisito 7): solo administrator.
     if (puedeElegirProfesor) {
       const bloqueHistorial = crearElemento(documento, 'div');
@@ -551,7 +620,14 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
       li.dataset.registroId = registro.id;
 
       const nombreAlumno = estado.nombresAlumno.get(registro.alumno_id) ?? 'Alumno';
-      const sufijoEstado = registro.estado === 'anulada' ? ' (anulada)' : registro.estado === 'ausente' ? ' (ausente)' : '';
+      const sufijoEstado =
+        registro.estado === 'anulada'
+          ? ' (anulada)'
+          : registro.estado === 'ausente'
+            ? registro.motivo_justificacion
+              ? ' (ausente, justificada)'
+              : ' (ausente)'
+            : '';
       const lineaTexto = [
         `${nombreAlumno}${sufijoEstado}`,
         formatearFechaHora(registro.ocurrido_en),
@@ -570,7 +646,13 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
       const detalle = crearElemento(documento, 'p', {
         texto: `Registrado el ${formatearFechaHora(registro.registrado_en)}.${
           registro.actualizado_en ? ` Modificado el ${formatearFechaHora(registro.actualizado_en)}.` : ''
-        }${registro.motivo_anulacion ? ` Motivo de anulación: ${registro.motivo_anulacion}.` : ''}`,
+        }${registro.motivo_anulacion ? ` Motivo de anulación: ${registro.motivo_anulacion}.` : ''}${
+          registro.motivo_justificacion
+            ? ` Justificación: ${etiquetaMotivoJustificacion(registro.motivo_justificacion)}.${
+                registro.nota_justificacion ? ` ${registro.nota_justificacion}` : ''
+              }`
+            : ''
+        }`,
       });
       li.append(detalle);
 

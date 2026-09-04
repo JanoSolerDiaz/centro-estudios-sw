@@ -17,7 +17,7 @@
  */
 
 import type { Reloj } from '../nucleo/reloj.ts';
-import type { Asistencia, OrigenAsistencia, Rol } from './tipos.ts';
+import type { Asistencia, MotivoJustificacionAusencia, OrigenAsistencia, Rol } from './tipos.ts';
 
 /** Margen entre `ocurrido_en` y `registrado_en` por debajo del cual un registro se considera "en
  * vivo" y no retroactivo. Debe coincidir EXACTAMENTE con el `CHECK asistencia_retroactivo_coherente`
@@ -125,6 +125,34 @@ export function puedeEditarAsistencia(
  * tenga que rechazarlo. */
 export function motivoAnulacionValido(motivo: string | null): boolean {
   return motivo !== null && motivo.trim().length > 0;
+}
+
+/** Lista corta cerrada de motivos de justificación de una ausencia (R-02, requisito 1) — debe
+ * coincidir EXACTAMENTE con el `CHECK asistencia_motivo_justificacion_valido` de
+ * `db/011_justificacion_ausencia.sql`. Exportada para que la interfaz construya el `<select>` de
+ * motivos sin duplicar la lista. */
+export const MOTIVOS_JUSTIFICACION_AUSENCIA: readonly MotivoJustificacionAusencia[] = [
+  'enfermedad',
+  'cita_medica',
+  'motivo_familiar',
+  'otro',
+];
+
+/** ¿Es válido `motivo` para justificar una ausencia (requisito 1 de R-02: "motivo de una lista corta
+ * cerrada")? A diferencia de `motivoAnulacionValido` (texto libre no vacío), aquí el valor tiene que
+ * ser exactamente uno de `MOTIVOS_JUSTIFICACION_AUSENCIA` — misma condición exacta que la RPC
+ * `actualizar_asistencia` (`db/011_justificacion_ausencia.sql`). */
+export function motivoJustificacionValido(motivo: string | null): motivo is MotivoJustificacionAusencia {
+  return motivo !== null && (MOTIVOS_JUSTIFICACION_AUSENCIA as readonly string[]).includes(motivo);
+}
+
+/** ¿Tiene sentido ofrecer "justificar" (requisitos 1 y 3 de R-02) sobre `registro`? Solo una ausencia
+ * ya registrada se puede justificar — "la justificación no cambia el hecho registrado... no existe
+ * des-ausentar". La RPC aplica la misma condición exacta (`v_actual.estado <> 'ausente'`) y la
+ * rechaza si se intenta de todos modos; esta función es solo para que la interfaz no ofrezca la
+ * acción donde no puede funcionar nunca. */
+export function puedeJustificarAusencia(registro: Pick<Asistencia, 'estado'>): boolean {
+  return registro.estado === 'ausente';
 }
 
 /** ¿Tiene sentido ofrecer "cambiar el slot atribuido" (requisito 4 de T-21) sobre `registro`? Solo

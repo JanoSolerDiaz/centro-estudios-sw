@@ -1914,6 +1914,137 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8h. Justificar una ausencia (R-02, db/011_justificacion_ausencia.sql)
+--     — actualizar_asistencia gana la acción "justificar". Crea su
+--     PROPIA ausencia con registrar_ausencia (R-01) sobre un slot
+--     propio (mismo criterio que la sección 8g: nunca reutiliza
+--     slot_prueba de la sección 4, que a esta altura del fichero puede
+--     estar libre u ocupado). El registro "fuera de ventana" se fabrica
+--     con un INSERT directo del rol de conexión (nunca `authenticated`,
+--     mismo aviso que la cabecera de la sección 8c): es la única forma
+--     de producir un registrado_en de hace 10 días dentro de la vida de
+--     esta transacción de prueba.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id      uuid := pg_temp.dato('alumno_prueba');
+  v_teacher_id     uuid;
+  v_slot_id        uuid;
+  v_fila           public.asistencia%rowtype;
+  v_ausencia_id    uuid;
+  v_valida_id      uuid;
+  v_vieja_id       uuid;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+
+  if v_alumno_id is null or not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('actualizar_asistencia / justificar dentro de la ventana (teacher)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / justificar con motivo fuera de la lista cerrada (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / justificar un registro que no está ausente (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / justificar fuera de la ventana del profesor (debe fallar)', 'falta el alumno o el teacher de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / administrator justifica fuera de la ventana del profesor', 'falta el alumno o el teacher de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, 5, '08:00', '09:00', current_date)
+      returning id into v_slot_id;
+  exception when others then
+    v_slot_id := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_slot_id is null then
+    perform pg_temp.omitir('actualizar_asistencia / justificar dentro de la ventana (teacher)', 'no se pudo crear el slot de prueba propio de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / justificar con motivo fuera de la lista cerrada (debe fallar)', 'no se pudo crear el slot de prueba propio de esta sección');
+    perform pg_temp.omitir('actualizar_asistencia / justificar un registro que no está ausente (debe fallar)', 'no se pudo crear el slot de prueba propio de esta sección');
+  else
+    perform pg_temp.impersonar('teacher');
+    select * into v_fila from public.registrar_ausencia(
+      p_alumno_id => v_alumno_id, p_slot_id => v_slot_id, p_peticion_id => gen_random_uuid()
+    );
+    v_ausencia_id := v_fila.id;
+
+    -- Justificar dentro de la ventana: permitido, con motivo de la lista cerrada y nota opcional.
+    begin
+      select * into v_fila from public.actualizar_asistencia(
+        p_asistencia_id => v_ausencia_id, p_justificar => true,
+        p_motivo_justificacion => 'cita_medica', p_nota_justificacion => 'Justificante en papel'
+      );
+      perform pg_temp.registrar(
+        'actualizar_asistencia / justificar dentro de la ventana (teacher)', 'permitido',
+        v_fila.estado = 'ausente' and v_fila.motivo_justificacion = 'cita_medica' and v_fila.nota_justificacion = 'Justificante en papel'
+      );
+    exception when others then
+      perform pg_temp.registrar('actualizar_asistencia / justificar dentro de la ventana (teacher)', 'permitido', false, sqlerrm);
+    end;
+
+    -- Motivo fuera de la lista corta cerrada: debe rechazarse (defendido también por el CHECK de la
+    -- tabla, pero el mensaje explícito de la RPC es el que llega al cliente).
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_ausencia_id, p_justificar => true, p_motivo_justificacion => 'gripe');
+      perform pg_temp.registrar('actualizar_asistencia / justificar con motivo fuera de la lista cerrada (debe fallar)', 'prohibido', false, 'se justificó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / justificar con motivo fuera de la lista cerrada (debe fallar)', array['%motivo de la lista permitida%'], sqlerrm);
+    end;
+
+    -- Justificar un registro que NO está ausente (uno 'valida' del mismo alumno/profesor, origen
+    -- manual para no chocar con el índice de duplicado): debe rechazarse.
+    select * into v_fila from public.registrar_asistencia(p_alumno_id => v_alumno_id, p_origen => 'manual', p_peticion_id => gen_random_uuid());
+    v_valida_id := v_fila.id;
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_valida_id, p_justificar => true, p_motivo_justificacion => 'enfermedad');
+      perform pg_temp.registrar('actualizar_asistencia / justificar un registro que no está ausente (debe fallar)', 'prohibido', false, 'se justificó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / justificar un registro que no está ausente (debe fallar)', array['%estado ausente%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- Fuera de la ventana de edición del profesor (criterio de aceptación de R-02): un registro
+  -- 'ausente' fabricado con registrado_en de hace 10 días — mismo aviso que la sección 8c, INSERT
+  -- directo del rol de conexión, nunca de authenticated.
+  begin
+    insert into public.asistencia (alumno_id, profesor_id, registrado_en, ocurrido_en, es_retroactivo, origen, estado, peticion_id)
+      values (v_alumno_id, v_teacher_id, now() - interval '10 days', now() - interval '10 days', false, 'manual', 'ausente', gen_random_uuid())
+      returning id into v_vieja_id;
+  exception when others then
+    v_vieja_id := null;
+  end;
+
+  if v_vieja_id is null then
+    perform pg_temp.omitir('actualizar_asistencia / justificar fuera de la ventana del profesor (debe fallar)', 'no se pudo fabricar el registro antiguo de prueba');
+    perform pg_temp.omitir('actualizar_asistencia / administrator justifica fuera de la ventana del profesor', 'no se pudo fabricar el registro antiguo de prueba');
+  else
+    perform pg_temp.impersonar('teacher');
+    begin
+      perform public.actualizar_asistencia(p_asistencia_id => v_vieja_id, p_justificar => true, p_motivo_justificacion => 'otro');
+      perform pg_temp.registrar('actualizar_asistencia / justificar fuera de la ventana del profesor (debe fallar)', 'prohibido', false, 'se justificó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('actualizar_asistencia / justificar fuera de la ventana del profesor (debe fallar)', array['%ventana de edición%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+
+    if not pg_temp.hay_fixture('administrator') then
+      perform pg_temp.omitir('actualizar_asistencia / administrator justifica fuera de la ventana del profesor', 'no hay administrator en este entorno');
+    else
+      perform pg_temp.impersonar('administrator');
+      begin
+        select * into v_fila from public.actualizar_asistencia(p_asistencia_id => v_vieja_id, p_justificar => true, p_motivo_justificacion => 'otro');
+        perform pg_temp.registrar('actualizar_asistencia / administrator justifica fuera de la ventana del profesor', 'permitido', v_fila.motivo_justificacion = 'otro');
+      exception when others then
+        perform pg_temp.registrar('actualizar_asistencia / administrator justifica fuera de la ventana del profesor', 'permitido', false, sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end if;
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

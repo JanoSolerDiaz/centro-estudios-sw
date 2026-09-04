@@ -202,9 +202,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `usuarioId`), nunca sobre quien llama. `entrada.origen = 'manual'`/`slotId: null`/`nota` es el
     camino de "alumno extra" (T-20): la misma RPC, sin ningún cambio. Desde T-21:
     `actualizarAsistencia(deps, profesorDuenoId, entrada)` — llama a `actualizar_asistencia`
-    (`db/008_rpc_actualizar_asistencia.sql`), la única vía de modificación de un registro ya
-    existente; `entrada.nota`/`entrada.notaProvista` es el único par tri-estado del módulo (sin
-    `notaProvista: true`, `nota` se ignora, para poder vaciarla sin confundirlo con "no tocarla`").
+    (`db/008_rpc_actualizar_asistencia.sql`, ampliada por `db/011_justificacion_ausencia.sql`, R-02),
+    la única vía de modificación de un registro ya existente; `entrada.nota`/`entrada.notaProvista`
+    es el único par tri-estado del módulo (sin `notaProvista: true`, `nota` se ignora, para poder
+    vaciarla sin confundirlo con "no tocarla`"). Desde R-02: `entrada.justificar` +
+    `entrada.motivoJustificacion` (de `MotivoJustificacionAusencia`, lista corta cerrada) +
+    `entrada.notaJustificacion` — justificar solo tiene efecto sobre un registro `estado === 'ausente'`,
+    la RPC lo rechaza si no.
     `listarRegistrosDeSlotYFecha(cliente, slotId, fecha, zona?)` — registros de un slot en CUALQUIER
     fecha, cualquier estado (a diferencia de `listarAsistenciaDeHoy`, siempre "hoy" y solo válidos).
     `listarHistorialDeAsistencia(cliente, asistenciaId)` — lee `asistencia_historial`, solo tiene

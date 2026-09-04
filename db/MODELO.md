@@ -152,6 +152,8 @@ ausencia, ya anulada, etc.).
 | `slot_id` + snapshot (`slot_dia_semana`, `slot_hora_inicio`, `slot_hora_fin`, `slot_asignatura_o_grupo`) | — | solo si `origen = 'slot'` | Copia congelada del slot en el momento de registrar, no una referencia viva. |
 | `estado` | texto | sí | `valida`, `anulada` o `ausente` (R-01, `010_registro_ausencias.sql`: "no hay fila" ya no es la única forma de decir que un alumno faltó). Anular es un `UPDATE`, nunca un `DELETE`: la fila permanece, con su motivo — también sobre una fila `ausente` (se anula igual que una `valida`). |
 | `motivo_anulacion` | texto | obligatorio si `estado = 'anulada'` | — |
+| `motivo_justificacion` | texto | no | Justificación de una ausencia (R-02, `011_justificacion_ausencia.sql`): lista corta cerrada (`CHECK`) de `enfermedad`, `cita_medica`, `motivo_familiar` u `otro`. `NULL` mientras no se justifique; no cambia `estado` (una ausencia justificada sigue siendo `'ausente'`), y no hay ningún `CHECK` que lo exija — sobrevive si la ausencia se anula después. |
+| `nota_justificacion` | texto | no | Texto libre opcional que acompaña a `motivo_justificacion`. |
 | `nota` | texto | no | Comentario libre del profesor. |
 | `actualizado_en` / `actualizado_por` | fecha / uuid | no (hasta el primer `UPDATE`) | Los fija el propio trigger a partir de `now()`/`auth.uid()`, nunca el cliente. |
 | `peticion_id` | uuid | sí, único | Clave de idempotencia que genera el cliente antes de llamar a la RPC: si la petición se duplica por un doble toque o un reintento, el segundo intento choca con la restricción `unique` en vez de crear una fila repetida. |
@@ -270,7 +272,8 @@ mute datos, y el propio rebote del cliente ya acota la frecuencia real de petici
 ## `actualizar_asistencia` (`008_rpc_actualizar_asistencia.sql`, T-21)
 
 Única vía de modificación de una fila de `asistencia` ya existente — el `UPDATE` directo está
-revocado (ver arriba). `SECURITY DEFINER`, cinco acciones combinables en una sola llamada:
+revocado (ver arriba). `SECURITY DEFINER`, seis acciones combinables en una sola llamada (la sexta,
+"justificar", la añadió R-02 sobre la firma original de T-21 — ver más abajo):
 
 - **Cambiar el alumno** (`p_alumno_id`): valida que exista y esté activo, igual que el alta.
 - **Ajustar la hora** (`p_ocurrido_en`): mismas reglas que el alta (nunca en el futuro, nunca más de
@@ -284,6 +287,10 @@ revocado (ver arriba). `SECURITY DEFINER`, cinco acciones combinables en una sol
 - **Editar la nota** (`p_nota` + `p_nota_provista`): el único par de parámetros "tri-estado" del
   proyecto — sin `p_nota_provista = true`, `p_nota` se ignora, así que enviar `p_nota = null` a
   secas nunca la vacía por descuido.
+- **Justificar** (`p_justificar` + `p_motivo_justificacion` + `p_nota_justificacion`, R-02): solo
+  sobre un registro cuyo `estado` ANTES de esta llamada sea `'ausente'`; `p_motivo_justificacion`
+  obligatorio, de la lista corta cerrada. No cambia `estado`, no reabre la edición de hora ni de
+  alumno (esas siguen gobernadas por sus propios parámetros) y no ofrece "des-justificar".
 
 **Autorización, antes de tocar nada más:** `administrator` sobre cualquier registro, sin límite
 temporal; `teacher` solo sobre `profesor_id = auth.uid()` y dentro de `VENTANA_EDICION_TEACHER_DIAS`
@@ -342,6 +349,30 @@ base de datos, nunca con una comprobación de cliente.
 `p_anular`/`p_motivo_anulacion` de forma genérica sobre cualquier `estado` de partida, así que
 `'ausente' -> 'anulada'` funciona exactamente igual que `'valida' -> 'anulada'`, con el mismo motivo
 obligatorio.
+
+## Justificación de una ausencia (`011_justificacion_ausencia.sql`, R-02)
+
+A diferencia de R-01 (`registrar_ausencia`, RPC nueva porque era una intención de CREACIÓN distinta),
+justificar es una acción sobre un registro YA existente — encaja en la propia arquitectura de
+`actualizar_asistencia` (T-21), pensada desde el principio como "varias acciones combinables sobre un
+registro ya existente". Como PL/pgSQL identifica una función por nombre + tipos de parámetro, añadir
+parámetros nuevos con `create or replace function` habría creado una SEGUNDA sobrecarga en vez de
+sustituir la firma anterior: la migración hace `drop function` (con la firma exacta de `008`) seguido
+de `create function` con la firma completa (los ocho parámetros de `008` más los tres nuevos), sin
+tocar el fichero `008`.
+
+**Autorización: sin ningún código nuevo.** La ventana de edición del profesor (7 días desde
+`registrado_en`) y el privilegio ilimitado de `administrator` ya gobiernan TODA la función desde su
+primer `if`, antes de mirar qué parámetro se usa — por eso "justificar fuera de la ventana del
+profesor se rechaza para `teacher` y se acepta para `administrator`" (criterio de aceptación de R-02)
+sale gratis de la estructura ya existente, sin un segundo camino de autorización que mantener
+sincronizado con el de T-21.
+
+**Trigger de historial (`asistencia_copiar_a_historial`, `001`, inmutable) sustituido** —mismo
+criterio que `009` sustituyó `perfil_tocar_actualizado_en`— para que la copia a `asistencia_historial`
+incluya también `motivo_justificacion`/`nota_justificacion`; ambas columnas se añaden también a esa
+tabla (append-only, sin `CHECK` de lista cerrada allí: es un histórico de lo que hubo, no un estado
+vigente que deba seguir siendo válido).
 
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 

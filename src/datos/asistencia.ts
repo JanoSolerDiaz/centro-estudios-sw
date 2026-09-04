@@ -15,7 +15,7 @@
 
 import type { ClientePostgrest } from './postgrest.ts';
 import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
-import type { Asistencia, AsistenciaHistorial, OrigenAsistencia } from '../dominio/tipos.ts';
+import type { Asistencia, AsistenciaHistorial, MotivoJustificacionAusencia, OrigenAsistencia } from '../dominio/tipos.ts';
 import { limitesDiaLocal, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
 import { logger, type Logger } from '../nucleo/registro.ts';
 
@@ -94,14 +94,22 @@ export interface ActualizarAsistenciaEntrada {
    * notaProvista: true`) son intenciones distintas y no se pueden confundir por descuido. */
   readonly nota?: string | null;
   readonly notaProvista?: boolean;
+  /** Justificar una ausencia (R-02), con `motivoJustificacion` obligatorio (de una lista corta
+   * cerrada, `MotivoJustificacionAusencia`) cuando `justificar` es `true` — la RPC lo exige y
+   * rechaza sin él, y además rechaza justificar un registro que no esté `estado === 'ausente'`. Sin
+   * "des-justificar": esta función no ofrece volver `motivo_justificacion` a `null`. */
+  readonly justificar?: boolean;
+  readonly motivoJustificacion?: MotivoJustificacionAusencia | null;
+  readonly notaJustificacion?: string | null;
 }
 
-/** Modifica un registro de asistencia ya existente (T-21), vía la RPC `SECURITY DEFINER`
- * `actualizar_asistencia` (`db/008_rpc_actualizar_asistencia.sql`) — el UPDATE directo sobre
- * `asistencia` está revocado, igual que el INSERT (T-18): esta es la ÚNICA puerta de modificación.
- * `profesorDuenoId` es el `profesor_id` DUEÑO del registro (no necesariamente quien llama: un
- * `administrator` edita registros de cualquier profesor) — es la clave del límite de cliente de
- * T-06, defensa en profundidad; el límite autoritativo lo aplica la RPC sobre el mismo dueño. */
+/** Modifica un registro de asistencia ya existente (T-21, con la acción "justificar" de R-02
+ * añadida en `db/011_justificacion_ausencia.sql`), vía la RPC `SECURITY DEFINER`
+ * `actualizar_asistencia` — el UPDATE directo sobre `asistencia` está revocado, igual que el INSERT
+ * (T-18): esta es la ÚNICA puerta de modificación. `profesorDuenoId` es el `profesor_id` DUEÑO del
+ * registro (no necesariamente quien llama: un `administrator` edita registros de cualquier
+ * profesor) — es la clave del límite de cliente de T-06, defensa en profundidad; el límite
+ * autoritativo lo aplica la RPC sobre el mismo dueño. */
 export async function actualizarAsistencia(
   deps: DependenciasAsistencia,
   profesorDuenoId: string,
@@ -118,6 +126,9 @@ export async function actualizarAsistencia(
     p_motivo_anulacion: entrada.motivoAnulacion ?? null,
     p_nota: entrada.nota ?? null,
     p_nota_provista: entrada.notaProvista ?? false,
+    p_justificar: entrada.justificar ?? false,
+    p_motivo_justificacion: entrada.motivoJustificacion ?? null,
+    p_nota_justificacion: entrada.notaJustificacion ?? null,
   });
 }
 

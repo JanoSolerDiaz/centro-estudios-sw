@@ -12,7 +12,7 @@
  * la función no los lee de ningún sitio si no se los dan.
  */
 
-import type { Asistencia, EstadoAsistencia, OrigenAsistencia } from './tipos.ts';
+import type { Asistencia, EstadoAsistencia, MotivoJustificacionAusencia, OrigenAsistencia } from './tipos.ts';
 import { fechaHoraLocalLegible, ZONA_HORARIA_CENTRO_POR_DEFECTO } from './slots.ts';
 import { documentoCsv } from '../nucleo/csv.ts';
 
@@ -45,6 +45,21 @@ export function etiquetaOrigenAsistencia(origen: OrigenAsistencia): string {
 /** Misma etiqueta que usa la columna "Estado" del CSV — exportada por el mismo motivo. */
 export function etiquetaEstadoAsistencia(estado: EstadoAsistencia): string {
   return ETIQUETA_ESTADO[estado];
+}
+
+const ETIQUETA_MOTIVO_JUSTIFICACION: Readonly<Record<MotivoJustificacionAusencia, string>> = {
+  enfermedad: 'Enfermedad',
+  cita_medica: 'Cita médica',
+  motivo_familiar: 'Motivo familiar',
+  otro: 'Otro',
+};
+
+/** Etiqueta en español de un motivo de justificación de ausencia (R-02) — usada por el `<select>` de
+ * `pantallaRegistrosSlot.ts`, la columna "Justificación" de `pantallaHistorico.ts` y la columna
+ * homóloga del CSV. `null` (sin justificar) no tiene etiqueta propia: quien llama decide qué mostrar
+ * en ese caso (columnas vacías en el CSV, "Sin justificar" en pantalla). */
+export function etiquetaMotivoJustificacion(motivo: MotivoJustificacionAusencia): string {
+  return ETIQUETA_MOTIVO_JUSTIFICACION[motivo];
 }
 
 /** Lo mínimo que necesita una fila del histórico ya resuelta: la fila de `asistencia` tal cual, más
@@ -81,6 +96,8 @@ export const CABECERAS_CSV_HISTORICO: readonly string[] = [
   'Retroactivo',
   'Estado',
   'Motivo de anulación',
+  'Justificación',
+  'Nota de justificación',
   'Modificado',
   'Nota',
 ];
@@ -111,6 +128,8 @@ export function filaCsvHistorico(
     asistencia.es_retroactivo ? 'Sí' : 'No',
     ETIQUETA_ESTADO[asistencia.estado],
     asistencia.motivo_anulacion ?? '',
+    asistencia.motivo_justificacion ? ETIQUETA_MOTIVO_JUSTIFICACION[asistencia.motivo_justificacion] : '',
+    asistencia.nota_justificacion ?? '',
     tieneModificaciones(asistencia) ? 'Sí' : 'No',
     asistencia.nota ?? '',
   ];

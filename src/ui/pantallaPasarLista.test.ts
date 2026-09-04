@@ -66,6 +66,8 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     slot_asignatura_o_grupo: 'Matemáticas',
     estado: 'valida',
     motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
     nota: null,
     actualizado_en: null,
     actualizado_por: null,

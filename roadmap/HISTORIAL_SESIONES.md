@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-09-04 (rutina programada, tercera del día) — R-02 arrancada: código y tests completos, `BLOQUEADA` por la migración `011`
+**Tarea(s):** R-02 (Justificación de una ausencia, oleada v1 / F-01)
+**Estado resultante:** BLOQUEADA — pendiente aplicar la migración `011_justificacion_ausencia.sql` (fila 14 de §3, nueva)
+**Commits a `develop`:** ver el commit de esta sesión
+**Migraciones aplicadas:** ninguna. `db/011_justificacion_ausencia.sql` escrita y empujada (§0.1: el agente nunca aplica DDL): añade `asistencia.motivo_justificacion` (`CHECK` de lista cerrada) y `asistencia.nota_justificacion`, las mismas dos columnas en `asistencia_historial`, sustituye el trigger `asistencia_copiar_a_historial()` (`001`, inmutable) para copiarlas, y sustituye `actualizar_asistencia` (`008`, inmutable) — `drop function` + `create function` con la firma completa, no `create or replace` — con la sexta acción combinable "justificar"
+**Propagación a prod pendiente:** la de siempre (columna `prod` de `db/APLICADAS.md`, se hace de una vez en T-25); `011` se anota en la sección "Pendiente de aplicar" de `APLICADAS.md`, fuera de la tabla, sin hash
+**Archivos creados/modificados:** `db/011_justificacion_ausencia.sql` (nuevo), `herramientas/migraciones/justificacionAusencia.test.ts` (nuevo, 12 tests), `db/pruebas_rls.sql` (sección 8h nueva), `herramientas/migraciones/pruebasRlsEstatico.test.ts` (recuentos hardcodeados de `select * into v_fila from public...` actualizados), `db/MODELO.md` (fila `motivo_justificacion`/`nota_justificacion` de `asistencia`, sección `actualizar_asistencia` a seis acciones, sección nueva de la migración), `db/APLICADAS.md` (nota de pendiente), `src/dominio/tipos.ts` (`MotivoJustificacionAusencia`, tipo nuevo; `Asistencia`/`AsistenciaHistorial` ganan las dos columnas), `src/dominio/asistencia.ts` + test (`motivoJustificacionValido`, `puedeJustificarAusencia`, `MOTIVOS_JUSTIFICACION_AUSENCIA`), `src/dominio/historicoAsistencia.ts` + test (`etiquetaMotivoJustificacion`, dos columnas nuevas de CSV), `src/datos/asistencia.ts` + test (`ActualizarAsistenciaEntrada` gana `justificar`/`motivoJustificacion`/`notaJustificacion`), `src/ui/pantallaRegistrosSlot.ts` + test (bloque "Justificar", listado distingue "(ausente, justificada)"), `src/ui/pantallaHistorico.ts` + test (columna "Justificación"), literales `Asistencia`/`AsistenciaHistorial` de siete ficheros de test actualizados con las dos columnas nuevas, `roadmap/SEGUIMIENTO.md` (cabecera, §1, §3 fila 14 nueva), `roadmap/DECISIONES_TECNICAS.md` (+4 filas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1001/1001, antes 974) · build ✅
+**Health check post-deploy:** N/A — sin proveedor de hosting elegido todavía (`<pendiente>`, pregunta #15 de §6), no hay ninguna URL desplegada
+**Decisiones tomadas:** 4 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-04, todas `R-02`): justificar como sexto parámetro combinable de `actualizar_asistencia` en vez de una RPC nueva; sustitución por `drop function` + `create function` en vez de `create or replace function`, porque la firma cambia; sin `CHECK` que ate `motivo_justificacion` a `estado = 'ausente'`, para no bloquear anular una ausencia ya justificada; el trigger de historial sustituido para no dejar una laguna de auditoría
+**Hallazgos del auditor atendidos:** ninguno — `auditoriacontinua.md` seguía con sus siete hallazgos `RESUELTO`, cero `ABIERTO`, comprobado al empezar
+**Hallazgos:** ninguno nuevo. `node_modules/` no existía al empezar la sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) antes de poder ejecutar nada
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** R-02 sigue latente hasta que el dueño aplique `010` y `011` (filas 13 y 14 de §3, en ese orden) y confirme; mientras tanto, la siguiente sesión de desarrollo pasa a R-03 ("Registro de salida y cómputo de horas reales", depende de T-18/T-21, ambas `COMPLETADA`) — su código también puede escribirse contra dobles sin esperar a que `010`/`011` estén aplicadas
+
+---
+
 ### Sesión 2026-09-04 (rutina programada, segunda del día) — R-01 arrancada: código y tests completos, `BLOQUEADA` por la migración `010`
 **Tarea(s):** R-01 (Registro explícito de ausencias, oleada v1 / F-01)
 **Estado resultante:** BLOQUEADA — pendiente aplicar la migración `010_registro_ausencias.sql` (fila 13 de §3, nueva)

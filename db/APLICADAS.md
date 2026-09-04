@@ -81,6 +81,21 @@ duplicado alumno+slot+día contra la nueva restricción, `student` sin acceso). 
 `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `010` es posterior y no forma parte
 de las diez migraciones de su paso a producción.
 
+**`011_justificacion_ausencia.sql`** (R-02, "justificación de una ausencia") — escrita y empujada a
+`develop` el 2026-09-04, todavía sin aplicar. Añade dos columnas a `asistencia`/`asistencia_historial`
+(`motivo_justificacion`, lista corta cerrada con `CHECK`; `nota_justificacion`, texto libre), sustituye
+el trigger de copia a historial (`asistencia_copiar_a_historial()`, `001`, inmutable, no se edita ese
+fichero) para que incluya las dos columnas nuevas, y sustituye `actualizar_asistencia` (`008`,
+inmutable) por una versión con tres parámetros nuevos (`p_justificar`, `p_motivo_justificacion`,
+`p_nota_justificacion`) — `drop function` + `create function` con la firma completa, no una segunda
+sobrecarga. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local, comprobar que
+`esquema_version()` devuelve `11`, y ejecutar también `npm run probar-rls` (nueva sección 8h de
+`db/pruebas_rls.sql`: justificar dentro de la ventana de edición del profesor, fuera de la ventana
+rechazado para `teacher` y aceptado para `administrator`, motivo fuera de la lista cerrada rechazado,
+justificar un registro que no está ausente rechazado). Fila 14 de §3 de `SEGUIMIENTO.md`. T-25
+(BLOQUEADA, ver fila 12) queda inafectada: `011` es posterior y no forma parte de las diez migraciones
+de su paso a producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

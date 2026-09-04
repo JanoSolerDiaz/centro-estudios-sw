@@ -7,6 +7,7 @@ import {
   generarCsvHistorico,
   etiquetaOrigenAsistencia,
   etiquetaEstadoAsistencia,
+  etiquetaMotivoJustificacion,
   CABECERAS_CSV_HISTORICO,
   type FilaHistoricoResueltaConContacto,
 } from './historicoAsistencia.ts';
@@ -28,6 +29,8 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     slot_asignatura_o_grupo: 'Matemáticas',
     estado: 'valida',
     motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
     nota: null,
     actualizado_en: null,
     actualizado_por: null,
@@ -57,18 +60,18 @@ void test('tieneModificaciones: true en cuanto actualizado_en tiene un valor', (
 
 // --- cabecerasCsvHistorico / filaCsvHistorico ----------------------------------------------
 
-void test('cabecerasCsvHistorico: sin contacto, las diez columnas fijas', () => {
+void test('cabecerasCsvHistorico: sin contacto, las doce columnas fijas (R-02 añade Justificación y Nota de justificación)', () => {
   assert.deepEqual(cabecerasCsvHistorico(), CABECERAS_CSV_HISTORICO);
-  assert.equal(cabecerasCsvHistorico().length, 10);
+  assert.equal(cabecerasCsvHistorico().length, 12);
 });
 
 void test('cabecerasCsvHistorico: con contacto, añade email y teléfono al final', () => {
   const cabeceras = cabecerasCsvHistorico({ incluirContacto: true });
   assert.deepEqual(cabeceras.slice(-2), ['Email del alumno', 'Teléfono del alumno']);
-  assert.equal(cabeceras.length, 12);
+  assert.equal(cabeceras.length, 14);
 });
 
-void test('filaCsvHistorico: compone las diez columnas en el orden de la cabecera', () => {
+void test('filaCsvHistorico: compone las doce columnas en el orden de la cabecera', () => {
   const fila = crearFila({
     asistencia: crearAsistencia({
       ocurrido_en: '2026-08-26T15:30:00.000Z',
@@ -90,6 +93,8 @@ void test('filaCsvHistorico: compone las diez columnas en el orden de la cabecer
     'No',
     'Válida',
     '',
+    '',
+    '',
     'No',
     'Llegó tarde',
   ]);
@@ -104,6 +109,29 @@ void test('filaCsvHistorico: fila anulada trae el motivo y "Anulada"', () => {
   assert.equal(valores[7], 'Registrado por error');
 });
 
+// --- Justificación de una ausencia (R-02) --------------------------------------------------
+
+void test('filaCsvHistorico: ausencia justificada trae la etiqueta del motivo y la nota de justificación', () => {
+  const fila = crearFila({
+    asistencia: crearAsistencia({
+      estado: 'ausente',
+      motivo_justificacion: 'cita_medica',
+      nota_justificacion: 'Justificante adjunto en papel',
+    }),
+  });
+  const valores = filaCsvHistorico(fila);
+  assert.equal(valores[6], 'Ausente');
+  assert.equal(valores[8], 'Cita médica');
+  assert.equal(valores[9], 'Justificante adjunto en papel');
+});
+
+void test('filaCsvHistorico: ausencia sin justificar deja vacías las columnas de justificación', () => {
+  const fila = crearFila({ asistencia: crearAsistencia({ estado: 'ausente' }) });
+  const valores = filaCsvHistorico(fila);
+  assert.equal(valores[8], '');
+  assert.equal(valores[9], '');
+});
+
 void test('filaCsvHistorico: fila retroactiva marca "Sí" en la columna Retroactivo', () => {
   const fila = crearFila({ asistencia: crearAsistencia({ es_retroactivo: true }) });
   assert.equal(filaCsvHistorico(fila)[5], 'Sí');
@@ -116,12 +144,12 @@ void test('filaCsvHistorico: origen manual se etiqueta "Extra"', () => {
 
 void test('filaCsvHistorico: modificado se marca "Sí" cuando actualizado_en no es null', () => {
   const fila = crearFila({ asistencia: crearAsistencia({ actualizado_en: '2026-08-27T09:00:00.000Z' }) });
-  assert.equal(filaCsvHistorico(fila)[8], 'Sí');
+  assert.equal(filaCsvHistorico(fila)[10], 'Sí');
 });
 
 void test('filaCsvHistorico: sin incluirContacto, nunca añade email ni teléfono aunque la fila los traiga', () => {
   const fila = crearFila({ emailAlumno: 'madre@example.com', telefonoAlumno: '600111222' });
-  assert.equal(filaCsvHistorico(fila).length, 10);
+  assert.equal(filaCsvHistorico(fila).length, 12);
 });
 
 void test('filaCsvHistorico: con incluirContacto, añade email y teléfono al final', () => {
@@ -145,6 +173,13 @@ void test('etiquetaEstadoAsistencia: valida es "Válida", anulada es "Anulada", 
   assert.equal(etiquetaEstadoAsistencia('valida'), 'Válida');
   assert.equal(etiquetaEstadoAsistencia('anulada'), 'Anulada');
   assert.equal(etiquetaEstadoAsistencia('ausente'), 'Ausente');
+});
+
+void test('etiquetaMotivoJustificacion: las cuatro etiquetas de la lista cerrada (R-02)', () => {
+  assert.equal(etiquetaMotivoJustificacion('enfermedad'), 'Enfermedad');
+  assert.equal(etiquetaMotivoJustificacion('cita_medica'), 'Cita médica');
+  assert.equal(etiquetaMotivoJustificacion('motivo_familiar'), 'Motivo familiar');
+  assert.equal(etiquetaMotivoJustificacion('otro'), 'Otro');
 });
 
 // --- No-retroactividad (requisito 2 de T-23): el CSV nunca depende de un SlotHorario vigente -----
@@ -193,9 +228,9 @@ void test('generarCsvHistorico: nombres con comas, comillas y tildes sobreviven 
   const lineas = documento.slice(1).split('\r\n');
   assert.equal(lineas[0], CABECERAS_CSV_HISTORICO.join(';'));
   assert.match(lineas[1] ?? '', /^"José, ""el pequeño"" Muñoz Ábalos";Ana Núñez;/);
-  assert.match(lineas[1] ?? '', /;Anulada;No asistió;No;/);
+  assert.match(lineas[1] ?? '', /;Anulada;No asistió;;;No;/); // motivo de anulación, luego Justificación y Nota de justificación vacías
   assert.match(lineas[2] ?? '', /^Laura Ruiz;Pedro Gómez;/);
-  assert.match(lineas[2] ?? '', /;Sí;Válida;;No;/); // Sí de "Retroactivo", luego estado válida
+  assert.match(lineas[2] ?? '', /;Sí;Válida;;;;No;/); // Sí de "Retroactivo", luego estado válida y tres columnas vacías
 });
 
 void test('generarCsvHistorico: lista vacía produce solo BOM y cabecera', () => {

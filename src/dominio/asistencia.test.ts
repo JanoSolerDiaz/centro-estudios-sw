@@ -14,6 +14,9 @@ import {
   registrosDeHoyPorAlumnoSlot,
   motivoAnulacionValido,
   puedeCambiarSlotAtribuido,
+  motivoJustificacionValido,
+  puedeJustificarAusencia,
+  MOTIVOS_JUSTIFICACION_AUSENCIA,
   type RegistroAsistencia,
   type UsuarioAutenticado,
 } from './asistencia.ts';
@@ -35,6 +38,8 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     slot_asignatura_o_grupo: null,
     estado: 'valida',
     motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
     nota: null,
     actualizado_en: null,
     actualizado_por: null,
@@ -241,4 +246,28 @@ void test('motivoAnulacionValido: acepta un motivo con contenido, incluso con es
 void test('puedeCambiarSlotAtribuido: solo tiene sentido sobre un registro de origen slot', () => {
   assert.equal(puedeCambiarSlotAtribuido({ origen: 'slot' }), true);
   assert.equal(puedeCambiarSlotAtribuido({ origen: 'manual' }), false);
+});
+
+// --- Justificación de una ausencia (R-02) --------------------------------------------------
+
+void test('motivoJustificacionValido: rechaza null', () => {
+  assert.equal(motivoJustificacionValido(null), false);
+});
+
+void test('motivoJustificacionValido: rechaza texto libre que no está en la lista cerrada', () => {
+  assert.equal(motivoJustificacionValido('gripe'), false);
+  assert.equal(motivoJustificacionValido(''), false);
+});
+
+void test('motivoJustificacionValido: acepta exactamente los cuatro valores de MOTIVOS_JUSTIFICACION_AUSENCIA', () => {
+  for (const motivo of MOTIVOS_JUSTIFICACION_AUSENCIA) {
+    assert.equal(motivoJustificacionValido(motivo), true);
+  }
+  assert.deepEqual(MOTIVOS_JUSTIFICACION_AUSENCIA, ['enfermedad', 'cita_medica', 'motivo_familiar', 'otro']);
+});
+
+void test('puedeJustificarAusencia: solo tiene sentido sobre un registro con estado ausente', () => {
+  assert.equal(puedeJustificarAusencia({ estado: 'ausente' }), true);
+  assert.equal(puedeJustificarAusencia({ estado: 'valida' }), false);
+  assert.equal(puedeJustificarAusencia({ estado: 'anulada' }), false);
 });

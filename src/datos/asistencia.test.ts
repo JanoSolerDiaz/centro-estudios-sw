@@ -33,6 +33,8 @@ const FILA: Asistencia = {
   slot_asignatura_o_grupo: null,
   estado: 'valida',
   motivo_anulacion: null,
+  motivo_justificacion: null,
+  nota_justificacion: null,
   nota: null,
   actualizado_en: null,
   actualizado_por: null,
@@ -354,6 +356,9 @@ void test('actualizarAsistencia llama a la RPC actualizar_asistencia con el cuer
     p_motivo_anulacion: null,
     p_nota: 'Llegó tarde',
     p_nota_provista: true,
+    p_justificar: false,
+    p_motivo_justificacion: null,
+    p_nota_justificacion: null,
   });
   assert.deepEqual(fila, { ...FILA, nota: 'Llegó tarde' });
 });
@@ -388,6 +393,47 @@ void test('actualizarAsistencia: anular envía p_anular y p_motivo_anulacion', a
   assert.equal((peticion.cuerpo as Record<string, unknown>).p_anular, true);
   assert.equal((peticion.cuerpo as Record<string, unknown>).p_motivo_anulacion, 'Registrado por error');
   assert.equal(fila.estado, 'anulada');
+});
+
+void test('actualizarAsistencia: justificar (R-02) envía p_justificar, p_motivo_justificacion y p_nota_justificacion', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return {
+      estado: 200,
+      cuerpo: { ...FILA, estado: 'ausente', motivo_justificacion: 'cita_medica', nota_justificacion: 'Justificante en papel' },
+    };
+  });
+
+  const fila = await actualizarAsistencia({ postgrest }, 'p1', {
+    asistenciaId: 'as1',
+    justificar: true,
+    motivoJustificacion: 'cita_medica',
+    notaJustificacion: 'Justificante en papel',
+  });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_justificar, true);
+  assert.equal(cuerpo.p_motivo_justificacion, 'cita_medica');
+  assert.equal(cuerpo.p_nota_justificacion, 'Justificante en papel');
+  assert.equal(fila.motivo_justificacion, 'cita_medica');
+});
+
+void test('actualizarAsistencia: sin justificar, p_justificar viaja false y los otros dos null', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: FILA };
+  });
+
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', nota: 'x', notaProvista: true });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_justificar, false);
+  assert.equal(cuerpo.p_motivo_justificacion, null);
+  assert.equal(cuerpo.p_nota_justificacion, null);
 });
 
 void test('actualizarAsistencia: anular sin motivo llega como ErrorDeValidacion (400)', async () => {

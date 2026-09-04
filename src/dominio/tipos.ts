@@ -107,6 +107,10 @@ export interface SlotHorario {
 
 export type OrigenAsistencia = 'slot' | 'manual';
 export type EstadoAsistencia = 'valida' | 'anulada' | 'ausente';
+/** Lista corta cerrada de motivos de justificación de una ausencia (R-02, requisito 1) — el `CHECK
+ * asistencia_motivo_justificacion_valido` de `db/011_justificacion_ausencia.sql` exige EXACTAMENTE
+ * estos cuatro valores. */
+export type MotivoJustificacionAusencia = 'enfermedad' | 'cita_medica' | 'motivo_familiar' | 'otro';
 
 export interface Asistencia {
   readonly id: string;
@@ -123,6 +127,11 @@ export interface Asistencia {
   readonly slot_asignatura_o_grupo: string | null;
   readonly estado: EstadoAsistencia;
   readonly motivo_anulacion: string | null;
+  /** Justificación de una ausencia (R-02) — `null` mientras no se justifique; solo tiene sentido
+   * sobre un registro `estado === 'ausente'`, pero la base de datos no lo impone con un `CHECK`
+   * (permite que sobreviva si la ausencia se anula después, ver DECISIONES_TECNICAS.md). */
+  readonly motivo_justificacion: MotivoJustificacionAusencia | null;
+  readonly nota_justificacion: string | null;
   readonly nota: string | null;
   readonly actualizado_en: string | null;
   readonly actualizado_por: string | null;
@@ -147,6 +156,8 @@ export interface AsistenciaHistorial {
   readonly slot_asignatura_o_grupo: string | null;
   readonly estado: EstadoAsistencia;
   readonly motivo_anulacion: string | null;
+  readonly motivo_justificacion: MotivoJustificacionAusencia | null;
+  readonly nota_justificacion: string | null;
   readonly nota: string | null;
   readonly actualizado_en: string | null;
   readonly actualizado_por: string | null;

@@ -26,6 +26,8 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     slot_asignatura_o_grupo: 'Matemáticas',
     estado: 'valida',
     motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
     nota: null,
     actualizado_en: null,
     actualizado_por: null,
@@ -181,6 +183,35 @@ void test('un id sin nombre resuelto (alumno de baja para un teacher) muestra la
   const texto = contenedor.textContent;
   assert.match(texto, /\(alumno no disponible\)/);
   assert.match(texto, /\(profesor no disponible\)/);
+});
+
+void test('una ausencia justificada muestra la etiqueta del motivo en la columna Justificación (R-02)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      listarHistorico: () =>
+        Promise.resolve({
+          filas: [crearAsistencia({ estado: 'ausente', motivo_justificacion: 'cita_medica' })],
+          totalAproximado: 1,
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /Cita médica/);
+});
+
+void test('una ausencia sin justificar muestra "Sin justificar" en la columna Justificación (R-02)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      listarHistorico: () =>
+        Promise.resolve({ filas: [crearAsistencia({ estado: 'ausente' })], totalAproximado: 1 }),
+    }),
+  );
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /Sin justificar/);
 });
 
 void test('una fila anulada y retroactiva se muestra correctamente', async () => {
