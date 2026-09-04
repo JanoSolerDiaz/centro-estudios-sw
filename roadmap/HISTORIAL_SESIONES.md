@@ -37,6 +37,23 @@
 
 ---
 
+### Sesión 2026-09-04 (interactiva, a petición del dueño) — T-24 COMPLETADA: el bloqueo de `009` era falso desde el 2026-09-03
+**Tarea(s):** T-24 (desbloqueo y cierre) · corrección de bookkeeping de `db/APLICADAS.md` y §3
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver el commit de esta sesión (solo documentos)
+**Migraciones aplicadas:** ninguna en esta sesión. Se **verifica** que `009_administracion_usuarios.sql` ya estaba aplicada en `dev` (el dueño la aplicó el 2026-09-03 o antes, sin anotarlo). `esquema_version()` no se consulta directamente —el agente no tiene credenciales (§0.1)— pero el ledger sí: `npm run migrate -- --estado`, ejecutado por el dueño, lista `009 009_administracion_usuarios` con hash `0d996c48420d06a528a34841eb10735bb678c8733870f986e3d3f8bf0e4bd882`, idéntico al SHA-256 del fichero en disco calculado en local
+**Propagación a prod pendiente:** la de siempre (columna `prod` de `db/APLICADAS.md`, se hace de una vez en T-25). **Ninguna fila de §3 queda pendiente**
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera; §1 fila T-24 a `COMPLETADA`; §3 fila 11 a `RESUELTA`), `db/APLICADAS.md` (fila `009` con su hash + lección en la sección de pendientes, que queda vacía), `roadmap/DECISIONES_TECNICAS.md` (una fila), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ · build ✅ (sin cambios de código; el gancho de pre-commit las impone igualmente)
+**Health check post-deploy:** no aplica (sin cambios de código; `npm run health` sigue sin existir, ver la nota de §7)
+**Decisiones tomadas:** una fila nueva en `DECISIONES_TECNICAS.md` (2026-09-04): el estado de una migración se comprueba con `npm run migrate -- --estado` pedido al dueño, no leyendo `db/APLICADAS.md`; y una tarea no pasa más de una sesión `BLOQUEADA` sin pedir esa comprobación
+**Hallazgos del auditor atendidos:** ninguno (los siete de `auditoriacontinua.md` siguen `RESUELTO`)
+**Hallazgos:** **el bloqueo de T-24 era falso desde el 2026-09-03 y tres sesiones consecutivas no lo detectaron.** El dueño preguntó si la aplicación se podía probar; al repasar el estado, T-24 seguía `BLOQUEADA` esperando su `npm run migrate`, lo ejecutó y respondió "no había ninguna migración pendiente". No era ceguera del runner: `009_administracion_usuarios.sql` encaja con el patrón `NNN_nombre.sql` de `archivosMigracion.ts` y su número es > 0, así que `planificar()` la excluye de `pendientes` solo si el ledger tiene ya la fila 9 — y con un hash distinto habría abortado con `ErrorHashCambiado` en vez de callar. **La prueba independiente llevaba en el repositorio desde el 2026-09-03:** la sección 8e de `db/pruebas_rls.sql` (líneas 1692-1729) ejercita el trigger `perfil_before_update` que introduce `009` y exige `%último administrator%` en `sqlerrm`; la ejecución de `npm run probar-rls` de ese día dio 105 comprobaciones, 0 omitidas y 0 fallidas, imposible sin el trigger. Causa raíz: las sesiones de verificación del 02, 03 y 04 comprobaron el estado del esquema leyendo `db/APLICADAS.md` —documento que solo actualiza el agente tras la confirmación del dueño— en vez de leer el resultado de la batería, que sí es un dato de `dev` accesible sin credenciales. **Es la segunda vez que ocurre la misma clase de fallo:** el 2026-08-31, §3 daba `002`/`003`/`004` por `RESUELTA` mientras la tabla de `APLICADAS.md` solo tenía `001`, y T-10/T-14 seguían marcadas `BLOQUEADA` por un motivo ya resuelto. Coste esta vez: tres ciclos de agente repitiendo una verificación pre-push que ya estaba verde
+**Tareas autopropuestas (P-XX):** ninguna. El desfase se corrige en el propio registro y con la norma nueva de `DECISIONES_TECNICAS.md`; no hay código que arreglar, así que fabricar una `P-XX` habría sido ruido
+**Próximo paso:** **T-25 — Endurecimiento, privacidad y paso a producción**, la última tarea del MVP y la única que toca `prod`. Es la siguiente en §1 con sus dependencias satisfechas: T-00 a T-24 están todas `COMPLETADA` y §3 no tiene ninguna fila pendiente. Ojo a sus dos bloqueos humanos propios: el proyecto `prod` de Supabase **no existe todavía** (se crea en T-25) y su DDL lo aplica siempre el dueño, siguiendo la columna `prod` de `db/APLICADAS.md` en orden. La oleada v1 (`R-01` a `R-12`) sigue esperando el MVP en producción
+
+---
+
 ### Sesión 2026-09-04 (verificación, rutina programada) — sin tarea vertebral desbloqueada, backlog agotado
 
 **Tarea(s):** ninguna T-XX/R-XX (cola vertebral sigue bloqueada: T-24 espera la migración `009`, T-25

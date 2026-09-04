@@ -26,6 +26,7 @@
 | 006 | `006_arreglo_limite_tasa_ambiguo.sql` | 2026-09-01 | | `6de505c4b933` | Arreglo del bug con el que se aplicó la `005`: `aplicar_limite_tasa()` leía la fila previa sin cualificar dentro de su `ON CONFLICT ... DO UPDATE`, y PostgreSQL la rechazaba (`column reference "ventana_inicio" is ambiguous`) porque `limite_tasa` y `excluded` están las dos en ámbito. `create or replace` con la MISMA firma; no toca nada más. Aplicada por el dueño con `npm run migrate` (fila 8 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** (`npm run migrate -- --estado` la lista con el hash de arriba) **y en ejecución**: `npm run probar-rls` da 67 comprobaciones, 0 omitidas, 0 fallidas, con las trece de la sección 7b (`registrar_asistencia`) pasando y cada rechazo trayendo su motivo propio. ⚠️ **Única migración en LF**; las demás están en CRLF. Los dos finales de línea son los que tiene su hash en el ledger, y `.gitattributes` los clava para que ningún checkout los reescriba (ver la nota del final) | 
 | 007 | `007_rpc_buscar_alumnos.sql` | 2026-09-02 | | `792e0a398c55` | T-20: RPC `buscar_alumnos_activos(p_texto, p_limite)`, `SECURITY DEFINER`, tipo de retorno explícito que hace estructuralmente imposible devolver contacto, personas de referencia o avatar. Aplicada por el dueño con `npm run migrate` (fila 9 de §3 de `SEGUIMIENTO.md`, **RESUELTA 2026-09-02**). **Verificada:** `npm run migrate -- --estado` la lista con el hash de arriba (el ledger llegó a `esquema_version()` = `8` porque el dueño aplicó `007` y `008` en la misma pasada); `npm run probar-rls` confirma la sección 8b entera en `[OK]` (cinco comprobaciones, incluidas "sin contacto ni personas de referencia" y "un `student` no puede llamarla") |
 | 008 | `008_rpc_actualizar_asistencia.sql` | 2026-09-02 | | `d7e1a1f47001` | T-21: RPC `actualizar_asistencia(...)`, `SECURITY DEFINER`, única vía de modificación de un registro de asistencia ya existente (cambiar alumno, ajustar hora, cambiar el slot atribuido, anular con motivo, editar la nota); reutiliza `aplicar_limite_tasa()` de `005`. Aplicada por el dueño con `npm run migrate` (fila 10 de §3 de `SEGUIMIENTO.md`, **RESUELTA 2026-09-02**). **Verificada:** `esquema_version()` = `8`; `npm run probar-rls` — 89 comprobaciones, 0 omitidas, 0 fallidas, sección 8c completa (edición propia/ajena, ventana de 7 días, anular exige motivo, dos modificaciones dejan dos filas de historial, cambio de alumno/slot con sus rechazos) y sección 5 ampliada con `UPDATE`/`DELETE` directo denegados |
+| 009 | `009_administracion_usuarios.sql` | **aplicada** ≤ 2026-09-03 (fecha exacta no registrada; verificada el 2026-09-04) | | `0d996c48420d` | T-24: columna `perfil.actualizado_por` (la fija el trigger, nunca el cliente) y trigger `perfil_before_update`, que sustituye a `perfil_tocar_actualizado_en` del bootstrap y aborta un `UPDATE` que dejaría al sistema sin ningún `administrator` activo. Aplicada por el dueño con `npm run migrate` (fila 11 de §3 de `SEGUIMIENTO.md`, **RESUELTA 2026-09-04**). **Verificada el 2026-09-04 con `npm run migrate -- --estado`:** el ledger de `dev` trae la fila `009 009_administracion_usuarios` con hash `0d996c48420d06a528a34841eb10735bb678c8733870f986e3d3f8bf0e4bd882`, idéntico al SHA-256 del fichero en disco. **El instante exacto de aplicación no es recuperable**: `esquema_migracion` no lo guarda, y esta fila llega dos días tarde porque nadie la anotó en su momento. La prueba de que ya estaba aplicada el 2026-09-03 es la ejecución de `npm run probar-rls` de ese día (105 comprobaciones, 0 omitidas, 0 fallidas): las dos comprobaciones de la sección 8e sobre `perfil_before_update` exigen `%último administrator%` en `sqlerrm` y habrían fallado si el trigger no existiera. Ver la entrada del 2026-09-04 en `HISTORIAL_SESIONES.md` |
 
 ---
 
@@ -69,8 +70,15 @@ Lo que **no** cubren: que el valor de esta tabla corresponda al del ledger remot
 > que el agente tenga que fabricar un hash de una migración que no está aplicada. Se mueve a la
 > tabla de arriba, con su hash real, en cuanto el dueño confirme (§3 de `SEGUIMIENTO.md`).
 
-- **`009_administracion_usuarios.sql`** (T-24): columna `perfil.actualizado_por` y trigger
-  `perfil_before_update` (sustituye a `perfil_tocar_actualizado_en` del bootstrap) — impide un
-  `UPDATE` que deje al sistema sin ningún `administrator` activo, y dejaría constancia de quién hizo
-  el último cambio sobre cada perfil. Pendiente de que el dueño ejecute `npm run migrate` — fila
-  nueva de §3 de `SEGUIMIENTO.md`.
+*(Ninguna. `009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada;
+su fila está en la tabla de arriba.)*
+
+> **Lección del 2026-09-04, segunda vez que pasa lo mismo** (la primera, el 2026-08-31 con
+> `002`/`003`/`004`: §3 las daba por `RESUELTA` y esta tabla solo tenía `001`). Una migración puede
+> estar aplicada en `dev` sin que este documento lo sepa, porque quien la aplica es el dueño y
+> quien escribe aquí es el agente. **Leer esta sección no es comprobar el estado del esquema.** Si
+> una tarea lleva más de una sesión `BLOQUEADA` esperando una migración, la comprobación barata es
+> pedir al dueño `npm run migrate -- --estado` (solo lectura, una línea) en vez de repetir la
+> verificación pre-push y volver a esperar. Y si hay un `npm run probar-rls` reciente en verde con
+> 0 omitidas, sus secciones dicen qué DDL existe ya en `dev`: es una fuente de estado que el
+> agente sí puede leer sin ninguna credencial.
