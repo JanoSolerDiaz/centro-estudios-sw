@@ -50,6 +50,8 @@
 | #5 | 2026-09-01 | Gobernanza documental | baja | RESUELTO (2026-09-02) | `db/MODELO.md:296` (sección T-14, avatar) sigue diciendo "falta únicamente el punto de montaje real en una pantalla (T-16)" — nota escrita en la sesión de T-14 (2026-08-31), antes de que T-16 existiera. T-16 ya está `COMPLETADA` (mismo día) y el bloque de avatar ya está montado de verdad: `src/ui/pantallaFichaAlumno.ts` monta `montarBloqueAvatar` (línea 524, cableado en la línea 1097). Mismo patrón exacto que el hallazgo #4 ya cerrado: una frase de estado que no se revisó al completar la tarea que dejaba pendiente, sin ningún impacto funcional ni de seguridad. **Resuelto:** **P-13** (2026-09-02) actualizó `db/MODELO.md:371-372`: ya no dice "falta únicamente el punto de montaje", dice que está montado de verdad en `pantallaFichaAlumno.ts` (`montarBloqueAvatar`) desde T-16. Verificado por este auditor con `git diff` de la línea y `grep -n "falta únicamente\|por escribir" db/MODELO.md`: cero coincidencias. | `db/MODELO.md:296→371-372`; `src/ui/pantallaFichaAlumno.ts:524,1097`; origen: auditoría #5 (2026-09-01); resuelto por P-13, `SEGUIMIENTO.md` §5 |
 | #6 | 2026-09-01 | Gobernanza documental | baja | RESUELTO (2026-09-02) | Numeración cruzada de las preguntas abiertas #12/#13 de §6 de `SEGUIMIENTO.md` (T-18, retroactividad/duplicados): la tabla de §6 es internamente coherente (línea 496: `#12` = duplicado mismo alumno/slot/día; línea 497: `#13` = ventana retroactiva máxima), y así la etiqueta también `db/005_rpc_registrar_asistencia.sql:26` (duplicados = "pregunta abierta #12"). Pero la propia narrativa de la sesión de T-18 en `SEGUIMIENTO.md` las intercambia: la línea 37 llama "#12" a la ventana retroactiva (debería ser #13) y la línea 43 llama "#13" al duplicado (debería ser #12); `roadmap/DECISIONES_TECNICAS.md:147` repite el mismo intercambio ("pregunta abierta #12... para la primera", refiriéndose a la ventana retroactiva). Sin impacto funcional: el código usa en los dos casos el valor conservador por defecto (7 días / rechazar duplicado) documentado en la spec, no una lectura equivocada de la pregunta; es solo una referencia cruzada mal etiquetada para quien intente localizar la pregunta por su número desde la narrativa en vez de desde la tabla. **Resuelto:** **P-14** (2026-09-02) corrigió las dos menciones narrativas de `SEGUIMIENTO.md` (ventana retroactiva = #13, duplicado = #12) y la de `DECISIONES_TECNICAS.md:147`. Verificado por este auditor con `grep -n "pregunta abierta #1[23]"` sobre los dos ficheros: las tres menciones narrativas restantes ya coinciden con la tabla de §6. | `roadmap/SEGUIMIENTO.md:37,43` (narrativa, ya corregida) vs. `:496-497` (tabla, correcta); `roadmap/DECISIONES_TECNICAS.md:147` (ya corregida); `db/005_rpc_registrar_asistencia.sql:26` (correcto); origen: auditoría #5 (2026-09-01); resuelto por P-14, `SEGUIMIENTO.md` §5 |
 | #7 | 2026-09-01 | Calidad de código (higiene) | baja | RESUELTO (2026-09-02) | `columnasVisiblesFichaAlumno` (`src/dominio/permisosUi.ts:56`) está definida y testeada (`permisosUi.test.ts:47-62`, dos casos: `teacher`/`student` ven solo columnas de identificación, `administrator` ve también las de contacto) pero ninguna pantalla la importa ni la usa (`grep -rn "columnasVisiblesFichaAlumno" src/` solo devuelve su propia definición y su test) — código muerto, no un control de acceso activo. No es una fuga: la protección real de las columnas de contacto vive en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`, ninguno de los dos depende de esta función. Conviene o bien conectarla a la pantalla de ficha (si la intención era filtrar columnas en el cliente también) o eliminarla, para no acumular una función que aparenta ser parte del control de acceso sin estar en el camino real. **Resuelto:** **P-15** (2026-09-02) la eliminó, junto con sus dos tests, en vez de conectarla: no existe ninguna pantalla de ficha para `teacher` en el roadmap ni puede existir dentro del alcance actual (§0.2 es permanente: "el `teacher`... no gestiona fichas ni ve datos de contacto ni personas de referencia"). Verificado por este auditor con `grep -rn "columnasVisiblesFichaAlumno" src/`: cero coincidencias, y `permisosUi.ts` sustituye su hueco por `puedeGestionarUsuarios` (T-24), con consumidor real en `pantallaUsuarios.ts:42`. | `src/dominio/permisosUi.ts:56` (eliminada); `src/dominio/permisosUi.test.ts:47-62` (eliminado); origen: auditoría #5 (2026-09-01); resuelto por P-15, `SEGUIMIENTO.md` §5 |
+| #8 | 2026-09-05 | Alcance de datos personales / RGPD art. 9 | alta | ABIERTO | R-02 (`db/011_justificacion_ausencia.sql`, escrita y empujada el 2026-09-04, todavía sin aplicar) añade `asistencia.motivo_justificacion` con un `CHECK` a una lista cerrada que incluye `'enfermedad'` y `'cita_medica'`, más `nota_justificacion` (texto libre, sin ninguna restricción de contenido) — visible para `teacher`/`administrator` en «Registros», en el histórico y en la exportación CSV (requisito 4 de R-02, ya implementado). Tanto `'enfermedad'` como `'cita_medica'` son, por definición (art. 4.15 RGPD: información que revela el estado de salud), datos de la categoría especial del artículo 9, con independencia de que la lista sea corta y sin diagnóstico — y `nota_justificacion`, al ser texto libre sin restricción, permite a un profesor escribir voluntariamente detalle médico todavía más explícito de un menor. `HOJA_DE_RUTA.md` §0.2 (documento inmutable, "Datos personales — alcance y límites") dice literalmente: "Sigue prohibido sin decisión expresa del dueño: ... datos de salud ... y cualquier categoría especial del artículo 9 del RGPD"; la propia tabla de puntos de control de este documento clasifica esa violación como severidad alta. No hay ninguna decisión del dueño que autorice el campo: `DECISIONES_TECNICAS.md` solo registra para R-02 decisiones de mecanismo (dónde vive el `CHECK`, cómo se sustituye el trigger de historial), nunca la pregunta de categoría de dato; `SEGUIMIENTO.md` §6 no tiene ninguna entrada sobre ello; y la propia spec de R-02 (`roadmap/ROADMAP_PRODUCTO.md:190-215`, `Origen: roadmap` — la propuso el ciclo del PM, no el dueño) fija explícitamente "Bloqueo humano: ninguno". Es un contraste llamativo con el propio historial del proyecto: T-09 (bloqueo de cuenta) sí generó pregunta en §6 y fila en §7 antes de ampliar alcance sobre una base mucho menos sensible. Arrastra además dos documentos redactados el mismo día que quedaron desactualizados sin que nadie volviera sobre ellos tras el commit de R-02: `legal/POLITICA_PRIVACIDAD.md:32-34` afirma textualmente "no se guardan ... datos de salud, ... ni ninguna categoría especial del artículo 9 del RGPD", y `roadmap/PRODUCCION_T25.md` (inventario RGPD de T-25, commit `4499eaf`, anterior en la secuencia a R-01/R-02/R-03) afirma "cero dato de salud, cero categoría del artículo 9" verificado solo contra `001_esquema_inicial.sql` — cierto en el instante en que se escribió, falso hoy. La base jurídica que `POLITICA_PRIVACIDAD.md` §3 ofrece para el registro de asistencia ("interés legítimo") no serviría en ningún caso para un dato del artículo 9: ese exige consentimiento explícito u otra excepción del art. 9.2. Todavía no es una fuga en producción — `011` sigue sin aplicar en `dev` (`db/APLICADAS.md`, "Pendiente de aplicar") y no existe proyecto de producción — pero es exactamente la desviación entre lo decidido (§0.2) y lo ya escrito en `develop` que esta auditoría existe para atrapar antes de que llegue a producción, y debe bloquear tanto la aprobación final de los textos legales de T-25 como la aplicación de `011`/`012` en su forma actual hasta que el dueño decida: aceptar el campo como dato de salud (con base jurídica y medidas del artículo 9 explícitas, corrigiendo los cuatro documentos de `legal/` y el inventario de `PRODUCCION_T25.md`), reformularlo para no revelar salud (p. ej. una única categoría "justificada" sin desglose médico), o retirarlo. Verificado de forma independiente por dos vías: lectura directa de este auditor de `HOJA_DE_RUTA.md` §0.2, `db/011_justificacion_ausencia.sql`, `roadmap/ROADMAP_PRODUCTO.md:190-215` y `DECISIONES_TECNICAS.md`, y dos subagentes de investigación despachados por separado (uno centrado en T-25/`legal/`, otro en la coherencia roadmap-vs-código) que llegaron al mismo hallazgo sin verse el uno al otro. | `db/011_justificacion_ausencia.sql`; `roadmap/ROADMAP_PRODUCTO.md:190-215`; `legal/POLITICA_PRIVACIDAD.md:32-34`; `legal/CONSENTIMIENTO_TRATAMIENTO.md`; `roadmap/PRODUCCION_T25.md` §3; origen: auditoría #8 (2026-09-05) |
+| #9 | 2026-09-05 | Gobernanza documental | baja | ABIERTO | `roadmap/SEGUIMIENTO.md` §7 ("Desviaciones respecto a la hoja de ruta original", "el resumen consolidado para comparar contra HOJA_DE_RUTA.md de un vistazo") no tiene fila para dos desviaciones reales de este lote, aunque ambas quedaron documentadas en otro sitio: (a) T-25 (commit `4499eaf`) descubrió que el requisito 8 de T-14 (aviso de consentimiento del tutor legal para el avatar) nunca había llegado a la interfaz pese a que T-14 lleva `COMPLETADA` desde el 2026-08-31 y ha sobrevivido a varias pasadas de este auditor sin que se notara — corregido en el mismo commit (`src/ui/pantallaFichaAlumno.ts`, nota de consentimiento con test) y documentado en `DECISIONES_TECNICAS.md`/`HISTORIAL_SESIONES.md`, pero sin fila en §7 pese a encajar en el mismo patrón que esa sección ya usa (p. ej. su fila de T-12 del 2026-08-28, "criterio de aceptación no cumplido literalmente"); (b) el propio hallazgo #8 de este documento tampoco tiene fila en §7 todavía. Sin impacto funcional ni de seguridad por sí solo — ambas desviaciones están recogidas en documentos de detalle, así que no se han perdido —, pero reduce el valor de §7 como resumen de un vistazo, que es exactamente para lo que existe. | `roadmap/SEGUIMIENTO.md` §7; origen: auditoría #8 (2026-09-05) |
 
 ---
 
@@ -58,6 +60,126 @@
 > Cada pasada: fecha, hallazgos y conclusiones. Append, la más reciente arriba. Prestar
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
+
+### Auditoría 2026-09-05
+
+**Alcance real de esta pasada — ocho commits, el lote con más sustancia de producto desde T-24: tres
+tareas nuevas de la oleada v1 (R-01/R-02/R-03) con código y tests completos pero BLOQUEADAS por sus
+migraciones, T-25 (endurecimiento y borradores de paso a producción) BLOQUEADA por decisiones del
+dueño, un vuelco de estado real (T-24 pasa de BLOQUEADA a COMPLETADA al descubrirse que su migración
+ya estaba aplicada) y un ciclo de PM que añade R-13.** `git log 2bc9463..HEAD` (`2bc9463` es el
+commit de la auditoría anterior, 2026-09-04) muestra ocho commits: `460fcd4` (verificación sin
+cambios), `2a21623` (T-24 → COMPLETADA), `7af3e17` (arreglo de una referencia cruzada en el
+historial), `4499eaf` (T-25), `f885c39`/`d16626e`/`2f9453e` (R-01/R-02/R-03) y `ac2d2fa` (undécimo
+ciclo del PM, añade R-13). Es también la primera pasada que encuentra un hallazgo `ABIERTO` desde el
+2026-09-01: los siete hallazgos anteriores llevaban un mes seguido `RESUELTO`.
+
+**Metodología.** `git checkout develop && git pull origin develop` limpio. Verificación directa en
+vivo de los cuatro comandos de §0.1: `npm ci` (130 paquetes, 0 vulnerabilidades), `npm run
+typecheck`, `npm run lint`, `npm run build`, los cuatro en verde, y `npm test`: **1056 tests, 1056
+pass, 0 fail** (antes 943; +113, coherente con el volumen de R-01/R-02/R-03/T-25). Confirmados
+contra la API de GitHub Actions los 15 runs más recientes de `develop` (incluido el del commit
+actual, `ac2d2fa`, run `33909596235`), todos `completed`/`success`, sobre 72 runs totales en el
+histórico del workflow. `git status` limpio antes y después. Barrido de secretos sobre `dist/` recién
+construido y sobre el repositorio completo (`service_role`, `SUPABASE_ACCESS_TOKEN`, `sk-`,
+`eyJhbGci`, contraseñas en claro): sin coincidencias reales, solo prosa explicativa y fixtures de
+test declaradamente falsos. `package.json` sigue sin `dependencies`. `git log 2bc9463..HEAD --
+roadmap/HOJA_DE_RUTA.md` vacío: el documento sigue sin ninguna edición nueva. `.github/workflows/ci.yml`
+y `herramientas/migraciones/guardas.ts`/`runner.ts`/`verificarPrivilegios.ts` sin cambios: mismas
+puertas, mismas guardas.
+
+Dado que el lote toca de lleno la tabla `asistencia` (tres migraciones nuevas que la modifican) y
+documentos de cara al dueño y a terceros (T-25: cabeceras HTTP, cuatro textos legales), este auditor
+leyó personalmente, sin delegar, los tres ficheros de migración completos (`db/010_registro_ausencias.sql`,
+`db/011_justificacion_ausencia.sql`, `db/012_registro_salida.sql`) y las tres secciones nuevas de
+`db/pruebas_rls.sql` (8g/8h/8i, líneas 1783-2218) que las ejercitan, y despachó dos subagentes de
+investigación en paralelo — uno centrado en `roadmap/PRODUCCION_T25.md` y los cuatro documentos de
+`legal/`, otro en la coherencia entre lo decidido (`ROADMAP_PRODUCTO.md`, `DECISIONES_TECNICAS.md`,
+§7 de `SEGUIMIENTO.md`, inmutabilidad de `HOJA_DE_RUTA.md`) y lo ejecutado — para poder contrastar
+sus hallazgos entre sí sin que uno contaminara al otro.
+
+**Punto de control: escritura solo por RPC, inmutabilidad, rastro de cambios, pertenencia en la
+edición, hora del servidor y retroactivos — sin hallazgo, las tres migraciones nuevas los respetan
+al milímetro.** `registrar_ausencia` (010) es una RPC `SECURITY DEFINER` separada, con la misma
+comprobación de pertenencia que `registrar_asistencia` (el slot tiene que ser del profesor que llama),
+el mismo límite de tasa compartido, y la misma fórmula de `es_retroactivo`; el índice de duplicado
+(`asistencia_uq_alumno_slot_dia_activa`) sustituye correctamente al de `005` (inmutable) sin editarlo.
+`actualizar_asistencia` (011, 012) se sustituye con `drop function` + `create function` de firma
+completa —correcto: PL/pgSQL identifica una función por nombre y tipos, así que un `create or
+replace` con parámetros nuevos habría creado una segunda sobrecarga ambigua en vez de sustituir la
+firma— y conserva sin tocar el primer `if` de autorización (`administrator` siempre;
+`teacher` solo lo suyo y dentro de la ventana de 7 días desde `registrado_en`), que es lo que hace
+que "justificar" y "marcar/ajustar salida" fuera de ventana se rechacen para `teacher` y se acepten
+para `administrator` sin ningún código nuevo. "Marcar salida" fija `clock_timestamp()`, nunca
+`now()` ni un valor del cliente —decisión documentada también en `DECISIONES_TECNICAS.md` y necesaria
+porque `now()` es constante dentro de una misma transacción, y tanto una llamada real como la propia
+batería de pruebas (que corre en un único `begin…rollback`) la ejecutarían junto al `INSERT` de
+entrada—; el trigger `asistencia_proteger_inmutables` (`001`, no tocado) sigue abortando cualquier
+intento de mover `registrado_en`/`profesor_id`/`peticion_id` en las tres migraciones nuevas, y el
+trigger de copia a `asistencia_historial` se sustituye (nunca la tabla) para que las columnas nuevas
+viajen también al historial — mismo patrón que `009` ya validó una pasada atrás.
+
+**Calidad real de los tests — sin hallazgo, cobertura sustancial, no decorativa.** Leídas enteras las
+tres secciones nuevas de `pruebas_rls.sql`: cada una crea su propio slot de prueba (nunca reutiliza
+`slot_prueba` de la sección 4, para no repetir la fragilidad que ya corrigió P-08) y prueba casos
+positivos Y negativos reales, no solo el camino feliz — duplicado alumno/slot/día contra el nuevo
+índice compartido `valida`/`ausente` (8g), motivo fuera de la lista cerrada, justificar un registro
+que no está ausente, justificar fuera de la ventana del profesor aceptado solo para `administrator`
+(8h), marcar salida dos veces, ajustar a una hora anterior o igual a la entrada, marcar y ajustar en
+la misma llamada, ajustar una salida no marcada, marcar salida de una ausencia (8i) — fabricando con
+un `INSERT` directo del rol de conexión (nunca `authenticated`) el registro "fuera de ventana" que
+ninguna llamada real podría producir dentro de la vida de la transacción de prueba. Es exactamente el
+tipo de batería que prueba la lógica de negocio crítica, no una que solo mantiene el semáforo verde.
+
+**Coherencia entre lo decidido y lo ejecutado — un hallazgo real, severidad alta (`#8`), más uno de
+higiene documental (`#9`).** El vuelco de T-24 (`2a21623`, BLOQUEADA → COMPLETADA) está bien
+fundamentado, no es una afirmación sin respaldo: dos vías independientes lo sostienen —el hash del
+ledger de `dev` (`npm run migrate -- --estado`) coincide con el SHA-256 del fichero en disco, y la
+sección 8e de `pruebas_rls.sql`, ya en el repositorio desde el 2026-09-03, exige "%último
+administrator%" en el trigger que solo existe si `009` está aplicada, y dio 105/0/0 ese mismo día— y
+queda reflejado sin contradicción en los cuatro documentos que mencionan T-24. Sin hallazgo tampoco
+en la spec de R-01/R-02/R-03 contra las cabeceras de sus migraciones (cada requisito de
+`ROADMAP_PRODUCTO.md` tiene su reflejo literal en el fichero `db/01N_*.sql` correspondiente), en la
+ampliación de R-13 (dependencias coherentes con el resto del backlog de la oleada v1) ni en el resto
+de `DECISIONES_TECNICAS.md`/`HISTORIAL_SESIONES.md`.
+
+El hallazgo real (`#8`, registrado arriba con todo el detalle) es que R-02 introduce
+`asistencia.motivo_justificacion` con valores `'enfermedad'`/`'cita_medica'` — dato de salud a
+efectos del artículo 9 del RGPD por definición, con independencia de su granularidad—, sin que
+conste en ningún sitio una decisión expresa del dueño que lo autorice, pese a que §0.2 de
+`HOJA_DE_RUTA.md` (documento inmutable) lo exige literalmente y la propia tabla de puntos de control
+de este documento clasifica esa falta como severidad alta. La spec de R-02 (`Origen: roadmap`, la
+propuso el ciclo del PM) fija "Bloqueo humano: ninguno" — el gate que sí se activó para T-09
+(bloqueo de cuenta, una ampliación de alcance mucho menos sensible) no se activó aquí. Arrastra
+además dos documentos de la misma tanda que quedaron desactualizados sin revisión posterior:
+`legal/POLITICA_PRIVACIDAD.md` y el inventario RGPD de `roadmap/PRODUCCION_T25.md` (escrito en el
+commit `4499eaf`, ANTES de R-01/R-02/R-03 en la secuencia) afirman los dos, todavía hoy, "cero dato
+de salud, cero categoría del artículo 9" — cierto cuando se escribió, falso desde `d16626e`. No hay
+ningún indicio de mala fe ni de descuido grosero: es el tipo exacto de punto ciego que un equipo
+— aunque sea un agente disciplinado con un proceso de revisión propio ya maduro — puede no ver
+por estar mirando el mecanismo (dónde vive el `CHECK`, qué firma tiene la RPC) y no la categoría del
+dato que ese mecanismo transporta. Se verificó por triplicado antes de escribirse aquí: lectura
+directa de este auditor y los dos subagentes despachados por separado llegaron al mismo hallazgo sin
+verse el uno al otro. Todavía no es una fuga: `011` sigue sin aplicar en `dev`. Pero bloquea con
+razón tanto la aprobación final de los textos legales de T-25 como la aplicación de `011`/`012` tal
+como están hoy, y corresponde al dueño resolverlo — aceptar, reformular o retirar el campo —, no al
+agente.
+
+El hallazgo de higiene (`#9`, baja) es que §7 de `SEGUIMIENTO.md` no indexa ni la corrección real de
+T-14 (requisito 8, aviso de consentimiento, encontrada y arreglada dentro de T-25) ni este mismo
+hallazgo `#8` — ambos están documentados en otro sitio, así que no se han perdido, pero reducen el
+valor de §7 como resumen de un vistazo.
+
+**Conclusión.** Primera pasada en un mes con un hallazgo `ABIERTO`, y el primero desde el #2 (agosto)
+con sustancia de seguridad/cumplimiento real en vez de higiene documental. El código de R-01/R-02/R-03
+en sí —RPC, triggers, ventana de edición, reloj del servidor, batería de pruebas— está bien
+construido y no repite ningún patrón de riesgo ya visto; el problema no es de mecanismo, es de
+categoría de dato, y vive exactamente en el punto que este proyecto diseñó su propio §0.2 para
+vigilar. Recomendación para la siguiente sesión de PM: convertir el hallazgo `#8` en pregunta de §6
+dirigida al dueño (con las tres opciones planteadas arriba) antes de que `011`/`012` se apliquen o de
+que los textos legales de T-25 se den por aprobables, y añadir las dos filas que faltan en §7. T-25
+y la oleada v1 siguen, por lo demás, exactamente donde las documentan `SEGUIMIENTO.md` §1/§3: sin
+ninguna migración de este lote aplicada todavía, a la espera del dueño.
 
 ### Auditoría 2026-09-04
 
