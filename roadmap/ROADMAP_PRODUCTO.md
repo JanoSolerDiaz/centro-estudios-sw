@@ -8,29 +8,35 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-04 — undécimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sigue sin ningún
-hallazgo `ABIERTO` (los siete, `#1` a `#7`, `RESUELTO`): nada que convertir en R-XX ni en backlog
-técnico.
+**Última actualización:** 2026-09-05 — duodécimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` trae, por primera
+vez desde el 2026-08-29, un hallazgo `ABIERTO` con sustancia real: **#8** (severidad alta) — R-02
+introduce un motivo de justificación (`enfermedad`/`cita_medica`) que es dato de salud del artículo
+9 del RGPD, sin que conste ninguna decisión expresa del dueño que lo autorice. No es un hallazgo de
+producto/arquitectura convertible en una R-XX nueva (la R-XX ya existe, y su mecanismo —RPC,
+triggers, ventana de edición— está bien construido según la propia auditoría) ni deuda técnica de
+código: es exactamente el tipo de decisión reservada al dueño (§0.2 de `HOJA_DE_RUTA.md` y las
+restricciones de este ciclo de PM), así que se convierte en pregunta abierta **#16** de §6 de
+`SEGUIMIENTO.md` — con tres opciones (aceptar el dato con base jurídica explícita, reformular la
+lista para no revelar categoría médica, o retirar el campo) — y bloquea explícitamente, hasta que el
+dueño responda, tanto la aplicación de la migración `011` (fila 14 de §3, actualizada con la
+condición) como la aprobación final de los textos legales de T-25. El hallazgo #9 (baja, higiene
+documental: faltan dos filas en §7) se registra como **P-17** en el backlog de §5, para una sesión
+de programador — no lo resuelve este ciclo directamente, mismo criterio que P-03/P-13/P-14 con
+hallazgos de la misma clase.
 
-**Desarrollo real desde la última revisión: R-01, R-02 y R-03 arrancadas** (código y tests
-completos, las tres `BLOQUEADA` esperando exclusivamente que el dueño aplique sus migraciones
-`010`/`011`/`012`, en ese orden — tres sesiones de programador, no de este PM). Ninguna R-XX ha
-llegado a `DESPLEGADA EN PRODUCCIÓN` todavía: la oleada v1 sigue sin poder darse por arrancada de
-verdad hasta que el MVP completo (T-00 a T-25) esté `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`. Nada
-que mover a `ROADMAP_HISTORICO.md` esta vez.
+**Sin desarrollo de código entre la revisión anterior y esta:** R-01, R-02 y R-03 siguen
+`BLOQUEADA` en §1 esperando exclusivamente al dueño (aplicar `010`/`011`/`012`, filas 13/14/15 de
+§3 — la 14 ahora con la condición adicional de arriba), y el MVP (T-00 a T-25) sigue sin estar
+completo, así que la oleada v1 sigue sin poder darse por arrancada de verdad. Nada que mover a
+`ROADMAP_HISTORICO.md` esta vez.
 
-**Único contenido real de este ciclo: una R-XX nueva, R-13** ("Aviso de sesiones sin pasar lista en
-«Mi horario»"), detectada con la misma pregunta que ya amplió R-06 en el ciclo anterior: ¿qué pasa
-cuando falla el caso normal, no el excepcional? R-01/R-02/R-03/R-12 cierran el registro cuando el
-profesor actúa; ninguna resuelve qué pasa cuando, sencillamente, se le olvida pasar lista un día —
-un fallo humano tan real como cualquiera de los que ya cubre F-01, y que hoy solo detectaría el
-administrador, y solo si existiera ya R-11 (que ni siquiera es su pantalla, y está en la oleada
-v2). Se añade a F-01, dependiente de R-06 y R-12 para no marcar como "olvido" un día en el que,
-sencillamente, no había clase — mismo patrón de dependencia cruzada de fase que ya tiene R-04.
-Detalle completo en la spec de R-13 más abajo. **Revisadas las doce R-XX restantes contra el estado
-actual: sin más cambios** — el resto del backlog sigue cubriendo el hueco real entre el MVP y el
-objetivo de producto.
+**Revisadas las trece R-XX contra el hallazgo #8 y contra el estado actual: solo R-02 cambia**
+—nota de auditoría añadida a su bloqueo humano, sin tocar sus requisitos ni su criterio de
+aceptación, que siguen describiendo fielmente el código ya escrito— y **sin R-XX nueva este
+ciclo**: ni el auditor ni `FEEDBACK.md` aportan ningún hallazgo de producto/arquitectura que la
+justifique, y el resto del backlog sigue cubriendo el hueco real entre el MVP y el objetivo de
+producto sin que haga falta inventar trabajo.
 
 ---
 
@@ -207,7 +213,19 @@ saber si avisaron.
    "des-ausentar": eso es anular con motivo (R-01).
 4. Visible en «Registros», en el histórico y en la exportación CSV.
 
-**Bloqueo humano:** ninguno.
+**Nota de auditoría (2026-09-05, hallazgo #8 de `auditoriacontinua.md`, severidad alta,
+`ABIERTO`):** la lista cerrada del requisito 1 incluye `enfermedad` y `cita_medica` — dato de salud
+a efectos del artículo 9 del RGPD por definición, con independencia de su granularidad, y sin que
+conste ninguna decisión expresa del dueño que autorice tratar esa categoría (§0.2 de
+`HOJA_DE_RUTA.md` la prohíbe sin ella). Pregunta abierta **#16** de §6 de `SEGUIMIENTO.md`, con tres
+opciones: aceptar el campo como dato de salud (con base jurídica del art. 9.2 y corrigiendo los
+cuatro documentos de `legal/` y el inventario de `PRODUCCION_T25.md`, que hoy afirman lo contrario),
+reformularlo para no revelar categoría médica, o retirarlo. El código y los tests de este requisito
+ya existen tal como se describe arriba — esta nota no los reescribe, solo advierte de que su
+migración (`011`) no debe aplicarse hasta que el dueño responda.
+
+**Bloqueo humano:** sí, desde el 2026-09-05 — pendiente la respuesta del dueño a la pregunta **#16**
+de §6 (ver nota de auditoría arriba). Hasta entonces, no aplicar la migración `011` (fila 14 de §3).
 
 **Criterio de aceptación:** una ausencia justificada se distingue de una injustificada en listado
 e histórico; el CSV exporta el motivo; justificar fuera de la ventana del profesor es rechazado

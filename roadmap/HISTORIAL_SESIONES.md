@@ -37,6 +37,49 @@
 
 ---
 
+### Sesión 2026-09-05 (rutina de producto) — duodécimo ciclo del PM: hallazgo #8 de auditoría convertido en pregunta #16
+
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **duodécimo ciclo del PM: ninguna R-XX
+nueva; R-02 gana una nota de auditoría en su bloqueo humano (sin tocar requisitos ni criterio de
+aceptación); una pregunta abierta nueva (#16) en §6; una entrada nueva de backlog (P-17, `PENDIENTE`)
+en §5; sin cambios de estado de T-XX/R-XX salvo el bloqueo de R-02 en §1, que ahora cita también la
+pregunta #16.**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: duodécimo ciclo del PM — hallazgo #8 de
+auditoría → pregunta #16 de §6; hallazgo #9 → P-17 del backlog)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010`/`011`/`012` siguen pendientes
+de que el dueño las aplique, filas 13/14/15 de §3 — la 14 ahora con la condición adicional de no
+aplicarse hasta resolver la pregunta #16)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada; bloque de
+R-02 gana una nota de auditoría y su "Bloqueo humano" pasa de "ninguno" a "sí"), `roadmap/SEGUIMIENTO.md`
+(cabecera; fila de R-02 en §1; fila 14 de §3; fila nueva P-17 en §5; fila nueva #16 en §6),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades) · tipos ✅ · lint ✅ · tests
+✅ (1056/1056, misma cifra que la sesión de "R-03 arrancada" y que el ciclo anterior del PM: esta
+sesión no toca `src/`, `db/` ni `herramientas/`) · build ✅
+**Health check post-deploy:** N/A — sin cambios de código desplegado
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — esta sesión no decide ningún mecanismo
+nuevo, solo traslada una decisión de categoría de dato al dueño (pregunta #16 de §6) y registra un
+hueco documental como backlog (P-17)
+**Hallazgos del auditor atendidos:** **#8** (severidad alta, RGPD/dato de salud en R-02) convertido
+en pregunta #16 de §6, con nota de auditoría en la spec de R-02 y condición añadida a la fila 14 de
+§3 — sigue `ABIERTO` en `auditoriacontinua.md` hasta que el auditor lo reevalúe tras la respuesta del
+dueño; **#9** (severidad baja, higiene documental) convertido en **P-17**, `PENDIENTE`, para que una
+sesión de programador añada las dos filas que faltan en §7 — mismo criterio que P-03/P-13/P-14
+**Hallazgos:** ninguno propio nuevo de esta sesión, más allá de la conversión de los dos hallazgos
+del auditor ya descrita
+**Tareas autopropuestas (P-XX):** **P-17 registrada** (no implementada: es higiene documental de
+`SEGUIMIENTO.md` §7, para una sesión de programador, no para este ciclo de PM)
+**Próximo paso:** para el dueño — responder la pregunta #16 de §6 (categoría de dato de
+`motivo_justificacion`) antes de aplicar `011` o de aprobar los textos legales de T-25; para la
+siguiente sesión de programador — atender **P-17** (añadir las dos filas de §7) en cuanto no haya
+ninguna tarea vertebral desbloqueada de mayor prioridad; para la siguiente sesión de PM — revisar si
+el auditor cerró `#8`/`#9` y, si el dueño ya respondió la pregunta #16, actualizar R-02 y la fila 14
+de §3 en consecuencia
+
+---
+
 ### Sesión 2026-09-04 (rutina de producto) — undécimo ciclo del PM: R-13 añadida
 
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
