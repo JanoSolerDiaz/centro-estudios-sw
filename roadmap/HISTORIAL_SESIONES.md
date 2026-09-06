@@ -37,6 +37,38 @@
 
 ---
 
+### Sesión 2026-09-06 (rutina de producto) — decimotercer ciclo del PM: sin R-XX nueva
+
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **decimotercer ciclo del PM: ninguna R-XX
+nueva; ningún hallazgo de `auditoriacontinua.md` ni entrada `nuevo` de `FEEDBACK.md` que convertir;
+sin cambios de estado de T-XX/R-XX en §1.**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: decimotercer ciclo del PM — sin R-XX
+nueva, auditoría confirma formalización correcta de los hallazgos #8/#9)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010`/`011`/`012` siguen pendientes
+de que el dueño las aplique, filas 13/14/15 de §3 — la 14 sigue condicionada a la pregunta #16)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada), `roadmap/SEGUIMIENTO.md`
+(cabecera; nueva entrada de sesión), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades) · tipos ✅ · lint ✅ · tests
+✅ (1056/1056, misma cifra que la pasada del auditor de hoy y que el ciclo anterior del PM: esta
+sesión no toca `src/`, `db/` ni `herramientas/`) · build ✅
+**Health check post-deploy:** N/A — sin cambios de código desplegado
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — esta sesión no decide ningún mecanismo
+nuevo
+**Hallazgos del auditor atendidos:** ninguno nuevo. `#8` (severidad alta, RGPD/dato de salud en
+R-02) y `#9` (severidad baja, higiene documental) siguen `ABIERTO` en `auditoriacontinua.md`, ya
+correctamente formalizados por el ciclo anterior (pregunta #16 de §6; P-17 del backlog de §5) —
+verificado que la pasada de hoy del auditor confirma esa formalización sin encontrar nada que
+recortar ni ampliar, y sin aportar ningún hallazgo nuevo
+**Tareas autopropuestas (P-XX):** ninguna registrada ni ejecutada este ciclo
+**Próximo paso:** la siguiente sesión de producto vuelve a revisar `auditoriacontinua.md` y
+`FEEDBACK.md` en busca de hallazgos/entradas nuevas; la siguiente sesión de programador sigue
+esperando que el dueño aplique `010`/`011`/`012` (o responda la pregunta #16) y, si toma trabajo de
+backlog, tiene disponible **P-17** (añadir a §7 las dos filas de desviación pendientes)
+
+---
+
 ### Sesión 2026-09-05 (rutina de producto) — duodécimo ciclo del PM: hallazgo #8 de auditoría convertido en pregunta #16
 
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)

@@ -10,15 +10,46 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-05 (rutina programada, duodécimo ciclo del PM) — **hallazgo #8 de
-auditoría (severidad alta, RGPD/datos de salud en R-02) convertido en pregunta #16 de §6; hallazgo
-#9 (baja) convertido en P-17 del backlog de §5. Ninguna R-XX nueva este ciclo.**
+**Última actualización:** 2026-09-06 (rutina programada, decimotercer ciclo del PM) — **sin R-XX
+nueva: la pasada de hoy de `auditoriacontinua.md` confirma que los hallazgos `#8` y `#9` siguen
+`ABIERTO` pero ya correctamente formalizados por el ciclo anterior (pregunta #16 de §6 y P-17 de §5)
+y no aporta ningún hallazgo nuevo; `FEEDBACK.md` sigue sin entradas `nuevo` reales.**
 Ciclo de producto puro, sin tocar código: `git checkout develop && git pull` trajo la pasada del
-auditor de hoy (commit `1fe80a4`, ya en `origin/develop` al empezar), y desde ahí se revisó el
-estado completo. `auditoriacontinua.md` revisado entero, con atención especial al registro de
-hallazgos: por primera vez desde el 2026-08-29 hay dos `ABIERTO` (`#8` y `#9`), los siete anteriores
-(`#1` a `#7`) siguen `RESUELTO`. **`#8` (severidad alta):** R-02 (migración `011`, escrita y
-empujada, sin aplicar) añade `motivo_justificacion` con valores `enfermedad`/`cita_medica` —dato de
+auditor de hoy (commit `5a27918`, ya en `origin/develop` al empezar), y desde ahí se revisó el
+estado completo. `git log 1fe80a4..5a27918` muestra un único commit nuevo desde la pasada anterior
+del auditor: la propia pasada de hoy, puramente narrativa — cero cambios en `db/`, `src/` ni
+`herramientas/`, confirmado también por la propia narrativa del auditor. `auditoriacontinua.md`
+revisado entero: `#8` (RGPD/dato de salud en R-02, severidad alta) y `#9` (higiene documental,
+faltan dos filas en §7, severidad baja) siguen `ABIERTO`, y el propio auditor confirma que la
+traducción del duodécimo ciclo del PM fue la correcta —pregunta **#16** de §6 recoge las tres
+opciones sin recortarlas ni cambiar su sentido; **P-17** sigue `PENDIENTE` en el backlog de §5— y que
+permanecer `ABIERTO` es lo que corresponde mientras el dueño no responda la pregunta #16 y P-17 no se
+ejecute: no hay nada nuevo que convertir en ninguno de los dos esta vez. `FEEDBACK.md` revisado:
+sigue sin entradas `nuevo` reales (fila plantilla vacía) — nada que convertir. Backlog de §5
+revisado completo: las diecisiete `P-XX` (`P-01` a `P-17`) siguen en su estado ya conocido, sin
+cambio. R-01, R-02 y R-03 siguen `BLOQUEADA` en §1 esperando al dueño (filas 13, 14 y 15 de §3:
+aplicar `010`, `011` y `012`, en ese orden — la 14 sigue condicionada a la pregunta #16) — el MVP
+(T-00 a T-25) tampoco ha cambiado de estado (fila 12 de §3, sin cambio), así que la oleada v1 sigue
+sin poder darse por arrancada de verdad, y nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Revisadas
+las trece R-XX del backlog vivo contra el estado actual y contra la visión de producto (oleadas v1 y
+v2 ya cubren, en orden, asistencia completa, informes y aviso a familias, continuidad operativa,
+arranque rápido, confianza legal y visión de centro): sin más cambios y **sin ninguna R-XX nueva
+este ciclo** — doce ciclos consecutivos de PM ya han traducido a tareas concretas todo el hueco real
+entre el MVP y el objetivo de producto, y ni el auditor ni `FEEDBACK.md` aportan hoy ningún hallazgo
+de producto o arquitectura que justifique ampliar ese backlog; inventar una tarea sin una necesidad
+real detrás sería exactamente el vicio que este protocolo existe para evitar. Repetida la
+verificación pre-push completa sin ningún commit de programador entre medias (esta sesión no toca
+`src/`, `db/` ni `herramientas/`): `npm ci` (130 paquetes, 0 vulnerabilidades), `npm run typecheck`,
+`npm run lint`, `npm test` (1056/1056, misma cifra que la pasada del auditor de hoy) y `npm run
+build` en verde. `git status` limpio antes y después de los cambios de documentación.
+
+**Sesión anterior (2026-09-05, "duodécimo ciclo del PM — hallazgo #8 de auditoría convertido en
+pregunta #16"):** Ciclo de producto puro, sin tocar código: `git checkout develop && git pull` trajo
+la pasada del auditor de hoy (commit `1fe80a4`, ya en `origin/develop` al empezar), y desde ahí se
+revisó el estado completo. `auditoriacontinua.md` revisado entero, con atención especial al registro
+de hallazgos: por primera vez desde el 2026-08-29 hay dos `ABIERTO` (`#8` y `#9`), los siete
+anteriores (`#1` a `#7`) siguen `RESUELTO`. **`#8` (severidad alta):** R-02 (migración `011`, escrita
+y empujada, sin aplicar) añade `motivo_justificacion` con valores `enfermedad`/`cita_medica` —dato de
 salud del artículo 9 del RGPD por definición— sin ninguna decisión expresa del dueño que lo
 autorice, pese a que §0.2 de `HOJA_DE_RUTA.md` lo exige. No es un hallazgo de producto/arquitectura
 (la R-XX ya existe y su mecanismo está bien construido, según la propia auditoría) ni deuda técnica

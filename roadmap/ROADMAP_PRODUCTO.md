@@ -8,35 +8,28 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-05 — duodécimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` trae, por primera
-vez desde el 2026-08-29, un hallazgo `ABIERTO` con sustancia real: **#8** (severidad alta) — R-02
-introduce un motivo de justificación (`enfermedad`/`cita_medica`) que es dato de salud del artículo
-9 del RGPD, sin que conste ninguna decisión expresa del dueño que lo autorice. No es un hallazgo de
-producto/arquitectura convertible en una R-XX nueva (la R-XX ya existe, y su mecanismo —RPC,
-triggers, ventana de edición— está bien construido según la propia auditoría) ni deuda técnica de
-código: es exactamente el tipo de decisión reservada al dueño (§0.2 de `HOJA_DE_RUTA.md` y las
-restricciones de este ciclo de PM), así que se convierte en pregunta abierta **#16** de §6 de
-`SEGUIMIENTO.md` — con tres opciones (aceptar el dato con base jurídica explícita, reformular la
-lista para no revelar categoría médica, o retirar el campo) — y bloquea explícitamente, hasta que el
-dueño responda, tanto la aplicación de la migración `011` (fila 14 de §3, actualizada con la
-condición) como la aprobación final de los textos legales de T-25. El hallazgo #9 (baja, higiene
-documental: faltan dos filas en §7) se registra como **P-17** en el backlog de §5, para una sesión
-de programador — no lo resuelve este ciclo directamente, mismo criterio que P-03/P-13/P-14 con
-hallazgos de la misma clase.
+**Última actualización:** 2026-09-06 — decimotercer ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. La pasada de hoy de
+`auditoriacontinua.md` (commit `5a27918`) es puramente narrativa —un único commit desde la anterior,
+sin tocar `db/`, `src/` ni `herramientas/`— y confirma que la traducción del ciclo anterior del PM
+fue correcta: **#8** (severidad alta, dato de salud del artículo 9 del RGPD en R-02) sigue `ABIERTO`
+en pregunta **#16** de §6 de `SEGUIMIENTO.md`, sin que el dueño haya respondido todavía, y **#9**
+(baja, higiene documental) sigue `ABIERTO` en **P-17** del backlog de §5, sin que se haya ejecutado
+todavía. Ninguno de los dos aporta nada nuevo que traducir este ciclo.
 
 **Sin desarrollo de código entre la revisión anterior y esta:** R-01, R-02 y R-03 siguen
 `BLOQUEADA` en §1 esperando exclusivamente al dueño (aplicar `010`/`011`/`012`, filas 13/14/15 de
-§3 — la 14 ahora con la condición adicional de arriba), y el MVP (T-00 a T-25) sigue sin estar
-completo, así que la oleada v1 sigue sin poder darse por arrancada de verdad. Nada que mover a
+§3 — la 14 sigue condicionada a la pregunta #16), y el MVP (T-00 a T-25) sigue sin estar completo,
+así que la oleada v1 sigue sin poder darse por arrancada de verdad. Nada que mover a
 `ROADMAP_HISTORICO.md` esta vez.
 
-**Revisadas las trece R-XX contra el hallazgo #8 y contra el estado actual: solo R-02 cambia**
-—nota de auditoría añadida a su bloqueo humano, sin tocar sus requisitos ni su criterio de
-aceptación, que siguen describiendo fielmente el código ya escrito— y **sin R-XX nueva este
-ciclo**: ni el auditor ni `FEEDBACK.md` aportan ningún hallazgo de producto/arquitectura que la
-justifique, y el resto del backlog sigue cubriendo el hueco real entre el MVP y el objetivo de
-producto sin que haga falta inventar trabajo.
+**Revisadas las trece R-XX contra el estado actual y contra la visión de producto: sin ningún
+cambio y sin R-XX nueva este ciclo** — doce ciclos consecutivos de PM ya han traducido a tareas
+concretas todo el hueco real entre el MVP y el objetivo de producto (asistencia completa, informes y
+aviso a familias, continuidad operativa, arranque rápido, confianza legal y visión de centro), y ni
+el auditor ni `FEEDBACK.md` aportan hoy ningún hallazgo de producto/arquitectura que justifique
+ampliar ese backlog: inventar una tarea sin una necesidad real detrás sería exactamente el vicio que
+este protocolo existe para evitar.
 
 ---
 
