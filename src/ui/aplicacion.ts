@@ -41,6 +41,7 @@ import {
   desactivarExcepcionSlot,
   listarExcepcionesDeSlot,
   listarExcepcionesDelDiaParaProfesor,
+  listarExcepcionesDeProfesorEnRango,
 } from '../datos/excepcionesSlot.ts';
 import {
   listarAlumnos,
@@ -422,11 +423,15 @@ function mostrarAppProfesor(
         programador: app.programador,
         cargarSlots: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
         listarExcepcionesDeHoy: (fecha) => listarExcepcionesDelDiaParaProfesor(app.postgrest, fecha),
+        listarRegistrosRecientes: (desde, hasta) =>
+          listarHistoricoAsistenciaCompleto(app.postgrest, { profesorId: perfil.id, desde, hasta }),
+        listarCierresActivos: () => listarCierres(app.postgrest, { estado: 'activos' }),
+        listarExcepcionesRecientes: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
         irAPasarLista: () => {
           router.navegar({ nombre: 'pasar-lista' });
         },
-        irARegistros: (slotId) => {
-          router.navegar({ nombre: 'registros', slotId });
+        irARegistros: (slotId, fecha) => {
+          router.navegar({ nombre: 'registros', slotId, ...(fecha !== undefined ? { fecha } : {}) });
         },
       });
       return;
@@ -444,6 +449,7 @@ function mostrarAppProfesor(
         // excepciones es solo administrator (puedeGestionarExcepcionesSlot); teacher solo las ve
         // reflejadas en «Mi horario» y en pasar lista.
         ...(ruta.slotId !== undefined ? { slotInicialId: ruta.slotId } : {}),
+        ...(ruta.fecha !== undefined ? { fechaInicial: ruta.fecha } : {}),
         listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesorConAlumno(app.postgrest, profesorId),
         listarRegistros: (slotId, fecha) => listarRegistrosDeSlotYFecha(app.postgrest, slotId, fecha),
         listarHistorial: (asistenciaId) => listarHistorialDeAsistencia(app.postgrest, asistenciaId),

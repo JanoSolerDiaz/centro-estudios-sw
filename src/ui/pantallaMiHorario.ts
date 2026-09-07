@@ -24,9 +24,18 @@
  * horario. Dentro de cada día, los slots se ordenan por apellido del alumno (mismo criterio "a la
  * española" que el resto de listados de alumnos, `compararAlumnosParaOrden`), no por el orden en que
  * los devuelve el servidor.
+ *
+ * Bloque "Sesiones sin pasar lista" (R-13): calculado en el cliente por
+ * `dominio/avisosPasarLista.ts#sesionesSinPasarLista` a partir de tres lecturas nuevas, todas
+ * opcionales y pedidas una única vez al cargar —mismo criterio de caché que `excepcionesHoyCache`—:
+ * el histórico de los últimos días (T-23), los cierres activos (R-12) y las excepciones activas de
+ * la ventana (R-06, un rango, a diferencia de `listarExcepcionesDeHoy` que solo trae hoy). Sin las
+ * tres a la vez, el bloque simplemente no aparece — "Mi horario" funciona exactamente como antes de
+ * R-13, mismo criterio que el resto de dependencias opcionales de este módulo. Un toque en el aviso
+ * navega a «Registros» de ese slot Y esa fecha (`deps.irARegistros(slotId, fecha)`, requisito 2).
  */
 
-import type { Rol, DiaSemana, ExcepcionSlot } from '../dominio/tipos.ts';
+import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import {
   fechaLocalISO,
@@ -39,6 +48,8 @@ import {
 import { nombreCompletoAlumno, compararAlumnosParaOrden } from '../dominio/alumno.ts';
 import { puedeVerMiHorario } from '../dominio/permisosUi.ts';
 import { etiquetaExcepcion, excepcionDelDia } from '../dominio/excepcionSlot.ts';
+import { VENTANA_EDICION_TEACHER_DIAS } from '../dominio/asistencia.ts';
+import { sesionesSinPasarLista, type RegistroParaAvisoPasarLista, type SesionSinPasarLista } from '../dominio/avisosPasarLista.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
@@ -47,6 +58,12 @@ import { crearZonaMensaje, crearBoton } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
 const INTERVALO_TICK_MS = 20_000;
+
+/** Margen extra sobre `VENTANA_EDICION_TEACHER_DIAS` al pedir el histórico y las excepciones de la
+ * ventana (requisito 1 de R-13): sobra un día de más, nunca falta uno por un simple redondeo de
+ * milisegundos a día de calendario — `sesionesSinPasarLista` ya filtra con precisión por fecha, así
+ * que traer de más aquí es inofensivo, nunca incorrecto. */
+const MARGEN_VENTANA_DIAS = 1;
 
 const DIAS_SEMANA: readonly DiaSemana[] = [1, 2, 3, 4, 5, 6, 7];
 
@@ -61,17 +78,31 @@ export interface DependenciasPantallaMiHorario {
    * — motivo", nunca como el slot normal ni como "Sin clases este día"). Opcional: sin ella, «Mi
    * horario» funciona exactamente como antes de R-06. */
   listarExcepcionesDeHoy?(fecha: string): Promise<readonly ExcepcionSlot[]>;
+  /** R-13: registros del profesor entre `desde` y `hasta` (inclusive), de cualquier estado —
+   * mismo criterio que `datos/asistencia.ts#listarHistoricoAsistenciaCompleto` filtrado por
+   * `profesorId`. Junto con `listarCierresActivos`/`listarExcepcionesRecientes`, las tres
+   * dependencias del bloque "Sesiones sin pasar lista"; sin las tres a la vez, no aparece. */
+  listarRegistrosRecientes?(desde: Date, hasta: Date): Promise<readonly RegistroParaAvisoPasarLista[]>;
+  /** R-13: cierres ACTIVOS del centro (R-12), para excluir un día cerrado de "sesiones esperadas". */
+  listarCierresActivos?(): Promise<readonly CierreCentro[]>;
+  /** R-13: excepciones ACTIVAS (R-06) cuya `fecha` cae en `[desde, hasta]` — a diferencia de
+   * `listarExcepcionesDeHoy` (un único día, para relabelar la fila de hoy), esta trae todo el rango
+   * de la ventana de aviso. */
+  listarExcepcionesRecientes?(desde: string, hasta: string): Promise<readonly ExcepcionSlot[]>;
   /** Navega a pasar lista (T-19) — sin parámetros: pasar lista siempre muestra lo que toque ahora,
    * que si este botón está visible ya coincide con este slot. */
   irAPasarLista(): void;
-  /** Navega a los registros (T-21) de `slotId`, preseleccionado. */
-  irARegistros(slotId: string): void;
+  /** Navega a los registros (T-21) de `slotId`, preseleccionado. `fecha` (R-13, `AAAA-MM-DD`)
+   * preselecciona también el día — omitida, el enlace de "Ver registros" de la vista semanal sigue
+   * yendo al día de hoy, igual que antes de R-13. */
+  irARegistros(slotId: string, fecha?: string): void;
 }
 
 interface EstadoPantalla {
   readonly cargando: boolean;
   readonly error: string;
   readonly instante: Date;
+  readonly avisos: readonly SesionSinPasarLista[];
 }
 
 export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: DependenciasPantallaMiHorario): void {
@@ -94,13 +125,42 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     cargando: true,
     error: '',
     instante: deps.reloj.ahora(),
+    avisos: [],
   });
 
   const tituloPantalla = crearElemento(documento, 'h2', { texto: 'Mi horario' });
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaEstado = documento.createElement('div');
   const zonaResumen = documento.createElement('div');
+  const zonaAvisos = documento.createElement('div');
   const listaDias = documento.createElement('div');
+
+  /** R-13: las tres dependencias del bloque de avisos vienen juntas o no vienen — así se decide una
+   * sola vez si hace falta pedir nada. */
+  function puedeCalcularAvisos(): boolean {
+    return deps.listarRegistrosRecientes !== undefined && deps.listarCierresActivos !== undefined && deps.listarExcepcionesRecientes !== undefined;
+  }
+
+  async function cargarAvisos(instante: Date): Promise<readonly SesionSinPasarLista[]> {
+    if (!deps.listarRegistrosRecientes || !deps.listarCierresActivos || !deps.listarExcepcionesRecientes) {
+      return [];
+    }
+    const ventanaDias = VENTANA_EDICION_TEACHER_DIAS + MARGEN_VENTANA_DIAS;
+    const desde = new Date(instante.getTime() - ventanaDias * 24 * 60 * 60 * 1000);
+    const [registros, cierres, excepciones] = await Promise.all([
+      deps.listarRegistrosRecientes(desde, instante),
+      deps.listarCierresActivos(),
+      deps.listarExcepcionesRecientes(fechaLocalISO(desde), fechaLocalISO(instante)),
+    ]);
+    return sesionesSinPasarLista({
+      profesorId: deps.profesorId,
+      instante,
+      slots: slotsCache,
+      registros,
+      cierres,
+      excepciones,
+    });
+  }
 
   async function cargar(): Promise<void> {
     almacen.actualizar({ cargando: true, error: '' });
@@ -113,10 +173,33 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
       ]);
       slotsCache = slots;
       excepcionesHoyCache = excepciones;
-      almacen.actualizar({ cargando: false, instante: deps.reloj.ahora() });
+      const avisos = puedeCalcularAvisos() ? await cargarAvisos(instante) : [];
+      almacen.actualizar({ cargando: false, instante: deps.reloj.ahora(), avisos });
     } catch (error) {
       almacen.actualizar({ cargando: false, error: mensajeAmigable(error) });
     }
+  }
+
+  function pintarAvisos(): void {
+    zonaAvisos.textContent = '';
+    const { avisos } = almacen.obtener();
+    if (avisos.length === 0) {
+      return;
+    }
+    zonaAvisos.append(crearElemento(documento, 'h3', { texto: 'Sesiones sin pasar lista' }));
+    const lista = documento.createElement('ul');
+    for (const aviso of avisos) {
+      const li = documento.createElement('li');
+      const tramo = `${aviso.fecha} ${aviso.slot.hora_inicio}–${aviso.slot.hora_fin}`;
+      li.append(crearElemento(documento, 'span', { texto: `${tramo} — ${nombreCompletoAlumno(aviso.slot.alumno)}` }));
+      const boton = crearBoton(documento, 'Completar registro', 'button');
+      boton.addEventListener('click', () => {
+        deps.irARegistros(aviso.slot.id, aviso.fecha);
+      });
+      li.append(boton);
+      lista.append(li);
+    }
+    zonaAvisos.append(lista);
   }
 
   function pintarResumen(vista: readonly SlotSemanal[], instante: Date): void {
@@ -211,18 +294,20 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     zonaEstado.textContent = estado.cargando ? 'Cargando…' : '';
     if (estado.cargando) {
       zonaResumen.textContent = '';
+      zonaAvisos.textContent = '';
       listaDias.textContent = '';
       return;
     }
     const vista = vistaSemanalProfesor({ profesorId: deps.profesorId, instante: estado.instante, slots: slotsCache });
     pintarResumen(vista, estado.instante);
+    pintarAvisos();
     pintarDias(vista, estado.instante);
   }
 
   almacen.suscribir(pintar);
   pintar();
 
-  contenedor.append(tituloPantalla, zonaError, zonaEstado, zonaResumen, listaDias);
+  contenedor.append(tituloPantalla, zonaError, zonaEstado, zonaResumen, zonaAvisos, listaDias);
 
   deps.programador.cada(INTERVALO_TICK_MS, () => {
     almacen.actualizar({ instante: deps.reloj.ahora() });

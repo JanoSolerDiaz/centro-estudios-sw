@@ -85,6 +85,14 @@ export interface DependenciasPantallaRegistrosSlot {
    * slot cargado (p. ej. ha cambiado de horario entre que se generó el enlace y se abrió), se
    * ignora en silencio y la pantalla arranca como siempre: "elige un slot…". */
   readonly slotInicialId?: string;
+  /** Fecha a preseleccionar al abrir (`AAAA-MM-DD`), junto con `slotInicialId` — el aviso de
+   * sesiones sin pasar lista (R-13, "Mi horario") enlaza aquí al día concreto que quedó sin
+   * registrar, no a hoy. Sin efecto si `slotInicialId` no viene también: sin un slot preseleccionado
+   * no hay "registros de ese slot y esa fecha" que mostrar, así que la pantalla arranca igual que
+   * siempre. Sin validar contra el día de la semana del slot ni contra ninguna ventana: un valor que
+   * no cuadre simplemente se ve como cualquier fecha elegida a mano, la pantalla ya sabe mostrar "sin
+   * registros" con normalidad. */
+  readonly fechaInicial?: string;
   /** Solo se llama si `rol === 'administrator'` — quien monta esta pantalla para un `teacher`
    * puede omitirla sin más. */
   listarProfesoresParaSelector?(): Promise<readonly ProfesorParaSelector[]>;
@@ -280,7 +288,7 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     profesorSeleccionadoId: puedeElegirProfesor ? '' : deps.profesorId,
     slots: [],
     slotSeleccionadoId: '',
-    fechaIso: fechaLocalISO(deps.reloj.ahora()),
+    fechaIso: deps.slotInicialId && deps.fechaInicial ? deps.fechaInicial : fechaLocalISO(deps.reloj.ahora()),
     cargando: false,
     error: '',
     registros: [],

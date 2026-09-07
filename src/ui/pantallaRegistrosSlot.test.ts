@@ -96,6 +96,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     profesorId: overrides.profesorId ?? 'profesor-1',
     reloj: overrides.reloj ?? crearRelojFijo(INSTANTE),
     ...(overrides.slotInicialId !== undefined ? { slotInicialId: overrides.slotInicialId } : {}),
+    ...(overrides.fechaInicial !== undefined ? { fechaInicial: overrides.fechaInicial } : {}),
     listarProfesoresParaSelector: overrides.listarProfesoresParaSelector ?? (() => Promise.resolve([])),
     listarSlotsDeProfesor: overrides.listarSlotsDeProfesor ?? (() => Promise.resolve([])),
     listarRegistros: overrides.listarRegistros ?? (() => Promise.resolve([])),
@@ -293,6 +294,49 @@ void test('slotInicialId que no coincide con ningún slot cargado se ignora en s
   assert.ok(selectSlot);
   assert.equal(selectSlot.value, '');
   assert.equal(llamadasRegistros, 0);
+});
+
+// --- Preselección de fecha (R-13, "sesiones sin pasar lista") ------------------------------------
+
+void test('fechaInicial, junto con slotInicialId, preselecciona el día y trae los registros de esa fecha', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let argumentos: readonly [string, Date] | undefined;
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      slotInicialId: 'slot-1',
+      fechaInicial: '2026-08-24',
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot({ id: 'slot-1' })]),
+      listarRegistros: (slotId, fecha) => {
+        argumentos = [slotId, fecha];
+        return Promise.resolve([]);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const campoFecha = contenedor.querySelector<HTMLInputElement>('#registros-fecha');
+  assert.ok(campoFecha);
+  assert.equal(campoFecha.value, '2026-08-24');
+  assert.ok(argumentos);
+  assert.equal(argumentos[0], 'slot-1');
+  assert.equal(argumentos[1].toISOString().slice(0, 10), '2026-08-24');
+});
+
+void test('fechaInicial sin slotInicialId no tiene efecto: la pantalla arranca en el día de hoy', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      fechaInicial: '2026-08-24',
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot({ id: 'slot-1' })]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const campoFecha = contenedor.querySelector<HTMLInputElement>('#registros-fecha');
+  assert.ok(campoFecha);
+  assert.equal(campoFecha.value, '2026-08-26'); // fechaLocalISO(INSTANTE)
 });
 
 void test('un registro anulado se muestra tachado y con su motivo', async () => {

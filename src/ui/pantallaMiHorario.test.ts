@@ -358,6 +358,126 @@ void test('"Pasar lista" navega sin ningún parámetro', async () => {
   assert.equal(llamadas, 1);
 });
 
+// --- R-13: sesiones sin pasar lista ---------------------------------------------------------------
+
+void test('sin las tres dependencias de R-13 inyectadas a la vez, el bloque no aparece (funciona como antes de R-13)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ hora_inicio: '09:00', hora_fin: '10:00', vigente_desde: '2026-08-26' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarRegistrosRecientes: () => Promise.resolve([]),
+      listarCierresActivos: () => Promise.resolve([]),
+      // Falta listarExcepcionesRecientes: las tres van juntas o ninguna.
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Sesiones sin pasar lista/);
+});
+
+void test('con las tres dependencias de R-13, un slot de hoy ya terminado y sin registro aparece como "sin pasar lista"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ hora_inicio: '09:00', hora_fin: '10:00', vigente_desde: '2026-08-26' });
+  let argumentosIrARegistros: readonly [string, string | undefined] | undefined;
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarRegistrosRecientes: () => Promise.resolve([]),
+      listarCierresActivos: () => Promise.resolve([]),
+      listarExcepcionesRecientes: () => Promise.resolve([]),
+      irARegistros: (slotId, fecha) => {
+        argumentosIrARegistros = [slotId, fecha];
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Sesiones sin pasar lista/);
+  assert.match(contenedor.textContent, /2026-08-26 09:00–10:00 — Ana García López/);
+  const boton = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Completar registro');
+  assert.ok(boton);
+  boton.dispatchEvent(new (contenedor.ownerDocument.defaultView as unknown as typeof window).Event('click', { bubbles: true }));
+  assert.deepEqual(argumentosIrARegistros, ['slot-1', '2026-08-26']);
+});
+
+void test('un slot de hoy con un registro ya existente no aparece en "sesiones sin pasar lista"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ hora_inicio: '09:00', hora_fin: '10:00', vigente_desde: '2026-08-26' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarRegistrosRecientes: () => Promise.resolve([{ slot_id: slot.id, ocurrido_en: '2026-08-26T09:05:00.000Z' }]),
+      listarCierresActivos: () => Promise.resolve([]),
+      listarExcepcionesRecientes: () => Promise.resolve([]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Sesiones sin pasar lista/);
+});
+
+void test('un slot de hoy cancelado (R-06) no aparece en "sesiones sin pasar lista"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ hora_inicio: '09:00', hora_fin: '10:00', vigente_desde: '2026-08-26' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarRegistrosRecientes: () => Promise.resolve([]),
+      listarCierresActivos: () => Promise.resolve([]),
+      listarExcepcionesRecientes: () =>
+        Promise.resolve([
+          {
+            id: 'exc-1',
+            slot_id: slot.id,
+            fecha: '2026-08-26',
+            tipo: 'cancelacion',
+            profesor_sustituto_id: null,
+            motivo: 'Sin profesor',
+            activo: true,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Sesiones sin pasar lista/);
+});
+
+void test('un día cerrado del centro (R-12) excluye ese slot de "sesiones sin pasar lista"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ hora_inicio: '09:00', hora_fin: '10:00', vigente_desde: '2026-08-26' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarRegistrosRecientes: () => Promise.resolve([]),
+      listarCierresActivos: () =>
+        Promise.resolve([
+          {
+            id: 'cierre-1',
+            fecha_inicio: '2026-08-26',
+            fecha_fin: '2026-08-26',
+            motivo: 'Festivo',
+            activo: true,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+      listarExcepcionesRecientes: () => Promise.resolve([]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Sesiones sin pasar lista/);
+});
+
 // --- Refresco periódico sin red -------------------------------------------------------------------
 
 void test('un tick del programador recalcula la vista sin volver a pedir datos al servidor', async () => {

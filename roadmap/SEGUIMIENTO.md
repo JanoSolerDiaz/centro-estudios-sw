@@ -10,8 +10,61 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-07 (rutina programada, "R-06 arrancada, sexta tarea de la oleada
-v1") — R-01, R-02, R-03 y R-12 seguían `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas 13,
+**Última actualización:** 2026-09-07 (rutina programada, "R-13 completada, séptima tarea de la
+oleada v1") — R-01, R-02, R-03, R-12 y R-06 seguían `BLOQUEADA` en §1 esperando exclusivamente al
+dueño (filas 13, 14, 15, 16 y 17 de §3, sin cambio: aplicar `010`, `011`, `012`, `014` y `013`, la 14
+condicionada además a la pregunta #16 de §6), así que esta sesión revisó primero el registro de
+hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada
+nueva del auditor desde `06fb8b0` (2026-09-07 por la mañana, la misma ya conocida por la sesión
+anterior), así que el estado de los dos `ABIERTO` (`#8`, pregunta #16 de §6, esperando al dueño; `#9`,
+`RESUELTO` por P-17, sin que el auditor lo haya vuelto a comprobar todavía) sigue siendo el mismo —
+nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1 en orden: las dos siguientes
+`PENDIENTE` eran **R-13** ("Aviso de sesiones sin pasar lista en «Mi horario»") y **R-04** ("Informe
+mensual por alumno"), ambas dependientes de **R-06** y **R-12** — pero, a diferencia de la sesión
+anterior (cuando R-06 seguía `PENDIENTE` sin ningún código escrito), la sesión anterior completó el
+código y los tests de R-06, que ahora está `BLOQUEADA` **solo** por la migración `013` sin aplicar,
+exactamente la misma situación que R-12 (`014`) — mismo precedente que R-03 ya usó con R-01/R-02 y que
+R-05 volvió a usar más tarde: una dependencia con código completo, bloqueada solo por una migración
+sin aplicar, no bloquea escribir la tarea siguiente contra los mismos dobles. Esta sesión tomó **R-13**
+(la primera de las dos en el orden de §1), que además depende de T-19 y T-22 (ambas `COMPLETADA`). Su
+spec declara `Migración: No`, así que no hay ninguna pieza de esquema que escribir ni ninguna fila
+nueva de §3 — R-13 queda `COMPLETADA` de verdad, sin ningún bloqueo, en cuanto termina esta sesión.
+
+**Decisión de diseño de esta sesión, documentada en `DECISIONES_TECNICAS.md`:** R-13 no inventa
+ningún criterio nuevo de "sesión esperada" — reutiliza sin tocarlas `esDiaCerrado` (R-12) y
+`esDiaCanceladoParaSlot` (R-06), las dos ya documentadas en su propio fichero como pensadas también
+para este aviso. Módulo nuevo `dominio/avisosPasarLista.ts#sesionesSinPasarLista`: para cada uno de
+los últimos `VENTANA_EDICION_TEACHER_DIAS` días (T-21, el valor que el propio requisito 1 cita
+literalmente) más hoy, cada slot propio vigente ese día cuya hora de fin ya pasó y sin ningún
+registro —de ningún estado, para no confundir "sin pasar lista" con "sin entrada válida"— se marca,
+salvo que el día esté cerrado o cancelado para ese slot. Una sustitución (R-06) NO excluye a
+propósito: si nadie —ni el titular ni el sustituto— registró ese día, el hueco real sigue sin cubrir
+y el aviso debe seguir apareciendo; si el sustituto sí registró, el registro queda enganchado al
+MISMO `slot_id` (decisión ya tomada por R-06), así que la comprobación de "algún registro ese día" ya
+lo detecta sin necesitar ningún caso especial — ninguna integración nueva con
+`slotsEfectivosDelDia`. En «Mi horario» (`pantallaMiHorario.ts`), un bloque nuevo "Sesiones sin pasar
+lista" calculado a partir de TRES dependencias opcionales que van juntas o no aparecen
+(`listarRegistrosRecientes`/`listarCierresActivos`/`listarExcepcionesRecientes`, pedidas una única
+vez al cargar, sin refetch por tick — mismo criterio de caché que `excepcionesHoyCache` de R-06); sin
+las tres a la vez, «Mi horario» funciona exactamente como antes de R-13. Requisito 2 ("un toque
+enlaza a Registros de ese slot Y esa fecha") obligó a tocar el router de `teacher`: la ruta
+`registros` gana un tercer segmento opcional `fecha` (`#/registros/<slotId>/<fecha>`, solo con
+sentido junto a `slotId`) y `pantallaRegistrosSlot.ts` gana `deps.fechaInicial?` (mismo criterio de
+"se ignora en silencio si no cuadra con nada" que ya usa `slotInicialId` desde T-22) — sin tocar la
+gramática del router de `administrator`, que no tiene ningún enlace equivalente. **25 tests nuevos
+(1221 en total, antes 1196):** `dominio/avisosPasarLista.test.ts` nuevo con 15 casos — la mayoría de
+la sesión —, más 2 de `router.test.ts` (el segmento de fecha, ida y vuelta), 2 de
+`pantallaRegistrosSlot.test.ts` (`fechaInicial`, con y sin `slotInicialId`), 5 de
+`pantallaMiHorario.test.ts` (el bloque completo: sin las tres dependencias, marcado, con registro,
+cancelado, cerrado) y 1 de `datos/excepcionesSlot.test.ts` para la nueva
+`listarExcepcionesDeProfesorEnRango`. Verificación pre-push completa en verde: `npm run
+typecheck`, `npm run lint`, `npm test` (1221/1221) y `npm run build`. **Nota de entorno:**
+`node_modules/` no existía al empezar esta sesión (contenedor nuevo); `npm ci` (130 paquetes, 0
+vulnerabilidades) fue el primer paso antes de poder ejecutar nada. Sin migración esta sesión
+(`Migración: No`): sin fila nueva de §3, sin cambio en `db/APLICADAS.md`.
+
+**Sesión anterior (2026-09-07, "R-06 arrancada, sexta tarea de la oleada
+v1"):** R-01, R-02, R-03 y R-12 seguían `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas 13,
 14, 15 y 16 de §3, sin cambio: aplicar `010`, `011`, `012` y `014`, la 14 condicionada además a la
 pregunta #16 de §6), así que esta sesión revisó primero el registro de hallazgos de
 `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada nueva del
@@ -1534,7 +1587,7 @@ pantallas del requisito 2.
 | R-02 | Justificación de una ausencia | BLOQUEADA — pendiente aplicar migración `011` (fila 14 de §3) **y pendiente decisión del dueño** (pregunta #16 de §6, hallazgo #8 de auditoría, severidad alta) | 2026-09-05 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `011_justificacion_ausencia.sql` (renumerada por el PM el 2026-09-02: `007` lo ocupó ya T-20) escrita y empujada, todavía sin aplicar — **no aplicar hasta resolver la pregunta #16**: `motivo_justificacion` incluye valores de dato de salud (artículo 9 RGPD) sin autorización expresa del dueño |
 | R-03 | Registro de salida y cómputo de horas reales | BLOQUEADA — pendiente aplicar migración `012` (fila 15 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `012_registro_salida.sql` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) escrita y empujada, todavía sin aplicar |
 | R-12 | Calendario de cierres del centro (festivos y vacaciones) | BLOQUEADA — pendiente aplicar migración `014` (fila 16 de §3) | 2026-09-07 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `014_calendario_cierres.sql` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) escrita y empujada, todavía sin aplicar — dependencia nueva de R-04 |
-| R-13 | Aviso de sesiones sin pasar lista en «Mi horario» | PENDIENTE | — | Oleada v1 / F-01 · Sin migración (solo cliente) · añadida por el PM el 2026-09-04, undécimo ciclo — depende de T-19, T-22, R-06 y R-12 |
+| R-13 | Aviso de sesiones sin pasar lista en «Mi horario» | COMPLETADA | 2026-09-07 | Oleada v1 / F-01 · Sin migración (solo cliente) · código y tests completos, contra dobles — R-06/R-12 code-complete, bloqueadas solo por migración, no bloquean escribir esto (mismo precedente que R-05 con R-01/R-02) |
 | R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
 | R-05 | Aviso de ausencia injustificada listo para enviar | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · sin envío automático · alcance de `administrator` completo; el alcance de `teacher` que pedía la spec original queda pendiente de la pregunta #17 de §6 (no bloquea, valor conservador: sin acceso) |
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | BLOQUEADA — pendiente aplicar migración `013` (fila 17 de §3) | 2026-09-07 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `013_excepcion_slot.sql` escrita y empujada, todavía sin aplicar — desbloquea código-wise a R-13 y R-04 (sus otras dependencias, T-19/T-22/R-12, ya completas o bloqueadas solo por migración) |

@@ -37,6 +37,53 @@
 
 ---
 
+### Sesión 2026-09-07 (rutina programada) — R-13 completada, séptima tarea de la oleada v1
+
+**Tarea(s):** R-13 (Aviso de sesiones sin pasar lista en «Mi horario»)
+**Estado resultante:** R-13 pasa a `COMPLETADA` en §1 — `Migración: No`, sin ningún bloqueo.
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (R-13 declara `Migración: No`; el agente tampoco aplica DDL en
+ningún caso, §0.1). Sin fila nueva de §3.
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `src/dominio/avisosPasarLista.ts` (nuevo: `sesionesSinPasarLista`),
+`src/dominio/avisosPasarLista.test.ts` (nuevo, 15 tests), `src/datos/excepcionesSlot.ts`
+(`listarExcepcionesDeProfesorEnRango`, nueva), `src/datos/excepcionesSlot.test.ts` (1 test nuevo),
+`src/nucleo/router.ts` (`RutaProfesor` "registros" gana el segmento opcional `fecha`,
+`analizarRutaProfesor`/`hashDeRutaProfesor` actualizadas), `src/nucleo/router.test.ts` (2 tests
+nuevos), `src/ui/pantallaRegistrosSlot.ts` (`deps.fechaInicial?`, con efecto solo junto a
+`slotInicialId`), `src/ui/pantallaRegistrosSlot.test.ts` (2 tests nuevos), `src/ui/pantallaMiHorario.ts`
+(bloque nuevo "Sesiones sin pasar lista": `deps.listarRegistrosRecientes?`/`listarCierresActivos?`/
+`listarExcepcionesRecientes?`, las tres juntas o ninguna; `deps.irARegistros` gana el segundo
+parámetro opcional `fecha`), `src/ui/pantallaMiHorario.test.ts` (5 tests nuevos), `src/ui/aplicacion.ts`
+(wiring de las tres dependencias nuevas para `teacher`, más el paso de `fecha` en `irARegistros`/
+`ruta.fecha`), `DEVELOPERS.md` (secciones de `router.ts`, `dominio/`, `datos/excepcionesSlot.ts`,
+`pantallaMiHorario.ts` y `pantallaRegistrosSlot.ts` actualizadas), `roadmap/SEGUIMIENTO.md` (§1: fila
+de R-13 a `COMPLETADA`; nueva entrada de "Última actualización"), `roadmap/DECISIONES_TECNICAS.md`
+(cinco filas nuevas, ver más abajo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1221/1221, antes 1196) · build ✅
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`)
+**Decisiones tomadas:** cinco filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-07, tarea R-13:
+(1) reutilizar sin cambios `esDiaCerrado`/`esDiaCanceladoParaSlot` como únicos criterios de exclusión,
+sin excluir las sustituciones; (2) ninguna comprobación especial para una sustitución ya cubierta —el
+registro del sustituto queda enganchado al mismo `slot_id`, decisión ya tomada por R-06; (3) tercer
+segmento posicional de ruta (`#/registros/<slotId>/<fecha>`), no un parámetro de query, sin precedente
+de query string en el router; (4) `fechaInicial` sin validar contra el día de la semana del slot —la
+única fuente del enlace (`sesionesSinPasarLista`) ya garantiza que la fecha es una ocurrencia real.
+**Hallazgos del auditor atendidos:** ninguno (los dos `ABIERTO`, `#8` y `#9`, siguen exactamente igual
+que la sesión anterior — `#8` esperando al dueño, `#9` ya resuelto en código por P-17 pero sin que el
+auditor lo haya vuelto a comprobar todavía).
+**Hallazgos:** ninguno nuevo.
+**Tareas autopropuestas (P-XX):** ninguna esta sesión.
+**Próximo paso:** siguiente `PENDIENTE` de §1 en orden es **R-04** ("Informe mensual por alumno"),
+que depende de T-23 (`COMPLETADA`), R-01/R-02/R-03 (código completo, bloqueadas solo por migración) y
+R-06/R-12 (ídem) — mismo precedente que esta sesión usó con R-13, no hay necesidad de esperar a que
+el dueño aplique ninguna migración para empezarla contra dobles. R-01/R-02/R-03/R-06/R-12 siguen
+`BLOQUEADA` esperando exclusivamente al dueño (filas 13 a 17 de §3: aplicar `010`, `011`, `012`, `014`
+y `013`, la 14 condicionada además a la pregunta #16 de §6).
+
+---
+
 ### Sesión 2026-09-07 (rutina programada) — R-06 arrancada, sexta tarea de la oleada v1
 
 **Tarea(s):** R-06 (Excepción puntual de un slot: sustitución o cancelación)

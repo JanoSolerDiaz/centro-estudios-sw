@@ -7,6 +7,7 @@ import {
   desactivarExcepcionSlot,
   listarExcepcionesDeSlot,
   listarExcepcionesDelDiaParaProfesor,
+  listarExcepcionesDeProfesorEnRango,
 } from './excepcionesSlot.ts';
 import { SinPermiso } from './erroresDominio.ts';
 import type { ExcepcionSlot } from '../dominio/tipos.ts';
@@ -152,4 +153,21 @@ void test('listarExcepcionesDelDiaParaProfesor filtra por fecha y activo, con el
   assert.equal(url.searchParams.get('activo'), 'eq.true');
   assert.match(url.searchParams.get('select') ?? '', /slot:slot_horario/);
   assert.equal(filas[0]?.slot.alumno.nombre, 'Ana');
+});
+
+void test('listarExcepcionesDeProfesorEnRango filtra por fecha entre desde y hasta, y activo=eq.true (R-13)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [SUSTITUCION] };
+  });
+
+  const filas = await listarExcepcionesDeProfesorEnRango(cliente, '2026-08-31', '2026-09-07');
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/excepcion_slot');
+  assert.equal(url.searchParams.get('activo'), 'eq.true');
+  assert.deepEqual(url.searchParams.getAll('fecha'), ['gte.2026-08-31', 'lte.2026-09-07']);
+  assert.deepEqual(filas, [SUSTITUCION]);
 });

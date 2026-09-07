@@ -73,3 +73,19 @@ export interface ExcepcionSlotConSlot extends ExcepcionSlot {
 export async function listarExcepcionesDelDiaParaProfesor(cliente: ClientePostgrest, fecha: string): Promise<readonly ExcepcionSlotConSlot[]> {
   return cliente.desde<ExcepcionSlotConSlot>(TABLA).eq('fecha', fecha).eq('activo', true).seleccionar(SELECT_CON_SLOT);
 }
+
+/** Todas las excepciones ACTIVAS del `teacher` que llama —como titular o como sustituto— cuya
+ * `fecha` cae en `[desde, hasta]` (ambos `AAAA-MM-DD`, inclusive) — a diferencia de
+ * `listarExcepcionesDelDiaParaProfesor` (un único día, con el slot embebido para el motor de
+ * propuesta), esta trae solo las columnas propias de la tabla, para el aviso de sesiones sin pasar
+ * lista (R-13, `dominio/avisosPasarLista.ts#sesionesSinPasarLista`), que ya recibe los slots por su
+ * cuenta y solo necesita saber qué día de cuál slot quedó cancelado. Mismo alcance de RLS que la
+ * función de un único día (`excepcion_slot_teacher_leer_relacionadas`): esta función no filtra por
+ * profesor, el servidor ya solo devuelve las suyas. */
+export async function listarExcepcionesDeProfesorEnRango(
+  cliente: ClientePostgrest,
+  desde: string,
+  hasta: string,
+): Promise<readonly ExcepcionSlot[]> {
+  return cliente.desde<ExcepcionSlot>(TABLA).eq('activo', true).gte('fecha', desde).lte('fecha', hasta).seleccionar();
+}

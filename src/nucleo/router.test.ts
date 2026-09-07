@@ -173,6 +173,14 @@ void test('analizarRutaProfesor: un slotId con caracteres especiales llega decod
   assert.deepEqual(analizarRutaProfesor('#/registros/uno%20dos'), { nombre: 'registros', slotId: 'uno dos' });
 });
 
+void test('analizarRutaProfesor: "#/registros/<slotId>/<fecha>" preselecciona slot Y fecha (R-13)', () => {
+  assert.deepEqual(analizarRutaProfesor('#/registros/slot-abc/2026-09-07'), {
+    nombre: 'registros',
+    slotId: 'slot-abc',
+    fecha: '2026-09-07',
+  });
+});
+
 void test('analizarRutaProfesor: cadena vacía cae en pasar lista, no en mi horario ni en blanco', () => {
   assert.deepEqual(analizarRutaProfesor(''), { nombre: 'pasar-lista' });
 });
@@ -187,6 +195,7 @@ void test('hashDeRutaProfesor es el inverso exacto de analizarRutaProfesor para 
     { nombre: 'horario' },
     { nombre: 'registros' },
     { nombre: 'registros', slotId: 'slot-abc' },
+    { nombre: 'registros', slotId: 'slot-abc', fecha: '2026-09-07' },
     { nombre: 'historico' },
     { nombre: 'cierres' },
   ];
@@ -211,6 +220,18 @@ void test('crearRouterProfesor: navegar() a registros con slotId cambia el hash 
 
   assert.equal(objetivo.location.hash, '#/registros/slot-1');
   assert.deepEqual(recibidas, [{ nombre: 'registros', slotId: 'slot-1' }]);
+});
+
+void test('crearRouterProfesor: navegar() a registros con slotId y fecha cambia el hash con los dos segmentos (R-13)', () => {
+  const objetivo = crearObjetivoDePrueba('#/pasar-lista');
+  const router = crearRouterProfesor(objetivo);
+  const recibidas: RutaProfesor[] = [];
+  router.suscribir((ruta) => recibidas.push(ruta));
+
+  router.navegar({ nombre: 'registros', slotId: 'slot-1', fecha: '2026-09-07' });
+
+  assert.equal(objetivo.location.hash, '#/registros/slot-1/2026-09-07');
+  assert.deepEqual(recibidas, [{ nombre: 'registros', slotId: 'slot-1', fecha: '2026-09-07' }]);
 });
 
 void test('crearRouterProfesor y crearRouter son independientes: cada uno interpreta el hash con su propia gramática', () => {

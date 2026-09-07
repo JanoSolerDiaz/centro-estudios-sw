@@ -114,13 +114,22 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   `puedeGestionarCierresCentro`.
   Desde R-06: `excepcionSlot.ts` (nuevo) — `fechaCoincideConDiaSemana` (una excepción solo tiene
   sentido sobre una ocurrencia real del slot), `motivoCancelacionValido`, `puedeDeclararExcepcion`/
-  `excepcionDelDia` (mismo principio que `esDiaCerrado`), `esDiaCanceladoParaSlot` (criterio previsto
-  para R-04, pendiente), `etiquetaExcepcion` («Cubierto por X»/«Cancelada — motivo») y
-  `slotsEfectivosDelDia(profesorId, slotsPropios, excepcionesDeHoy)` — la pieza que conecta con el
-  motor de propuesta de T-17 (`alumnosPropuestos`) SIN tocar esa función: excluye un slot propio
-  cancelado/sustituido hoy, y añade uno ajeno donde el profesor es el sustituto nombrado, con
-  `profesor_id` sobrescrito al suyo (una proyección de lectura, nunca se escribe de vuelta).
-  `permisosUi.ts` añade `puedeGestionarExcepcionesSlot` (exclusiva de `administrator`).
+  `excepcionDelDia` (mismo principio que `esDiaCerrado`), `esDiaCanceladoParaSlot` (criterio
+  reutilizado sin cambios por R-13, ver abajo), `etiquetaExcepcion` («Cubierto por X»/«Cancelada —
+  motivo») y `slotsEfectivosDelDia(profesorId, slotsPropios, excepcionesDeHoy)` — la pieza que
+  conecta con el motor de propuesta de T-17 (`alumnosPropuestos`) SIN tocar esa función: excluye un
+  slot propio cancelado/sustituido hoy, y añade uno ajeno donde el profesor es el sustituto
+  nombrado, con `profesor_id` sobrescrito al suyo (una proyección de lectura, nunca se escribe de
+  vuelta). `permisosUi.ts` añade `puedeGestionarExcepcionesSlot` (exclusiva de `administrator`).
+  Desde R-13: `avisosPasarLista.ts` (nuevo) — `sesionesSinPasarLista(parametros)`: para cada uno de
+  los últimos `VENTANA_EDICION_TEACHER_DIAS` días (T-21, reexportada de `asistencia.ts`) más hoy,
+  cada slot propio vigente ese día cuya hora de fin ya pasó y sin ningún registro —de ningún
+  estado— ese día, excluyendo los días cerrados (`esDiaCerrado`, R-12) y los cancelados para ese
+  slot (`esDiaCanceladoParaSlot`, R-06) sin inventar un tercer criterio; una sustitución NO excluye
+  (si nadie registró, el hueco sigue apareciendo — si el sustituto sí registró, queda enganchado al
+  MISMO `slot_id`, así que la comprobación de "algún registro ese día" ya lo detecta sin caso
+  especial). Ordenadas de la fecha más antigua a la más reciente y, dentro del mismo día, por hora
+  de inicio y apellido del alumno.
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -193,6 +202,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     «Registros») y `listarExcepcionesDelDiaParaProfesor` (activas de una fecha relevantes para el
     `teacher` que llama —titular o sustituto—, con el slot y el alumno embebidos en una única
     petición, para pasar lista y «Mi horario») son consultas directas: RLS ya resuelve el alcance.
+    `listarExcepcionesDeProfesorEnRango` (R-13, nuevo) — activas cuya `fecha` cae en `[desde, hasta]`,
+    sin el slot embebido (el aviso de "sesiones sin pasar lista" ya tiene los slots por su cuenta),
+    para la ventana de aviso completa en vez de un único día.
   - `usuarios.ts` (T-24, nuevo) — `listarUsuarios`/`actualizarUsuario` sobre `perfil` directamente
     (sin RPC: el `UPDATE` de `administrator` sobre cualquier fila ya estaba concedido y aislado por
     RLS desde el bootstrap). `actualizarUsuario` combina nombre/rol/activo en una llamada parcial
@@ -352,13 +364,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24 y R-12) — dos routers por `hash`, cada uno
-    con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común
-    (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator` (`#/centros`,
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12 y R-13) — dos routers por `hash`,
+    cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno
+    común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator` (`#/centros`,
     `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`, `#/historico`, `#/usuarios`
     desde T-24, `#/cierres` desde R-12) y `crearRouterProfesor(objetivo)`
-    para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>]` — el segmento de `slotId`
-    es opcional, para el enlace profundo de "mi horario" a los registros de un slot concreto —,
+    para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>[/<fecha>]]` — el segmento de
+    `slotId` es opcional, para el enlace profundo de "mi horario" a los registros de un slot
+    concreto; el de `fecha` (`AAAA-MM-DD`), añadido por R-13, solo tiene sentido junto a `slotId` y
+    enlaza además al DÍA concreto que el aviso de "sesiones sin pasar lista" señala —,
     `#/historico` y `#/cierres` desde R-12, en modo solo lectura). `objetivo` se inyecta en los dos
     (nunca leen `window` directamente), mismo patrón que `instalarCapturaErrores`. Las dos gramáticas
     de ruta son independientes a propósito: las dos apps nunca están montadas a la vez (ver
@@ -522,6 +536,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     coincide con HOY («Cubierto por [sustituto]»/«Cancelada — motivo», nunca "En curso"/"Siguiente" a
     la vez, sin ofrecer "Pasar lista") tanto en el resumen superior como en la lista por día —
     limitación conocida: solo la fila de HOY se relabela, un día futuro de la semana no se anticipa.
+    Desde R-13: bloque "Sesiones sin pasar lista", calculado por
+    `dominio/avisosPasarLista.ts#sesionesSinPasarLista` a partir de tres dependencias opcionales que
+    van juntas o no aparecen (`deps.listarRegistrosRecientes`/`listarCierresActivos`/
+    `listarExcepcionesRecientes`, pedidas UNA vez al cargar, sin refetch por tick, mismo criterio que
+    `excepcionesHoyCache`): cada slot propio de los últimos `VENTANA_EDICION_TEACHER_DIAS` días cuya
+    hora de fin ya pasó y sin ningún registro ese día (excluidos los días cerrados, R-12, y los
+    cancelados para ese slot, R-06 — una sustitución NO excluye, ver el propio fichero de dominio).
+    Un botón "Completar registro" por aviso llama a `deps.irARegistros(slotId, fecha)`, que el router
+    de `teacher` traduce a `#/registros/<slotId>/<fecha>` (segmento de fecha nuevo de R-13).
   - `pantallaRegistrosSlot.ts` (T-21, ampliada en T-22) — `mostrarPantallaRegistrosSlot(contenedor,
     deps)`: consulta y modificación de los registros de UN slot en UN día, para `teacher` (solo lo
     suyo, sin selector de profesor) y `administrator` (elige profesor,
@@ -530,7 +553,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     migración `008` solo hacía falta para la modificación. Desde T-22, `deps.slotInicialId?`
     (opcional) preselecciona un slot y pide sus registros sin selección manual si coincide con uno
     ya cargado (el enlace profundo que usa "mi horario"); si no coincide con ninguno, se ignora en
-    silencio. El selector de slot solo ofrece los vigentes en la fecha elegida
+    silencio. Desde R-13, `deps.fechaInicial?` (`AAAA-MM-DD`, opcional) preselecciona también el DÍA
+    —solo tiene efecto junto a `slotInicialId`—, para que el aviso de "sesiones sin pasar lista"
+    enlace al día concreto que quedó sin registrar, no a hoy; sin validar contra nada, un valor que
+    no cuadre se ve como cualquier fecha elegida a mano. El selector de slot solo ofrece los vigentes en la fecha elegida
     (`slotVigenteEn`, `dominio/slotHorario.ts`, T-15). Cinco acciones por fila, cada una su propio
     mini-formulario: nota, hora, slot atribuido (solo si `puedeCambiarSlotAtribuido`), cambiar el
     alumno (reutiliza `buscar_alumnos_activos` de T-20, con una búsqueda simple, sin el combobox ARIA

@@ -139,11 +139,13 @@ export function crearRouter(objetivo: ObjetivoRouter): Router<Ruta> {
 
 /**
  * Router de `teacher` (T-22, requisito 2: "desde cada slot, dos accesos directos"). Cuatro rutas:
- * `#/pasar-lista` (T-19), `#/horario` ("mi horario") y `#/registros[/<slotId>]` (T-21) — el
+ * `#/pasar-lista` (T-19), `#/horario` ("mi horario") y `#/registros[/<slotId>[/<fecha>]]` (T-21) — el
  * segmento de `slotId` es opcional y solo sirve para que "mi horario" pueda enlazar directo a los
  * registros de UN slot concreto sin obligar a la pantalla de registros a exponer nada nuevo a quien
- * navegue sin él (sigue arrancando con "elige un slot…", igual que hasta ahora)— y `#/historico`
- * (T-23, nueva).
+ * navegue sin él (sigue arrancando con "elige un slot…", igual que hasta ahora); el de `fecha`
+ * (`AAAA-MM-DD`) solo tiene sentido junto a `slotId` — lo añade R-13 para que el aviso de "sin
+ * pasar lista" enlace también al DÍA concreto que quedó sin registrar, no solo a hoy — y
+ * `#/historico` (T-23, nueva).
  *
  * La ruta por defecto sigue siendo `pasar-lista`, no `horario`: T-19 ya estableció que es la
  * pantalla del día a día (registrar en segundos), y cambiar qué se ve nada más entrar sin que
@@ -152,7 +154,7 @@ export function crearRouter(objetivo: ObjetivoRouter): Router<Ruta> {
 export type RutaProfesor =
   | { readonly nombre: 'pasar-lista' }
   | { readonly nombre: 'horario' }
-  | { readonly nombre: 'registros'; readonly slotId?: string }
+  | { readonly nombre: 'registros'; readonly slotId?: string; readonly fecha?: string }
   | { readonly nombre: 'historico' }
   | { readonly nombre: 'cierres' };
 
@@ -165,13 +167,17 @@ export function analizarRutaProfesor(hash: string): RutaProfesor {
     .map((segmento) => segmento.trim())
     .filter((segmento) => segmento.length > 0);
 
-  const [primero, segundo] = segmentos;
+  const [primero, segundo, tercero] = segmentos;
 
   if (primero === 'horario') {
     return { nombre: 'horario' };
   }
   if (primero === 'registros') {
-    return segundo === undefined ? { nombre: 'registros' } : { nombre: 'registros', slotId: decodeURIComponent(segundo) };
+    if (segundo === undefined) {
+      return { nombre: 'registros' };
+    }
+    const slotId = decodeURIComponent(segundo);
+    return tercero === undefined ? { nombre: 'registros', slotId } : { nombre: 'registros', slotId, fecha: decodeURIComponent(tercero) };
   }
   if (primero === 'historico') {
     return { nombre: 'historico' };
@@ -192,7 +198,12 @@ export function hashDeRutaProfesor(ruta: RutaProfesor): string {
     case 'horario':
       return '#/horario';
     case 'registros':
-      return ruta.slotId === undefined ? '#/registros' : `#/registros/${encodeURIComponent(ruta.slotId)}`;
+      if (ruta.slotId === undefined) {
+        return '#/registros';
+      }
+      return ruta.fecha === undefined
+        ? `#/registros/${encodeURIComponent(ruta.slotId)}`
+        : `#/registros/${encodeURIComponent(ruta.slotId)}/${encodeURIComponent(ruta.fecha)}`;
     case 'historico':
       return '#/historico';
     case 'cierres':
