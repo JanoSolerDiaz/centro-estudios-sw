@@ -61,6 +61,84 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-09-07
+
+**Alcance real de esta pasada — segundo lote consecutivo sin ningún cambio de código: un único
+commit, puramente de proceso.** `git log 5a27918..HEAD` (`5a27918` es el commit de la auditoría
+anterior, 2026-09-06) muestra un solo commit nuevo: `8408920` (decimotercer ciclo del PM), que
+revisa las trece R-XX del backlog contra el estado actual, no añade ninguna R-XX nueva y confirma
+que los hallazgos `#8`/`#9` seguían correctamente formalizados por el ciclo anterior. `git diff
+--stat 5a27918..HEAD` confirma que solo tres ficheros cambiaron, los tres de `roadmap/`:
+`ROADMAP_PRODUCTO.md`, `SEGUIMIENTO.md` e `HISTORIAL_SESIONES.md`. Ningún fichero de `db/`, `src/`
+ni `herramientas/` se tocó — confirmado también con `git log 5a27918..HEAD -- db/ src/
+herramientas/`, vacío.
+
+**Metodología.** `git checkout develop && git pull origin develop` limpio (fast-forward desde el
+commit ya conocido de la auditoría anterior). Verificación directa en vivo de los cuatro comandos
+de §0.1: `npm ci` (130 paquetes, 0 vulnerabilidades), `npm run typecheck`, `npm run lint`, `npm run
+build`, los cuatro en verde, y `npm test`: **1056 tests, 1056 pass, 0 fail** (misma cifra que las
+dos pasadas anteriores: sin cambio de código, sin cambio de cobertura). Confirmados contra la API
+de GitHub Actions los 15 runs más recientes de `develop` (incluido el del commit actual, `8408920`,
+run `34053942679`), todos `completed`/`success`, sobre **76** runs totales en el histórico del
+workflow (74 en la pasada anterior, +2 exactos por los dos commits nuevos desde entonces: la propia
+pasada del auditor del 2026-09-06 y este ciclo de PM). `git status` limpio antes y después. Barrido
+de secretos sobre el repositorio completo (`service_role`, `SUPABASE_ACCESS_TOKEN`, `sk-`,
+`eyJhbGci`, claves privadas, contraseñas en claro): todas las coincidencias son o bien prosa
+explicativa de este mismo documento y de `roadmap/`/`db/MODELO.md`, o bien nombres de variable/rol
+(`service_role` como valor de comparación, no como secreto) en `herramientas/` y `src/`, o fixtures
+de test declaradamente falsos; `.env.ejemplo` y `config.ejemplo.js` siguen con todas sus claves
+vacías, sin ningún valor relleno, y ningún `.env*`/`config.js` real está trackeado (`git ls-files`
+solo lista `.env.ejemplo`). `package.json` sigue sin `dependencies`. `git log 5a27918..HEAD --
+roadmap/HOJA_DE_RUTA.md` vacío: el documento sigue sin ninguna edición nueva.
+
+Dado que ningún fichero de `db/*.sql`, `src/` ni `herramientas/` cambió desde la pasada anterior —
+que a su vez heredó sin cambios el esquema ya verificado línea a línea el 2026-09-05 (migraciones
+`010`/`011`/`012` y las secciones nuevas de `pruebas_rls.sql`) —, ninguno de los puntos de control
+permanentes de seguridad de este documento necesita releerse entero esta vez: nada en el esquema
+real ni en el código ha cambiado desde que se verificaron con sustancia. Esta pasada se centra, de
+nuevo, en la única superficie que sí puede moverse entre pasadas sin tocar código: la coherencia
+entre los dos hallazgos `ABIERTO` y la respuesta que reciben.
+
+**Reevaluación de los hallazgos `ABIERTO` — ninguno se cierra todavía, y es lo correcto; tampoco hay
+ninguna regresión en su formalización.**
+
+`#8` (RGPD/dato de salud en R-02, alta): sigue como pregunta **#16** de §6 de `SEGUIMIENTO.md`,
+verificada de nuevo leyendo la fila completa (línea 1427) — las tres opciones (aceptar con base
+jurídica del artículo 9.2, reformular sin desglose médico, o retirar el campo) siguen intactas, sin
+recortar. `db/APLICADAS.md` no registra ningún cambio: `011` sigue sin aplicar, y la fila 14 de §3
+de `SEGUIMIENTO.md` (línea 1354) sigue condicionando su aplicación a que el dueño responda primero.
+No hay respuesta del dueño todavía en la columna de la pregunta #16. `motivo_justificacion` sigue en
+el esquema del fichero de migración tal cual, sin reformular ni retirar. **`#8` permanece
+`ABIERTO`.**
+
+`#9` (higiene documental, faltan dos filas en §7, baja): sigue como **P-17**, `PENDIENTE`, en el
+backlog de §5 (línea 1391), sin ejecutar. Comprobado de forma directa que las dos filas siguen sin
+existir: §7 de `SEGUIMIENTO.md` (líneas 1431 en adelante) termina todavía en la fila de T-20
+(2026-09-01), sin ninguna fila nueva para la corrección de T-14 dentro de T-25 ni para el hallazgo
+`#8`. **`#9` permanece `ABIERTO`**, exactamente por el mismo motivo que la pasada anterior: el
+hallazgo era que faltaban las filas, no que faltara registrarlo, y las filas todavía no se han
+escrito.
+
+**Coherencia entre lo decidido y lo ejecutado — sin hallazgo nuevo.** El único commit del lote
+(`8408920`) es de nuevo exactamente lo que declara ser: un ciclo de PM que no toca código, que
+revisa las trece R-XX del backlog contra el estado actual sin encontrar ninguna necesidad real de
+ampliarlo (`roadmap/FEEDBACK.md` comprobado de nuevo: sigue con su única fila plantilla vacía, sin
+ninguna entrada `nuevo`), y que no introduce ninguna contradicción nueva entre `DECISIONES_TECNICAS.md`
+(sin cambios) y el código real (sin cambios). No hay ninguna desviación nueva de §7 que registrar
+más allá de las dos que P-17 ya tiene pendientes.
+
+**Conclusión.** Segunda pasada consecutiva de puro proceso, sin ninguna superficie de código nueva
+que auditar: la oleada v1 (R-01/R-02/R-03) sigue completa en código y tests pero bloqueada
+esperando al dueño, T-25 sigue sin poder cerrarse, y los dos hallazgos `ABIERTO` de las auditorías
+anteriores permanecen exactamente donde estaban, correctamente formalizados y sin ninguna regresión
+en su seguimiento. No se detecta ningún indicio de que el equipo (agentes PM/programador) esté
+perdiendo de vista `#8` o `#9`, ni ninguna erosión de los puntos de control permanentes de este
+documento — que, al no haber cambiado el esquema ni el código desde el 2026-09-05, siguen
+sosteniéndose sobre esa última verificación con sustancia real, no sobre una suposición. La próxima
+auditoría con sustancia real llega en cuanto el dueño responda la pregunta #16 (y, con ella, aplique
+o reescriba `011`), en cuanto una sesión de programador ejecute P-17, o con la próxima sesión de
+código sobre la oleada v1.
+
 ### Auditoría 2026-09-06
 
 **Alcance real de esta pasada — el lote más pequeño auditado hasta hoy: un único commit, puramente
