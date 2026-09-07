@@ -65,6 +65,10 @@ export interface DependenciasPantallaFichaAlumno {
   /** Se llama tras crear el alumno con éxito (modo alta), para que quien monta la pantalla navegue
    * a la ficha ya en modo edición — esta pantalla no se reconstruye a sí misma con un id nuevo. */
   alCrearAlumno(alumnoId: string): void;
+  /** Navega al histórico (T-23) con este alumno ya preseleccionado, para generar su informe
+   * mensual (R-04, requisito 1: "desde la ficha de alumno... generar el informe") sin tener que
+   * volver a buscarlo. Solo tiene sentido con un alumno ya existente — no se ofrece en modo alta. */
+  irAHistorico(alumnoId: string): void;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1074,7 +1078,12 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
   const areaContenido = documento.createElement('div');
   areaContenido.append(crearElemento(documento, 'p', { texto: 'Cargando ficha…' }));
 
-  contenedor.append(botonVolver, crearElemento(documento, 'h1', { texto: 'Ficha de alumno' }), zonaErrorCarga, areaContenido);
+  const botonIrAHistorico = crearBoton(documento, 'Ver histórico e informe mensual', 'button');
+  botonIrAHistorico.addEventListener('click', () => {
+    deps.irAHistorico(alumnoId);
+  });
+
+  contenedor.append(botonVolver, crearElemento(documento, 'h1', { texto: 'Ficha de alumno' }), botonIrAHistorico, zonaErrorCarga, areaContenido);
 
   void (async () => {
     try {

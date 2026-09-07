@@ -10,8 +10,75 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-07 (rutina programada, "R-13 completada, séptima tarea de la
+**Última actualización:** 2026-09-07 (rutina programada, "R-04 completada, octava tarea de la
 oleada v1") — R-01, R-02, R-03, R-12 y R-06 seguían `BLOQUEADA` en §1 esperando exclusivamente al
+dueño (filas 13, 14, 15, 16 y 17 de §3, sin cambio: aplicar `010`, `011`, `012`, `014` y `013`, la 14
+condicionada además a la pregunta #16 de §6), así que esta sesión revisó primero el registro de
+hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada
+nueva del auditor desde `06fb8b0` (2026-09-07 por la mañana, la misma ya conocida por la sesión
+anterior), así que el estado de los dos `ABIERTO` (`#8`, pregunta #16 de §6, esperando al dueño; `#9`,
+`RESUELTO` por P-17, sin que el auditor lo haya vuelto a comprobar todavía) sigue siendo el mismo —
+nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1 en orden: la siguiente
+`PENDIENTE` era **R-04** ("Informe mensual por alumno"), que depende de T-23 (`COMPLETADA`) y de
+R-01, R-02, R-03, R-06 y R-12 — las cinco `BLOQUEADA` solo por una migración sin aplicar, con código y
+tests completos cada una, mismo precedente que ya usaron R-03, R-05 y R-13 con sus propias
+dependencias: no bloquea escribir R-04 contra los mismos dobles. Su spec declara `Migración: No`, así
+que no hay ninguna pieza de esquema que escribir ni ninguna fila nueva de §3 — R-04 queda
+`COMPLETADA` de verdad, sin ningún bloqueo propio, en cuanto termina esta sesión.
+
+**Decisión de diseño de esta sesión, documentada en `DECISIONES_TECNICAS.md`:** R-04 tampoco inventa
+ningún criterio nuevo de "sesión esperada" — reutiliza, sin tocarlas, `esDiaCerrado` (R-12) y
+`esDiaCanceladoParaSlot` (R-06), la segunda ya documentada literalmente como "pensada para el informe
+mensual de R-04" desde que R-06 la escribió. Módulo nuevo `dominio/informeMensualAlumno.ts`:
+`sesionesEsperadasDelMes` recorre cada día del mes natural pedido y, para cada slot del alumno
+vigente ESE día (snapshot histórico por `vigente_desde`/`vigente_hasta`, nunca el horario actual —
+requisito 3, con test explícito de un horario cambiado a mitad de mes), cuenta la sesión salvo cierre
+o cancelación; `resumenInformeMensual` cruza ese recuento con TODO lo registrado ese mes para el
+alumno (`listarHistoricoAsistenciaCompleto`, T-23, reutilizada sin cambios): entradas válidas,
+ausencias justificadas/sin justificar, anuladas (contadas aparte, nunca como asistencia), retroactivos
+y minutos reales sumados solo de las entradas con salida marcada (R-03) — `null`, no `0`, si ninguna
+la tiene. `filasInformeMensual`/`generarCsvInformeMensual` son la ÚNICA fuente de los pares
+campo/valor, reutilizada tanto por el CSV como por la tabla que la pantalla pinta en la ventana de
+impresión, para que los dos formatos coincidan siempre en las cifras (criterio de aceptación literal
+de R-04). El campo "Centro" de la cabecera resultó más difícil de lo esperado: `centro_referencia_id`
+no está concedido a `authenticated` en ninguna forma (ni a `administrator` sobre la tabla base, ya
+documentado desde T-21) y solo `alumno_ficha` (exclusiva de `administrator`) lo expone — nueva
+`datos/alumnos.ts#resolverCentroReferenciaIdDeAlumno`, opcional en `pantallaHistorico.ts` y sin cablear
+para `teacher`, cuyo informe simplemente no lleva esa fila, nunca un error. Requisito 1 ("desde la
+ficha de alumno o desde el histórico") se resolvió integrando el informe DENTRO de
+`pantallaHistorico.ts` (ya accesible a los dos roles desde T-23, con su propio filtro de alumno
+reutilizado tal cual, sin duplicar un segundo buscador) en vez de una pantalla nueva; la ficha de
+alumno (solo `administrator`) gana un botón "Ver histórico e informe mensual" que navega a
+`#/historico/<alumnoId>` — segmento opcional nuevo de la ruta `historico`, exclusivo del router de
+`administrator` (mismo criterio que el segmento `fecha` de R-13: `teacher` no tiene ficha, así que su
+router no gana ningún enlace equivalente) — con `alumnoIdInicial` en la pantalla (mismo criterio de
+"se ignora en silencio si no cuadra con nada" que `slotInicialId` desde T-22). Requisito 2 ("PDF...
+con impresión de HTML o `canvas` nativo, sin librería") se resolvió con una ventana de impresión
+nueva (`ui/dom.ts#AbridorVentanaImpresion`/`crearAbridorVentanaImpresionNavegador`, mismo patrón de
+inyección que `Descargador` de T-23) sobre la que la pantalla construye la tabla con `crearElemento`
+—nunca una cadena HTML cruda, ni siquiera fuera del documento principal— y llama a `imprimir()`
+(`focus()` + `print()`); el navegador ofrece "Guardar como PDF" en su propio diálogo, sin que el
+proyecto tenga que generar el PDF él mismo. **Limitación aceptada, mismo precedente que R-13:** el
+informe consulta de verdad `cierre_centro` (R-12, migración `014`) y `excepcion_slot` (R-06, `013`),
+así que un informe real fallará con un error de servidor mientras esas dos sigan sin aplicar en
+`dev` — no bloquea esta tarea, exactamente igual que R-13 ya aceptó para «Mi horario». **44 tests
+nuevos (1265 en total, antes 1221):** 28 de `dominio/informeMensualAlumno.test.ts` (la mayoría de la
+sesión: cálculo de sesiones esperadas con solape de versiones de horario, exclusión por cierre/
+cancelación, sustitución que NO excluye, resumen agregado con sus siete campos, CSV y filas de
+presentación), 2 de `datos/alumnos.test.ts` (`resolverCentroReferenciaIdDeAlumno`, con fila y sin
+ella), 1 de `dominio/permisosUi.test.ts` (`puedeGenerarInformeMensual`), 4 de `ui/dom.test.ts`
+(`crearAbridorVentanaImpresionNavegador`: argumentos de apertura, título, `imprimir()`, ventana
+bloqueada), 2 de `nucleo/router.test.ts` (el segmento de `alumnoId`, ida y vuelta), 5 de
+`ui/pantallaHistorico.test.ts` (sin alumno ni mes, CSV con las cifras correctas, imprimir, teacher sin
+centro, un fallo de red no rompe la pantalla) y 2 de `ui/pantallaFichaAlumno.test.ts` (el botón
+navega, no se ofrece en modo alta). Verificación pre-push completa en verde: `npm run typecheck`,
+`npm run lint`, `npm test` (1265/1265) y `npm run build`. **Nota de entorno:** `node_modules/` no
+existía al empezar esta sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) fue el
+primer paso antes de poder ejecutar nada. Sin migración esta sesión (`Migración: No`): sin fila nueva
+de §3, sin cambio en `db/APLICADAS.md`.
+
+**Sesión anterior (2026-09-07, "R-13 completada, séptima tarea de la
+oleada v1"):** R-01, R-02, R-03, R-12 y R-06 seguían `BLOQUEADA` en §1 esperando exclusivamente al
 dueño (filas 13, 14, 15, 16 y 17 de §3, sin cambio: aplicar `010`, `011`, `012`, `014` y `013`, la 14
 condicionada además a la pregunta #16 de §6), así que esta sesión revisó primero el registro de
 hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada
@@ -30,7 +97,7 @@ sin aplicar, no bloquea escribir la tarea siguiente contra los mismos dobles. Es
 spec declara `Migración: No`, así que no hay ninguna pieza de esquema que escribir ni ninguna fila
 nueva de §3 — R-13 queda `COMPLETADA` de verdad, sin ningún bloqueo, en cuanto termina esta sesión.
 
-**Decisión de diseño de esta sesión, documentada en `DECISIONES_TECNICAS.md`:** R-13 no inventa
+**Decisión de diseño de esa sesión, documentada en `DECISIONES_TECNICAS.md`:** R-13 no inventa
 ningún criterio nuevo de "sesión esperada" — reutiliza sin tocarlas `esDiaCerrado` (R-12) y
 `esDiaCanceladoParaSlot` (R-06), las dos ya documentadas en su propio fichero como pensadas también
 para este aviso. Módulo nuevo `dominio/avisosPasarLista.ts#sesionesSinPasarLista`: para cada uno de
@@ -1588,7 +1655,7 @@ pantallas del requisito 2.
 | R-03 | Registro de salida y cómputo de horas reales | BLOQUEADA — pendiente aplicar migración `012` (fila 15 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `012_registro_salida.sql` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) escrita y empujada, todavía sin aplicar |
 | R-12 | Calendario de cierres del centro (festivos y vacaciones) | BLOQUEADA — pendiente aplicar migración `014` (fila 16 de §3) | 2026-09-07 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `014_calendario_cierres.sql` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) escrita y empujada, todavía sin aplicar — dependencia nueva de R-04 |
 | R-13 | Aviso de sesiones sin pasar lista en «Mi horario» | COMPLETADA | 2026-09-07 | Oleada v1 / F-01 · Sin migración (solo cliente) · código y tests completos, contra dobles — R-06/R-12 code-complete, bloqueadas solo por migración, no bloquean escribir esto (mismo precedente que R-05 con R-01/R-02) |
-| R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
+| R-04 | Informe mensual por alumno | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · Código y tests completos, contra dobles. Reutiliza `esDiaCerrado` (R-12) y `esDiaCanceladoParaSlot` (R-06): igual que R-13, un informe real fallará con un error de servidor mientras `013`/`014` sigan sin aplicar — no bloquea, mismo precedente |
 | R-05 | Aviso de ausencia injustificada listo para enviar | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · sin envío automático · alcance de `administrator` completo; el alcance de `teacher` que pedía la spec original queda pendiente de la pregunta #17 de §6 (no bloquea, valor conservador: sin acceso) |
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | BLOQUEADA — pendiente aplicar migración `013` (fila 17 de §3) | 2026-09-07 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `013_excepcion_slot.sql` escrita y empujada, todavía sin aplicar — desbloquea código-wise a R-13 y R-04 (sus otras dependencias, T-19/T-22/R-12, ya completas o bloqueadas solo por migración) |
 | R-07 | Pasar lista con conexión intermitente | PENDIENTE | — | Oleada v1 / F-03 · solo cliente |

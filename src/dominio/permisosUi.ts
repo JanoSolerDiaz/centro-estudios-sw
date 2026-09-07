@@ -118,3 +118,12 @@ export function puedeGestionarCierresCentro(rol: Rol): boolean {
 export function puedeGestionarExcepcionesSlot(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Informe mensual por alumno (R-04): generar el resumen de un mes natural, desde la ficha de
+ * alumno o desde el histórico (T-23). Ambos roles con acceso real, mismo criterio que
+ * `puedeVerHistorico` — `administrator` sobre cualquier alumno, `teacher` solo sobre alumnos de sus
+ * propios slots (requisito 4), acotado por RLS al construir el informe (`listarSlotsDeAlumno`/
+ * `listarHistoricoAsistencia` ya devuelven solo lo suyo), no por esta función de presentación. */
+export function puedeGenerarInformeMensual(rol: Rol): boolean {
+  return rol === 'administrator' || rol === 'teacher';
+}

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { crearElemento } from './dom.ts';
+import { crearElemento, crearAbridorVentanaImpresionNavegador } from './dom.ts';
 
 function documentoDePrueba(): Document {
   return new JSDOM('<!doctype html><body></body>').window.document;
@@ -46,4 +46,61 @@ void test('sin opciones ni hijos, crea el elemento vacío', () => {
   const elemento = crearElemento(documento, 'div');
   assert.equal(elemento.textContent, '');
   assert.equal(elemento.attributes.length, 0);
+});
+
+// --- crearAbridorVentanaImpresionNavegador (R-04) -----------------------------------------------
+
+function ventanaDePrueba(): { readonly ventana: Window; readonly llamadasFocus: number[]; readonly llamadasPrint: number[] } {
+  const documento = documentoDePrueba();
+  const llamadasFocus: number[] = [];
+  const llamadasPrint: number[] = [];
+  const ventana = {
+    document: documento,
+    focus: () => llamadasFocus.push(1),
+    print: () => llamadasPrint.push(1),
+  } as unknown as Window;
+  return { ventana, llamadasFocus, llamadasPrint };
+}
+
+void test('crearAbridorVentanaImpresionNavegador: abre en blanco, sin ruta, en una pestaña nueva sin opener', () => {
+  const { ventana } = ventanaDePrueba();
+  let argumentos: readonly [string, string, string] | undefined;
+  const abridor = crearAbridorVentanaImpresionNavegador((url, destino, caracteristicas) => {
+    argumentos = [url, destino, caracteristicas];
+    return ventana;
+  });
+
+  abridor.abrir('Informe mensual');
+
+  assert.deepEqual(argumentos, ['', '_blank', 'noopener,noreferrer']);
+});
+
+void test('crearAbridorVentanaImpresionNavegador: pone el título pedido en el document de la ventana', () => {
+  const { ventana } = ventanaDePrueba();
+  const abridor = crearAbridorVentanaImpresionNavegador(() => ventana);
+
+  const resultado = abridor.abrir('Informe mensual — Marzo 2026');
+
+  assert.ok(resultado);
+  assert.equal(resultado.document.title, 'Informe mensual — Marzo 2026');
+});
+
+void test('crearAbridorVentanaImpresionNavegador: imprimir() enfoca la ventana antes de llamar a print()', () => {
+  const { ventana, llamadasFocus, llamadasPrint } = ventanaDePrueba();
+  const abridor = crearAbridorVentanaImpresionNavegador(() => ventana);
+
+  const resultado = abridor.abrir('Informe mensual');
+  assert.ok(resultado);
+  resultado.imprimir();
+
+  assert.deepEqual(llamadasFocus, [1]);
+  assert.deepEqual(llamadasPrint, [1]);
+});
+
+void test('crearAbridorVentanaImpresionNavegador: ventana emergente bloqueada (window.open devuelve null) da undefined, nunca lanza', () => {
+  const abridor = crearAbridorVentanaImpresionNavegador(() => null);
+
+  const resultado = abridor.abrir('Informe mensual');
+
+  assert.equal(resultado, undefined);
 });

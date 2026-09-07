@@ -44,6 +44,53 @@ export function crearDescargadorNavegador(documento: Document): Descargador {
   };
 }
 
+/** Ventana de impresión abierta para el informe mensual por alumno (R-04, requisito 2: "PDF
+ * generado en cliente sin librería de terceros, con impresión de HTML"). Quien la recibe construye
+ * el contenido con las mismas funciones de creación de elementos de este módulo sobre
+ * `VentanaImpresion.document` — nunca con una cadena HTML cruda ni `innerHTML` (prohibido por lint,
+ * T-01) — y llama a `imprimir()` cuando termina; el navegador ofrece "Guardar como PDF" en su propio
+ * diálogo de impresión, sin que este proyecto necesite generar el PDF él mismo. */
+export interface VentanaImpresion {
+  readonly document: Document;
+  imprimir(): void;
+}
+
+/** Abre una ventana de impresión. Inyectable — mismo criterio exacto que `Descargador`: la
+ * orquestación de quien la usa se testea con un `AbridorVentanaImpresion` de mentira que solo
+ * registra la llamada, y `crearAbridorVentanaImpresionNavegador` (con `window.open`) es la única
+ * implementación real, sin test propio. */
+export interface AbridorVentanaImpresion {
+  /** `undefined` si el navegador bloqueó la ventana emergente (o si abrir falla por cualquier otro
+   * motivo) — quien llama debe avisarlo, nunca asumir que siempre hay ventana. */
+  abrir(titulo: string): VentanaImpresion | undefined;
+}
+
+/** La implementación real: `abrirVentana` es la función `window.open` del navegador, inyectada para
+ * no referenciar `window` directamente desde este módulo (mismo patrón que `ObjetivoRouter` de
+ * `nucleo/router.ts`) — sin bloqueador de ventanas emergentes activo, abre una pestaña en blanco,
+ * le pone el título pedido y expone `imprimir()` sobre ella (`focus()` antes de `print()`, para que
+ * el diálogo de impresión no se abra detrás de la pestaña que la originó). */
+export function crearAbridorVentanaImpresionNavegador(
+  abrirVentana: (url: string, destino: string, caracteristicas: string) => Window | null,
+): AbridorVentanaImpresion {
+  return {
+    abrir(titulo) {
+      const ventana = abrirVentana('', '_blank', 'noopener,noreferrer');
+      if (!ventana) {
+        return undefined;
+      }
+      ventana.document.title = titulo;
+      return {
+        document: ventana.document,
+        imprimir: () => {
+          ventana.focus();
+          ventana.print();
+        },
+      };
+    },
+  };
+}
+
 export function crearElemento<K extends keyof HTMLElementTagNameMap>(
   documento: Document,
   etiqueta: K,

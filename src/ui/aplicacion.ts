@@ -54,6 +54,7 @@ import {
   obtenerAlumnoParaTarjeta,
   resolverIdentificacionAlumnos,
   resolverContactoAlumnos,
+  resolverCentroReferenciaIdDeAlumno,
 } from '../datos/alumnos.ts';
 import { crearRebote } from '../nucleo/rebote.ts';
 import {
@@ -77,7 +78,7 @@ import {
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
 } from '../datos/asistencia.ts';
-import { crearDescargadorNavegador } from './dom.ts';
+import { crearDescargadorNavegador, crearAbridorVentanaImpresionNavegador } from './dom.ts';
 import { copiarAlPortapapelesDelNavegador } from './portapapeles.ts';
 import { mostrarPantallaLogin } from './pantallaLogin.ts';
 import { mostrarPantallaRecuperarContrasena } from './pantallaRecuperarContrasena.ts';
@@ -167,6 +168,9 @@ function mostrarAppAdministrador(
   contenedor.textContent = '';
   const documento = contenedor.ownerDocument;
   const router = crearRouter(app.objetivoRouter);
+  const abridorImpresion = crearAbridorVentanaImpresionNavegador(
+    (url, destino, caracteristicas) => documento.defaultView?.open(url, destino, caracteristicas) ?? null,
+  );
 
   const cabecera = documento.createElement('header');
   const titulo = documento.createElement('h1');
@@ -266,6 +270,8 @@ function mostrarAppAdministrador(
       mostrarPantallaHistorico(areaPantalla, {
         rol: perfil.rol,
         usuarioId: perfil.id,
+        ...(ruta.alumnoId !== undefined ? { alumnoIdInicial: ruta.alumnoId } : {}),
+        reloj: app.reloj,
         listarHistorico: (filtro) => listarHistoricoAsistencia(app.postgrest, filtro),
         listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
         resolverNombresAlumnos: (ids) => resolverIdentificacionAlumnos(app.postgrest, ids),
@@ -275,6 +281,11 @@ function mostrarAppAdministrador(
         listarProfesoresParaFiltro: () => listarProfesoresActivos(app.postgrest),
         listarCentrosParaFiltro: () => listarCentros(app.postgrest),
         descargador: crearDescargadorNavegador(documento),
+        listarSlotsDeAlumnoParaInforme: (alumnoId) => listarSlotsDeAlumno(app.postgrest, alumnoId),
+        listarCierresActivosParaInforme: () => listarCierres(app.postgrest, { estado: 'activos' }),
+        listarExcepcionesEnRangoParaInforme: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        resolverCentroReferenciaIdParaInforme: (alumnoId) => resolverCentroReferenciaIdDeAlumno(app.postgrest, alumnoId),
+        abridorImpresion,
       });
       return;
     }
@@ -345,6 +356,9 @@ function mostrarAppAdministrador(
       alCrearAlumno: (nuevoId) => {
         router.navegar({ nombre: 'alumno-detalle', alumnoId: nuevoId });
       },
+      irAHistorico: (alumnoId) => {
+        router.navegar({ nombre: 'historico', alumnoId });
+      },
     });
   }
 
@@ -374,6 +388,9 @@ function mostrarAppProfesor(
   contenedor.textContent = '';
   const documento = contenedor.ownerDocument;
   const router = crearRouterProfesor(app.objetivoRouter);
+  const abridorImpresion = crearAbridorVentanaImpresionNavegador(
+    (url, destino, caracteristicas) => documento.defaultView?.open(url, destino, caracteristicas) ?? null,
+  );
 
   const cabecera = documento.createElement('header');
   const titulo = documento.createElement('h1');
@@ -485,13 +502,20 @@ function mostrarAppProfesor(
         // Sin listarProfesoresParaFiltro/listarCentrosParaFiltro/resolverContactoAlumnos: teacher
         // nunca elige otro profesor ni centro (puedeConsultarHistoricoDeCualquiera es false) ni
         // exporta con contacto (puedeExportarConDatosDeContacto es false) — mismo criterio que
-        // "registros" arriba.
+        // "registros" arriba. Sin resolverCentroReferenciaIdParaInforme (`alumno_ficha` solo
+        // devuelve fila a administrator, ver `datos/alumnos.ts`): el informe de teacher no incluye
+        // el campo "Centro", nunca un error.
         listarHistorico: (filtro) => listarHistoricoAsistencia(app.postgrest, filtro),
         listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
         resolverNombresAlumnos: (ids) => resolverIdentificacionAlumnos(app.postgrest, ids),
         resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
         buscarAlumnos: (texto) => buscarAlumnosParaExtra(app.postgrest, texto),
         descargador: crearDescargadorNavegador(documento),
+        reloj: app.reloj,
+        listarSlotsDeAlumnoParaInforme: (alumnoId) => listarSlotsDeAlumno(app.postgrest, alumnoId),
+        listarCierresActivosParaInforme: () => listarCierres(app.postgrest, { estado: 'activos' }),
+        listarExcepcionesEnRangoParaInforme: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        abridorImpresion,
       });
       return;
     }

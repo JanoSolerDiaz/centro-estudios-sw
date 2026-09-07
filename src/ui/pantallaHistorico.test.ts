@@ -7,8 +7,9 @@ import {
   type IdentificacionAlumno,
 } from './pantallaHistorico.ts';
 import { SinPermiso } from '../datos/erroresDominio.ts';
-import type { Asistencia } from '../dominio/tipos.ts';
-import type { Descargador } from './dom.ts';
+import type { Asistencia, SlotHorario } from '../dominio/tipos.ts';
+import type { Descargador, AbridorVentanaImpresion, VentanaImpresion } from './dom.ts';
+import { crearRelojFijo } from '../nucleo/reloj.ts';
 
 function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
   return {
@@ -37,6 +38,23 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
   };
 }
 
+function crearSlot(sobrescribir: Partial<SlotHorario> = {}): SlotHorario {
+  return {
+    id: 'slot1',
+    alumno_id: 'al1',
+    profesor_id: 'p1',
+    dia_semana: 3, // miércoles
+    hora_inicio: '17:00',
+    hora_fin: '18:00',
+    asignatura_o_grupo: null,
+    vigente_desde: '2026-01-01',
+    vigente_hasta: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    ...sobrescribir,
+  };
+}
+
 function crearContenedorDePruebas(): HTMLElement {
   const dom = new JSDOM('<!doctype html><body><div id="app"></div></body>');
   const contenedor = dom.window.document.querySelector<HTMLElement>('#app');
@@ -54,6 +72,25 @@ function crearDescargadorDeMentira(): Descargador & { llamadas: { contenido: str
   };
 }
 
+function crearAbridorImpresionDeMentira(): AbridorVentanaImpresion & { readonly titulos: string[]; impresiones: number } {
+  const titulos: string[] = [];
+  const resultado = {
+    titulos,
+    impresiones: 0,
+    abrir(titulo: string): VentanaImpresion {
+      titulos.push(titulo);
+      const documento = new JSDOM('<!doctype html><body></body>').window.document;
+      return {
+        document: documento,
+        imprimir: () => {
+          resultado.impresiones += 1;
+        },
+      };
+    },
+  };
+  return resultado;
+}
+
 const ALUMNO_1: IdentificacionAlumno = { nombre: 'María', primer_apellido: 'García', segundo_apellido: 'Pérez' };
 
 function crearDepsFalsas(overrides: Partial<DependenciasPantallaHistorico> = {}): DependenciasPantallaHistorico {
@@ -63,6 +100,8 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaHistorico> = {})
     rol: overrides.rol ?? 'administrator',
     usuarioId: overrides.usuarioId ?? 'profesor-1',
     ...(overrides.zonaHoraria !== undefined ? { zonaHoraria: overrides.zonaHoraria } : {}),
+    ...(overrides.alumnoIdInicial !== undefined ? { alumnoIdInicial: overrides.alumnoIdInicial } : {}),
+    reloj: overrides.reloj ?? crearRelojFijo(new Date('2026-03-04T10:00:00.000Z')),
     listarHistorico: overrides.listarHistorico ?? noImplementado('listarHistorico'),
     listarHistoricoCompleto: overrides.listarHistoricoCompleto ?? noImplementado('listarHistoricoCompleto'),
     resolverNombresAlumnos: overrides.resolverNombresAlumnos ?? (() => Promise.resolve(new Map())),
@@ -72,6 +111,17 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaHistorico> = {})
     listarProfesoresParaFiltro: overrides.listarProfesoresParaFiltro ?? (() => Promise.resolve([])),
     listarCentrosParaFiltro: overrides.listarCentrosParaFiltro ?? (() => Promise.resolve([])),
     descargador: overrides.descargador ?? crearDescargadorDeMentira(),
+    listarSlotsDeAlumnoParaInforme: overrides.listarSlotsDeAlumnoParaInforme ?? (() => Promise.resolve([])),
+    listarCierresActivosParaInforme: overrides.listarCierresActivosParaInforme ?? (() => Promise.resolve([])),
+    listarExcepcionesEnRangoParaInforme: overrides.listarExcepcionesEnRangoParaInforme ?? (() => Promise.resolve([])),
+    // Sin valor por defecto (a diferencia de `resolverContactoAlumnos`): esta dependencia es
+    // opcional de verdad — un `teacher` nunca la recibe en producción (`aplicacion.ts`) — así que el
+    // doble debe reflejar "no provista" (`undefined`) salvo que el test la necesite de verdad,
+    // nunca un `noImplementado` que rechazaría en cualquier generación de informe que no la pida.
+    ...(overrides.resolverCentroReferenciaIdParaInforme !== undefined
+      ? { resolverCentroReferenciaIdParaInforme: overrides.resolverCentroReferenciaIdParaInforme }
+      : {}),
+    abridorImpresion: overrides.abridorImpresion ?? crearAbridorImpresionDeMentira(),
   };
 }
 
@@ -609,4 +659,159 @@ void test('un error al exportar se muestra sin romper la pantalla, y no dispara 
   const zonasError = contenedor.querySelectorAll('[role="alert"]');
   const algunoConMensaje = Array.from(zonasError).some((zona) => zona.textContent.includes('No tienes permiso'));
   assert.ok(algunoConMensaje);
+});
+
+// --- Informe mensual por alumno (R-04) ----------------------------------------------------------
+
+const RELOJ_MARZO_2026 = () => new Date('2026-03-04T10:00:00.000Z');
+
+void test('informe mensual: sin ningún alumno seleccionado, generar CSV avisa y no descarga nada', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      listarHistorico: () => Promise.resolve({ filas: [], totalAproximado: 0 }),
+      descargador,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Informe: descargar CSV')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(descargador.llamadas.length, 0);
+  assert.match(contenedor.textContent, /Elige un alumno.*y un mes/);
+});
+
+void test('informe mensual: con el alumno preseleccionado desde la ficha (#/historico/<alumnoId>) y el mes actual, el CSV trae las cifras correctas', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      alumnoIdInicial: 'al1',
+      reloj: { ahora: RELOJ_MARZO_2026 },
+      resolverNombresAlumnos: () => Promise.resolve(new Map([['al1', ALUMNO_1]])),
+      listarHistorico: () => Promise.resolve({ filas: [], totalAproximado: 0 }),
+      listarCentrosParaFiltro: () => Promise.resolve([{ id: 'c1', nombre: 'IES Cervantes' }]),
+      listarSlotsDeAlumnoParaInforme: (alumnoId) => {
+        assert.equal(alumnoId, 'al1');
+        return Promise.resolve([crearSlot()]);
+      },
+      listarCierresActivosParaInforme: () => Promise.resolve([]),
+      listarExcepcionesEnRangoParaInforme: (desde, hasta) => {
+        assert.equal(desde, '2026-03-01');
+        assert.equal(hasta, '2026-03-31');
+        return Promise.resolve([]);
+      },
+      listarHistoricoCompleto: (filtro) => {
+        assert.equal(filtro.alumnoId, 'al1');
+        return Promise.resolve([
+          crearAsistencia({ id: 'a1', ocurrido_en: '2026-03-04T17:00:00.000Z' }),
+          crearAsistencia({ id: 'a2', ocurrido_en: '2026-03-11T17:00:00.000Z', estado: 'ausente', motivo_justificacion: null }),
+        ]);
+      },
+      resolverCentroReferenciaIdParaInforme: (alumnoId) => {
+        assert.equal(alumnoId, 'al1');
+        return Promise.resolve('c1');
+      },
+      descargador,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Informe: descargar CSV')?.click();
+  await esperarMicrotareas();
+
+  const llamada = descargador.llamadas[0];
+  assert.ok(llamada);
+  assert.equal(llamada.nombre, 'informe-mensual.csv');
+  assert.match(llamada.contenido, /Alumno;María García Pérez/);
+  assert.match(llamada.contenido, /Centro;IES Cervantes/);
+  assert.match(llamada.contenido, /Mes;Marzo 2026/);
+  assert.match(llamada.contenido, /Sesiones esperadas;4/); // 4 miércoles en marzo de 2026
+  assert.match(llamada.contenido, /Entradas registradas;1/);
+  assert.match(llamada.contenido, /Ausencias sin justificar;1/);
+});
+
+void test('informe mensual: imprimir abre la ventana de impresión con el alumno en el título y llama a imprimir()', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const abridorImpresion = crearAbridorImpresionDeMentira();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      alumnoIdInicial: 'al1',
+      reloj: { ahora: RELOJ_MARZO_2026 },
+      resolverNombresAlumnos: () => Promise.resolve(new Map([['al1', ALUMNO_1]])),
+      listarHistorico: () => Promise.resolve({ filas: [], totalAproximado: 0 }),
+      listarSlotsDeAlumnoParaInforme: () => Promise.resolve([crearSlot()]),
+      listarCierresActivosParaInforme: () => Promise.resolve([]),
+      listarExcepcionesEnRangoParaInforme: () => Promise.resolve([]),
+      listarHistoricoCompleto: () => Promise.resolve([]),
+      abridorImpresion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Informe: imprimir / PDF')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(abridorImpresion.titulos.length, 1);
+  assert.match(abridorImpresion.titulos[0] ?? '', /María García Pérez/);
+  assert.equal(abridorImpresion.impresiones, 1);
+});
+
+void test('informe mensual: un teacher, sin resolverCentroReferenciaIdParaInforme, exporta el CSV sin la fila Centro', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      rol: 'teacher',
+      usuarioId: 'p1',
+      alumnoIdInicial: 'al1',
+      reloj: { ahora: RELOJ_MARZO_2026 },
+      resolverNombresAlumnos: () => Promise.resolve(new Map([['al1', ALUMNO_1]])),
+      listarHistorico: () => Promise.resolve({ filas: [], totalAproximado: 0 }),
+      listarSlotsDeAlumnoParaInforme: () => Promise.resolve([crearSlot()]),
+      listarCierresActivosParaInforme: () => Promise.resolve([]),
+      listarExcepcionesEnRangoParaInforme: () => Promise.resolve([]),
+      listarHistoricoCompleto: () => Promise.resolve([]),
+      descargador,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Informe: descargar CSV')?.click();
+  await esperarMicrotareas();
+
+  const llamada = descargador.llamadas[0];
+  assert.ok(llamada);
+  assert.doesNotMatch(llamada.contenido, /Centro;/);
+  assert.match(llamada.contenido, /Alumno;María García Pérez/);
+});
+
+void test('informe mensual: un fallo al construir los datos se muestra sin romper la pantalla, y no descarga nada', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  mostrarPantallaHistorico(
+    contenedor,
+    crearDepsFalsas({
+      alumnoIdInicial: 'al1',
+      resolverNombresAlumnos: () => Promise.resolve(new Map([['al1', ALUMNO_1]])),
+      listarHistorico: () => Promise.resolve({ filas: [], totalAproximado: 0 }),
+      listarSlotsDeAlumnoParaInforme: () => Promise.reject(new SinPermiso()),
+      listarCierresActivosParaInforme: () => Promise.resolve([]),
+      listarExcepcionesEnRangoParaInforme: () => Promise.resolve([]),
+      descargador,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Informe: descargar CSV')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(descargador.llamadas.length, 0);
+  assert.match(contenedor.textContent, /No tienes permiso/);
 });

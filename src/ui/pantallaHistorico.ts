@@ -20,12 +20,13 @@
  * repuesto explícita, nunca en blanco ni con el id crudo.
  */
 
-import type { Rol } from '../dominio/tipos.ts';
+import type { CierreCentro, ExcepcionSlot, Rol, SlotHorario } from '../dominio/tipos.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
 import {
   puedeVerHistorico,
   puedeConsultarHistoricoDeCualquiera,
   puedeExportarConDatosDeContacto,
+  puedeGenerarInformeMensual,
 } from '../dominio/permisosUi.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
 import { debeBuscar, type ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
@@ -38,10 +39,20 @@ import {
   type FilaHistoricoResueltaConContacto,
 } from '../dominio/historicoAsistencia.ts';
 import { duracionRealMinutos, duracionTeoricaMinutos } from '../dominio/asistencia.ts';
-import { fechaHoraLocalLegible } from '../dominio/slots.ts';
+import { fechaHoraLocalLegible, fechaLocalISO } from '../dominio/slots.ts';
+import {
+  sesionesEsperadasDelMes,
+  resumenInformeMensual,
+  filasInformeMensual,
+  generarCsvInformeMensual,
+  limitesDelMes,
+  etiquetaMes,
+  type DatosInformeMensual,
+} from '../dominio/informeMensualAlumno.ts';
+import type { Reloj } from '../nucleo/reloj.ts';
 import type { FiltroHistorico, ResultadoHistorico } from '../datos/asistencia.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
-import { crearElemento, type Descargador } from './dom.ts';
+import { crearElemento, type Descargador, type AbridorVentanaImpresion } from './dom.ts';
 import { crearCampoTexto, crearBoton, crearZonaMensaje } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
@@ -87,10 +98,36 @@ export interface DependenciasPantallaHistorico {
   /** Solo se llama si `puedeConsultarHistoricoDeCualquiera(rol)` — opcional por el mismo motivo. */
   listarCentrosParaFiltro?(): Promise<readonly CentroParaFiltro[]>;
   readonly descargador: Descargador;
+
+  /** Preselecciona el filtro de alumno al montar (R-04, enlace desde la ficha de alumno,
+   * `#/historico/<alumnoId>`) — se ignora en silencio si no resuelve ningún nombre (mismo criterio
+   * que `slotInicialId` de `pantallaRegistrosSlot.ts`, T-22): sin esta prop, la pantalla arranca
+   * exactamente igual que antes de R-04. */
+  readonly alumnoIdInicial?: string;
+  /** Reloj inyectado (T-03: ninguna pantalla lee la hora del sistema directamente) — solo para la
+   * "Fecha de generación" del informe mensual (R-04, requisito 2), nunca para ningún cálculo de
+   * negocio (eso vive en `dominio/informeMensualAlumno.ts`, que no toca el reloj en absoluto). */
+  readonly reloj: Reloj;
+  /** Todas las versiones del horario del alumno (R-04, requisito 3: snapshot histórico) — de
+   * `listarSlotsDeAlumno` (T-15), ya acotado por RLS a lo que puede ver quien pide el informe. */
+  listarSlotsDeAlumnoParaInforme(alumnoId: string): Promise<readonly SlotHorario[]>;
+  /** Cierres ACTIVOS del centro (R-12), para excluir un día cerrado de "sesiones esperadas". */
+  listarCierresActivosParaInforme(): Promise<readonly CierreCentro[]>;
+  /** Excepciones ACTIVAS (R-06) cuya fecha cae en `[desde, hasta]` (`AAAA-MM-DD`, el mes del
+   * informe) — de cualquier slot, `sesionesEsperadasDelMes` filtra por slot internamente. */
+  listarExcepcionesEnRangoParaInforme(desde: string, hasta: string): Promise<readonly ExcepcionSlot[]>;
+  /** El `centro_referencia_id` del alumno (R-04, cabecera del informe) — solo resuelve para
+   * `administrator` (`alumno_ficha` no devuelve fila a `teacher`, ver `datos/alumnos.ts`); opcional
+   * porque un `teacher` (para quien esta llamada siempre daría `null`) no tiene por qué proveerla,
+   * mismo criterio que `resolverContactoAlumnos`. Sin esta prop, el informe simplemente no incluye
+   * el campo "Centro". */
+  resolverCentroReferenciaIdParaInforme?(alumnoId: string): Promise<string | null>;
+  readonly abridorImpresion: AbridorVentanaImpresion;
 }
 
 const POR_PAGINA = 20;
 const NOMBRE_FICHERO_CSV = 'historico-asistencia.csv';
+const NOMBRE_FICHERO_CSV_INFORME = 'informe-mensual.csv';
 const TIPO_MIME_CSV = 'text/csv;charset=utf-8';
 
 interface EstadoHistorico {
@@ -117,6 +154,11 @@ interface EstadoHistorico {
   readonly incluirContacto: boolean;
   readonly exportando: boolean;
   readonly errorExportacion: string;
+
+  /** `AAAA-MM` (valor de un `<input type="month">`) — vacío mientras no se elige ningún mes. */
+  readonly informeMes: string;
+  readonly generandoInforme: boolean;
+  readonly errorInforme: string;
 }
 
 const ESTADO_INICIAL: EstadoHistorico = {
@@ -139,6 +181,9 @@ const ESTADO_INICIAL: EstadoHistorico = {
   incluirContacto: false,
   exportando: false,
   errorExportacion: '',
+  informeMes: '',
+  generandoInforme: false,
+  errorInforme: '',
 };
 
 /** Ids únicos de alumno y de profesor presentes en `filas`, en el orden de primera aparición —
@@ -349,6 +394,112 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     }
   }
 
+  // --- Informe mensual por alumno (R-04): requiere un alumno filtrado (arriba) y un mes elegido.
+  // Reutiliza el mismo filtro de alumno que el resto de la pantalla, en vez de duplicar un segundo
+  // buscador — "desde el histórico" (requisito 1) es justo esta misma pantalla. ---
+  const tituloInforme = crearElemento(documento, 'h2', { texto: 'Informe mensual' });
+  const campoMesInforme = documento.createElement('input');
+  campoMesInforme.type = 'month';
+  campoMesInforme.id = 'historico-informe-mes';
+  const etiquetaMesInforme = crearElemento(documento, 'label', { texto: 'Mes', atributos: { for: 'historico-informe-mes' } });
+  campoMesInforme.value = fechaLocalISO(deps.reloj.ahora(), zonaHoraria).slice(0, 7);
+  campoMesInforme.addEventListener('change', () => {
+    almacen.actualizar({ informeMes: campoMesInforme.value });
+  });
+  const zonaErrorInforme = crearZonaMensaje(documento, 'alert');
+  const botonInformeCsv = crearBoton(documento, 'Informe: descargar CSV', 'button');
+  const botonInformePdf = crearBoton(documento, 'Informe: imprimir / PDF', 'button');
+  botonInformeCsv.addEventListener('click', () => {
+    void generarInforme('csv');
+  });
+  botonInformePdf.addEventListener('click', () => {
+    void generarInforme('pdf');
+  });
+
+  /** Cruza el horario del alumno (con sus versiones pasadas, requisito 3), los cierres y las
+   * excepciones del mes con lo realmente registrado — `undefined` si todavía falta elegir alumno o
+   * mes, para que `generarInforme` avise en vez de generar un informe sin sentido. */
+  async function construirDatosInforme(): Promise<DatosInformeMensual | undefined> {
+    const estado = almacen.obtener();
+    if (!estado.filtroAlumnoId || estado.informeMes.length === 0) {
+      return undefined;
+    }
+    const alumnoId = estado.filtroAlumnoId;
+    const anio = Number(estado.informeMes.slice(0, 4));
+    const mes = Number(estado.informeMes.slice(5, 7));
+    const { primerDia, ultimoDia } = limitesDelMes(anio, mes);
+
+    const [slots, cierres, excepciones, asistencias, centroReferenciaId] = await Promise.all([
+      deps.listarSlotsDeAlumnoParaInforme(alumnoId),
+      deps.listarCierresActivosParaInforme(),
+      deps.listarExcepcionesEnRangoParaInforme(primerDia, ultimoDia),
+      deps.listarHistoricoCompleto({
+        alumnoId,
+        desde: new Date(`${primerDia}T00:00:00.000Z`),
+        hasta: new Date(`${ultimoDia}T00:00:00.000Z`),
+      }),
+      deps.resolverCentroReferenciaIdParaInforme?.(alumnoId) ?? Promise.resolve(null),
+    ]);
+
+    const sesiones = sesionesEsperadasDelMes({ anio, mes, slots, cierres, excepciones });
+    const resumen = resumenInformeMensual(sesiones, asistencias);
+    const centroNombre = centroReferenciaId
+      ? (estado.centrosDisponibles.find((centro) => centro.id === centroReferenciaId)?.nombre ?? null)
+      : null;
+
+    return {
+      alumnoNombre: estado.filtroAlumnoNombre,
+      centroNombre,
+      anio,
+      mes,
+      generadoEnLegible: fechaHoraLocalLegible(deps.reloj.ahora(), zonaHoraria),
+      resumen,
+    };
+  }
+
+  /** Ventana de impresión (requisito 2: "PDF... con impresión de HTML"): construye la tabla con las
+   * mismas funciones de creación de elementos que el resto del proyecto, sobre el `document` de la
+   * ventana nueva — nunca con una cadena HTML cruda — y llama a imprimir. Las MISMAS cifras que el
+   * CSV (`filasInformeMensual`, única fuente para los dos formatos). */
+  function imprimirInforme(datos: DatosInformeMensual): void {
+    const ventana = deps.abridorImpresion.abrir(`Informe mensual — ${datos.alumnoNombre}`);
+    if (!ventana) {
+      almacen.actualizar({ errorInforme: 'El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes e inténtalo de nuevo.' });
+      return;
+    }
+    const docImpresion = ventana.document;
+    const titulo = crearElemento(docImpresion, 'h1', { texto: `Informe mensual — ${etiquetaMes(datos.mes)} ${String(datos.anio)}` });
+    const tabla = docImpresion.createElement('table');
+    const cuerpo = docImpresion.createElement('tbody');
+    for (const [campo, valor] of filasInformeMensual(datos)) {
+      const fila = docImpresion.createElement('tr');
+      fila.append(crearElemento(docImpresion, 'th', { texto: campo, atributos: { scope: 'row' } }), crearElemento(docImpresion, 'td', { texto: valor }));
+      cuerpo.append(fila);
+    }
+    tabla.append(cuerpo);
+    docImpresion.body.append(titulo, tabla);
+    ventana.imprimir();
+  }
+
+  async function generarInforme(formato: 'csv' | 'pdf'): Promise<void> {
+    almacen.actualizar({ generandoInforme: true, errorInforme: '' });
+    try {
+      const datos = await construirDatosInforme();
+      if (!datos) {
+        almacen.actualizar({ generandoInforme: false, errorInforme: 'Elige un alumno (arriba) y un mes antes de generar el informe.' });
+        return;
+      }
+      if (formato === 'csv') {
+        deps.descargador.descargar(generarCsvInformeMensual(datos), NOMBRE_FICHERO_CSV_INFORME, TIPO_MIME_CSV);
+      } else {
+        imprimirInforme(datos);
+      }
+      almacen.actualizar({ generandoInforme: false });
+    } catch (error) {
+      almacen.actualizar({ generandoInforme: false, errorInforme: mensajeAmigable(error) });
+    }
+  }
+
   function nombreParaMostrar(
     alumnos: ReadonlyMap<string, { readonly nombre: string; readonly primer_apellido: string; readonly segundo_apellido: string | null }>,
     alumnoId: string,
@@ -444,6 +595,12 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     botonQuitarFiltroAlumno.hidden = estado.filtroAlumnoId === null;
     pintarFilaBusquedaAlumno(estado);
 
+    zonaErrorInforme.textContent = estado.errorInforme;
+    botonInformeCsv.disabled = estado.generandoInforme;
+    botonInformePdf.disabled = estado.generandoInforme;
+    botonInformeCsv.textContent = estado.generandoInforme ? 'Generando…' : 'Informe: descargar CSV';
+    botonInformePdf.textContent = estado.generandoInforme ? 'Generando…' : 'Informe: imprimir / PDF';
+
     tablaContenedor.textContent = '';
     if (estado.cargando) {
       tablaContenedor.append(crearElemento(documento, 'p', { texto: 'Cargando…' }));
@@ -508,6 +665,13 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
 
   contenedor.append(titulo, zonaError, ...filtros, ...exportacion, tablaContenedor, paginadorEl);
 
+  // Bloque de informe mensual (R-04): mismo criterio de presentación que el resto de esta pantalla
+  // (`puedeGenerarInformeMensual` es hoy el mismo conjunto de roles que `puedeVerHistorico`, pero es
+  // una capacidad propia — podría divergir el día que el dueño decida otra cosa para una de las dos).
+  if (puedeGenerarInformeMensual(deps.rol)) {
+    contenedor.append(tituloInforme, etiquetaMesInforme, campoMesInforme, zonaErrorInforme, botonInformeCsv, botonInformePdf);
+  }
+
   pintar(almacen.obtener());
 
   async function cargarSelectoresFiltro(): Promise<void> {
@@ -529,6 +693,22 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     }
   }
 
-  void cargarSelectoresFiltro();
-  void cargar(0);
+  async function iniciar(): Promise<void> {
+    almacen.actualizar({ informeMes: campoMesInforme.value });
+    if (deps.alumnoIdInicial) {
+      // R-04: la ficha de alumno enlaza aquí con `#/historico/<alumnoId>` para generar su informe
+      // mensual sin tener que volver a buscarlo — se ignora en silencio si no resuelve ningún
+      // nombre (mismo criterio que `slotInicialId` de `pantallaRegistrosSlot.ts`, T-22): el filtro
+      // se aplica igualmente por id, con una etiqueta de repuesto en vez de dejarlo en blanco.
+      const nombres = await deps.resolverNombresAlumnos([deps.alumnoIdInicial]);
+      const alumno = nombres.get(deps.alumnoIdInicial);
+      almacen.actualizar({
+        filtroAlumnoId: deps.alumnoIdInicial,
+        filtroAlumnoNombre: alumno ? nombreCompletoAlumno(alumno) : ETIQUETA_ALUMNO_NO_DISPONIBLE,
+      });
+    }
+    await Promise.all([cargarSelectoresFiltro(), cargar(0)]);
+  }
+
+  void iniciar();
 }

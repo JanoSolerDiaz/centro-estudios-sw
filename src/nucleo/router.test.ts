@@ -48,6 +48,14 @@ void test('analizarRuta: "#/historico" es la pantalla de histórico (T-23)', () 
   assert.deepEqual(analizarRuta('#/historico'), { nombre: 'historico' });
 });
 
+void test('analizarRuta: "#/historico/<alumnoId>" preselecciona el alumno (R-04, enlace desde la ficha)', () => {
+  assert.deepEqual(analizarRuta('#/historico/abc-123'), { nombre: 'historico', alumnoId: 'abc-123' });
+});
+
+void test('analizarRuta: "#/historico/<alumnoId>" decodifica el id', () => {
+  assert.deepEqual(analizarRuta('#/historico/abc%20123'), { nombre: 'historico', alumnoId: 'abc 123' });
+});
+
 void test('analizarRuta: "#/usuarios" es la pantalla de administración de usuarios (T-24)', () => {
   assert.deepEqual(analizarRuta('#/usuarios'), { nombre: 'usuarios' });
 });
@@ -68,6 +76,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'alumno-detalle', alumnoId: 'abc-123' },
     { nombre: 'registros' },
     { nombre: 'historico' },
+    { nombre: 'historico', alumnoId: 'abc-123' },
     { nombre: 'usuarios' },
     { nombre: 'cierres' },
   ];

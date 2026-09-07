@@ -15,6 +15,7 @@ import {
   obtenerAlumnoParaTarjeta,
   resolverIdentificacionAlumnos,
   resolverContactoAlumnos,
+  resolverCentroReferenciaIdDeAlumno,
 } from './alumnos.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { AlumnoConCentro, AlumnoConCentroYPersonas } from './alumnos.ts';
@@ -554,4 +555,31 @@ void test('resolverContactoAlumnos: una única petición en lote (in) contra alu
   assert.equal(url.searchParams.get('id'), 'in.(a1)');
   assert.equal(url.searchParams.get('select'), 'id,email_alumno,telefono_alumno');
   assert.deepEqual(mapa.get('a1'), { id: 'a1', email_alumno: 'ana@ejemplo.com', telefono_alumno: '666123456' });
+});
+
+// --- resolverCentroReferenciaIdDeAlumno (R-04, cabecera del informe mensual) --------------------
+
+void test('resolverCentroReferenciaIdDeAlumno: consulta alumno_ficha por id y devuelve el centro', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [{ centro_referencia_id: 'c1' }] };
+  });
+
+  const centroId = await resolverCentroReferenciaIdDeAlumno(cliente, 'a1');
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/alumno_ficha');
+  assert.equal(url.searchParams.get('id'), 'eq.a1');
+  assert.equal(url.searchParams.get('select'), 'centro_referencia_id');
+  assert.equal(centroId, 'c1');
+});
+
+void test('resolverCentroReferenciaIdDeAlumno: un teacher recibe 0 filas de alumno_ficha (RLS) y null, nunca un error', async () => {
+  const cliente = crearCliente(() => ({ estado: 200, cuerpo: [] }));
+
+  const centroId = await resolverCentroReferenciaIdDeAlumno(cliente, 'a1');
+
+  assert.equal(centroId, null);
 });

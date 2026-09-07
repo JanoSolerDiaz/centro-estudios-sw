@@ -130,6 +130,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   MISMO `slot_id`, así que la comprobación de "algún registro ese día" ya lo detecta sin caso
   especial). Ordenadas de la fecha más antigua a la más reciente y, dentro del mismo día, por hora
   de inicio y apellido del alumno.
+  Desde R-04: `informeMensualAlumno.ts` (nuevo) — `sesionesEsperadasDelMes(parametros)`: para cada
+  día del mes natural pedido, cada slot del alumno vigente ese día (snapshot histórico —
+  `vigente_desde`/`vigente_hasta`, nunca el horario actual) cuyo día de la semana coincide
+  (`fechaCoincideConDiaSemana`, R-06), salvo que el día esté cerrado (`esDiaCerrado`, R-12) o
+  cancelado para ese slot (`esDiaCanceladoParaSlot`, R-06) — mismos dos criterios de exclusión que
+  R-13, sin inventar un tercero. `resumenInformeMensual(sesiones, asistencias)` cruza el recuento de
+  sesiones esperadas con TODO lo registrado ese mes para el alumno (entradas válidas, ausencias
+  justificadas/sin justificar, anuladas —visibles, no cuentan—, retroactivos, minutos reales
+  sumados solo de las entradas válidas con salida marcada, R-03). `filasInformeMensual`/
+  `generarCsvInformeMensual` son la MISMA fuente de pares campo/valor para el CSV y para la tabla
+  que pinta la pantalla en la ventana de impresión, así que los dos formatos coinciden siempre en
+  las cifras (criterio de aceptación de R-04). `permisosUi.ts` añade `puedeGenerarInformeMensual`
+  (`administrator` y `teacher`, mismo conjunto que `puedeVerHistorico` pero como capacidad propia).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -289,6 +302,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     que la RLS de quien consulta no puede resolver simplemente falta en el mapa devuelto.
     `resolverContactoAlumnos(cliente, ids)` — email/teléfono en lote contra `alumno_ficha`, solo
     tiene sentido detrás de `puedeExportarConDatosDeContacto(rol)`.
+    Desde R-04: `resolverCentroReferenciaIdDeAlumno(cliente, alumnoId)` — el `centro_referencia_id`
+    de un alumno, para la cabecera del informe mensual; contra `alumno_ficha` (nunca la tabla base:
+    esa columna no está en el GRANT de `authenticated` en ninguna forma). Devuelve `null` sin
+    distinguir el motivo (alumno inexistente o quien pregunta no es `administrator`, único rol al
+    que `alumno_ficha` devuelve fila) — un `teacher` simplemente no ve el campo "Centro" en su
+    informe, nunca un error.
 
   ### Configuración del cliente (`config.js`)
 
@@ -364,11 +383,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12 y R-13) — dos routers por `hash`,
-    cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno
-    común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator` (`#/centros`,
-    `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`, `#/historico`, `#/usuarios`
-    desde T-24, `#/cierres` desde R-12) y `crearRouterProfesor(objetivo)`
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13 y R-04) — dos routers por
+    `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor
+    interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator`
+    (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`,
+    `#/historico[/<alumnoId>]` — el segmento de `alumnoId`, opcional, añadido por R-04 para que la
+    ficha de alumno enlace al informe mensual con el alumno ya preseleccionado —, `#/usuarios` desde
+    T-24, `#/cierres` desde R-12) y `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>[/<fecha>]]` — el segmento de
     `slotId` es opcional, para el enlace profundo de "mi horario" a los registros de un slot
     concreto; el de `fecha` (`AAAA-MM-DD`), añadido por R-13, solo tiene sentido junto a `slotId` y
@@ -402,13 +423,21 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     enlazado por `aria-describedby`/`aria-invalid` — distinto de `crearZonaMensaje`, que es un único
     mensaje para todo el formulario). Objetivos táctiles ≥44px y 16px de fuente (evita el zoom de
     iOS) fijados aquí, en estilos en línea — el proyecto no tiene todavía ninguna hoja de estilos.
-  - `dom.ts` (T-16, ampliado en T-23) — `crearElemento(documento, etiqueta, opciones, hijos)`:
+  - `dom.ts` (T-16, ampliado en T-23 y R-04) — `crearElemento(documento, etiqueta, opciones, hijos)`:
     helper de creación de elementos con texto/atributos/hijos en una llamada, siempre por
     `textContent`/`createElement` (nunca `innerHTML`). Complementa a `formularios.ts` para el resto
     del marcado de una pantalla (títulos, párrafos, contenedores). Desde T-23: `Descargador`/
     `crearDescargadorNavegador(documento)` — dispara la descarga de un fichero de texto (`Blob`/
     `URL.createObjectURL`/`<a download>`), inyectable igual que `FabricaProcesadoImagen` (T-14): la
     pantalla que lo usa se testea con un `Descargador` de mentira que solo registra la llamada.
+    Desde R-04: `AbridorVentanaImpresion`/`crearAbridorVentanaImpresionNavegador(abrirVentana)` —
+    abre una ventana en blanco (`window.open`, inyectado para no tocar el global directamente) para
+    el "PDF" del informe mensual (sin librería: el navegador ofrece "Guardar como PDF" en su propio
+    diálogo de impresión); quien la usa construye el contenido con `crearElemento` sobre el
+    `document` de esa ventana nueva (nunca una cadena HTML cruda) y llama a `imprimir()`
+    (`focus()` + `print()`). `undefined` si el navegador bloquea la ventana emergente — quien llama
+    debe avisarlo. Mismo patrón de inyección que `Descargador`; la implementación real no tiene test
+    propio.
   - `portapapeles.ts` (R-05) — `copiarAlPortapapelesDelNavegador(texto)`: envoltura de una línea
     sobre `navigator.clipboard.writeText`, mismo motivo de aislamiento que `FabricaProcesadoImagen`
     (T-14) y `Descargador` (T-23): `jsdom` no implementa la Clipboard API, así que la pantalla que la
@@ -471,7 +500,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     horario no cambia el histórico (requisito 3 de T-16); usa `src/datos/profesores.ts` para el
     selector de profesor y valida en el cliente, con `crearMensajeErrorCampo`, que la hora de fin sea
     posterior a la de inicio antes de llamar al servidor. Enteramente de `administrator`. No hay
-    pantalla independiente de personas de referencia ni de avatar, por spec.
+    pantalla independiente de personas de referencia ni de avatar, por spec. Desde R-04: en modo
+    edición, botón "Ver histórico e informe mensual" (`deps.irAHistorico(alumnoId)`, ausente en modo
+    alta) que navega a `#/historico/<alumnoId>` — la ficha no genera el informe ella misma, solo
+    preselecciona el alumno en `pantallaHistorico.ts`, que es donde vive la funcionalidad.
   - `pantallaPasarLista.ts` (T-19) — `mostrarPantallaPasarLista(contenedor, deps)`: la pantalla que
     un profesor usa cada día, exclusiva de `teacher` (`puedeUsarPasarLista`, `permisosUi.ts`).
     `deps.cargarPropuesta()` (todos los slots del profesor) y `deps.cargarAsistenciaDeHoy(instante)`
@@ -618,7 +650,16 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     deja traza mínima en el log (`logAuditoria.info`, solo ids y página, nunca un nombre). Desde R-03:
     la tabla gana las columnas "Salida" y "Duración" (real junto a la teórica cuando hay salida
     marcada, solo la teórica si aún no la hay), y el CSV gana "Hora de salida", "Duración real (min)"
-    y "Duración teórica (min)".
+    y "Duración teórica (min)". Desde R-04: bloque "Informe mensual" que reutiliza el MISMO filtro de
+    alumno de esta pantalla (nunca un segundo buscador) más un `<input type="month">` — "Informe:
+    descargar CSV" y "Informe: imprimir / PDF" (`AbridorVentanaImpresion`, `ui/dom.ts`), las dos
+    generadas desde el mismo `DatosInformeMensual` (`dominio/informeMensualAlumno.ts`) para que
+    coincidan siempre en las cifras. La ficha de alumno enlaza aquí con `#/historico/<alumnoId>`
+    (segmento opcional nuevo de la ruta `historico` en `nucleo/router.ts`, solo en el router de
+    `administrator`: `teacher` no tiene ficha) para preseleccionar el alumno sin tener que
+    rebuscarlo (`alumnoIdInicial`, mismo criterio "se ignora en silencio si no cuadra con nada" que
+    `slotInicialId` de T-22). El campo "Centro" de la cabecera solo aparece para `administrator`
+    (`resolverCentroReferenciaIdParaInforme`, opcional, sin proveer para `teacher`).
   - `pantallaUsuarios.ts` (T-24, nuevo) — `mostrarPantallaUsuarios(contenedor, deps)`: listado con
     filtro por rol y estado y búsqueda por nombre, edición de nombre inline (mismo patrón que
     "Editar" de `pantallaCentros.ts`), un `<select>` de rol por fila y desactivación con

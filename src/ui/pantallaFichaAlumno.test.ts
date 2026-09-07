@@ -95,6 +95,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaFichaAlumno> = {
     cesarSlot: overrides.cesarSlot ?? noImplementado('cesarSlot'),
     volver: overrides.volver ?? (() => undefined),
     alCrearAlumno: overrides.alCrearAlumno ?? (() => undefined),
+    irAHistorico: overrides.irAHistorico ?? (() => undefined),
     ...overrides,
   };
 }
@@ -210,6 +211,33 @@ void test('modo edición: carga con éxito pinta los cuatro bloques con sus cabe
   const cabeceras = Array.from(contenedor.querySelectorAll('h3')).map((h) => h.textContent);
   assert.deepEqual(cabeceras, ['Datos y centro', 'Avatar', 'Personas de referencia', 'Horario']);
   assert.match(contenedor.textContent, /Marta García López/); // título con nombre completo
+});
+
+void test('modo edición: "Ver histórico e informe mensual" llama a irAHistorico con el id del alumno (R-04)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const idsVisitados: string[] = [];
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      irAHistorico: (alumnoId) => idsVisitados.push(alumnoId),
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Ver histórico e informe mensual').click();
+
+  assert.deepEqual(idsVisitados, ['a1']);
+});
+
+void test('modo alta: sin ningún alumno todavía, no se ofrece "Ver histórico e informe mensual"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(contenedor, crearDepsFalsas({ alumnoId: null }));
+  await esperarMicrotareas();
+
+  const encontrado = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Ver histórico e informe mensual');
+  assert.equal(encontrado, undefined);
 });
 
 void test('un nombre con marcado se renderiza como texto, nunca como HTML (protección XSS)', async () => {

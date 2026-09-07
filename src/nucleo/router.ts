@@ -65,7 +65,12 @@ export type Ruta =
   | { readonly nombre: 'alumno-nuevo' }
   | { readonly nombre: 'alumno-detalle'; readonly alumnoId: string }
   | { readonly nombre: 'registros' }
-  | { readonly nombre: 'historico' }
+  /** El segmento de `alumnoId` es opcional (`#/historico[/<alumnoId>]`, R-04) — solo sirve para que
+   * la ficha de alumno pueda enlazar directo al histórico con el alumno ya preseleccionado, para
+   * generar su informe mensual, sin obligar a la pantalla de histórico a exigir nada nuevo a quien
+   * navegue sin él (sigue arrancando sin ningún filtro de alumno, igual que hasta ahora) — mismo
+   * criterio que `slotId` opcional en la ruta `registros` de `RutaProfesor` (T-22). */
+  | { readonly nombre: 'historico'; readonly alumnoId?: string }
   | { readonly nombre: 'usuarios' }
   | { readonly nombre: 'cierres' };
 
@@ -90,7 +95,7 @@ export function analizarRuta(hash: string): Ruta {
     return { nombre: 'registros' };
   }
   if (primero === 'historico') {
-    return { nombre: 'historico' };
+    return segundo === undefined ? { nombre: 'historico' } : { nombre: 'historico', alumnoId: decodeURIComponent(segundo) };
   }
   if (primero === 'usuarios') {
     return { nombre: 'usuarios' };
@@ -125,7 +130,7 @@ export function hashDeRuta(ruta: Ruta): string {
     case 'registros':
       return '#/registros';
     case 'historico':
-      return '#/historico';
+      return ruta.alumnoId === undefined ? '#/historico' : `#/historico/${encodeURIComponent(ruta.alumnoId)}`;
     case 'usuarios':
       return '#/usuarios';
     case 'cierres':

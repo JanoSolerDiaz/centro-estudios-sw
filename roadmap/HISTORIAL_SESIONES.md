@@ -37,6 +37,69 @@
 
 ---
 
+### Sesión 2026-09-07 (rutina programada) — R-04 completada, octava tarea de la oleada v1
+
+**Tarea(s):** R-04 (Informe mensual por alumno)
+**Estado resultante:** R-04 pasa a `COMPLETADA` en §1 — `Migración: No`, sin ningún bloqueo propio
+(limitación aceptada: un informe real fallará con error de servidor mientras `013`/`014` sigan sin
+aplicar, mismo precedente que R-13).
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (R-04 declara `Migración: No`; el agente tampoco aplica DDL en
+ningún caso, §0.1). Sin fila nueva de §3.
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `src/dominio/informeMensualAlumno.ts` (nuevo:
+`sesionesEsperadasDelMes`, `resumenInformeMensual`, `filasInformeMensual`,
+`generarCsvInformeMensual`, `etiquetaMes`, `formatearMinutosComoHoras`, `limitesDelMes`,
+`ultimoDiaDelMes`), `src/dominio/informeMensualAlumno.test.ts` (nuevo, 28 tests),
+`src/dominio/permisosUi.ts` (`puedeGenerarInformeMensual`, nueva), `src/dominio/permisosUi.test.ts`
+(1 test nuevo), `src/datos/alumnos.ts` (`resolverCentroReferenciaIdDeAlumno`, nueva, contra
+`alumno_ficha`), `src/datos/alumnos.test.ts` (2 tests nuevos), `src/ui/dom.ts`
+(`AbridorVentanaImpresion`/`VentanaImpresion`/`crearAbridorVentanaImpresionNavegador`, nuevos),
+`src/ui/dom.test.ts` (4 tests nuevos), `src/nucleo/router.ts` (`Ruta` "historico" gana el segmento
+opcional `alumnoId`, solo en el router de `administrator`; `analizarRuta`/`hashDeRuta` actualizadas),
+`src/nucleo/router.test.ts` (2 tests nuevos), `src/ui/pantallaHistorico.ts` (bloque nuevo "Informe
+mensual": mes con `<input type="month">`, botones "Informe: descargar CSV"/"Informe: imprimir / PDF",
+`deps.reloj`/`listarSlotsDeAlumnoParaInforme`/`listarCierresActivosParaInforme`/
+`listarExcepcionesEnRangoParaInforme`/`resolverCentroReferenciaIdParaInforme?`/`abridorImpresion`
+nuevas, `deps.alumnoIdInicial?` para preseleccionar el filtro de alumno ya existente),
+`src/ui/pantallaHistorico.test.ts` (5 tests nuevos), `src/ui/pantallaFichaAlumno.ts` (botón "Ver
+histórico e informe mensual", `deps.irAHistorico`, nuevo, solo en modo edición),
+`src/ui/pantallaFichaAlumno.test.ts` (2 tests nuevos), `src/ui/aplicacion.ts` (wiring de todas las
+dependencias nuevas para `administrator` y `teacher` en la ruta `historico`, `irAHistorico` en la
+ficha de alumno, `abridorImpresion` construido en las dos apps sobre `documento.defaultView?.open`),
+`DEVELOPERS.md` (secciones de `dominio/`, `datos/alumnos.ts`, `ui/dom.ts`, `router.ts`,
+`pantallaHistorico.ts` y `pantallaFichaAlumno.ts` actualizadas), `roadmap/SEGUIMIENTO.md` (§1: fila de
+R-04 a `COMPLETADA`; nueva entrada de "Última actualización"), `roadmap/DECISIONES_TECNICAS.md` (siete
+filas nuevas, ver más abajo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1265/1265, antes 1221) · build ✅
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`)
+**Decisiones tomadas:** siete filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-07, tarea R-04:
+(1) reutilizar sin cambios `esDiaCerrado`/`esDiaCanceladoParaSlot` como únicos criterios de exclusión
+de "sesión esperada", iterando cada día del mes contra cada versión histórica del horario (snapshot,
+nunca el horario actual); (2) el resumen agregado no empareja sesión esperada con registro real uno a
+uno por fecha, cuenta ambos por separado, para que el criterio de aceptación ("PDF y CSV coinciden en
+las cifras") no dependa de ninguna regla de cruce ambigua; (3) el campo "Centro" solo se resuelve para
+`administrator`, vía la nueva `resolverCentroReferenciaIdDeAlumno` contra `alumno_ficha` — `centro_referencia_id`
+no está concedido a `authenticated` en ninguna forma; (4) el informe se integra dentro de
+`pantallaHistorico.ts` (filtro de alumno ya existente) en vez de una pantalla nueva; (5) el router de
+`administrator` gana `#/historico/<alumnoId>` (segmento opcional), el de `teacher` no se toca —
+`teacher` no tiene ficha de alumno desde la que enlazar; (6) el "PDF" se resuelve con una ventana de
+impresión nueva (`AbridorVentanaImpresion`, mismo patrón de inyección que `Descargador` de T-23),
+nunca `canvas` ni una cadena HTML cruda; (7) limitación aceptada, mismo precedente que R-13: el
+informe consulta de verdad `cierre_centro`/`excepcion_slot` (R-12/R-06), así que fallará con un error
+de servidor capturado (mensaje amigable, sin romper la pantalla) mientras `014`/`013` sigan sin
+aplicar.
+**Hallazgos del auditor atendidos:** ninguno nuevo (sin pasada del auditor desde `06fb8b0`, ya
+conocida por la sesión anterior; los dos `ABIERTO` —`#8` y `#9`— siguen en el mismo estado).
+**Hallazgos:** ninguno propio de esta sesión.
+**Tareas autopropuestas (P-XX):** ninguna.
+**Próximo paso:** revisar §1 en orden — R-01/R-02/R-03/R-06/R-12 siguen `BLOQUEADA` esperando
+exclusivamente al dueño (filas 13-17 de §3); la siguiente `PENDIENTE` sin dependencias sin empezar es
+**R-07** ("Pasar lista con conexión intermitente", solo cliente).
+
+---
+
 ### Sesión 2026-09-07 (rutina programada) — R-13 completada, séptima tarea de la oleada v1
 
 **Tarea(s):** R-13 (Aviso de sesiones sin pasar lista en «Mi horario»)

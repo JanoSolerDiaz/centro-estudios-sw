@@ -356,3 +356,18 @@ export async function obtenerAlumnoParaTarjeta(cliente: ClientePostgrest, id: st
     .seleccionar('id,nombre,primer_apellido,segundo_apellido,avatar_ruta,activo');
   return primeraFilaOFalla(filas);
 }
+
+/** El `centro_referencia_id` de un alumno (R-04, requisito 2: la cabecera del informe mensual
+ * incluye el centro) — contra `alumno_ficha`, no la tabla base: `centro_referencia_id` no está
+ * concedido a `authenticated` en ninguna forma (ni siquiera a `administrator` sobre la tabla base,
+ * ver DECISIONES_TECNICAS.md de T-21/R-04), y `alumno_ficha` (`select * from alumno where
+ * es_administrator()`, T-10) solo devuelve fila a `administrator`. `null` sin distinguir el motivo
+ * (alumno inexistente o quien pregunta no es `administrator`) — quien llama (un `teacher`) ya sabe
+ * que no tiene este dato y simplemente omite el campo "Centro" del informe, nunca un error. */
+export async function resolverCentroReferenciaIdDeAlumno(cliente: ClientePostgrest, alumnoId: string): Promise<string | null> {
+  const filas = await cliente
+    .desde<Pick<Alumno, 'centro_referencia_id'>>(VISTA_FICHA)
+    .eq('id', alumnoId)
+    .seleccionar('centro_referencia_id');
+  return filas[0]?.centro_referencia_id ?? null;
+}
