@@ -113,6 +113,18 @@ la ventana rechazado para `teacher` y aceptado para `administrator`). Fila 15 de
 `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `012` es posterior y no forma parte
 de las diez migraciones de su paso a producción.
 
+**`014_calendario_cierres.sql`** (R-12, "calendario de cierres del centro: festivos y vacaciones") —
+escrita y empujada a `develop` el 2026-09-07, todavía sin aplicar. Tabla nueva `cierre_centro`
+(`fecha_inicio`, `fecha_fin`, `motivo`, `activo`), con sus propias políticas RLS en el mismo fichero
+(`administrator` gestiona; `teacher` solo lee los cierres activos; ninguna política para `student`).
+Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local, comprobar que
+`esquema_version()` devuelve `14`, y ejecutar también `npm run probar-rls` (nueva sección 8j de
+`db/pruebas_rls.sql`: alta y edición por `administrator`, rechazadas para `teacher`, el `teacher` lee
+un cierre activo pero no uno inactivo; más las dos tablas añadidas a los barridos obligatorios de
+`student`, sección 6, y `anon`, sección 8f). Fila 16 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver
+fila 12) queda inafectada: `014` es posterior y no forma parte de las diez migraciones de su paso a
+producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

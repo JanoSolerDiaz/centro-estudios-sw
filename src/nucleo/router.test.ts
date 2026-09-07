@@ -52,6 +52,10 @@ void test('analizarRuta: "#/usuarios" es la pantalla de administración de usuar
   assert.deepEqual(analizarRuta('#/usuarios'), { nombre: 'usuarios' });
 });
 
+void test('analizarRuta: "#/cierres" es la pantalla del calendario de cierres del centro (R-12)', () => {
+  assert.deepEqual(analizarRuta('#/cierres'), { nombre: 'cierres' });
+});
+
 void test('analizarRuta: funciona igual sin el "#" inicial', () => {
   assert.deepEqual(analizarRuta('/centros'), { nombre: 'centros' });
 });
@@ -65,6 +69,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'registros' },
     { nombre: 'historico' },
     { nombre: 'usuarios' },
+    { nombre: 'cierres' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);
@@ -160,6 +165,10 @@ void test('analizarRutaProfesor: "#/historico" es la pantalla de histórico (T-2
   assert.deepEqual(analizarRutaProfesor('#/historico'), { nombre: 'historico' });
 });
 
+void test('analizarRutaProfesor: "#/cierres" es la pantalla del calendario de cierres del centro (R-12)', () => {
+  assert.deepEqual(analizarRutaProfesor('#/cierres'), { nombre: 'cierres' });
+});
+
 void test('analizarRutaProfesor: un slotId con caracteres especiales llega decodificado', () => {
   assert.deepEqual(analizarRutaProfesor('#/registros/uno%20dos'), { nombre: 'registros', slotId: 'uno dos' });
 });
@@ -179,6 +188,7 @@ void test('hashDeRutaProfesor es el inverso exacto de analizarRutaProfesor para 
     { nombre: 'registros' },
     { nombre: 'registros', slotId: 'slot-abc' },
     { nombre: 'historico' },
+    { nombre: 'cierres' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRutaProfesor(hashDeRutaProfesor(ruta)), ruta);

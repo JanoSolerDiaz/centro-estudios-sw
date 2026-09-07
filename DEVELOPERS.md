@@ -166,6 +166,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     y la edición de nombre comprueban antes el duplicado acento-insensible
     (`src/dominio/centrosEstudios.ts`) y, si lo hay, devuelven `{ tipo: 'duplicado', existente }` en
     vez de intentar la escritura. Sin `DELETE`: la baja es siempre `activo = false`.
+  - `cierresCentro.ts` (R-12, nuevo) — `listarCierres`/`crearCierre`/`editarCierre`/
+    `desactivarCierre`/`reactivarCierre` sobre `postgrest.ts`, tabla `cierre_centro`
+    (`db/014_calendario_cierres.sql`). El alta, la edición y la reactivación comprueban antes el
+    solape de fechas contra los cierres ACTIVOS (`src/dominio/cierresCentro.ts`) y, si lo hay,
+    devuelven `{ tipo: 'solapado', existente }` en vez de intentar la escritura — un cierre
+    desactivado libera su periodo. Sin `DELETE`: la baja es siempre `activo = false`.
   - `usuarios.ts` (T-24, nuevo) — `listarUsuarios`/`actualizarUsuario` sobre `perfil` directamente
     (sin RPC: el `UPDATE` de `administrator` sobre cualquier fila ya estaba concedido y aislado por
     RLS desde el bootstrap). `actualizarUsuario` combina nombre/rol/activo en una llamada parcial
@@ -315,16 +321,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23 y T-24) — dos routers por `hash`, cada uno con su
-    propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24 y R-12) — dos routers por `hash`, cada uno
+    con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor interno común
     (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator` (`#/centros`,
     `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`, `#/historico`, `#/usuarios`
-    desde T-24) y `crearRouterProfesor(objetivo)`
+    desde T-24, `#/cierres` desde R-12) y `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>]` — el segmento de `slotId`
-    es opcional, para el enlace profundo de "mi horario" a los registros de un slot concreto — y
-    `#/historico`). `objetivo` se inyecta en los dos (nunca leen `window` directamente), mismo patrón
-    que `instalarCapturaErrores`. Las dos gramáticas de ruta son independientes a propósito: las dos
-    apps nunca están montadas a la vez (ver `mostrarAppProfesor` más abajo).
+    es opcional, para el enlace profundo de "mi horario" a los registros de un slot concreto —,
+    `#/historico` y `#/cierres` desde R-12, en modo solo lectura). `objetivo` se inyecta en los dos
+    (nunca leen `window` directamente), mismo patrón que `instalarCapturaErrores`. Las dos gramáticas
+    de ruta son independientes a propósito: las dos apps nunca están montadas a la vez (ver
+    `mostrarAppProfesor` más abajo).
   - `almacenEstado.ts` (T-16) — `crearAlmacenEstado(inicial)`: estado mínimo con suscripción
     (`obtener`/`actualizar`/`suscribir`), mismo contrato que `GestorSesion`. Genérico y sin DOM;
     usado por `pantallaListadoAlumnos.ts`.
@@ -529,6 +536,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     el evento llegara a dispararse por otra vía. Sin alta de usuario ni acciones que exijan la
     clave de administración de Supabase (requisito 3 de T-24): eso es procedimiento manual, ver
     `DEVELOPERS.md`.
+  - `pantallaCierresCentro.ts` (R-12, nuevo) — `mostrarPantallaCierresCentro(contenedor, deps)`:
+    calendario de cierres del centro (festivos, vacaciones). Listado con filtro por estado, alta,
+    edición inline y desactivar/reactivar (mismo patrón que `pantallaCentros.ts`), sin confirmación
+    explícita en la baja (a diferencia de centros/usuarios: no hay un recuento de "afectados" que
+    mostrar). Un intento de alta/edición/reactivación que se pisa en fecha con un cierre ya activo
+    se ofrece como aviso (`{ tipo: 'solapado', existente }`), sin llegar a escribir. Enrutada en las
+    DOS aplicaciones (`#/cierres`): `administrator` con las cuatro operaciones de escritura
+    (`puedeGestionarCierresCentro`); `teacher` en modo exclusivamente lectura, sin las cuatro
+    operaciones opcionales de la interfaz de dependencias, viendo solo los cierres activos.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

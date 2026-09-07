@@ -66,7 +66,8 @@ export type Ruta =
   | { readonly nombre: 'alumno-detalle'; readonly alumnoId: string }
   | { readonly nombre: 'registros' }
   | { readonly nombre: 'historico' }
-  | { readonly nombre: 'usuarios' };
+  | { readonly nombre: 'usuarios' }
+  | { readonly nombre: 'cierres' };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -93,6 +94,9 @@ export function analizarRuta(hash: string): Ruta {
   }
   if (primero === 'usuarios') {
     return { nombre: 'usuarios' };
+  }
+  if (primero === 'cierres') {
+    return { nombre: 'cierres' };
   }
   if (primero === 'alumnos') {
     if (segundo === undefined) {
@@ -124,6 +128,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/historico';
     case 'usuarios':
       return '#/usuarios';
+    case 'cierres':
+      return '#/cierres';
   }
 }
 
@@ -147,7 +153,8 @@ export type RutaProfesor =
   | { readonly nombre: 'pasar-lista' }
   | { readonly nombre: 'horario' }
   | { readonly nombre: 'registros'; readonly slotId?: string }
-  | { readonly nombre: 'historico' };
+  | { readonly nombre: 'historico' }
+  | { readonly nombre: 'cierres' };
 
 const RUTA_PROFESOR_POR_DEFECTO: RutaProfesor = { nombre: 'pasar-lista' };
 
@@ -169,6 +176,9 @@ export function analizarRutaProfesor(hash: string): RutaProfesor {
   if (primero === 'historico') {
     return { nombre: 'historico' };
   }
+  if (primero === 'cierres') {
+    return { nombre: 'cierres' };
+  }
   if (primero === 'pasar-lista') {
     return { nombre: 'pasar-lista' };
   }
@@ -185,6 +195,8 @@ export function hashDeRutaProfesor(ruta: RutaProfesor): string {
       return ruta.slotId === undefined ? '#/registros' : `#/registros/${encodeURIComponent(ruta.slotId)}`;
     case 'historico':
       return '#/historico';
+    case 'cierres':
+      return '#/cierres';
   }
 }
 

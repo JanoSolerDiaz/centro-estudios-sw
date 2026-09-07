@@ -415,6 +415,40 @@ profesor y el privilegio ilimitado de `administrator` ya gobiernan toda la funci
 R-03 ("ajustar la salida... queda trazado en `asistencia_historial`") sin ningún código adicional: el
 trigger ya existente lo hace gratis en cuanto la columna existe y el `UPDATE` la toca.
 
+## Calendario de cierres del centro (`014_calendario_cierres.sql`, R-12)
+
+Tabla nueva, `cierre_centro`: `fecha_inicio`/`fecha_fin` (`date`, ambos inclusive — puede coincidir
+un solo día), `motivo` (texto libre) y `activo` (baja lógica, nunca `DELETE`, mismo patrón que
+`centro_estudios`). Ningún dato de alumno ni de persona de referencia.
+
+**Primera tabla nueva desde `001_esquema_inicial.sql` que trae sus propias políticas RLS en el
+mismo fichero.** Aquella dejó sus tablas con RLS habilitada y CERO políticas, a la espera de la
+migración de T-10 que las daría todas juntas; hoy esa migración ya está aplicada y no hay ningún
+"próximo lote de políticas" al que aplazar las de una tabla nueva — así que esta las trae consigo,
+tal como exige §0.2 de `HOJA_DE_RUTA.md` ("toda tabla nueva nace con RLS habilitada y políticas
+explícitas").
+
+**Privilegios y políticas:** `administrator` lee, inserta y actualiza sin restricción adicional;
+`teacher` **solo lee los cierres ACTIVOS** (`cierre_centro_teacher_leer_activos`, mismo patrón que
+`centro_estudios_teacher_leer_activos`) — un cierre desactivado por error no debe seguir apareciendo
+en la pantalla de un profesor que solo consulta si su próxima sesión cae en uno; sin ninguna
+política para `student`. Sin `DELETE` para nadie (baja lógica).
+
+**Solape en la aplicación, no en el esquema** (`src/dominio/cierresCentro.ts#buscarCierreSolapado`):
+misma decisión que el solape de horario de T-15 — una restricción `EXCLUDE` sobre rangos de fecha
+exigiría instalar `btree_gist`, y la spec de R-12 se conforma con que la aplicación rechace el alta
+con un mensaje claro. La comprobación de solape (`src/datos/cierresCentro.ts#comprobarSolape`) filtra
+siempre a los cierres **activos**: desactivar uno libera su periodo para que un cierre nuevo, o el
+mismo reactivado, pueda volver a cubrirlo — coherente con el propio significado de `activo` ("deja
+de contar en cálculos nuevos").
+
+**`esDiaCerrado(fecha, cierres)`** (`src/dominio/cierresCentro.ts`) es la única vía para consultar si
+una fecha cae dentro de un cierre vigente, mismo principio que `slotsVigentesEn` (T-15): una fecha
+`AAAA-MM-DD` se compara lexicográficamente contra `fecha_inicio`/`fecha_fin` (el formato ISO hace que
+la comparación de cadenas coincida con el orden cronológico, sin construir ningún `Date`), y solo
+cuenta un cierre con `activo = true`. R-04 (informe mensual, pendiente) es su primer consumidor
+previsto.
+
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 
 Ampliación de T-09 acordada por el dueño el 2026-08-27 (§5/§6#5 de `SEGUIMIENTO.md`), aplicada

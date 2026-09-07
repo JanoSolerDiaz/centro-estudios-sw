@@ -96,3 +96,17 @@ export function puedeExportarConDatosDeContacto(rol: Rol): boolean {
 export function puedeGestionarUsuarios(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Calendario de cierres del centro (R-12): abrir la pantalla en modo lectura. Ambos roles con
+ * acceso real por RLS (`db/014_calendario_cierres.sql`) — `administrator` ve todos los cierres,
+ * `teacher` solo los activos —, así que los dos pueden abrirla; `student` nunca (§0.2). */
+export function puedeVerCierresCentro(rol: Rol): boolean {
+  return rol === 'administrator' || rol === 'teacher';
+}
+
+/** Dentro de la pantalla de cierres, alta/edición/baja lógica/reactivación. Exclusivamente
+ * `administrator` (requisito 7 de R-12): un `teacher` solo consulta, para saber si su próxima
+ * sesión cae en un cierre. */
+export function puedeGestionarCierresCentro(rol: Rol): boolean {
+  return rol === 'administrator';
+}

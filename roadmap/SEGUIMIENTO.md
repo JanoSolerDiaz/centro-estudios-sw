@@ -10,38 +10,103 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-06 (rutina programada, decimotercer ciclo del PM) — **sin R-XX
-nueva: la pasada de hoy de `auditoriacontinua.md` confirma que los hallazgos `#8` y `#9` siguen
+**Última actualización:** 2026-09-07 (rutina programada, "R-12 arrancada, cuarta tarea de la oleada
+v1; P-17 resuelta en el camino") — R-01, R-02 y R-03 seguían `BLOQUEADA` en §1 esperando
+exclusivamente al dueño (filas 13, 14 y 15 de §3, sin cambio: aplicar `010`, `011` y `012`, la 14
+condicionada además a la pregunta #16 de §6), así que esta sesión revisó primero el registro de
+hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): el único `ABIERTO` de
+severidad alta es `#8` (RGPD/dato de salud en R-02), pero ya está correctamente formalizado como
+pregunta **#16** de §6 desde el duodécimo ciclo del PM y no es un hallazgo que un programador pueda
+"atender" con código — exige una decisión del dueño, no una P-XX urgente; el otro `ABIERTO`, `#9`
+(severidad baja, higiene documental), ya tenía su vía de resolución trazada como **P-17**,
+`PENDIENTE` en el backlog de §5. Como P-17 es una corrección trivial y de bajo riesgo (añadir dos
+filas ya redactadas en otro sitio a §7), se resolvió antes de la tarea vertebral: §7 gana las dos
+filas que faltaban (la corrección de T-14 dentro de T-25, y el propio hallazgo #8), y P-17 pasa a
+`RESUELTA` en §5. Con eso hecho, la siguiente tarea PENDIENTE de §1 era **R-12**, "Calendario de
+cierres del centro (festivos y vacaciones)" (spec en `roadmap/ROADMAP_PRODUCTO.md`), que depende
+solo de T-15 (`COMPLETADA`) — no de R-01/R-02/R-03, así que no hace falta esperarlas. Su requisito 1
+exige DDL por definición (tabla nueva), así que sigue el procedimiento de §0.1: migración nueva
+`db/014_calendario_cierres.sql` escrita y empujada, fila 16 nueva de §3, R-12 pasa a `BLOQUEADA` —
+pero todo el código y los tests que consumen ese esquema se escriben igual, contra dobles.
+**Decisión de diseño clave, documentada en `DECISIONES_TECNICAS.md`:** `cierre_centro` es la primera
+tabla nueva desde `001_esquema_inicial.sql` que trae sus propias políticas RLS en el MISMO fichero,
+en vez de dejarla "con RLS habilitada y cero políticas" a la espera de una migración de políticas
+posterior (el patrón de `001`, que sí aplazaba a T-10) — hoy no existe ningún "próximo lote de
+políticas" al que aplazar nada, y §0.2 exige explícitamente que toda tabla nueva nazca con políticas
+explícitas. Tres piezas en la migración: (1) tabla `cierre_centro` (`fecha_inicio`/`fecha_fin` date,
+ambos inclusive; `motivo` texto libre; `activo` boolean, baja lógica, nunca DELETE — mismo patrón
+que `centro_estudios`); (2) privilegios explícitos (`revoke all` seguido de `grant` solo lo
+necesario, nunca TRUNCATE/REFERENCES/TRIGGER a `anon`/`authenticated`) y cuatro políticas:
+`administrator` lee/inserta/actualiza sin restricción, `teacher` **solo lee los cierres activos**
+(mismo patrón que `centro_estudios_teacher_leer_activos`, T-11) — un cierre desactivado por error no
+debe seguir apareciendo en la pantalla de solo lectura de un profesor —, sin ninguna política para
+`student`; (3) sin ninguna restricción `EXCLUDE` de solape en el esquema (exigiría `btree_gist`,
+misma decisión que el solape de horario de T-15): el solape (requisito 3) se comprueba en la
+aplicación. **Segunda decisión clave:** la comprobación de solape (`src/datos/cierresCentro.ts`)
+filtra siempre a los cierres **activos** — un cierre desactivado libera su periodo, para que uno
+nuevo o el mismo reactivado puedan volver a cubrirlo, coherente con que "activo" signifique "cuenta
+en cálculos nuevos"; `reactivarCierre` aplica la misma comprobación que crear/editar, no solo esas
+dos, para que la invariante se sostenga también por esa vía. Dominio
+(`dominio/cierresCentro.ts#buscarCierreSolapado`/`esDiaCerrado`, dos funciones nuevas — la segunda es
+la única vía prevista para que R-04 excluya un día cerrado de "sesiones esperadas", mismo principio
+que `slotsVigentesEn` de T-15), datos (`datos/cierresCentro.ts`, CRUD completo mirando el patrón de
+`datos/centrosEstudios.ts`), permisos de presentación (`permisosUi.ts#puedeVerCierresCentro`/
+`puedeGestionarCierresCentro`). UI: pantalla nueva `pantallaCierresCentro.ts` (listar con filtro de
+estado, crear, editar, desactivar, reactivar — solo si `puedeGestionarCierresCentro`; un `teacher`
+ve solo el listado de activos, sin ninguna acción), enrutada en los DOS routers (`administrator` vía
+`Ruta`/`crearRouter`, `teacher` vía `RutaProfesor`/`crearRouterProfesor`, ambos con la ruta nueva
+`#/cierres` y un enlace "Cierres" en su navegación) porque el requisito 7 da acceso de lectura a los
+dos roles. Nueva sección **8j** en `db/pruebas_rls.sql` (alta y edición por `administrator`,
+rechazadas para `teacher`, el `teacher` lee un cierre activo pero no uno inactivo) más
+`cierre_centro` añadida a los dos barridos obligatorios ya existentes (sección 6, `student`; sección
+8f, `anon`) — nunca una sección nueva y aislada para esos dos roles, que ya tienen su barrido
+genérico. Nuevo fichero estático `herramientas/migraciones/calendarioCierres.test.ts` (mismo patrón
+que `administracionUsuarios.test.ts`). **52 tests nuevos (1108 en total, antes 1056):** 12 estáticos
+de la migración, 10 de dominio (`buscarCierreSolapado` con sus bordes de rango inclusive,
+`esDiaCerrado` con cierre activo/inactivo), 14 de datos (CRUD completo, solape, teacher rechazado por
+RLS), 12 de la pantalla (carga/error/vacío, alta/edición/solape, desactivar/reactivar, teacher de
+solo lectura), 2 de `permisosUi.test.ts` y 2 de `router.test.ts` (la ruta nueva en los dos routers).
+Verificación pre-push completa en verde: `npm run typecheck`, `npm run lint`, `npm test`
+(1108/1108) y `npm run build`. **Nota de entorno:** `node_modules/` no existía al empezar esta
+sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) fue el primer paso antes de
+poder ejecutar nada. **Nota de migración, documentada en la fila 16 de §3:** `014` no depende
+conceptualmente de `010`/`011`/`012`, pero el runner aplica siempre en orden numérico dentro de la
+misma invocación, así que en la práctica queda detrás de ellas mientras `011` siga bloqueada por la
+pregunta #16.
+
+**Sesión anterior (2026-09-06, "decimotercer ciclo del PM, rutina de producto"):** **sin R-XX
+nueva: la pasada de ese día de `auditoriacontinua.md` confirmó que los hallazgos `#8` y `#9` seguían
 `ABIERTO` pero ya correctamente formalizados por el ciclo anterior (pregunta #16 de §6 y P-17 de §5)
-y no aporta ningún hallazgo nuevo; `FEEDBACK.md` sigue sin entradas `nuevo` reales.**
+y no aportó ningún hallazgo nuevo; `FEEDBACK.md` seguía sin entradas `nuevo` reales.**
 Ciclo de producto puro, sin tocar código: `git checkout develop && git pull` trajo la pasada del
-auditor de hoy (commit `5a27918`, ya en `origin/develop` al empezar), y desde ahí se revisó el
+auditor de ese día (commit `5a27918`, ya en `origin/develop` al empezar), y desde ahí se revisó el
 estado completo. `git log 1fe80a4..5a27918` muestra un único commit nuevo desde la pasada anterior
-del auditor: la propia pasada de hoy, puramente narrativa — cero cambios en `db/`, `src/` ni
+del auditor: la propia pasada de ese día, puramente narrativa — cero cambios en `db/`, `src/` ni
 `herramientas/`, confirmado también por la propia narrativa del auditor. `auditoriacontinua.md`
 revisado entero: `#8` (RGPD/dato de salud en R-02, severidad alta) y `#9` (higiene documental,
-faltan dos filas en §7, severidad baja) siguen `ABIERTO`, y el propio auditor confirma que la
+faltan dos filas en §7, severidad baja) seguían `ABIERTO`, y el propio auditor confirmó que la
 traducción del duodécimo ciclo del PM fue la correcta —pregunta **#16** de §6 recoge las tres
-opciones sin recortarlas ni cambiar su sentido; **P-17** sigue `PENDIENTE` en el backlog de §5— y que
-permanecer `ABIERTO` es lo que corresponde mientras el dueño no responda la pregunta #16 y P-17 no se
-ejecute: no hay nada nuevo que convertir en ninguno de los dos esta vez. `FEEDBACK.md` revisado:
-sigue sin entradas `nuevo` reales (fila plantilla vacía) — nada que convertir. Backlog de §5
-revisado completo: las diecisiete `P-XX` (`P-01` a `P-17`) siguen en su estado ya conocido, sin
-cambio. R-01, R-02 y R-03 siguen `BLOQUEADA` en §1 esperando al dueño (filas 13, 14 y 15 de §3:
-aplicar `010`, `011` y `012`, en ese orden — la 14 sigue condicionada a la pregunta #16) — el MVP
-(T-00 a T-25) tampoco ha cambiado de estado (fila 12 de §3, sin cambio), así que la oleada v1 sigue
-sin poder darse por arrancada de verdad, y nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Revisadas
-las trece R-XX del backlog vivo contra el estado actual y contra la visión de producto (oleadas v1 y
-v2 ya cubren, en orden, asistencia completa, informes y aviso a familias, continuidad operativa,
-arranque rápido, confianza legal y visión de centro): sin más cambios y **sin ninguna R-XX nueva
-este ciclo** — doce ciclos consecutivos de PM ya han traducido a tareas concretas todo el hueco real
-entre el MVP y el objetivo de producto, y ni el auditor ni `FEEDBACK.md` aportan hoy ningún hallazgo
-de producto o arquitectura que justifique ampliar ese backlog; inventar una tarea sin una necesidad
-real detrás sería exactamente el vicio que este protocolo existe para evitar. Repetida la
-verificación pre-push completa sin ningún commit de programador entre medias (esta sesión no toca
-`src/`, `db/` ni `herramientas/`): `npm ci` (130 paquetes, 0 vulnerabilidades), `npm run typecheck`,
-`npm run lint`, `npm test` (1056/1056, misma cifra que la pasada del auditor de hoy) y `npm run
-build` en verde. `git status` limpio antes y después de los cambios de documentación.
+opciones sin recortarlas ni cambiar su sentido; **P-17** seguía `PENDIENTE` en el backlog de §5— y
+que permanecer `ABIERTO` era lo que correspondía mientras el dueño no respondiera la pregunta #16 y
+P-17 no se ejecutara: no había nada nuevo que convertir en ninguno de los dos esa vez. `FEEDBACK.md`
+revisado: seguía sin entradas `nuevo` reales (fila plantilla vacía) — nada que convertir. Backlog de
+§5 revisado completo: las diecisiete `P-XX` (`P-01` a `P-17`) seguían en su estado ya conocido, sin
+cambio. R-01, R-02 y R-03 seguían `BLOQUEADA` en §1 esperando al dueño (filas 13, 14 y 15 de §3:
+aplicar `010`, `011` y `012`, en ese orden — la 14 seguía condicionada a la pregunta #16) — el MVP
+(T-00 a T-25) tampoco había cambiado de estado (fila 12 de §3, sin cambio), así que la oleada v1
+seguía sin poder darse por arrancada de verdad, y nada se movió a `ROADMAP_HISTORICO.md` esa vez.
+Revisadas las trece R-XX del backlog vivo contra el estado actual y contra la visión de producto
+(oleadas v1 y v2 ya cubren, en orden, asistencia completa, informes y aviso a familias, continuidad
+operativa, arranque rápido, confianza legal y visión de centro): sin más cambios y **sin ninguna
+R-XX nueva ese ciclo** — doce ciclos consecutivos de PM ya habían traducido a tareas concretas todo
+el hueco real entre el MVP y el objetivo de producto, y ni el auditor ni `FEEDBACK.md` aportaron ese
+día ningún hallazgo de producto o arquitectura que justificara ampliar ese backlog; inventar una
+tarea sin una necesidad real detrás sería exactamente el vicio que este protocolo existe para
+evitar. Repetida la verificación pre-push completa sin ningún commit de programador entre medias
+(esa sesión no tocó `src/`, `db/` ni `herramientas/`): `npm ci` (130 paquetes, 0 vulnerabilidades),
+`npm run typecheck`, `npm run lint`, `npm test` (1056/1056, misma cifra que la pasada del auditor de
+ese día) y `npm run build` en verde. `git status` limpio antes y después de los cambios de
+documentación.
 
 **Sesión anterior (2026-09-05, "duodécimo ciclo del PM — hallazgo #8 de auditoría convertido en
 pregunta #16"):** Ciclo de producto puro, sin tocar código: `git checkout develop && git pull` trajo
@@ -1306,7 +1371,7 @@ pantallas del requisito 2.
 | R-01 | Registro explícito de ausencias | BLOQUEADA — pendiente aplicar migración `010` (fila 13 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `010_registro_ausencias.sql` (renumerada por el PM el 2026-09-02: `006` lo ocupó ya T-18) escrita y empujada, todavía sin aplicar |
 | R-02 | Justificación de una ausencia | BLOQUEADA — pendiente aplicar migración `011` (fila 14 de §3) **y pendiente decisión del dueño** (pregunta #16 de §6, hallazgo #8 de auditoría, severidad alta) | 2026-09-05 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `011_justificacion_ausencia.sql` (renumerada por el PM el 2026-09-02: `007` lo ocupó ya T-20) escrita y empujada, todavía sin aplicar — **no aplicar hasta resolver la pregunta #16**: `motivo_justificacion` incluye valores de dato de salud (artículo 9 RGPD) sin autorización expresa del dueño |
 | R-03 | Registro de salida y cómputo de horas reales | BLOQUEADA — pendiente aplicar migración `012` (fila 15 de §3) | 2026-09-04 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `012_registro_salida.sql` (renumerada por el PM el 2026-09-02: `008` lo ocupó ya T-21) escrita y empujada, todavía sin aplicar |
-| R-12 | Calendario de cierres del centro (festivos y vacaciones) | PENDIENTE | — | Oleada v1 / F-01 · Migración `014_calendario_cierres` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) · añadida por el PM el 2026-08-28, dependencia nueva de R-04 |
+| R-12 | Calendario de cierres del centro (festivos y vacaciones) | BLOQUEADA — pendiente aplicar migración `014` (fila 16 de §3) | 2026-09-07 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `014_calendario_cierres.sql` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) escrita y empujada, todavía sin aplicar — dependencia nueva de R-04 |
 | R-13 | Aviso de sesiones sin pasar lista en «Mi horario» | PENDIENTE | — | Oleada v1 / F-01 · Sin migración (solo cliente) · añadida por el PM el 2026-09-04, undécimo ciclo — depende de T-19, T-22, R-06 y R-12 |
 | R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
 | R-05 | Aviso de ausencia injustificada listo para enviar | PENDIENTE | — | Oleada v1 / F-02 · sin envío automático |
@@ -1353,6 +1418,7 @@ pantallas del requisito 2.
 | 13 | Aplicar la migración `010_registro_ausencias` en `dev`, **después** de la fila 11 (`009`) | R-01 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `10`, y ejecutar también `npm run probar-rls` (nueva sección 8g: alta de ausencia por `teacher`, duplicado alumno+slot+día contra `asistencia_uq_alumno_slot_dia_activa` con presencia Y con ausencia ya existente, `student` sin acceso a `registrar_ausencia`, anular una ausencia con motivo) | PENDIENTE |
 | 14 | Aplicar la migración `011_justificacion_ausencia` en `dev`, **después** de la fila 13 (`010`) — **NO aplicar todavía** | R-02 | **Antes de nada, responder la pregunta #16 de §6** (hallazgo #8 de auditoría, severidad alta, `ABIERTO`: `motivo_justificacion` incluye valores de dato de salud del artículo 9 del RGPD —`enfermedad`, `cita_medica`— sin decisión expresa del dueño que los autorice). Solo si la respuesta es "aceptar tal cual" (opción a de la pregunta #16), seguir con: `git pull` y `npm run migrate` en local; comprobar que `esquema_version()` devuelve `11`; ejecutar también `npm run probar-rls` (nueva sección 8h: justificar dentro de la ventana de edición del profesor, motivo fuera de la lista cerrada rechazado, justificar un registro que no está ausente rechazado, fuera de la ventana rechazado para `teacher` y aceptado para `administrator`). Si la respuesta es reformular o retirar el campo (opciones b/c), esta migración necesita reescribirse antes de aplicarse — no ejecutar `npm run migrate` sobre el fichero actual en ese caso | PENDIENTE — bloqueada también por la pregunta #16 de §6, no solo por el paso de aplicar |
 | 15 | Aplicar la migración `012_registro_salida` en `dev`, **después** de la fila 14 (`011`) | R-03 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `12`, y ejecutar también `npm run probar-rls` (nueva sección 8i: marcar salida dentro de la ventana del profesor, ajustar una salida ya marcada, marcar dos veces rechazado, ajustar a una hora anterior o igual a la entrada rechazado, marcar y ajustar combinados en la misma llamada rechazado, ajustar una salida no marcada rechazado, marcar salida de una ausencia rechazado, fuera de la ventana rechazado para `teacher` y aceptado para `administrator`) | PENDIENTE |
+| 16 | Aplicar la migración `014_calendario_cierres` en `dev` | R-12 | `014` no depende conceptualmente de `010`/`011`/`012` (tabla nueva, sin relación con `asistencia`), pero el runner aplica SIEMPRE en orden numérico dentro de la misma invocación: no llegará a `014` mientras `010`/`011`/`012` sigan pendientes, y la fila 14 de esta misma tabla pide explícitamente **no aplicar `011` todavía** (pregunta #16 de §6 sin responder). Así que, en la práctica, esta fila queda detrás de la 14 aunque no exista ninguna dependencia real entre ambas migraciones — si el dueño quiere `014` sin esperar a que se resuelva la pregunta #16, tocaría aplicarla a mano en el editor SQL de `dev` fuera del runner, o renumerarla por delante de `011`/`012` (ninguna de las dos aplicada todavía, así que renumerar no rompe nada ya aplicado). Vía normal: `git pull` y `npm run migrate` en local (una vez resueltas las filas 13-15). Al terminar, comprobar que `esquema_version()` devuelve `14`, y ejecutar también `npm run probar-rls` (nueva sección 8j: alta y edición de un cierre por `administrator`, rechazadas para `teacher`, el `teacher` lee un cierre activo pero no uno inactivo; más `cierre_centro` añadida a los barridos obligatorios de `student`, sección 6, y `anon`, sección 8f) | PENDIENTE |
 
 ---
 
@@ -1388,7 +1454,7 @@ pantallas del requisito 2.
 | P-14 | **Backlog técnico (higiene documental, no urgente): corregir la numeración cruzada de las preguntas abiertas #12/#13 de §6 de este documento.** La tabla de §6 es correcta (`#12` = duplicado mismo alumno/slot/día; `#13` = ventana retroactiva máxima), pero la narrativa de la sesión de T-18 más arriba en este mismo fichero intercambia los dos números, y `DECISIONES_TECNICAS.md:147` repite el mismo intercambio. Sin impacto funcional (el código usa en los dos casos el valor conservador correcto): es solo una referencia cruzada mal etiquetada para quien busque la pregunta por su número desde la narrativa en vez de desde la tabla | origen: hallazgo #6 de `auditoriacontinua.md` (severidad baja, gobernanza documental) | **RESUELTA 2026-09-02** — corregidas las dos menciones narrativas de este documento (línea 539: ventana retroactiva = #13; línea 545: duplicado = #12) y la de `DECISIONES_TECNICAS.md:147`, ya alineadas con la tabla de §6 | — |
 | P-15 | **Backlog técnico (código muerto, no urgente): `columnasVisiblesFichaAlumno` no la usa ninguna pantalla.** `src/dominio/permisosUi.ts:56` la define y la testea (`permisosUi.test.ts:47-62`), pero `grep -rn "columnasVisiblesFichaAlumno" src/` solo devuelve su propia definición y su test — no hay ningún consumidor real. No es una fuga (la protección real de las columnas de contacto vive en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`, ninguno de los dos depende de esta función), pero acumula una función que aparenta ser parte del control de acceso sin estar en el camino real. El programador debe decidir, al atenderla, entre conectarla a la pantalla de ficha (si la intención original era filtrar columnas también en el cliente) o eliminarla | origen: hallazgo #7 de `auditoriacontinua.md` (severidad baja, calidad de código) | **RESUELTA 2026-09-02 — eliminada, no conectada.** No existe ninguna pantalla de ficha para `teacher` en el roadmap ni puede existir dentro del alcance actual (§0.2: `teacher` "no gestiona fichas ni ve datos de contacto ni personas de referencia", regla permanente); el escenario que la función preveía está prohibido, no solo pendiente. La protección real de las columnas de contacto sigue viviendo en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`. Detalle en `DECISIONES_TECNICAS.md` | — |
 | P-16 | **Urgente (§0.3): un `declare` mal colocado en la sección 8e tumbaba la batería de RLS COMPLETA, no una comprobación.** `db/pruebas_rls.sql` declaraba `v_filas` (y `v_visto`) en el `declare` del primer sub-bloque de cada rama de la sección 8e —el que hace el `SELECT` del perfil ajeno— y leía `v_filas` en el SEGUNDO `begin … end;`, que es **hermano** del primero, no hijo: en plpgsql un `declare` pertenece solo al bloque que lo sigue, así que ahí la variable no existe. Y como el error es de COMPILACIÓN del `do` (`42601: "v_filas" is not a known variable`) y el fichero se envía a la Management API en una sola sentencia, no fallaba la sección 8e: no llegaba a ejecutarse **ninguna** comprobación del fichero. **Arreglado** subiendo `v_filas` al `declare` del propio `do`, que es donde ya vivía `v_admin_id` y sirve a las dos ramas (`teacher` y `student`) — mismo patrón que la sección 4b, en vez de repetir un `declare` por sub-bloque. **Blindado** con un quinto test en `herramientas/migraciones/pruebasRlsEstatico.test.ts`, que sigue los ámbitos `declare`/`begin`/`end;` del fichero y falla si una variable `v_…` se lee desde un bloque que no la declara ni está dentro del que lo hace | **El fallo lo encontró la ejecución real, no la lectura**: T-24 escribió la sección 8e el 2026-09-02 y pasó `typecheck`, `lint`, 942 tests y `build` — ninguna de esas cuatro puertas mira dentro de un `do $$ … $$`, y los cuatro tests estáticos que ya existían (P-10/P-12) cubrían otras tres formas de romper este fichero, no los ámbitos. Es además la tercera vez que un defecto de la propia batería la inhabilita en silencio o en bloque (P-08 la cascada de fixtures, P-12 la fila compuesta): la herramienta que demuestra el aislamiento de datos vuelve a ser la pieza menos protegida del proyecto, y por eso el arreglo incluye la comprobación estática y no solo la línea movida. Origen: ejecución del dueño del 2026-09-03 | **IMPLEMENTADA Y VERIFICADA EN EJECUCIÓN 2026-09-03** — `npm run probar-rls` contra `dev`: **105 comprobaciones, 0 omitidas, 0 fallidas**, «ningún acceso prohibido tuvo éxito». Es la primera ejecución de la batería sin una sola omisión (las 3 legítimas del bucket de T-14 las cerró P-09 con sus propios fixtures). Las cuatro comprobaciones de la sección 8e que T-24 nunca llegó a ver correr aparecen ahora en verde por su motivo: `perfil / teacher no puede modificar perfiles ajenos` y su gemela de `student` con `filas_afectadas=0`. Criterio de cierre del blindaje, comprobado antes de commitear: con el fichero revertido al estado roto, el test nuevo falla nombrando las seis referencias fuera de ámbito (líneas 1650/1651/1680/1681); con el arreglo, pasa | — |
-| P-17 | **Backlog técnico (higiene documental, no urgente): faltan dos filas en §7 de este documento.** `roadmap/SEGUIMIENTO.md` §7 ("Desviaciones respecto a la hoja de ruta original") no recoge (a) la corrección real de T-14 hecha dentro de T-25 (requisito 8, aviso de consentimiento del avatar, ausente de la interfaz pese a que T-14 llevaba `COMPLETADA` desde el 2026-08-31, corregida en el commit `4499eaf`) ni (b) el hallazgo #8 de `auditoriacontinua.md` (categoría de dato de salud en R-02). Ambas desviaciones ya están documentadas en otro sitio (`DECISIONES_TECNICAS.md`/`HISTORIAL_SESIONES.md` la primera; el propio `auditoriacontinua.md` y la pregunta #16 de §6 la segunda), así que no se han perdido, pero §7 deja de servir como resumen de un vistazo, que es su propósito. Al atenderla: añadir una fila por cada desviación, con el mismo formato que las ya existentes | origen: hallazgo #9 de `auditoriacontinua.md` (severidad baja, gobernanza documental) | PENDIENTE | — |
+| P-17 | **Backlog técnico (higiene documental, no urgente): faltan dos filas en §7 de este documento.** `roadmap/SEGUIMIENTO.md` §7 ("Desviaciones respecto a la hoja de ruta original") no recoge (a) la corrección real de T-14 hecha dentro de T-25 (requisito 8, aviso de consentimiento del avatar, ausente de la interfaz pese a que T-14 llevaba `COMPLETADA` desde el 2026-08-31, corregida en el commit `4499eaf`) ni (b) el hallazgo #8 de `auditoriacontinua.md` (categoría de dato de salud en R-02). Ambas desviaciones ya están documentadas en otro sitio (`DECISIONES_TECNICAS.md`/`HISTORIAL_SESIONES.md` la primera; el propio `auditoriacontinua.md` y la pregunta #16 de §6 la segunda), así que no se han perdido, pero §7 deja de servir como resumen de un vistazo, que es su propósito. Al atenderla: añadir una fila por cada desviación, con el mismo formato que las ya existentes | origen: hallazgo #9 de `auditoriacontinua.md` (severidad baja, gobernanza documental) | **RESUELTA 2026-09-07** — añadidas las dos filas de §7 (T-14/T-25, 2026-09-04; R-02, 2026-09-05), con el mismo formato que las ya existentes | — |
 
 ---
 
@@ -1442,3 +1508,5 @@ pantallas del requisito 2.
 | 2026-08-31 | T-14 | **Criterio de aceptación no cumplido literalmente: "una imagen de 4000 px produce una derivada de 512 px y otra de 96 px, ambas WebP y sin EXIF" no se comprueba con píxeles reales ni con un fichero WebP real.** `jsdom` no implementa `createImageBitmap` ni un `<canvas>` que rasterice de verdad, y añadir el paquete nativo `canvas` de npm solo para este test habría sido una dependencia pesada para verificar algo que ni siquiera sería el mismo decodificador que un navegador real. Se testea en su lugar: la geometría del recorte (pura, con test completo), la orquestación (qué tamaños se piden, en qué orden, con qué tipo MIME) contra una fábrica de procesado de imagen de mentira, y se documenta la eliminación de EXIF como garantía de la propia plataforma (repintar sobre un `canvas` nuevo nunca copia metadatos del origen) | Documentado en `DECISIONES_TECNICAS.md`. Mismo criterio que T-08/`postgrest.ts` (no se testea el `fetch` real, solo el doble): la implementación real (`crearFabricaProcesadoImagenNavegador`) solo la ejercita un navegador real, cuando T-16 la monte en una pantalla |
 | 2026-08-31 | T-18 | **Renumeración de la migración de T-18: `005_rpc_registrar_asistencia.sql`, no `004_rpc_registrar_asistencia` como decía la hoja de ruta original.** `004` ya lo ocupa `004_bucket_avatares.sql` (T-14), consecuencia de la renumeración en cadena de la fila anterior de este mismo §7 (2026-08-28). Efecto en cadena: la migración de T-21 (`005_rpc_actualizar_asistencia` en el original) pasará a ser `006_rpc_actualizar_asistencia.sql` | Consecuencia directa de la renumeración ya arrastrada por T-10/T-14. Anotado aquí, en `DECISIONES_TECNICAS.md`, en la cabecera del propio `005_rpc_registrar_asistencia.sql` y en la fila de T-18 de §1, para que la sesión de T-21 no lo descubra a mitad |
 | 2026-09-01 | T-20 | **T-20 pasa a necesitar migración, y su spec dice `Migración: No`; además, `007` (no `006`) es el número que le toca, dejando la de T-21 en `008`.** El requisito 3 ("el centro cuando hay homónimos") exige que un `teacher` sepa a qué centro pertenece un alumno, columna que su `GRANT` sobre `alumno` no incluye — no hay forma de cumplirlo sin DDL. Y la proyección de la fila anterior de este mismo §7 (`006_rpc_actualizar_asistencia` para T-21) ya había quedado obsoleta ANTES de esta sesión: `006` lo ocupó el arreglo de T-18 (`006_arreglo_limite_tasa_ambiguo.sql`, mismo día). T-20 toma el `007` que quedaba libre; T-21 pasa a `008_rpc_actualizar_asistencia.sql` | Mismo precedente que T-09 (fila de 2026-08-27 de este §7): la hoja de ruta es inmutable, así que la ampliación/renumeración se registra aquí, en `DECISIONES_TECNICAS.md`, en la cabecera de `007_rpc_buscar_alumnos.sql` y en las filas de T-20/T-21 de §1, para que la sesión de T-21 no lo descubra a mitad |
+| 2026-09-04 | T-14 / T-25 | **Criterio de aceptación no cumplido literalmente durante casi un mes: el requisito 8 de T-14 (aviso de consentimiento del tutor legal para el avatar) nunca llegó a la interfaz.** `HOJA_DE_RUTA.md` §0.2 lo exige como norma permanente ("hasta entonces la interfaz debe advertir de que el consentimiento es responsabilidad del centro"), pero T-14 (`COMPLETADA` desde 2026-08-31) no incluyó ningún texto al respecto en `pantallaFichaAlumno.ts`, y sobrevivió a varias pasadas de auditoría sin que se notara. Descubierto al escribir T-25 (requisito 4, textos legales), cuya propia spec dice que sustituye "el aviso provisional de T-14" — contradicción que solo se hizo visible al leer el código real del bloque de avatar y no encontrar ningún aviso | Corregido en el mismo commit que T-25 (2026-09-04): nuevo párrafo junto al control de subida de avatar, marcado como provisional, con test dedicado. Origen: hallazgo #9 de `auditoriacontinua.md` (severidad baja, la propia ausencia de esta fila), registrado como P-17 en §5 |
+| 2026-09-05 | R-02 | **Alcance de datos personales ampliado sin decisión expresa del dueño: `motivo_justificacion` de R-02 incluye valores de dato de salud (artículo 9 RGPD).** `db/011_justificacion_ausencia.sql` (escrita y empujada, todavía sin aplicar) añade un `CHECK` de lista cerrada que incluye `enfermedad` y `cita_medica` — información que revela el estado de salud por definición (art. 4.15 RGPD), pese a que `HOJA_DE_RUTA.md` §0.2 prohíbe expresamente "cualquier categoría especial del artículo 9 del RGPD" sin decisión del dueño; la spec de R-02 fijó "Bloqueo humano: ninguno" sin que se activara ninguna pregunta al respecto | Hallazgo #8 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-05), escalado por el duodécimo ciclo del PM a la pregunta #16 de §6; la migración `011` no debe aplicarse hasta que el dueño responda (fila 14 de §3). Registrado también como P-17 en §5 |

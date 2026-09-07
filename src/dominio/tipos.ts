@@ -45,6 +45,19 @@ export interface CentroEstudios {
   readonly actualizado_en: string;
 }
 
+/** Periodo declarado en el que el centro no da clase — festivo, vacaciones (R-12,
+ * `db/014_calendario_cierres.sql`). `fecha_inicio`/`fecha_fin` en formato `AAAA-MM-DD`, ambos
+ * límites inclusive. Baja lógica (`activo`), nunca DELETE. */
+export interface CierreCentro {
+  readonly id: string;
+  readonly fecha_inicio: string;
+  readonly fecha_fin: string;
+  readonly motivo: string;
+  readonly activo: boolean;
+  readonly creado_en: string;
+  readonly actualizado_en: string;
+}
+
 export interface Alumno {
   readonly id: string;
   readonly nombre: string;

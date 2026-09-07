@@ -35,6 +35,7 @@ import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import { listarCentros, crearCentro, editarNombreCentro, contarAlumnosActivosDeCentro, desactivarCentro, reactivarCentro } from '../datos/centrosEstudios.ts';
+import { listarCierres, crearCierre, editarCierre, desactivarCierre, reactivarCierre } from '../datos/cierresCentro.ts';
 import {
   listarAlumnos,
   obtenerAlumno,
@@ -77,6 +78,7 @@ import { mostrarPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
 import { mostrarPantallaMiHorario } from './pantallaMiHorario.ts';
 import { mostrarPantallaHistorico } from './pantallaHistorico.ts';
 import { mostrarPantallaUsuarios } from './pantallaUsuarios.ts';
+import { mostrarPantallaCierresCentro } from './pantallaCierresCentro.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -180,11 +182,15 @@ function mostrarAppAdministrador(
   enlaceUsuarios.addEventListener('click', () => {
     router.navegar({ nombre: 'usuarios' });
   });
+  const enlaceCierres = crearBoton(documento, 'Cierres', 'button');
+  enlaceCierres.addEventListener('click', () => {
+    router.navegar({ nombre: 'cierres' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, enlaceHistorico, enlaceUsuarios, botonSalir);
+  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, enlaceHistorico, enlaceUsuarios, enlaceCierres, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
@@ -260,6 +266,18 @@ function mostrarAppAdministrador(
         rol: perfil.rol,
         listarUsuarios: (opciones) => listarUsuarios(app.postgrest, opciones),
         actualizarUsuario: (id, cambios) => actualizarUsuario(app.postgrest, id, cambios),
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'cierres') {
+      mostrarPantallaCierresCentro(areaPantalla, {
+        rol: perfil.rol,
+        listarCierres: (opciones) => listarCierres(app.postgrest, opciones),
+        crearCierre: (fechaInicio, fechaFin, motivo) => crearCierre(app.postgrest, fechaInicio, fechaFin, motivo),
+        editarCierre: (id, fechaInicio, fechaFin, motivo) => editarCierre(app.postgrest, id, fechaInicio, fechaFin, motivo),
+        desactivarCierre: (id) => desactivarCierre(app.postgrest, id),
+        reactivarCierre: (id) => reactivarCierre(app.postgrest, id),
       });
       return;
     }
@@ -362,11 +380,15 @@ function mostrarAppProfesor(
   enlaceHistorico.addEventListener('click', () => {
     router.navegar({ nombre: 'historico' });
   });
+  const enlaceCierres = crearBoton(documento, 'Cierres', 'button');
+  enlaceCierres.addEventListener('click', () => {
+    router.navegar({ nombre: 'cierres' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, enlaceHistorico, botonSalir);
+  nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, enlaceHistorico, enlaceCierres, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
@@ -441,6 +463,16 @@ function mostrarAppProfesor(
         resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
         buscarAlumnos: (texto) => buscarAlumnosParaExtra(app.postgrest, texto),
         descargador: crearDescargadorNavegador(documento),
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'cierres') {
+      // Sin crearCierre/editarCierre/desactivarCierre/reactivarCierre: teacher solo lee
+      // (puedeGestionarCierresCentro es false), mismo criterio que "historico" arriba.
+      mostrarPantallaCierresCentro(areaPantalla, {
+        rol: perfil.rol,
+        listarCierres: (opciones) => listarCierres(app.postgrest, opciones),
       });
       return;
     }

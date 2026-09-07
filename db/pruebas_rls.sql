@@ -740,7 +740,7 @@ begin
   perform pg_temp.impersonar('student');
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa'
+    'evento_error', 'limite_tasa', 'cierre_centro'
   ]
   loop
     begin
@@ -1757,7 +1757,7 @@ begin
 
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'perfil'
+    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro'
   ]
   loop
     begin
@@ -2214,6 +2214,98 @@ begin
       end;
       perform pg_temp.dejar_de_impersonar();
     end if;
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 8j. cierre_centro (R-12, db/014_calendario_cierres.sql) — administrator
+--     gestiona (alta, edición, baja lógica); teacher solo lee los cierres
+--     ACTIVOS, nunca los inactivos (requisito 7 de R-12). El barrido de
+--     `student` (sección 6) y de `anon` (sección 8f) ya cubren esta tabla
+--     dentro de sus bucles genéricos: aquí solo lo específico de
+--     administrator/teacher, que ninguno de los dos barridos ejercita.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_cierre_id   uuid;
+  v_inactivo_id uuid;
+  v_filas       integer;
+  v_n           integer;
+begin
+  if not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('cierre_centro / administrator INSERT', 'no hay administrator en este entorno');
+    perform pg_temp.omitir('cierre_centro / administrator UPDATE', 'no hay administrator en este entorno');
+  else
+    perform pg_temp.impersonar('administrator');
+    begin
+      insert into public.cierre_centro (fecha_inicio, fecha_fin, motivo)
+        values (current_date + 100, current_date + 104, '__prueba_rls__cierre_admin')
+        returning id into v_cierre_id;
+      perform pg_temp.registrar('cierre_centro / administrator INSERT', 'permitido', v_cierre_id is not null);
+    exception when others then
+      perform pg_temp.registrar('cierre_centro / administrator INSERT', 'permitido', false, sqlerrm);
+    end;
+
+    if v_cierre_id is null then
+      perform pg_temp.omitir('cierre_centro / administrator UPDATE', 'no se creó el cierre de prueba (arriba)');
+    else
+      update public.cierre_centro set motivo = '__prueba_rls__cierre_admin_editado' where id = v_cierre_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('cierre_centro / administrator UPDATE', 'permitido', v_filas = 1);
+    end if;
+
+    -- Segundo cierre, ya inactivo desde el alta, para probar que el teacher no lo lee (requisito 7).
+    begin
+      insert into public.cierre_centro (fecha_inicio, fecha_fin, motivo, activo)
+        values (current_date + 200, current_date + 204, '__prueba_rls__cierre_inactivo', false)
+        returning id into v_inactivo_id;
+    exception when others then
+      v_inactivo_id := null;
+    end;
+
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  if not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('cierre_centro / teacher INSERT (debe fallar)', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('cierre_centro / teacher UPDATE (debe fallar)', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('cierre_centro / teacher lee un cierre activo', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('cierre_centro / teacher no lee un cierre inactivo (debe fallar)', 'no hay teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher');
+
+    begin
+      insert into public.cierre_centro (fecha_inicio, fecha_fin, motivo)
+        values (current_date + 300, current_date + 304, '__prueba_rls__cierre_teacher');
+      perform pg_temp.registrar('cierre_centro / teacher INSERT (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('cierre_centro / teacher INSERT (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+    end;
+
+    if v_cierre_id is null then
+      perform pg_temp.omitir('cierre_centro / teacher UPDATE (debe fallar)', 'no se creó el cierre de prueba (arriba)');
+      perform pg_temp.omitir('cierre_centro / teacher lee un cierre activo', 'no se creó el cierre de prueba (arriba)');
+    else
+      update public.cierre_centro set motivo = '__prueba_rls__cierre_teacher_intento' where id = v_cierre_id;
+      get diagnostics v_filas = row_count;
+      -- Bajo RLS, "prohibido" en un UPDATE se manifiesta como cero filas afectadas, no como un
+      -- error: la política de administrator excluye la fila del USING antes de tocarla.
+      perform pg_temp.registrar('cierre_centro / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
+
+      select count(*) into v_n from public.cierre_centro where id = v_cierre_id;
+      perform pg_temp.registrar('cierre_centro / teacher lee un cierre activo', 'permitido', v_n = 1);
+    end if;
+
+    if v_inactivo_id is null then
+      perform pg_temp.omitir('cierre_centro / teacher no lee un cierre inactivo (debe fallar)', 'no se creó el cierre inactivo de prueba (arriba)');
+    else
+      select count(*) into v_n from public.cierre_centro where id = v_inactivo_id;
+      perform pg_temp.registrar('cierre_centro / teacher no lee un cierre inactivo (debe fallar)', 'prohibido', v_n = 0);
+    end if;
+
+    perform pg_temp.dejar_de_impersonar();
   end if;
 end $$;
 

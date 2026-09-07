@@ -7,10 +7,12 @@ import {
   puedeExportarConDatosDeContacto,
   puedeGestionarCentros,
   puedeGestionarFichaAlumno,
+  puedeGestionarCierresCentro,
   puedeGestionarHorarios,
   puedeGestionarUsuarios,
   puedeUsarPasarLista,
   puedeVerAvatarEnCards,
+  puedeVerCierresCentro,
   puedeVerHistorico,
   puedeVerMiHorario,
   puedeVerPersonasReferencia,
@@ -74,4 +76,16 @@ void test('puedeConsultarHistoricoDeCualquiera y puedeExportarConDatosDeContacto
     assert.equal(puedeConsultarHistoricoDeCualquiera(rol), esperado, `puedeConsultarHistoricoDeCualquiera(${rol})`);
     assert.equal(puedeExportarConDatosDeContacto(rol), esperado, `puedeExportarConDatosDeContacto(${rol})`);
   }
+});
+
+void test('puedeVerCierresCentro: administrator y teacher sí, student nunca', () => {
+  assert.equal(puedeVerCierresCentro('administrator'), true);
+  assert.equal(puedeVerCierresCentro('teacher'), true);
+  assert.equal(puedeVerCierresCentro('student'), false);
+});
+
+void test('puedeGestionarCierresCentro: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeGestionarCierresCentro('administrator'), true);
+  assert.equal(puedeGestionarCierresCentro('teacher'), false);
+  assert.equal(puedeGestionarCierresCentro('student'), false);
 });

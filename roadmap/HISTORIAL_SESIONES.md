@@ -37,6 +37,54 @@
 
 ---
 
+### Sesión 2026-09-07 (rutina programada) — R-12 arrancada, cuarta tarea de la oleada v1; P-17 resuelta
+
+**Tarea(s):** R-12 (Calendario de cierres del centro) · P-17 (backlog, resuelta en el camino)
+**Estado resultante:** R-12 pasa a `BLOQUEADA` en §1 — pendiente aplicar migración `014` (fila 16 de
+§3); código y tests completos, contra dobles. P-17 pasa a `RESUELTA` en §5 (dos filas nuevas en §7).
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (el agente nunca aplica DDL, §0.1). `db/014_calendario_cierres.sql`
+escrita y empujada, todavía sin aplicar — fila 16, nueva, de §3
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `db/014_calendario_cierres.sql` (nuevo), `db/pruebas_rls.sql`
+(sección 8j nueva; `cierre_centro` añadida a los barridos de las secciones 6 y 8f),
+`db/APLICADAS.md` (nota de pendiente), `db/MODELO.md` (sección nueva), `src/dominio/tipos.ts`
+(`CierreCentro`), `src/dominio/cierresCentro.ts` (nuevo, con su test), `src/datos/cierresCentro.ts`
+(nuevo, con su test), `src/dominio/permisosUi.ts` (`puedeVerCierresCentro`/
+`puedeGestionarCierresCentro`, con sus tests), `src/ui/pantallaCierresCentro.ts` (nuevo, con su
+test), `src/nucleo/router.ts` (ruta `cierres` en `Ruta` y `RutaProfesor`, con sus tests),
+`src/ui/aplicacion.ts` (enlace y ruta en las dos aplicaciones),
+`herramientas/migraciones/calendarioCierres.test.ts` (nuevo), `roadmap/SEGUIMIENTO.md` (cabecera;
+fila de R-12 en §1; fila 16 de §3; fila de P-17 en §5; dos filas nuevas en §7),
+`roadmap/DECISIONES_TECNICAS.md` (cuatro filas nuevas: políticas en la misma migración, solape solo
+contra activos, teacher limitado a activos, fila nueva en la matriz rol×tabla), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades; `node_modules/` no existía
+al empezar, contenedor nuevo) · tipos ✅ · lint ✅ · tests ✅ (1108/1108, antes 1056) · build ✅
+**Health check post-deploy:** N/A — sin entorno desplegado que comprobar
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-07, R-12): (1)
+`cierre_centro` trae sus propias políticas RLS en el mismo fichero, primera tabla nueva desde `001`
+que no aplaza esa parte a una migración posterior; (2) el solape se comprueba solo contra cierres
+ACTIVOS, en creación, edición Y reactivación; (3) `teacher` lee solo los cierres activos, política
+separada de la de `administrator`
+**Hallazgos del auditor atendidos:** **#9** (severidad baja, higiene documental, `ABIERTO` desde
+2026-09-05) resuelto vía **P-17**: añadidas las dos filas que faltaban en §7 de este documento (la
+corrección de T-14 dentro de T-25, y el propio hallazgo #8). `#8` (severidad alta) sigue `ABIERTO`
+sin cambio: es una decisión reservada al dueño (pregunta #16 de §6), no algo que esta sesión pueda
+resolver con código
+**Hallazgos:** ninguno propio nuevo
+**Tareas autopropuestas (P-XX):** **P-17 ejecutada** (backlog de §5, higiene documental — dos filas
+añadidas a §7)
+**Próximo paso:** para el dueño — aplicar `010`/`011`/`012`/`014` en ese orden (la 14 sigue
+condicionada a la pregunta #16; `npm run migrate` los aplica en orden numérico dentro de la misma
+invocación, así que `014` queda detrás de las tres anteriores aunque no dependa de ellas
+conceptualmente); para la siguiente sesión de programador — la siguiente tarea PENDIENTE de §1 es
+**R-13** ("Aviso de sesiones sin pasar lista en «Mi horario»"), que depende de T-19/T-22/R-06/R-12 —
+R-06 todavía no está escrita, así que R-13 sigue sin poder arrancarse de verdad; revisar si conviene
+saltar a otra R-XX sin esa dependencia pendiente
+
+---
+
 ### Sesión 2026-09-06 (rutina de producto) — decimotercer ciclo del PM: sin R-XX nueva
 
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
