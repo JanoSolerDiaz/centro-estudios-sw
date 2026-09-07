@@ -113,6 +113,33 @@ la ventana rechazado para `teacher` y aceptado para `administrator`). Fila 15 de
 `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `012` es posterior y no forma parte
 de las diez migraciones de su paso a producción.
 
+**`013_excepcion_slot.sql`** (R-06, "excepción puntual de un slot: sustitución o cancelación") —
+escrita y empujada a `develop` el 2026-09-07, todavía sin aplicar. Tabla nueva `excepcion_slot`
+(`slot_id`, `fecha`, `tipo` sustitucion/cancelacion, `profesor_sustituto_id`, `motivo`, `activo`), con
+sus propias políticas RLS en el mismo fichero (`administrator` lee todas; `teacher` solo las activas
+que le afectan, como titular o como sustituto) — sin ningún GRANT de INSERT/UPDATE a `authenticated`:
+toda escritura pasa por `declarar_excepcion_slot()`/`desactivar_excepcion_slot()` (`SECURITY
+DEFINER`), que comprueban de forma atómica que el slot no tenga ya ningún registro de asistencia esa
+fecha antes de escribir. `slot_horario` (`003`, inmutable) gana una política nueva
+(`slot_horario_teacher_leer_sustituciones`) para que el sustituto pueda leer el slot ajeno que cubre.
+`registrar_asistencia` (`005`, inmutable) se sustituye con `create or replace` —MISMA firma exacta,
+sin parámetros nuevos— para que una cancelación bloquee a cualquiera y una sustitución permita al
+profesor sustituto registrar en el slot ajeno. `registrar_ausencia` (`010`, todavía sin aplicar) se
+edita directamente en el mismo commit con la misma comprobación —ver la nota de cabecera de
+`010_registro_ausencias.sql` y la entrada de R-06 en `DECISIONES_TECNICAS.md` sobre por qué editarla
+es correcto mientras siga sin aplicar—. Qué debe ver el dueño al terminar: `git pull` + `npm run
+migrate` en local (aplica `010` y `013` en la misma pasada, en ese orden — no depende de `011`/`012`,
+pero el runner va siempre en orden numérico), comprobar que `esquema_version()` devuelve `13` (o más,
+si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8k de
+`db/pruebas_rls.sql`: administrator declara sustitución/cancelación, teacher/student rechazados,
+fecha que no coincide con el día de la semana rechazada, cancelación sin motivo rechazada, retroactiva
+sobre un slot con registros rechazada, cancelación bloquea registrar_asistencia/registrar_ausencia a
+cualquiera, el titular no registra el día que le sustituyen, el sustituto SÍ registra y SÍ lee el slot
+ajeno, desactivar rechazada con registros y permitida sin ellos; más la tabla añadida a los barridos
+obligatorios de `student`, sección 6, y `anon`, sección 8f). Fila 17 de §3 de `SEGUIMIENTO.md`. T-25
+(BLOQUEADA, ver fila 12) queda inafectada: `013` es posterior y no forma parte de las diez migraciones
+de su paso a producción.
+
 **`014_calendario_cierres.sql`** (R-12, "calendario de cierres del centro: festivos y vacaciones") —
 escrita y empujada a `develop` el 2026-09-07, todavía sin aplicar. Tabla nueva `cierre_centro`
 (`fecha_inicio`, `fecha_fin`, `motivo`, `activo`), con sus propias políticas RLS en el mismo fichero

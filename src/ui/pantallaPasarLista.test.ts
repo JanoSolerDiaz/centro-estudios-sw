@@ -8,6 +8,7 @@ import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { crearProgramadorIntervaloDePrueba, type ProgramadorIntervaloDePrueba } from '../nucleo/programadorIntervalo.ts';
 import { crearReboteDePrueba } from '../nucleo/rebote.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
+import type { ExcepcionSlotConSlot } from '../datos/excepcionesSlot.ts';
 import { Conflicto, ErrorDeRed } from '../datos/erroresDominio.ts';
 
 // Miércoles 2026-08-26, 17:30 CEST (15:30 UTC): dentro del slot 17:00-18:00 local de dia_semana 3.
@@ -105,6 +106,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     rebote: overrides.rebote ?? crearReboteDePrueba(),
     ...(overrides.zonaHoraria !== undefined ? { zonaHoraria: overrides.zonaHoraria } : {}),
     ...(overrides.tolerancia !== undefined ? { tolerancia: overrides.tolerancia } : {}),
+    ...(overrides.listarExcepcionesDeHoy !== undefined ? { listarExcepcionesDeHoy: overrides.listarExcepcionesDeHoy } : {}),
   };
 }
 
@@ -246,6 +248,85 @@ void test('las cards se ordenan por apellidos, no por el orden que devuelve el s
   assert.equal(botones.length, 2);
   assert.match(botones[0]?.textContent ?? '', /Alonso/);
   assert.match(botones[1]?.textContent ?? '', /Zamora/);
+});
+
+// --- R-06: excepciones de slot (sustitución/cancelación) ----------------------------------------
+
+function crearExcepcionConSlot(sobrescribir: Partial<ExcepcionSlotConSlot> = {}): ExcepcionSlotConSlot {
+  const slot = sobrescribir.slot ?? crearSlot();
+  return {
+    id: 'exc-1',
+    slot_id: slot.id,
+    fecha: '2026-08-26',
+    tipo: 'sustitucion',
+    profesor_sustituto_id: 'profesor-2',
+    motivo: null,
+    activo: true,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    ...sobrescribir,
+    slot,
+  };
+}
+
+void test('un slot propio cancelado hoy no se ofrece: "sin clases", sin card', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const cancelacion = crearExcepcionConSlot({ slot, tipo: 'cancelacion', profesor_sustituto_id: null, motivo: 'Profesor de baja' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      listarExcepcionesDeHoy: () => Promise.resolve([cancelacion]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /No tienes ninguna clase más hoy/);
+  assert.equal(botonesDeTarjeta(contenedor).length, 0);
+});
+
+void test('un slot propio sustituido hoy: el titular no lo ve', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const sustitucion = crearExcepcionConSlot({ slot, tipo: 'sustitucion', profesor_sustituto_id: 'profesor-2' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      listarExcepcionesDeHoy: () => Promise.resolve([sustitucion]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonesDeTarjeta(contenedor).length, 0);
+});
+
+void test('un slot ajeno sustituido hoy: el sustituto SÍ lo ve, aunque no tenga slots propios', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotAjeno = crearSlot({ profesor_id: 'profesor-1' });
+  const sustitucion = crearExcepcionConSlot({ slot: slotAjeno, tipo: 'sustitucion', profesor_sustituto_id: 'profesor-2' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      profesorId: 'profesor-2',
+      cargarPropuesta: () => Promise.resolve([]),
+      listarExcepcionesDeHoy: () => Promise.resolve([sustitucion]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonesDeTarjeta(contenedor).length, 1);
+  assert.match(contenedor.textContent, /García/);
+});
+
+void test('sin listarExcepcionesDeHoy inyectada, pasar lista funciona exactamente como antes de R-06', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.equal(botonesDeTarjeta(contenedor).length, 1);
 });
 
 // --- Requisito 5: ya registrado al abrir --------------------------------------------------------

@@ -118,6 +118,24 @@ export interface SlotHorario {
   readonly actualizado_en: string;
 }
 
+export type TipoExcepcionSlot = 'sustitucion' | 'cancelacion';
+
+/** Excepción de UN día sobre un slot_horario recurrente (R-06, `db/013_excepcion_slot.sql`):
+ * sustitución (otro profesor cubre la clase) o cancelación (no hay clase, con motivo). `fecha` en
+ * formato `AAAA-MM-DD`. `profesor_sustituto_id` solo para `tipo === 'sustitucion'`; `motivo` solo
+ * (y obligatorio) para `tipo === 'cancelacion'`. Baja lógica (`activo`), nunca DELETE. */
+export interface ExcepcionSlot {
+  readonly id: string;
+  readonly slot_id: string;
+  readonly fecha: string;
+  readonly tipo: TipoExcepcionSlot;
+  readonly profesor_sustituto_id: string | null;
+  readonly motivo: string | null;
+  readonly activo: boolean;
+  readonly creado_en: string;
+  readonly actualizado_en: string;
+}
+
 export type OrigenAsistencia = 'slot' | 'manual';
 export type EstadoAsistencia = 'valida' | 'anulada' | 'ausente';
 /** Lista corta cerrada de motivos de justificación de una ausencia (R-02, requisito 1) — el `CHECK

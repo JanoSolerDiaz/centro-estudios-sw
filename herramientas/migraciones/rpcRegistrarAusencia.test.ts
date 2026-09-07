@@ -86,3 +86,28 @@ void test('no recrea la tabla asistencia ni sustituye actualizar_asistencia/regi
   assert.doesNotMatch(CONTENIDO, /function\s+public\.actualizar_asistencia\b/i);
   assert.doesNotMatch(CONTENIDO, /function\s+public\.registrar_asistencia\b/i);
 });
+
+/**
+ * R-06 (db/013_excepcion_slot.sql): registrar_ausencia gana la misma comprobación de
+ * cancelación/sustitución que registrar_asistencia. Editada directamente en este fichero porque
+ * `010` todavía no está aplicada (§0.1: solo una migración APLICADA es inmutable) — ver
+ * DECISIONES_TECNICAS.md.
+ */
+void test('registrar_ausencia: cancelación bloquea a cualquiera antes de mirar el dueño del slot', () => {
+  const indiceExcepcion = CONTENIDO.search(/select\s+tipo\s*,\s*profesor_sustituto_id\s+into\s+v_exc_tipo/i);
+  const indiceCancelacion = CONTENIDO.search(/v_exc_tipo\s*=\s*'cancelacion'/i);
+  const indiceDueno = CONTENIDO.search(/el slot pertenece a otro profesor/i);
+  assert.ok(indiceExcepcion >= 0 && indiceCancelacion >= 0 && indiceDueno >= 0);
+  assert.ok(indiceExcepcion < indiceCancelacion && indiceCancelacion < indiceDueno);
+});
+
+void test('registrar_ausencia: el sustituto puede saltarse la comprobación de dueño', () => {
+  assert.match(CONTENIDO, /v_exc_tipo\s*=\s*'sustitucion'/i);
+  assert.match(CONTENIDO, /v_profesor_id\s*<>\s*v_exc_sustituto_id/i);
+});
+
+void test('registrar_ausencia todavía no referencia excepcion_slot en su comprobación de partida (013 aplica después)', () => {
+  const comprobacionPartida = /--\s*0\.\s*Comprobación de partida[\s\S]*?end\s+\$\$;/i.exec(CONTENIDO)?.[0];
+  assert.ok(comprobacionPartida, 'no se encuentra el bloque de comprobación de partida');
+  assert.doesNotMatch(comprobacionPartida, /excepcion_slot/i);
+});

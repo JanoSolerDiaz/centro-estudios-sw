@@ -41,7 +41,7 @@
  */
 
 import type { Rol } from '../dominio/tipos.ts';
-import type { Asistencia, AsistenciaHistorial, MotivoJustificacionAusencia, PersonaReferencia } from '../dominio/tipos.ts';
+import type { Asistencia, AsistenciaHistorial, ExcepcionSlot, MotivoJustificacionAusencia, PersonaReferencia, TipoExcepcionSlot } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import type { SlotConAlumno, AlumnoParaPropuesta } from '../dominio/slots.ts';
 import { fechaLocalISO, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
@@ -62,10 +62,12 @@ import {
 } from '../dominio/asistencia.ts';
 import { mensajeAvisoAusencia, notaConAvisoAusencia } from '../dominio/avisoAusencia.ts';
 import { etiquetaMotivoJustificacion } from '../dominio/historicoAsistencia.ts';
-import { puedeEditarAsistenciaDeCualquiera, puedeVerPersonasReferencia } from '../dominio/permisosUi.ts';
+import { excepcionDelDia, etiquetaExcepcion, fechaCoincideConDiaSemana, motivoCancelacionValido } from '../dominio/excepcionSlot.ts';
+import { puedeEditarAsistenciaDeCualquiera, puedeGestionarExcepcionesSlot, puedeVerPersonasReferencia } from '../dominio/permisosUi.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ActualizarAsistenciaEntrada, RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { ProfesorParaSelector } from '../datos/profesores.ts';
+import type { DeclararExcepcionSlotEntrada } from '../datos/excepcionesSlot.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import { crearElemento } from './dom.ts';
 import { crearCampoTexto, crearZonaMensaje, crearBoton } from './formularios.ts';
@@ -111,6 +113,19 @@ export interface DependenciasPantallaRegistrosSlot {
    * que `obtenerPersonasReferencia`: sin esta dependencia, el botón «Copiar mensaje» simplemente no
    * se ofrece (el texto sigue visible y seleccionable a mano en el `<textarea>`). */
   copiarAlPortapapeles?(texto: string): Promise<void>;
+  /** Excepciones ACTIVAS del slot elegido (R-06, cualquier fecha) — solo se llama, y solo se ofrece
+   * el bloque "Excepción de este día" en pantalla, cuando `puedeGestionarExcepcionesSlot(rol)`
+   * (`administrator`): un `teacher` no declara ni desactiva excepciones, solo las ve reflejadas en
+   * «Mi horario»/pasar lista. Igual criterio de opcionalidad que `listarProfesoresParaSelector`. */
+  listarExcepcionesDeSlot?(slotId: string): Promise<readonly ExcepcionSlot[]>;
+  /** Declara una sustitución o cancelación (requisito 1 de R-06) — la RPC rechaza de forma atómica
+   * una excepción retroactiva sobre un slot que ya tiene registros ese día (requisito 5); esta
+   * pantalla además deshabilita el propio formulario en ese caso, para no depender solo del
+   * servidor para dar ese aviso. */
+  declararExcepcionSlot?(entrada: DeclararExcepcionSlotEntrada): Promise<ExcepcionSlot>;
+  /** Desactiva una excepción ya declarada (vuelve al horario normal) — mismo requisito 5: la RPC la
+   * rechaza si el slot ya tiene registros esa fecha. */
+  desactivarExcepcionSlot?(excepcionId: string): Promise<ExcepcionSlot>;
 }
 
 interface EstadoFila {
@@ -186,6 +201,16 @@ interface EstadoPantalla {
   readonly ausenteConfirmando: boolean;
   readonly ausenteGuardando: boolean;
   readonly ausenteError: string;
+  /** R-06: excepciones ACTIVAS del slot elegido (cualquier fecha) — `excepcionDelDia` resuelve, a
+   * partir de esta lista y de `fechaIso`, si el día elegido ya tiene una declarada. */
+  readonly excepcionesDelSlot: readonly ExcepcionSlot[];
+  readonly excepcionFormAbierto: boolean;
+  readonly excepcionTipo: TipoExcepcionSlot;
+  readonly excepcionSustitutoId: string;
+  readonly excepcionMotivo: string;
+  readonly excepcionGuardando: boolean;
+  readonly excepcionError: string;
+  readonly excepcionDesactivando: boolean;
 }
 
 /** `HH:MM` a partir de un `timestamptz` de PostgREST, en la zona horaria del centro — para
@@ -269,6 +294,14 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     ausenteConfirmando: false,
     ausenteGuardando: false,
     ausenteError: '',
+    excepcionesDelSlot: [],
+    excepcionFormAbierto: false,
+    excepcionTipo: 'sustitucion',
+    excepcionSustitutoId: '',
+    excepcionMotivo: '',
+    excepcionGuardando: false,
+    excepcionError: '',
+    excepcionDesactivando: false,
   });
 
   function actualizarFila(id: string, cambios: Partial<EstadoFila>): void {
@@ -301,7 +334,10 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     almacen.actualizar({ cargando: true, error: '' });
     try {
       const fecha = new Date(`${fechaIso}T12:00:00Z`);
-      const registros = await deps.listarRegistros(slotSeleccionadoId, fecha);
+      const [registros, excepcionesDelSlot] = await Promise.all([
+        deps.listarRegistros(slotSeleccionadoId, fecha),
+        deps.listarExcepcionesDeSlot ? deps.listarExcepcionesDeSlot(slotSeleccionadoId) : Promise.resolve([]),
+      ]);
       const slotElegido = slots.find((s) => s.id === slotSeleccionadoId);
       const nombresBase = new Map<string, string>();
       if (slotElegido) {
@@ -313,7 +349,17 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
       for (const [id, nombre] of resueltos) {
         nombresAlumno.set(id, nombre);
       }
-      almacen.actualizar({ registros, nombresAlumno, cargando: false, filas: new Map() });
+      almacen.actualizar({
+        registros,
+        nombresAlumno,
+        cargando: false,
+        filas: new Map(),
+        excepcionesDelSlot,
+        excepcionFormAbierto: false,
+        excepcionMotivo: '',
+        excepcionSustitutoId: '',
+        excepcionError: '',
+      });
     } catch (error) {
       almacen.actualizar({ cargando: false, error: mensajeAmigable(error) });
     }
@@ -396,9 +442,10 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
   listaRegistros.style.listStyle = 'none';
   listaRegistros.style.padding = '0';
 
+  const zonaExcepcion = crearElemento(documento, 'div');
   const zonaOlvidado = crearElemento(documento, 'div');
 
-  contenedor.append(cabecera, zonaOlvidado, listaRegistros);
+  contenedor.append(cabecera, zonaExcepcion, zonaOlvidado, listaRegistros);
 
   // --- Panel de edición de una fila ---------------------------------------------------------------
 
@@ -1003,6 +1050,176 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     zonaOlvidado.append(formulario);
   }
 
+  /** «Excepción de este día» (R-06, requisito 1): declarar una sustitución o cancelación sobre el
+   * slot y la fecha elegidos, o desactivar la ya declarada — exclusivamente `administrator`
+   * (`puedeGestionarExcepcionesSlot`) y solo si `deps.declararExcepcionSlot` está inyectada (nunca
+   * para `teacher`, que monta esta pantalla sin esa dependencia, mismo criterio que
+   * `listarProfesoresParaSelector`). Requisito 5 comprobado también aquí, en el cliente, ANTES de
+   * llamar (deshabilita el formulario/el botón de desactivar si `estado.registros` no está vacío):
+   * la RPC es la comprobación autoritativa, esta es solo para no ofrecer un control que el servidor
+   * fuera a rechazar con toda seguridad. */
+  function pintarExcepcion(): void {
+    const estado = almacen.obtener();
+    zonaExcepcion.textContent = '';
+    if (!puedeGestionarExcepcionesSlot(deps.rol) || !deps.declararExcepcionSlot) {
+      return;
+    }
+    const slotElegido = estado.slots.find((s) => s.id === estado.slotSeleccionadoId);
+    if (!slotElegido) {
+      return;
+    }
+
+    const hayRegistrosEseDia = estado.registros.length > 0;
+    const excepcion = excepcionDelDia(slotElegido.id, estado.fechaIso, estado.excepcionesDelSlot);
+
+    if (excepcion) {
+      const bloque = crearElemento(documento, 'div');
+      const nombreSustituto = excepcion.profesor_sustituto_id
+        ? estado.profesores.find((p) => p.id === excepcion.profesor_sustituto_id)?.nombre
+        : undefined;
+      bloque.append(
+        crearElemento(documento, 'p', { texto: `Excepción de este día: ${etiquetaExcepcion(excepcion, nombreSustituto)}.` }),
+      );
+      if (estado.excepcionError) {
+        const mensaje = crearZonaMensaje(documento, 'alert');
+        mensaje.textContent = estado.excepcionError;
+        bloque.append(mensaje);
+      }
+      if (deps.desactivarExcepcionSlot) {
+        const botonDesactivar = crearBoton(documento, 'Desactivar excepción', 'button');
+        botonDesactivar.disabled = estado.excepcionDesactivando || hayRegistrosEseDia;
+        botonDesactivar.addEventListener('click', () => {
+          void (async () => {
+            almacen.actualizar({ excepcionDesactivando: true, excepcionError: '' });
+            try {
+              await deps.desactivarExcepcionSlot?.(excepcion.id);
+              await cargarRegistros();
+            } catch (error) {
+              almacen.actualizar({ excepcionDesactivando: false, excepcionError: mensajeAmigable(error) });
+            }
+          })();
+        });
+        bloque.append(botonDesactivar);
+        if (hayRegistrosEseDia) {
+          bloque.append(
+            crearElemento(documento, 'p', {
+              texto: 'Ya hay registros de asistencia de este slot este día: no se puede desactivar la excepción.',
+            }),
+          );
+        }
+      }
+      zonaExcepcion.append(bloque);
+      return;
+    }
+
+    if (hayRegistrosEseDia) {
+      zonaExcepcion.append(
+        crearElemento(documento, 'p', {
+          texto: 'Ya hay registros de asistencia de este slot este día: no se puede declarar una excepción retroactiva.',
+        }),
+      );
+      return;
+    }
+
+    if (!estado.excepcionFormAbierto) {
+      const botonAbrir = crearBoton(documento, 'Declarar excepción de este día', 'button');
+      botonAbrir.addEventListener('click', () => {
+        almacen.actualizar({ excepcionFormAbierto: true, excepcionError: '' });
+      });
+      zonaExcepcion.append(botonAbrir);
+      return;
+    }
+
+    const formulario = crearElemento(documento, 'div');
+    formulario.append(
+      crearElemento(documento, 'p', { texto: `Excepción para ${nombreCompletoAlumno(slotElegido.alumno)} el ${estado.fechaIso}.` }),
+    );
+
+    const etiquetaTipo = crearElemento(documento, 'label', { texto: 'Tipo', atributos: { for: 'excepcion-tipo' } });
+    const selectTipo = documento.createElement('select');
+    selectTipo.id = 'excepcion-tipo';
+    selectTipo.append(
+      crearElemento(documento, 'option', { texto: 'Sustitución', atributos: { value: 'sustitucion' } }),
+      crearElemento(documento, 'option', { texto: 'Cancelación', atributos: { value: 'cancelacion' } }),
+    );
+    selectTipo.value = estado.excepcionTipo;
+    selectTipo.addEventListener('change', () => {
+      almacen.actualizar({ excepcionTipo: selectTipo.value === 'cancelacion' ? 'cancelacion' : 'sustitucion' });
+    });
+    formulario.append(etiquetaTipo, selectTipo);
+
+    if (estado.excepcionTipo === 'sustitucion') {
+      const etiquetaSustituto = crearElemento(documento, 'label', { texto: 'Profesor sustituto', atributos: { for: 'excepcion-sustituto' } });
+      const selectSustituto = documento.createElement('select');
+      selectSustituto.id = 'excepcion-sustituto';
+      selectSustituto.append(crearElemento(documento, 'option', { texto: 'Elige un profesor…', atributos: { value: '' } }));
+      for (const profesor of estado.profesores) {
+        if (profesor.id === slotElegido.profesor_id) {
+          continue; // el titular no puede sustituirse a sí mismo
+        }
+        selectSustituto.append(crearElemento(documento, 'option', { texto: profesor.nombre, atributos: { value: profesor.id } }));
+      }
+      selectSustituto.value = estado.excepcionSustitutoId;
+      selectSustituto.addEventListener('change', () => {
+        almacen.actualizar({ excepcionSustitutoId: selectSustituto.value });
+      });
+      formulario.append(etiquetaSustituto, selectSustituto);
+    } else {
+      const campoMotivo = crearCampoTexto(documento, 'excepcion-motivo', 'Motivo', 'text', 'off');
+      campoMotivo.input.required = false;
+      campoMotivo.input.value = estado.excepcionMotivo;
+      campoMotivo.input.addEventListener('input', () => {
+        almacen.actualizar({ excepcionMotivo: campoMotivo.input.value });
+      });
+      formulario.append(campoMotivo.contenedor);
+    }
+
+    if (estado.excepcionError) {
+      const mensaje = crearZonaMensaje(documento, 'alert');
+      mensaje.textContent = estado.excepcionError;
+      formulario.append(mensaje);
+    }
+
+    const botonDeclarar = crearBoton(documento, 'Declarar', 'button');
+    botonDeclarar.disabled = estado.excepcionGuardando;
+    botonDeclarar.addEventListener('click', () => {
+      void (async () => {
+        const est = almacen.obtener();
+        if (!fechaCoincideConDiaSemana(est.fechaIso, slotElegido.dia_semana)) {
+          almacen.actualizar({ excepcionError: 'La fecha elegida no coincide con el día de la semana de este slot.' });
+          return;
+        }
+        if (est.excepcionTipo === 'sustitucion' && !est.excepcionSustitutoId) {
+          almacen.actualizar({ excepcionError: 'Elige el profesor sustituto.' });
+          return;
+        }
+        if (est.excepcionTipo === 'cancelacion' && !motivoCancelacionValido(est.excepcionMotivo)) {
+          almacen.actualizar({ excepcionError: 'Escribe el motivo de la cancelación.' });
+          return;
+        }
+        almacen.actualizar({ excepcionGuardando: true, excepcionError: '' });
+        try {
+          await deps.declararExcepcionSlot?.({
+            slotId: slotElegido.id,
+            fecha: est.fechaIso,
+            tipo: est.excepcionTipo,
+            profesorSustitutoId: est.excepcionTipo === 'sustitucion' ? est.excepcionSustitutoId : null,
+            motivo: est.excepcionTipo === 'cancelacion' ? est.excepcionMotivo.trim() : null,
+          });
+          await cargarRegistros();
+        } catch (error) {
+          almacen.actualizar({ excepcionGuardando: false, excepcionError: mensajeAmigable(error) });
+        }
+      })();
+    });
+    const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelar.addEventListener('click', () => {
+      almacen.actualizar({ excepcionFormAbierto: false, excepcionError: '' });
+    });
+    formulario.append(botonDeclarar, botonCancelar);
+    zonaExcepcion.append(formulario);
+  }
+
   // --- Repintado de la cabecera (selectores) --------------------------------------------------------
 
   function pintarCabecera(): void {
@@ -1049,10 +1266,12 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
   almacen.suscribir(() => {
     pintarCabecera();
+    pintarExcepcion();
     pintarOlvidado();
     pintarLista();
   });
   pintarCabecera();
+  pintarExcepcion();
   pintarOlvidado();
   pintarLista();
 

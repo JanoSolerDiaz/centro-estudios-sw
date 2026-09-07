@@ -37,6 +37,12 @@ import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import { listarCentros, crearCentro, editarNombreCentro, contarAlumnosActivosDeCentro, desactivarCentro, reactivarCentro } from '../datos/centrosEstudios.ts';
 import { listarCierres, crearCierre, editarCierre, desactivarCierre, reactivarCierre } from '../datos/cierresCentro.ts';
 import {
+  declararExcepcionSlot,
+  desactivarExcepcionSlot,
+  listarExcepcionesDeSlot,
+  listarExcepcionesDelDiaParaProfesor,
+} from '../datos/excepcionesSlot.ts';
+import {
   listarAlumnos,
   obtenerAlumno,
   crearAlumno,
@@ -248,6 +254,9 @@ function mostrarAppAdministrador(
         generarPeticionId: () => crypto.randomUUID(),
         obtenerPersonasReferencia: (alumnoId2) => listarPersonasReferencia(app.postgrest, alumnoId2),
         copiarAlPortapapeles: (texto) => copiarAlPortapapelesDelNavegador(texto),
+        listarExcepcionesDeSlot: (slotId) => listarExcepcionesDeSlot(app.postgrest, slotId),
+        declararExcepcionSlot: (entrada) => declararExcepcionSlot(app.postgrest, entrada),
+        desactivarExcepcionSlot: (excepcionId) => desactivarExcepcionSlot(app.postgrest, excepcionId),
       });
       return;
     }
@@ -412,6 +421,7 @@ function mostrarAppProfesor(
         reloj: app.reloj,
         programador: app.programador,
         cargarSlots: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
+        listarExcepcionesDeHoy: (fecha) => listarExcepcionesDelDiaParaProfesor(app.postgrest, fecha),
         irAPasarLista: () => {
           router.navegar({ nombre: 'pasar-lista' });
         },
@@ -430,6 +440,9 @@ function mostrarAppProfesor(
         // Sin listarProfesoresParaSelector: teacher nunca elige profesor (puedeEditarAsistenciaDeCualquiera es false).
         // Sin obtenerPersonasReferencia ni copiarAlPortapapeles: "avisar" (R-05) es solo administrator
         // (puedeVerPersonasReferencia) hasta que el dueño responda la pregunta #17 de §6.
+        // Sin listarExcepcionesDeSlot/declararExcepcionSlot/desactivarExcepcionSlot (R-06): declarar
+        // excepciones es solo administrator (puedeGestionarExcepcionesSlot); teacher solo las ve
+        // reflejadas en «Mi horario» y en pasar lista.
         ...(ruta.slotId !== undefined ? { slotInicialId: ruta.slotId } : {}),
         listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesorConAlumno(app.postgrest, profesorId),
         listarRegistros: (slotId, fecha) => listarRegistrosDeSlotYFecha(app.postgrest, slotId, fecha),
@@ -494,6 +507,7 @@ function mostrarAppProfesor(
       programador: app.programador,
       cargarPropuesta: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
       cargarAsistenciaDeHoy: (instante) => listarAsistenciaDeHoy(app.postgrest, perfil.id, instante),
+      listarExcepcionesDeHoy: (fecha) => listarExcepcionesDelDiaParaProfesor(app.postgrest, fecha),
       registrar: (entrada) =>
         registrarAsistencia(
           { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },

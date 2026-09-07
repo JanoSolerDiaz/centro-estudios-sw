@@ -10,8 +10,87 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-07 (rutina programada, "R-05 completada, quinta tarea de la oleada
+**Última actualización:** 2026-09-07 (rutina programada, "R-06 arrancada, sexta tarea de la oleada
 v1") — R-01, R-02, R-03 y R-12 seguían `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas 13,
+14, 15 y 16 de §3, sin cambio: aplicar `010`, `011`, `012` y `014`, la 14 condicionada además a la
+pregunta #16 de §6), así que esta sesión revisó primero el registro de hallazgos de
+`auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada nueva del
+auditor desde `06fb8b0` (2026-09-07 por la mañana, la misma ya conocida por la sesión anterior), así
+que el estado de los dos `ABIERTO` (`#8`, pregunta #16 de §6, esperando al dueño; `#9`, `RESUELTO`
+por P-17) sigue siendo el mismo — nada nuevo que atender como P-XX urgente. Con eso confirmado, se
+revisó §1 en orden: R-13 y R-04 seguían dependiendo de R-06, que a su vez seguía `PENDIENTE` sin
+ningún código escrito — así que esta sesión tomó **R-06**, "Excepción puntual de un slot: sustitución
+o cancelación" (spec en `roadmap/ROADMAP_PRODUCTO.md`), que depende de T-15, T-17 y T-18 (las tres
+`COMPLETADA`) — no depende de R-01/R-02/R-03/R-12, así que no hace falta esperarlas. Su requisito 1
+exige DDL por definición (tabla nueva `excepcion_slot`), así que sigue el procedimiento de §0.1:
+migración nueva `db/013_excepcion_slot.sql` escrita y empujada, fila 17 nueva de §3, R-06 pasa a
+`BLOQUEADA` — pero todo el código y los tests que consumen ese esquema se escriben igual, contra
+dobles.
+
+**Decisión de diseño más importante de la sesión, documentada en `DECISIONES_TECNICAS.md`:**
+`excepcion_slot`, a diferencia de `cierre_centro`/`centro_estudios`, NO concede INSERT/UPDATE directo
+a `authenticated`: toda escritura pasa por `declarar_excepcion_slot()`/`desactivar_excepcion_slot()`
+(`SECURITY DEFINER`), que comprueban de forma ATÓMICA, en la misma transacción, que el slot no tenga
+ya ningún registro de asistencia esa fecha (requisito 5: "ninguna de las dos excepciones puede
+declararse retroactivamente sobre un slot que ya tiene registros ese día") — esa invariante es de la
+misma clase dura que la inmutabilidad de `asistencia` (§0.2, "no reescribir historia"), a diferencia
+del solape blando de `cierre_centro`, que sí acepta un read-then-write en el cliente. `registrar_asistencia`
+(`005`, ya aplicada e inmutable) se sustituye en la migración nueva con `create or replace function`
+—MISMA firma exacta, sin ningún parámetro nuevo, mismo patrón que `006` sustituyó
+`aplicar_limite_tasa()`— para que una cancelación bloquee a CUALQUIERA (incluido el propio titular) y
+una sustitución permita al profesor sustituto registrar en el slot ajeno, con el titular excluido ese
+día. `registrar_ausencia` (`010`, todavía sin aplicar) gana la MISMA comprobación, pero **editada
+directamente** en `db/010_registro_ausencias.sql`, no sustituida en la migración nueva: única
+excepción a "una migración se sustituye, nunca se edita" en toda esta sesión, razonada en detalle en
+`DECISIONES_TECNICAS.md` — la regla de §0.1 protege una migración ya APLICADA, y `010` no lo está
+todavía. `slot_horario` (`003`, inmutable) gana una política RLS ADICIONAL
+(`slot_horario_teacher_leer_sustituciones`, sin tocar `slot_horario_teacher_leer_propios`) para que el
+profesor sustituto pueda leer el slot ajeno que cubre, mismo patrón que
+`avatares_teacher_leer_alumnos_activos` de `003_politicas_rls.sql`.
+
+**Integración con T-17/T-19/T-22, sin tocar sus funciones puras ya probadas:**
+`dominio/excepcionSlot.ts#slotsEfectivosDelDia` construye, para pasar lista (T-19), la lista efectiva
+de slots de un profesor un día concreto — un slot propio con excepción activa se excluye por
+completo, uno ajeno donde el profesor es el sustituto nombrado se añade con `profesor_id`
+sobrescrito al suyo (razonado en detalle en `DECISIONES_TECNICAS.md`: es una proyección de lectura,
+nunca se escribe de vuelta) — para que `alumnosPropuestos` (T-17) lo trate como propio ese día sin
+ningún cambio en esa función. «Mi horario» (T-22, `pantallaMiHorario.ts`) usa en cambio
+`excepcionDelDia`/`etiquetaExcepcion` para relabelar la fila de HOY («Cubierto por [sustituto]»/
+«Cancelada — motivo», sin "Pasar lista" ni "En curso"), tanto en la lista por día como en el resumen
+"Ahora" — limitación conocida y documentada: solo la fila de hoy se relabela, una excepción declarada
+para un día futuro de la semana no se anticipa en la vista recurrente (§0.2 no lo exige, y ampliarlo
+habría necesitado aritmética de calendario nueva sin necesidad real). «Registros»
+(`pantallaRegistrosSlot.ts`) gana el bloque nuevo "Excepción de este día" —exclusivamente
+`administrator` (`puedeGestionarExcepcionesSlot`, nueva en `permisosUi.ts`), anclado al slot y la
+fecha ya elegidos en esa misma pantalla—: declara sustitución (selector de sustituto, reutiliza
+`listarProfesoresParaSelector`, excluye al propio titular) o cancelación (motivo obligatorio),
+desactiva la ya declarada, y deshabilita ambas acciones en el cliente (además del rechazo autoritativo
+del servidor) si el día elegido ya tiene registros. Nueva sección **8k** en `db/pruebas_rls.sql`
+(administrator declara sustitución/cancelación, teacher/student rechazados, fecha que no coincide con
+el día de la semana rechazada, cancelación sin motivo rechazada, retroactiva sobre un slot con
+registros rechazada, cancelación bloquea `registrar_asistencia`/`registrar_ausencia` a cualquiera, el
+titular no registra el día que le sustituyen, el sustituto SÍ registra y SÍ lee el slot ajeno,
+desactivar rechazada con registros y permitida sin ellos) — con sus propios slots de prueba (nunca
+`slot_prueba` de la sección 4), fechas de excepción calculadas como "hoy en Europe/Madrid" (nunca un
+desplazamiento futuro fijo: `registrar_asistencia`/`registrar_ausencia` rechazan un `ocurrido_en`
+futuro) — más `excepcion_slot` añadida a los dos barridos obligatorios ya existentes (sección 6,
+`student`; sección 8f, `anon`). Nuevo fichero estático `herramientas/migraciones/excepcionSlot.test.ts`
+(mismo patrón que `calendarioCierres.test.ts`); `rpcRegistrarAusencia.test.ts` ampliado con las
+comprobaciones de la edición de `010`; `pruebasRlsEstatico.test.ts` actualizado (el recuento
+hardcodeado de `select * into v_fila from public.registrar_asistencia(` sube de 9 a 10, por el único
+uso real nuevo del sustituto en la sección 8k). **65 tests nuevos (1196 en total, antes 1131):**
+19 de dominio (`excepcionSlot.test.ts`, incluido `slotsEfectivosDelDia`), 6 de datos
+(`excepcionesSlot.test.ts`, RPC y lecturas), 1 de permisos (`puedeGestionarExcepcionesSlot`), 4 de
+pasar lista (`pantallaPasarLista.test.ts`, bloque "R-06"), 4 de «Mi horario»
+(`pantallaMiHorario.test.ts`, bloque "R-06"), 8 de «Registros» (`pantallaRegistrosSlot.test.ts`,
+bloque "R-06"), 20 estáticos de la migración (`excepcionSlot.test.ts` de `herramientas/migraciones/`)
+y 3 nuevos en `rpcRegistrarAusencia.test.ts` (las comprobaciones de la edición de `010`). Verificación
+pre-push completa en verde: `npm run typecheck`, `npm run lint`, `npm test` (1196/1196) y `npm run
+build`. **Nota de entorno:** `node_modules/` no existía al empezar esta sesión (contenedor nuevo);
+`npm ci` (130 paquetes, 0 vulnerabilidades) fue el primer paso antes de poder ejecutar nada.
+
+**Sesión anterior (2026-09-07, "R-05 completada, quinta tarea de la oleada
+v1"):** R-01, R-02, R-03 y R-12 seguían `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas 13,
 14, 15 y 16 de §3, sin cambio: aplicar `010`, `011`, `012` y `014`, la 14 condicionada además a la
 pregunta #16 de §6), así que esta sesión revisó primero el registro de hallazgos de
 `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada nueva del
@@ -1458,7 +1537,7 @@ pantallas del requisito 2.
 | R-13 | Aviso de sesiones sin pasar lista en «Mi horario» | PENDIENTE | — | Oleada v1 / F-01 · Sin migración (solo cliente) · añadida por el PM el 2026-09-04, undécimo ciclo — depende de T-19, T-22, R-06 y R-12 |
 | R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
 | R-05 | Aviso de ausencia injustificada listo para enviar | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · sin envío automático · alcance de `administrator` completo; el alcance de `teacher` que pedía la spec original queda pendiente de la pregunta #17 de §6 (no bloquea, valor conservador: sin acceso) |
-| R-06 | Excepción puntual de un slot: sustitución o cancelación | PENDIENTE | — | Oleada v1 / F-03 · Migración `013_excepcion_slot` · ampliada por el PM el 2026-09-03 (antes solo "sustitución"; añade el caso de cancelación sin sustituto, misma migración) |
+| R-06 | Excepción puntual de un slot: sustitución o cancelación | BLOQUEADA — pendiente aplicar migración `013` (fila 17 de §3) | 2026-09-07 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `013_excepcion_slot.sql` escrita y empujada, todavía sin aplicar — desbloquea código-wise a R-13 y R-04 (sus otras dependencias, T-19/T-22/R-12, ya completas o bloqueadas solo por migración) |
 | R-07 | Pasar lista con conexión intermitente | PENDIENTE | — | Oleada v1 / F-03 · solo cliente |
 | R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
 | R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |
@@ -1502,6 +1581,7 @@ pantallas del requisito 2.
 | 14 | Aplicar la migración `011_justificacion_ausencia` en `dev`, **después** de la fila 13 (`010`) — **NO aplicar todavía** | R-02 | **Antes de nada, responder la pregunta #16 de §6** (hallazgo #8 de auditoría, severidad alta, `ABIERTO`: `motivo_justificacion` incluye valores de dato de salud del artículo 9 del RGPD —`enfermedad`, `cita_medica`— sin decisión expresa del dueño que los autorice). Solo si la respuesta es "aceptar tal cual" (opción a de la pregunta #16), seguir con: `git pull` y `npm run migrate` en local; comprobar que `esquema_version()` devuelve `11`; ejecutar también `npm run probar-rls` (nueva sección 8h: justificar dentro de la ventana de edición del profesor, motivo fuera de la lista cerrada rechazado, justificar un registro que no está ausente rechazado, fuera de la ventana rechazado para `teacher` y aceptado para `administrator`). Si la respuesta es reformular o retirar el campo (opciones b/c), esta migración necesita reescribirse antes de aplicarse — no ejecutar `npm run migrate` sobre el fichero actual en ese caso | PENDIENTE — bloqueada también por la pregunta #16 de §6, no solo por el paso de aplicar |
 | 15 | Aplicar la migración `012_registro_salida` en `dev`, **después** de la fila 14 (`011`) | R-03 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `12`, y ejecutar también `npm run probar-rls` (nueva sección 8i: marcar salida dentro de la ventana del profesor, ajustar una salida ya marcada, marcar dos veces rechazado, ajustar a una hora anterior o igual a la entrada rechazado, marcar y ajustar combinados en la misma llamada rechazado, ajustar una salida no marcada rechazado, marcar salida de una ausencia rechazado, fuera de la ventana rechazado para `teacher` y aceptado para `administrator`) | PENDIENTE |
 | 16 | Aplicar la migración `014_calendario_cierres` en `dev` | R-12 | `014` no depende conceptualmente de `010`/`011`/`012` (tabla nueva, sin relación con `asistencia`), pero el runner aplica SIEMPRE en orden numérico dentro de la misma invocación: no llegará a `014` mientras `010`/`011`/`012` sigan pendientes, y la fila 14 de esta misma tabla pide explícitamente **no aplicar `011` todavía** (pregunta #16 de §6 sin responder). Así que, en la práctica, esta fila queda detrás de la 14 aunque no exista ninguna dependencia real entre ambas migraciones — si el dueño quiere `014` sin esperar a que se resuelva la pregunta #16, tocaría aplicarla a mano en el editor SQL de `dev` fuera del runner, o renumerarla por delante de `011`/`012` (ninguna de las dos aplicada todavía, así que renumerar no rompe nada ya aplicado). Vía normal: `git pull` y `npm run migrate` en local (una vez resueltas las filas 13-15). Al terminar, comprobar que `esquema_version()` devuelve `14`, y ejecutar también `npm run probar-rls` (nueva sección 8j: alta y edición de un cierre por `administrator`, rechazadas para `teacher`, el `teacher` lee un cierre activo pero no uno inactivo; más `cierre_centro` añadida a los barridos obligatorios de `student`, sección 6, y `anon`, sección 8f) | PENDIENTE |
+| 17 | Aplicar la migración `013_excepcion_slot` en `dev` (y, en el mismo `npm run migrate`, `010_registro_ausencias`, editada en este mismo commit — ver `db/APLICADAS.md`) | R-06 | `013` no depende conceptualmente de `011`/`012` (tabla nueva sobre `slot_horario`, no sobre las columnas que añaden esas dos), pero SÍ depende de `010` (edita `registrar_ausencia`, que `010` crea) y el runner aplica siempre en orden numérico: en la práctica queda detrás de las tres, igual que la fila 16 con `014`. `git pull` y `npm run migrate` en local (una vez resueltas las filas 13-15). Al terminar, comprobar que `esquema_version()` devuelve `13` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8k: administrator declara sustitución/cancelación, teacher/student rechazados, fecha que no coincide con el día de la semana rechazada, cancelación sin motivo rechazada, retroactiva sobre un slot con registros rechazada, cancelación bloquea registrar_asistencia/registrar_ausencia a cualquiera, el titular no registra el día que le sustituyen, el sustituto SÍ registra y SÍ lee el slot ajeno, desactivar rechazada con registros y permitida sin ellos; más `excepcion_slot` añadida a los barridos obligatorios de `student`, sección 6, y `anon`, sección 8f) | PENDIENTE |
 
 ---
 

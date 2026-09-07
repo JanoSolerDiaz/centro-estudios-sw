@@ -107,6 +107,9 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     registrarAusencia: overrides.registrarAusencia ?? noImplementado('registrarAusencia'),
     ...(overrides.obtenerPersonasReferencia ? { obtenerPersonasReferencia: overrides.obtenerPersonasReferencia } : {}),
     ...(overrides.copiarAlPortapapeles ? { copiarAlPortapapeles: overrides.copiarAlPortapapeles } : {}),
+    ...(overrides.listarExcepcionesDeSlot ? { listarExcepcionesDeSlot: overrides.listarExcepcionesDeSlot } : {}),
+    ...(overrides.declararExcepcionSlot ? { declararExcepcionSlot: overrides.declararExcepcionSlot } : {}),
+    ...(overrides.desactivarExcepcionSlot ? { desactivarExcepcionSlot: overrides.desactivarExcepcionSlot } : {}),
     generarPeticionId:
       overrides.generarPeticionId ??
       (() => {
@@ -1078,4 +1081,311 @@ void test('marcar ausente: un error del servidor se muestra sin perder la confir
   assert.match(contenedor.textContent, /No tienes permiso/);
   // La confirmación sigue abierta: se puede reintentar sin volver a pulsar "Marcar ausente".
   assert.doesNotThrow(() => botonPorTexto(contenedor, 'Confirmar ausencia'));
+});
+
+// --- R-06: excepción de este día (sustitución/cancelación) --------------------------------------
+
+/** Monta como `administrator`, con el profesor y el slot ya elegidos — sin clicar "Editar" ninguna
+ * fila (a diferencia de `montarConUnRegistro`): el bloque "Excepción de este día" es de PANTALLA,
+ * no de fila. `listarRegistros` por defecto devuelve `[]` (a diferencia de `montarConUnRegistro`,
+ * que por defecto SÍ trae un registro): la mayoría de estos tests quiere el caso "sin registros
+ * todavía", que es el que permite declarar. */
+async function montarComoAdminConSlot(overrides: Partial<DependenciasPantallaRegistrosSlot> = {}): Promise<HTMLElement> {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      rol: 'administrator',
+      listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot()]),
+      listarRegistros: () => Promise.resolve([]),
+      ...overrides,
+    }),
+  );
+  await esperarMicrotareas();
+
+  const selectProfesor = contenedor.querySelector<HTMLSelectElement>('#registros-profesor');
+  assert.ok(selectProfesor);
+  const primeraOpcionReal = Array.from(selectProfesor.options).find((o) => o.value !== '');
+  assert.ok(primeraOpcionReal);
+  selectProfesor.value = primeraOpcionReal.value;
+  dispararEvento(selectProfesor, 'change');
+  await esperarMicrotareas();
+
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  selectSlot.value = 'slot-1';
+  dispararEvento(selectSlot, 'change');
+  await esperarMicrotareas();
+  return contenedor;
+}
+
+void test('excepción: no se ofrece a un teacher, aunque la dependencia esté inyectada', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      rol: 'teacher',
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot()]),
+      listarRegistros: () => Promise.resolve([]),
+      listarExcepcionesDeSlot: () => Promise.resolve([]),
+      declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+    }),
+  );
+  await esperarMicrotareas();
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  selectSlot.value = 'slot-1';
+  dispararEvento(selectSlot, 'change');
+  await esperarMicrotareas();
+
+  assert.equal(contenedor.textContent.includes('Declarar excepción de este día'), false);
+});
+
+void test('excepción: no se ofrece a un administrator sin la dependencia declararExcepcionSlot (nunca "a medias")', async () => {
+  const contenedor = await montarComoAdminConSlot();
+  assert.equal(contenedor.textContent.includes('Declarar excepción de este día'), false);
+});
+
+void test('excepción: si ya hay registros ese día, no se ofrece declarar (requisito 5)', async () => {
+  const contenedor = await montarComoAdminConSlot({
+    listarRegistros: () => Promise.resolve([crearAsistencia()]),
+    listarExcepcionesDeSlot: () => Promise.resolve([]),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  assert.equal(contenedor.textContent.includes('Declarar excepción de este día'), false);
+  assert.match(contenedor.textContent, /no se puede declarar una excepción retroactiva/);
+});
+
+void test('excepción: declarar una sustitución llama a declararExcepcionSlot con el sustituto elegido', async () => {
+  let entradaRecibida: unknown;
+  let declarada = false;
+  const contenedor = await montarComoAdminConSlot({
+    listarProfesoresParaSelector: () =>
+      Promise.resolve([
+        { id: 'profesor-1', nombre: 'Marta Ruiz' },
+        { id: 'profesor-2', nombre: 'Luis Pardo' },
+      ]),
+    listarExcepcionesDeSlot: () =>
+      Promise.resolve(
+        declarada
+          ? [
+              {
+                id: 'exc-1',
+                slot_id: 'slot-1',
+                fecha: '2026-08-26',
+                tipo: 'sustitucion' as const,
+                profesor_sustituto_id: 'profesor-2',
+                motivo: null,
+                activo: true,
+                creado_en: '2026-01-01T00:00:00.000Z',
+                actualizado_en: '2026-01-01T00:00:00.000Z',
+              },
+            ]
+          : [],
+      ),
+    declararExcepcionSlot: (entrada) => {
+      entradaRecibida = entrada;
+      declarada = true;
+      return Promise.resolve({
+        id: 'exc-1',
+        slot_id: 'slot-1',
+        fecha: '2026-08-26',
+        tipo: 'sustitucion',
+        profesor_sustituto_id: 'profesor-2',
+        motivo: null,
+        activo: true,
+        creado_en: '2026-01-01T00:00:00.000Z',
+        actualizado_en: '2026-01-01T00:00:00.000Z',
+      });
+    },
+  });
+
+  botonPorTexto(contenedor, 'Declarar excepción de este día').click();
+  await esperarMicrotareas();
+
+  // El propio titular (profesor-1) no debe aparecer como opción de sustituto.
+  const selectSustituto = contenedor.querySelector<HTMLSelectElement>('#excepcion-sustituto');
+  assert.ok(selectSustituto);
+  assert.equal(Array.from(selectSustituto.options).some((o) => o.value === 'profesor-1'), false);
+  selectSustituto.value = 'profesor-2';
+  dispararEvento(selectSustituto, 'change');
+
+  botonPorTexto(contenedor, 'Declarar').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(entradaRecibida, {
+    slotId: 'slot-1',
+    fecha: '2026-08-26',
+    tipo: 'sustitucion',
+    profesorSustitutoId: 'profesor-2',
+    motivo: null,
+  });
+  assert.match(contenedor.textContent, /Cubierto por Luis Pardo/);
+});
+
+void test('excepción: sustitución sin elegir sustituto se rechaza en el cliente, sin llamar al servidor', async () => {
+  let llamadas = 0;
+  const contenedor = await montarComoAdminConSlot({
+    listarExcepcionesDeSlot: () => Promise.resolve([]),
+    declararExcepcionSlot: () => {
+      llamadas += 1;
+      return Promise.reject(new Error('no debía llamarse'));
+    },
+  });
+
+  botonPorTexto(contenedor, 'Declarar excepción de este día').click();
+  await esperarMicrotareas();
+  botonPorTexto(contenedor, 'Declarar').click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 0);
+  assert.match(contenedor.textContent, /Elige el profesor sustituto/);
+});
+
+void test('excepción: declarar una cancelación exige motivo, envía tipo cancelacion sin sustituto', async () => {
+  let entradaRecibida: unknown;
+  let declarada = false;
+  const contenedor = await montarComoAdminConSlot({
+    listarExcepcionesDeSlot: () =>
+      Promise.resolve(
+        declarada
+          ? [
+              {
+                id: 'exc-1',
+                slot_id: 'slot-1',
+                fecha: '2026-08-26',
+                tipo: 'cancelacion' as const,
+                profesor_sustituto_id: null,
+                motivo: 'Profesor de baja',
+                activo: true,
+                creado_en: '2026-01-01T00:00:00.000Z',
+                actualizado_en: '2026-01-01T00:00:00.000Z',
+              },
+            ]
+          : [],
+      ),
+    declararExcepcionSlot: (entrada) => {
+      entradaRecibida = entrada;
+      declarada = true;
+      return Promise.resolve({
+        id: 'exc-1',
+        slot_id: 'slot-1',
+        fecha: '2026-08-26',
+        tipo: 'cancelacion',
+        profesor_sustituto_id: null,
+        motivo: 'Profesor de baja',
+        activo: true,
+        creado_en: '2026-01-01T00:00:00.000Z',
+        actualizado_en: '2026-01-01T00:00:00.000Z',
+      });
+    },
+  });
+
+  botonPorTexto(contenedor, 'Declarar excepción de este día').click();
+  await esperarMicrotareas();
+  const selectTipo = contenedor.querySelector<HTMLSelectElement>('#excepcion-tipo');
+  assert.ok(selectTipo);
+  selectTipo.value = 'cancelacion';
+  dispararEvento(selectTipo, 'change');
+  await esperarMicrotareas();
+
+  // Sin motivo: rechazado en el cliente.
+  botonPorTexto(contenedor, 'Declarar').click();
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /Escribe el motivo de la cancelación/);
+
+  const campoMotivo = contenedor.querySelector<HTMLInputElement>('#excepcion-motivo');
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'Profesor de baja';
+  dispararEvento(campoMotivo, 'input');
+  botonPorTexto(contenedor, 'Declarar').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(entradaRecibida, {
+    slotId: 'slot-1',
+    fecha: '2026-08-26',
+    tipo: 'cancelacion',
+    profesorSustitutoId: null,
+    motivo: 'Profesor de baja',
+  });
+  assert.match(contenedor.textContent, /Cancelada — Profesor de baja/);
+});
+
+void test('excepción: desactivar llama a desactivarExcepcionSlot y vuelve al formulario', async () => {
+  let excepcionActiva = true;
+  let idDesactivado: string | undefined;
+  const contenedor = await montarComoAdminConSlot({
+    listarExcepcionesDeSlot: () =>
+      Promise.resolve(
+        excepcionActiva
+          ? [
+              {
+                id: 'exc-1',
+                slot_id: 'slot-1',
+                fecha: '2026-08-26',
+                tipo: 'cancelacion',
+                profesor_sustituto_id: null,
+                motivo: 'Imprevisto',
+                activo: true,
+                creado_en: '2026-01-01T00:00:00.000Z',
+                actualizado_en: '2026-01-01T00:00:00.000Z',
+              },
+            ]
+          : [],
+      ),
+    desactivarExcepcionSlot: (id) => {
+      idDesactivado = id;
+      excepcionActiva = false;
+      return Promise.resolve({
+        id: 'exc-1',
+        slot_id: 'slot-1',
+        fecha: '2026-08-26',
+        tipo: 'cancelacion',
+        profesor_sustituto_id: null,
+        motivo: 'Imprevisto',
+        activo: false,
+        creado_en: '2026-01-01T00:00:00.000Z',
+        actualizado_en: '2026-01-01T00:00:00.000Z',
+      });
+    },
+    // Requerida como "puerta" del bloque entero (mismo criterio "nunca a medias" que R-05): sin
+    // ella no se ofrecería ni siquiera desactivar, aunque este test no llegue a usarla.
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  assert.match(contenedor.textContent, /Cancelada — Imprevisto/);
+  botonPorTexto(contenedor, 'Desactivar excepción').click();
+  await esperarMicrotareas();
+
+  assert.equal(idDesactivado, 'exc-1');
+  assert.equal(contenedor.textContent.includes('Cancelada — Imprevisto'), false);
+  assert.doesNotThrow(() => botonPorTexto(contenedor, 'Declarar excepción de este día'));
+});
+
+void test('excepción: desactivar está deshabilitado si ya hay registros ese día', async () => {
+  const contenedor = await montarComoAdminConSlot({
+    listarRegistros: () => Promise.resolve([crearAsistencia()]),
+    listarExcepcionesDeSlot: () =>
+      Promise.resolve([
+        {
+          id: 'exc-1',
+          slot_id: 'slot-1',
+          fecha: '2026-08-26',
+          tipo: 'sustitucion',
+          profesor_sustituto_id: 'profesor-2',
+          motivo: null,
+          activo: true,
+          creado_en: '2026-01-01T00:00:00.000Z',
+          actualizado_en: '2026-01-01T00:00:00.000Z',
+        },
+      ]),
+    desactivarExcepcionSlot: () => Promise.reject(new Error('no debía llamarse')),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  const boton = botonPorTexto(contenedor, 'Desactivar excepción');
+  assert.equal(boton.disabled, true);
+  assert.match(contenedor.textContent, /no se puede desactivar la excepción/);
 });

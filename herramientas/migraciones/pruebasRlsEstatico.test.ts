@@ -59,8 +59,9 @@ void test('las comprobaciones que leen la fila devuelta por una RPC expanden sus
   // luego se editan con actualizar_asistencia) + 1 de la sección 8h (R-02: el registro 'valida' que
   // se crea para comprobar que justificar lo rechaza) + 2 de la sección 8i (R-03: el registro
   // 'valida' de origen slot que luego se cierra con salida, y el 'manual' que comprueba que ajustar
-  // una salida no marcada se rechaza).
-  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.registrar_asistencia\(/g) ?? []).length, 9);
+  // una salida no marcada se rechaza) + 1 de la sección 8k (R-06: el sustituto registra en el slot
+  // que cubre).
+  assert.equal((CONTENIDO.match(/select \* into v_fila from public\.registrar_asistencia\(/g) ?? []).length, 10);
 
   assert.doesNotMatch(
     CONTENIDO,

@@ -110,3 +110,11 @@ export function puedeVerCierresCentro(rol: Rol): boolean {
 export function puedeGestionarCierresCentro(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Excepciones de slot (R-06): declarar una sustitución o cancelación de un día concreto, o
+ * desactivarla. Exclusivamente `administrator` (requisito 1: "administrator declara..."), mismo
+ * motivo que `puedeGestionarHorarios` — un `teacher` solo consulta el resultado (en «Mi horario» o
+ * en pasar lista), nunca lo declara. */
+export function puedeGestionarExcepcionesSlot(rol: Rol): boolean {
+  return rol === 'administrator';
+}

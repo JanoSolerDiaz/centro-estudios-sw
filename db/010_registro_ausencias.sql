@@ -54,6 +54,20 @@
 -- `p_anular`/`p_motivo_anulacion` de forma genérica sobre CUALQUIER
 -- `estado` de partida (nunca comprueba que sea `'valida'`), así que ya
 -- cubre `'ausente' -> 'anulada'` sin tocarla.
+--
+-- EDITADO por R-06 (db/013_excepcion_slot.sql, mismo commit): esta
+-- migración TODAVÍA NO está aplicada (sigue "Pendiente" en
+-- db/APLICADAS.md) cuando se escribe esta ampliación, así que la regla
+-- de inmutabilidad de §0.1 ("una migración APLICADA es inmutable, los
+-- arreglos van en una nueva") no la protege todavía — el propio runner
+-- solo la impone comparando el hash de un fichero que YA conste en el
+-- ledger de `esquema_migracion`, y este no consta. `registrar_ausencia`
+-- gana la misma comprobación de cancelación/sustitución que
+-- `registrar_asistencia` (R-06, sustituida en `013_excepcion_slot.sql`
+-- con `create or replace`, esa migración SÍ ya aplicada): una clase
+-- cancelada tampoco genera ausencias (requisito 3 de R-06, "ni
+-- ausencias"), y el profesor sustituto puede marcar ausente en el slot
+-- que cubre. Ver la decisión razonada en `DECISIONES_TECNICAS.md` (R-06).
 -- =====================================================================
 
 
@@ -121,15 +135,17 @@ security definer
 set search_path = public
 as $$
 declare
-  v_rol             text := public.rol_actual();
-  v_profesor_id     uuid;
-  v_registrado_en   timestamptz := now();
-  v_ocurrido_en     timestamptz;
-  v_es_retroactivo  boolean;
-  v_alumno_activo   boolean;
-  v_slot            public.slot_horario%rowtype;
-  v_fecha_local     date;
-  v_fila            public.asistencia;
+  v_rol               text := public.rol_actual();
+  v_profesor_id       uuid;
+  v_registrado_en     timestamptz := now();
+  v_ocurrido_en       timestamptz;
+  v_es_retroactivo    boolean;
+  v_alumno_activo     boolean;
+  v_slot              public.slot_horario%rowtype;
+  v_fecha_local       date;
+  v_exc_tipo          text;
+  v_exc_sustituto_id  uuid;
+  v_fila              public.asistencia;
 begin
   -- 1. Quién llama y en nombre de quién (mismo criterio exacto que registrar_asistencia).
   if p_profesor_id is not null then
@@ -176,21 +192,38 @@ begin
     raise exception 'registrar_ausencia: el alumno está dado de baja';
   end if;
 
-  -- 5. El slot existe, es del profesor que registra, es del alumno indicado y está vigente ese día
-  --    — una ausencia siempre es de origen 'slot' (nunca 'manual': un alumno extra no "faltó" a
-  --    algo que no tenía previsto).
+  -- 5. El slot existe, es del profesor que registra (o su sustituto ese día, R-06), es del alumno
+  --    indicado y está vigente ese día — una ausencia siempre es de origen 'slot' (nunca 'manual':
+  --    un alumno extra no "faltó" a algo que no tenía previsto).
   select * into v_slot from public.slot_horario where id = p_slot_id;
   if not found then
     raise exception 'registrar_ausencia: el slot indicado no existe';
   end if;
-  if v_slot.profesor_id <> v_profesor_id then
+
+  v_fecha_local := (v_ocurrido_en at time zone 'Europe/Madrid')::date;
+
+  -- R-06 (db/013_excepcion_slot.sql): ¿hay una excepción activa para este slot y esta fecha? Una
+  -- clase cancelada tampoco genera ausencias (requisito 3 de R-06: "ni ausencias (R-01) ni
+  -- entradas"); una sustitución deja marcar ausente al profesor sustituto, no al titular ese día.
+  select tipo, profesor_sustituto_id into v_exc_tipo, v_exc_sustituto_id
+    from public.excepcion_slot
+   where slot_id = p_slot_id and fecha = v_fecha_local and activo;
+
+  if v_exc_tipo = 'cancelacion' then
+    raise exception 'registrar_ausencia: la clase de este slot fue cancelada ese día';
+  elsif v_exc_tipo = 'sustitucion' then
+    if v_profesor_id <> v_exc_sustituto_id then
+      raise exception 'registrar_ausencia: este día el slot lo cubre otro profesor'
+        using errcode = '42501';
+    end if;
+  elsif v_slot.profesor_id <> v_profesor_id then
     raise exception 'registrar_ausencia: el slot pertenece a otro profesor';
   end if;
+
   if v_slot.alumno_id <> p_alumno_id then
     raise exception 'registrar_ausencia: el slot no corresponde a este alumno';
   end if;
 
-  v_fecha_local := (v_ocurrido_en at time zone 'Europe/Madrid')::date;
   if v_slot.vigente_desde > v_fecha_local
      or (v_slot.vigente_hasta is not null and v_slot.vigente_hasta < v_fecha_local) then
     raise exception 'registrar_ausencia: el slot no está vigente en la fecha del registro';

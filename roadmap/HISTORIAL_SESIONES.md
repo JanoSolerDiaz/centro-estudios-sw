@@ -37,6 +37,67 @@
 
 ---
 
+### Sesión 2026-09-07 (rutina programada) — R-06 arrancada, sexta tarea de la oleada v1
+
+**Tarea(s):** R-06 (Excepción puntual de un slot: sustitución o cancelación)
+**Estado resultante:** R-06 pasa a `BLOQUEADA` en §1 — pendiente aplicar migración `013` (fila 17 de
+§3); código y tests completos, contra dobles.
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (el agente nunca aplica DDL, §0.1). `db/013_excepcion_slot.sql`
+escrita y empujada, todavía sin aplicar — fila 17, nueva, de §3. `db/010_registro_ausencias.sql`
+(escrita en una sesión anterior, todavía sin aplicar) EDITADA en el mismo commit — no genera fila
+nueva de §3 (sigue siendo la misma migración pendiente de la fila 13).
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `db/013_excepcion_slot.sql` (nuevo: tabla `excepcion_slot`, sus
+políticas RLS, una política adicional sobre `slot_horario`, `declarar_excepcion_slot()`/
+`desactivar_excepcion_slot()`, y `registrar_asistencia` sustituida con `create or replace`),
+`db/010_registro_ausencias.sql` (editada: `registrar_ausencia` gana la comprobación de cancelación/
+sustitución), `db/pruebas_rls.sql` (sección 8k nueva; `excepcion_slot` añadida a los barridos de las
+secciones 6 y 8f), `db/APLICADAS.md` (nota de pendiente), `db/MODELO.md` (sección nueva),
+`herramientas/migraciones/excepcionSlot.test.ts` (nuevo, 20 tests estáticos),
+`herramientas/migraciones/rpcRegistrarAusencia.test.ts` (3 tests nuevos sobre la edición de `010`),
+`herramientas/migraciones/pruebasRlsEstatico.test.ts` (recuento de `registrar_asistencia(` corregido
+de 9 a 10), `src/dominio/tipos.ts` (`TipoExcepcionSlot`, `ExcepcionSlot`), `src/dominio/excepcionSlot.ts`
+(nuevo: `fechaCoincideConDiaSemana`, `motivoCancelacionValido`, `puedeDeclararExcepcion`,
+`excepcionDelDia`, `esDiaCanceladoParaSlot`, `etiquetaExcepcion`, `slotsEfectivosDelDia`, con sus 19
+tests), `src/datos/excepcionesSlot.ts` (nuevo: `declararExcepcionSlot`, `desactivarExcepcionSlot`,
+`listarExcepcionesDeSlot`, `listarExcepcionesDelDiaParaProfesor`, con sus 6 tests),
+`src/dominio/permisosUi.ts` (`puedeGestionarExcepcionesSlot`, con su test), `src/ui/pantallaPasarLista.ts`
+(dependencia opcional `listarExcepcionesDeHoy`, integrada vía `slotsEfectivosDelDia` antes de
+`alumnosPropuestos`, con 4 tests nuevos), `src/ui/pantallaMiHorario.ts` (dependencia opcional
+`listarExcepcionesDeHoy`, relabela la fila de HOY en el resumen y en la vista por día, con 4 tests
+nuevos), `src/ui/pantallaRegistrosSlot.ts` (bloque nuevo "Excepción de este día", exclusivamente
+`administrator`, con 8 tests nuevos), `src/ui/aplicacion.ts` (wiring de las tres dependencias nuevas
+en el router de `administrator`/`teacher` según corresponda), `roadmap/SEGUIMIENTO.md` (cabecera; fila
+de R-06 en §1; fila 17 nueva de §3), `roadmap/DECISIONES_TECNICAS.md` (seis filas nuevas más la fila
+de la matriz rol×tabla), `DEVELOPERS.md` (si procede), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades; `node_modules/` no existía al
+empezar, contenedor nuevo) · tipos ✅ · lint ✅ · tests ✅ (1196/1196, antes 1131) · build ✅
+**Health check post-deploy:** N/A — sin entorno desplegado que comprobar (proveedor de hosting sigue
+`<pendiente>`, pregunta #15 de §6)
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-07, R-06): (1)
+`excepcion_slot` sin GRANT de INSERT/UPDATE a `authenticated`, escritura solo vía RPC (a diferencia de
+`cierre_centro`), porque el requisito 5 protege una invariante DURA, no un aviso blando; (2)
+`registrar_ausencia` (`010`) se edita directamente en vez de sustituirse, porque esa migración
+todavía no está aplicada (§0.1 no la protege todavía); (3) la comprobación de excepción va ANTES que
+la de propiedad del slot, para que una sustitución excluya al titular aunque siga siendo el dueño
+real de la fila; (4) «Mi horario» solo relabela la fila de HOY, nunca días futuros de la vista
+recurrente; (5) `slotsEfectivosDelDia` sobrescribe `profesor_id` en una proyección de lectura, sin
+tocar el contrato de `alumnosPropuestos`; más la fila de la matriz rol×tabla para `excepcion_slot`
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva del auditor desde `06fb8b0`
+(2026-09-07 por la mañana); `#8` sigue `ABIERTO` esperando al dueño (pregunta #16), `#9` ya `RESUELTO`
+por P-17
+**Hallazgos:** ninguno nuevo de esta sesión
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente sesión revisa primero `auditoriacontinua.md` (protocolo); si sigue sin
+hallazgo `ABIERTO` de severidad alta nuevo, la siguiente tarea PENDIENTE de §1 sin dependencia sin
+empezar es **R-07** ("Pasar lista con conexión intermitente", depende de T-18/T-19, ambas
+`COMPLETADA`, sin migración) — R-13 y R-04 siguen dependiendo también de R-12, que sigue `BLOQUEADA`
+solo por migración (fila 16 de §3), así que no se dan por desbloqueadas todavía aunque R-06 ya tenga
+código completo.
+
+---
+
 ### Sesión 2026-09-07 (rutina programada) — R-05 completada, quinta tarea de la oleada v1
 
 **Tarea(s):** R-05 (Aviso de ausencia injustificada listo para enviar)

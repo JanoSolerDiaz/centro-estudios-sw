@@ -131,6 +131,122 @@ void test('un slot en curso aparece marcado "En curso", con botón "Pasar lista"
   assert.ok(botonPasarLista, 'debe ofrecer "Pasar lista" cuando el slot está en curso');
 });
 
+// --- R-06: excepciones de slot (sustitución/cancelación) ----------------------------------------
+
+void test('un slot en curso, pero cancelado hoy: "Cancelada — motivo", sin "Pasar lista" ni "En curso", fuera del resumen', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarExcepcionesDeHoy: () =>
+        Promise.resolve([
+          {
+            id: 'exc-1',
+            slot_id: slot.id,
+            fecha: '2026-08-26',
+            tipo: 'cancelacion',
+            profesor_sustituto_id: null,
+            motivo: 'Profesor de baja',
+            activo: true,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const fila = contenedor.querySelector('li');
+  assert.ok(fila);
+  assert.match(fila.textContent, /Cancelada — Profesor de baja/);
+  assert.doesNotMatch(fila.textContent, /En curso/);
+  assert.doesNotMatch(contenedor.textContent, /Ahora: Ana García López/);
+  const botonPasarLista = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Pasar lista');
+  assert.equal(botonPasarLista, undefined, 'una clase cancelada no debe ofrecer "Pasar lista"');
+});
+
+void test('un slot en curso, sustituido hoy: "Cubierto por otro profesor", sin "Pasar lista"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarExcepcionesDeHoy: () =>
+        Promise.resolve([
+          {
+            id: 'exc-1',
+            slot_id: slot.id,
+            fecha: '2026-08-26',
+            tipo: 'sustitucion',
+            profesor_sustituto_id: 'profesor-2',
+            motivo: null,
+            activo: true,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const fila = contenedor.querySelector('li');
+  assert.ok(fila);
+  assert.match(fila.textContent, /Cubierto por otro profesor/);
+  const botonPasarLista = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Pasar lista');
+  assert.equal(botonPasarLista, undefined);
+  // "Ver registros" se sigue ofreciendo: el titular puede querer comprobar que no hay nada.
+  const botonRegistros = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Ver registros');
+  assert.ok(botonRegistros);
+});
+
+void test('una excepción de OTRO día de la semana no afecta a la fila de hoy', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({}); // dia_semana 3 (miércoles), instante fijo también es miércoles
+  const otroSlotMartes = crearSlot({ id: 'slot-martes', dia_semana: 2, hora_inicio: '09:00', hora_fin: '10:00' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot, otroSlotMartes]),
+      listarExcepcionesDeHoy: () =>
+        Promise.resolve([
+          {
+            id: 'exc-1',
+            slot_id: otroSlotMartes.id,
+            fecha: '2026-08-25', // martes anterior, no hoy
+            tipo: 'cancelacion',
+            profesor_sustituto_id: null,
+            motivo: 'x',
+            activo: true,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Ahora: Ana García López/);
+  const filas = Array.from(contenedor.querySelectorAll('li'));
+  const filaHoy = filas.find((li) => li.textContent.includes('17:00–18:00'));
+  assert.ok(filaHoy, 'no se encuentra la fila del slot de hoy (17:00–18:00)');
+  assert.match(filaHoy.textContent, /En curso/);
+});
+
+void test('sin listarExcepcionesDeHoy inyectada, Mi horario funciona exactamente como antes de R-06', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Ahora: Ana García López/);
+  const fila = contenedor.querySelector('li');
+  assert.ok(fila);
+  assert.match(fila.textContent, /En curso/);
+});
+
 void test('un slot que no ha empezado no ofrece "Pasar lista", se marca "Siguiente" y aparece en el resumen', async () => {
   const contenedor = crearContenedorDePruebas();
   const slot = crearSlot({ id: 'slot-siguiente', hora_inicio: '18:00', hora_fin: '19:00' });

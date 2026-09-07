@@ -415,6 +415,69 @@ profesor y el privilegio ilimitado de `administrator` ya gobiernan toda la funci
 R-03 ("ajustar la salida... queda trazado en `asistencia_historial`") sin ningún código adicional: el
 trigger ya existente lo hace gratis en cuanto la columna existe y el `UPDATE` la toca.
 
+## Excepción de slot: sustitución o cancelación (`013_excepcion_slot.sql`, R-06)
+
+Tabla nueva, `excepcion_slot`: `slot_id` (referencia a `slot_horario`), `fecha` (`date`, la ocurrencia
+CONCRETA, no un día de la semana genérico), `tipo` (`sustitucion`/`cancelacion`),
+`profesor_sustituto_id` (solo sustitución), `motivo` (solo cancelación, obligatorio) y `activo` (baja
+lógica, nunca `DELETE`). No modifica `slot_horario` ni su vigencia (T-15): es una excepción de UN
+día sobre el horario recurrente.
+
+**A diferencia de `cierre_centro`/`centro_estudios`, sin GRANT de INSERT/UPDATE a `authenticated`.**
+Toda escritura pasa por `declarar_excepcion_slot(...)`/`desactivar_excepcion_slot(...)` (`SECURITY
+DEFINER`), no por CRUD directo bajo RLS. Decisión deliberada, documentada en
+`DECISIONES_TECNICAS.md`: el requisito 5 ("ninguna de las dos excepciones puede declararse
+retroactivamente sobre un slot que ya tiene registros de asistencia ese día") protege la misma clase
+de invariante que la inmutabilidad de `asistencia` (§0.2, "no reescribir historia"), no un aviso
+blando como el solape de `cierre_centro` — así que se comprueba de forma ATÓMICA, en la misma
+transacción de la RPC, en vez de con un read-then-write en el cliente que dejaría una ventana de
+carrera sobre una garantía que aquí debe ser dura.
+
+**Políticas RLS:** `administrator` lee todas; `teacher` solo las ACTIVAS que le afectan — como
+titular del slot (`exists` contra `slot_horario`) o como sustituto nombrado
+(`profesor_sustituto_id = auth.uid()`); sin ninguna política para `student`. `slot_horario` (`003`,
+inmutable) gana una política ADICIONAL (`slot_horario_teacher_leer_sustituciones`, nunca se toca la
+original `slot_horario_teacher_leer_propios`) para que el sustituto pueda leer el slot ajeno que
+cubre — mismo patrón exacto que `avatares_teacher_leer_alumnos_activos` de `003_politicas_rls.sql`
+(una política adicional sobre una tabla ya existente, en vez de reescribir la que ya hay).
+
+**`registrar_asistencia` (`005`, ya aplicada e inmutable) se SUSTITUYE aquí** con `create or replace
+function` — MISMA firma exacta, sin ningún parámetro nuevo (mismo patrón que `006` sustituyó
+`aplicar_limite_tasa()`): antes de comprobar "el slot pertenece a otro profesor", mira si hay una
+excepción activa para `slot_id`/fecha. Cancelación → rechaza a CUALQUIERA, incluido el propio titular
+(requisito 3: "no se crea ninguna fila... para ningún alumno del slot"). Sustitución → el profesor
+sustituto puede registrar aunque el slot no sea suyo (la fila queda con `profesor_id` = sustituto, sin
+cambiar el resto de la función); el titular, en cambio, queda excluido ese día (requisito 2: "el
+titular no lo ve", reforzado aquí a nivel de RPC, no solo de interfaz).
+
+**`registrar_ausencia` (`010`, TODAVÍA sin aplicar) gana la MISMA comprobación, pero editada
+DIRECTAMENTE en ese fichero, no sustituida aquí.** Única excepción a "una migración se sustituye,
+nunca se edita" en todo R-06: la regla de §0.1 protege una migración ya APLICADA, y `010` no lo está
+todavía — el runner solo compara el hash de lo que ya conste en `esquema_migracion`, y esta migración
+no consta. Decisión razonada en `DECISIONES_TECNICAS.md` (entrada de R-06).
+
+**Validación de coherencia, en dos capas:** `dominio/excepcionSlot.ts` (cliente, falla rápido antes
+del viaje de red) y `declarar_excepcion_slot` (servidor, autoritativa) comprueban ambas que `fecha`
+caiga en el mismo día de la semana que `slot_horario.dia_semana` — declarar "sustituye este lunes"
+con una fecha que en realidad es martes no correspondería a ninguna clase real.
+
+**`slotsEfectivosDelDia`** (`src/dominio/excepcionSlot.ts`) es la pieza que conecta R-06 con el motor
+de propuesta de T-17 (`alumnosPropuestos`) SIN tocar esa función: dado el profesor, sus slots propios
+y las excepciones de HOY, calcula la lista efectiva de slots — un slot propio con excepción activa se
+excluye por completo, uno ajeno donde el profesor es el sustituto nombrado se añade con `profesor_id`
+sobrescrito al suyo (el único campo que cambia, a propósito, para que `alumnosPropuestos` —que filtra
+`slot.profesor_id === profesorId`— lo trate como propio ese día). «Mi horario» (T-22) usa en cambio
+`excepcionDelDia`/`etiquetaExcepcion` para relabelar la fila del día de hoy («Cubierto por
+[sustituto]»/«Cancelada — motivo»), sin inyectar nada en la vista semanal recurrente: solo se sabe
+relabelar el día que coincide con hoy, una excepción declarada para un día futuro no se anticipa
+(limitación conocida, aceptable porque «Mi horario» es un horario recurrente, no un calendario con
+fecha concreta por celda).
+
+**`esDiaCanceladoParaSlot(slotId, fecha, excepciones)`** (mismo principio que `esDiaCerrado` de R-12,
+a nivel de slot en vez de centro entero) es el criterio previsto para que R-04 (informe mensual,
+pendiente) excluya un día cancelado de "sesiones esperadas" — solo la cancelación excluye, la
+sustitución sigue contando (hubo clase, solo cambió quién la impartió).
+
 ## Calendario de cierres del centro (`014_calendario_cierres.sql`, R-12)
 
 Tabla nueva, `cierre_centro`: `fecha_inicio`/`fecha_fin` (`date`, ambos inclusive — puede coincidir

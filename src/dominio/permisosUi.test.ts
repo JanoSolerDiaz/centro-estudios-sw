@@ -8,6 +8,7 @@ import {
   puedeGestionarCentros,
   puedeGestionarFichaAlumno,
   puedeGestionarCierresCentro,
+  puedeGestionarExcepcionesSlot,
   puedeGestionarHorarios,
   puedeGestionarUsuarios,
   puedeUsarPasarLista,
@@ -88,4 +89,10 @@ void test('puedeGestionarCierresCentro: exclusivamente administrator, ni siquier
   assert.equal(puedeGestionarCierresCentro('administrator'), true);
   assert.equal(puedeGestionarCierresCentro('teacher'), false);
   assert.equal(puedeGestionarCierresCentro('student'), false);
+});
+
+void test('puedeGestionarExcepcionesSlot: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeGestionarExcepcionesSlot('administrator'), true);
+  assert.equal(puedeGestionarExcepcionesSlot('teacher'), false);
+  assert.equal(puedeGestionarExcepcionesSlot('student'), false);
 });

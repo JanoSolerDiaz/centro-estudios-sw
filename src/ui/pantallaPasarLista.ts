@@ -45,6 +45,7 @@ import type { Rol, SlotHorario } from '../dominio/tipos.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
 import {
   alumnosPropuestos,
+  fechaLocalISO,
   instanteLocal,
   ZONA_HORARIA_CENTRO_POR_DEFECTO,
   type AlumnoParaPropuesta,
@@ -57,6 +58,7 @@ import { claveRegistroPorSlot, registrosDeHoyPorAlumnoSlot, puedeMarcarSalida } 
 import { compararAlumnosParaOrden } from '../dominio/alumno.ts';
 import { inicialesAlumno, colorMonograma } from '../dominio/avatarAlumno.ts';
 import { puedeUsarPasarLista } from '../dominio/permisosUi.ts';
+import { slotsEfectivosDelDia } from '../dominio/excepcionSlot.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
@@ -69,6 +71,7 @@ import { crearZonaMensaje, crearBoton } from './formularios.ts';
 import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import type { RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { AlumnoConRutaAvatar } from '../datos/avatarAlumno.ts';
+import type { ExcepcionSlotConSlot } from '../datos/excepcionesSlot.ts';
 import { Conflicto } from '../datos/erroresDominio.ts';
 
 /** Cada cuánto se recalcula la propuesta y se refresca la hora visible de la cabecera, sin red
@@ -84,6 +87,11 @@ export interface DependenciasPantallaPasarLista {
   readonly programador: ProgramadorIntervalo;
   cargarPropuesta(): Promise<readonly SlotConAlumno[]>;
   cargarAsistenciaDeHoy(instante: Date): Promise<readonly Asistencia[]>;
+  /** Excepciones de HOY (R-06) que afectan al profesor —como titular de un slot cancelado o
+   * sustituido, o como sustituto nombrado de un slot ajeno—, con el slot y el alumno embebidos
+   * (`datos/excepcionesSlot.ts#listarExcepcionesDelDiaParaProfesor`). Opcional: sin ella, pasar
+   * lista funciona exactamente como antes de R-06 (ningún slot se excluye ni se añade). */
+  listarExcepcionesDeHoy?(fecha: string): Promise<readonly ExcepcionSlotConSlot[]>;
   registrar(entrada: RegistrarAsistenciaEntrada): Promise<Asistencia>;
   /** Marca ausente a un alumno de un slot (R-01, requisito 1) — control secundario de la card,
    * distinguible del toque simple que registra presencia. */
@@ -632,9 +640,16 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   async function cargar(): Promise<void> {
     almacen.actualizar({ cargando: true, errorCarga: '' });
     const instante = deps.reloj.ahora();
+    const fechaHoy = fechaLocalISO(instante, zonaHoraria);
     try {
-      const [slots, asistenciaHoy] = await Promise.all([deps.cargarPropuesta(), deps.cargarAsistenciaDeHoy(instante)]);
-      slotsCache = slots;
+      const [slots, asistenciaHoy, excepcionesHoy] = await Promise.all([
+        deps.cargarPropuesta(),
+        deps.cargarAsistenciaDeHoy(instante),
+        deps.listarExcepcionesDeHoy ? deps.listarExcepcionesDeHoy(fechaHoy) : Promise.resolve([]),
+      ]);
+      // R-06: un slot propio cancelado/sustituido hoy se excluye; uno ajeno que este profesor
+      // cubre hoy como sustituto se añade — ver dominio/excepcionSlot.ts#slotsEfectivosDelDia.
+      slotsCache = slotsEfectivosDelDia(deps.profesorId, slots, excepcionesHoy);
       registrosHoyCache = registrosDeHoyPorAlumnoSlot(asistenciaHoy);
       aplicarRecalculo(instante);
       almacen.actualizar({ cargando: false });

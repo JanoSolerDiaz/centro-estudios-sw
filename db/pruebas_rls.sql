@@ -740,7 +740,7 @@ begin
   perform pg_temp.impersonar('student');
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'cierre_centro'
+    'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot'
   ]
   loop
     begin
@@ -1757,7 +1757,7 @@ begin
 
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro'
+    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro', 'excepcion_slot'
   ]
   loop
     begin
@@ -2307,6 +2307,268 @@ begin
 
     perform pg_temp.dejar_de_impersonar();
   end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 8k. Excepción de slot (R-06, db/013_excepcion_slot.sql) — sustitución y
+--     cancelación de un día concreto. Crea sus PROPIOS slots (nunca
+--     reutiliza slot_prueba de la sección 4, mismo criterio que 8g/8h/8i):
+--     la fecha de cada excepción es "hoy" en Europe/Madrid (nunca un
+--     desplazamiento hacia el futuro: registrar_asistencia/
+--     registrar_ausencia rechazan un ocurrido_en futuro, y las llamadas
+--     de más abajo omiten p_ocurrido_en a propósito para que las dos
+--     resuelvan "ahora" igual que esta sección resuelve "hoy"), y el
+--     `dia_semana` de cada slot se deriva de ESA fecha con `extract(isodow
+--     from ...)`, para que la comprobación "la fecha coincide con el día
+--     de la semana del slot" de la RPC se cumpla siempre, sea cual sea
+--     el día real en que se ejecute esta batería.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id          uuid := pg_temp.dato('alumno_prueba');
+  v_teacher_id         uuid;
+  v_teacher2_id        uuid;
+  v_slot_sust_id       uuid;
+  v_slot_canc_id       uuid;
+  v_slot_retro_id      uuid;
+  -- "Hoy" en Europe/Madrid, NUNCA current_date a secas (que es el día del SERVIDOR, casi siempre
+  -- UTC): registrar_asistencia/registrar_ausencia rechazan un ocurrido_en futuro, y omitir
+  -- p_ocurrido_en en las llamadas de más abajo hace que las dos resuelvan "hoy" con su propio
+  -- now() — este cálculo debe coincidir con el suyo para que la excepción declarada aquí caiga en
+  -- la MISMA fecha que ellas usan internamente.
+  v_fecha_sust         date := (now() at time zone 'Europe/Madrid')::date;
+  v_fecha_canc         date := (now() at time zone 'Europe/Madrid')::date;
+  v_fecha_retro        date := (now() at time zone 'Europe/Madrid')::date;
+  v_exc_sust           public.excepcion_slot;
+  v_exc_canc           public.excepcion_slot;
+  v_fila               public.asistencia;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
+
+  if v_alumno_id is null or v_teacher_id is null or v_teacher2_id is null or not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('declarar_excepcion_slot / administrator declara sustitución', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_excepcion_slot / administrator declara cancelación', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_excepcion_slot / teacher no puede llamar (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_excepcion_slot / student no puede llamar (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_excepcion_slot / fecha no coincide con el día de la semana (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_excepcion_slot / cancelación sin motivo (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_excepcion_slot / retroactiva sobre un slot con registros ese día (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_asistencia / cancelación bloquea a cualquiera (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_asistencia / sustituto registra en el slot cubierto', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_asistencia / titular no registra el día que le sustituyen (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_ausencia / cancelación bloquea también las ausencias (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('slot_horario / teacher2 lee el ajeno el día que lo sustituye', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('desactivar_excepcion_slot / administrator revierte una excepción sin registros', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('desactivar_excepcion_slot / rechazada si ya hay registros ese día (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_fecha_sust)::smallint, '09:00', '10:00', current_date)
+      returning id into v_slot_sust_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_fecha_canc)::smallint, '10:00', '11:00', current_date)
+      returning id into v_slot_canc_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_fecha_retro)::smallint, '11:00', '12:00', current_date)
+      returning id into v_slot_retro_id;
+  exception when others then
+    v_slot_sust_id := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_slot_sust_id is null or v_slot_canc_id is null or v_slot_retro_id is null then
+    perform pg_temp.omitir('declarar_excepcion_slot / administrator declara sustitución', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_excepcion_slot / administrator declara cancelación', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_excepcion_slot / teacher no puede llamar (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_excepcion_slot / student no puede llamar (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_excepcion_slot / fecha no coincide con el día de la semana (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_excepcion_slot / cancelación sin motivo (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_excepcion_slot / retroactiva sobre un slot con registros ese día (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('registrar_asistencia / cancelación bloquea a cualquiera (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('registrar_asistencia / sustituto registra en el slot cubierto', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('registrar_asistencia / titular no registra el día que le sustituyen (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('registrar_ausencia / cancelación bloquea también las ausencias (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('slot_horario / teacher2 lee el ajeno el día que lo sustituye', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('desactivar_excepcion_slot / administrator revierte una excepción sin registros', 'no se pudieron crear los slots de prueba propios de esta sección');
+    perform pg_temp.omitir('desactivar_excepcion_slot / rechazada si ya hay registros ese día (debe fallar)', 'no se pudieron crear los slots de prueba propios de esta sección');
+    return;
+  end if;
+
+  -- teacher no puede declarar excepciones (§0.2: solo administrator gestiona horario).
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.declarar_excepcion_slot(p_slot_id => v_slot_sust_id, p_fecha => v_fecha_sust, p_tipo => 'sustitucion', p_profesor_sustituto_id => v_teacher2_id);
+    perform pg_temp.registrar('declarar_excepcion_slot / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_excepcion_slot / teacher no puede llamar (debe fallar)', array['%solo un administrador puede declarar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student, tampoco.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('declarar_excepcion_slot / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.declarar_excepcion_slot(p_slot_id => v_slot_sust_id, p_fecha => v_fecha_sust, p_tipo => 'sustitucion', p_profesor_sustituto_id => v_teacher2_id);
+      perform pg_temp.registrar('declarar_excepcion_slot / student no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('declarar_excepcion_slot / student no puede llamar (debe fallar)', array['%solo un administrador puede declarar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Fecha que NO coincide con el día de la semana del slot de sustitución: rechazado.
+  begin
+    perform public.declarar_excepcion_slot(p_slot_id => v_slot_sust_id, p_fecha => v_fecha_sust + 1, p_tipo => 'sustitucion', p_profesor_sustituto_id => v_teacher2_id);
+    perform pg_temp.registrar('declarar_excepcion_slot / fecha no coincide con el día de la semana (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_excepcion_slot / fecha no coincide con el día de la semana (debe fallar)', array['%no cae en el día de la semana%'], sqlerrm);
+  end;
+
+  -- Cancelación sin motivo: rechazado (el CHECK de la tabla lo impediría igualmente, pero la RPC
+  -- lo comprueba antes, con un mensaje propio).
+  begin
+    perform public.declarar_excepcion_slot(p_slot_id => v_slot_canc_id, p_fecha => v_fecha_canc, p_tipo => 'cancelacion');
+    perform pg_temp.registrar('declarar_excepcion_slot / cancelación sin motivo (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_excepcion_slot / cancelación sin motivo (debe fallar)', array['%una cancelación exige un motivo%'], sqlerrm);
+  end;
+
+  -- Sustitución: alta real, permitida.
+  begin
+    select * into v_exc_sust from public.declarar_excepcion_slot(
+      p_slot_id => v_slot_sust_id, p_fecha => v_fecha_sust, p_tipo => 'sustitucion', p_profesor_sustituto_id => v_teacher2_id
+    );
+    perform pg_temp.registrar(
+      'declarar_excepcion_slot / administrator declara sustitución', 'permitido',
+      v_exc_sust.id is not null and v_exc_sust.tipo = 'sustitucion' and v_exc_sust.profesor_sustituto_id = v_teacher2_id
+    );
+  exception when others then
+    perform pg_temp.registrar('declarar_excepcion_slot / administrator declara sustitución', 'permitido', false, sqlerrm);
+  end;
+
+  -- Cancelación: alta real, permitida.
+  begin
+    select * into v_exc_canc from public.declarar_excepcion_slot(
+      p_slot_id => v_slot_canc_id, p_fecha => v_fecha_canc, p_tipo => 'cancelacion', p_motivo => '__prueba_rls__profesor_de_baja'
+    );
+    perform pg_temp.registrar(
+      'declarar_excepcion_slot / administrator declara cancelación', 'permitido',
+      v_exc_canc.id is not null and v_exc_canc.tipo = 'cancelacion' and v_exc_canc.motivo is not null
+    );
+  exception when others then
+    perform pg_temp.registrar('declarar_excepcion_slot / administrator declara cancelación', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- Cancelación bloquea a CUALQUIERA, incluido el propio titular (requisito 3 de R-06). Sin
+  -- p_ocurrido_en: por defecto es "ahora" (en vivo), que cae en v_fecha_canc por construcción.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'slot', p_slot_id => v_slot_canc_id, p_peticion_id => gen_random_uuid()
+    );
+    perform pg_temp.registrar('registrar_asistencia / cancelación bloquea a cualquiera (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('registrar_asistencia / cancelación bloquea a cualquiera (debe fallar)', array['%fue cancelada ese día%'], sqlerrm);
+  end;
+
+  -- El titular tampoco puede registrar el día que le sustituyen (aunque siga siendo "su" slot).
+  begin
+    perform public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'slot', p_slot_id => v_slot_sust_id, p_peticion_id => gen_random_uuid()
+    );
+    perform pg_temp.registrar('registrar_asistencia / titular no registra el día que le sustituyen (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('registrar_asistencia / titular no registra el día que le sustituyen (debe fallar)', array['%lo cubre otro profesor%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- El sustituto SÍ ve el slot ajeno ese día (política nueva slot_horario_teacher_leer_sustituciones).
+  perform pg_temp.impersonar('teacher2');
+  declare
+    v_visto boolean;
+  begin
+    select exists(select 1 from public.slot_horario where id = v_slot_sust_id) into v_visto;
+    perform pg_temp.registrar('slot_horario / teacher2 lee el ajeno el día que lo sustituye', 'permitido', v_visto);
+  exception when others then
+    perform pg_temp.registrar('slot_horario / teacher2 lee el ajeno el día que lo sustituye', 'permitido', false, sqlerrm);
+  end;
+
+  -- El sustituto SÍ puede registrar asistencia en el slot que cubre.
+  begin
+    select * into v_fila from public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'slot', p_slot_id => v_slot_sust_id, p_peticion_id => gen_random_uuid()
+    );
+    perform pg_temp.registrar(
+      'registrar_asistencia / sustituto registra en el slot cubierto', 'permitido',
+      v_fila.id is not null and v_fila.profesor_id = v_teacher2_id
+    );
+  exception when others then
+    perform pg_temp.registrar('registrar_asistencia / sustituto registra en el slot cubierto', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- La cancelación también bloquea registrar_ausencia (requisito 3: "ni ausencias").
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.registrar_ausencia(
+      p_alumno_id => v_alumno_id, p_slot_id => v_slot_canc_id, p_peticion_id => gen_random_uuid()
+    );
+    perform pg_temp.registrar('registrar_ausencia / cancelación bloquea también las ausencias (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('registrar_ausencia / cancelación bloquea también las ausencias (debe fallar)', array['%fue cancelada ese día%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- Retroactividad (requisito 5): un slot que YA tiene un registro ese día no admite una excepción
+  -- nueva sobre esa misma fecha.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'slot', p_slot_id => v_slot_retro_id, p_peticion_id => gen_random_uuid()
+    );
+  exception when others then
+    null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    perform public.declarar_excepcion_slot(p_slot_id => v_slot_retro_id, p_fecha => v_fecha_retro, p_tipo => 'cancelacion', p_motivo => '__prueba_rls__retroactiva');
+    perform pg_temp.registrar('declarar_excepcion_slot / retroactiva sobre un slot con registros ese día (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_excepcion_slot / retroactiva sobre un slot con registros ese día (debe fallar)', array['%ya hay registros de asistencia%'], sqlerrm);
+  end;
+
+  -- Desactivar: rechazada sobre la sustitución, que YA tiene un registro real (el del sustituto,
+  -- arriba) ese día.
+  begin
+    perform public.desactivar_excepcion_slot(v_exc_sust.id);
+    perform pg_temp.registrar('desactivar_excepcion_slot / rechazada si ya hay registros ese día (debe fallar)', 'prohibido', false, 'se desactivó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('desactivar_excepcion_slot / rechazada si ya hay registros ese día (debe fallar)', array['%ya hay registros de asistencia%'], sqlerrm);
+  end;
+
+  -- Desactivar: permitida sobre la cancelación, que NUNCA llegó a tener ningún registro (el
+  -- intento de arriba fue rechazado antes de escribir nada).
+  begin
+    perform public.desactivar_excepcion_slot(v_exc_canc.id);
+    perform pg_temp.registrar('desactivar_excepcion_slot / administrator revierte una excepción sin registros', 'permitido', true);
+  exception when others then
+    perform pg_temp.registrar('desactivar_excepcion_slot / administrator revierte una excepción sin registros', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
 end $$;
 
 

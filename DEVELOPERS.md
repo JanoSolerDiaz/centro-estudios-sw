@@ -108,6 +108,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   deshabilitar el control antes de que el servidor tenga que rechazarlo — mismo patrón que
   `motivoAnulacionValido`/`puedeCambiarSlotAtribuido` de T-21. `permisosUi.ts` añade
   `puedeGestionarUsuarios` (exclusiva de `administrator`).
+  Desde R-12: `cierresCentro.ts` (nuevo) — `buscarCierreSolapado`/`esDiaCerrado`, mismo principio que
+  `slotsVigentesEn` de T-15: una sola función, reutilizada por todo lo que necesite saber si una
+  fecha cae en un cierre activo. `permisosUi.ts` añade `puedeVerCierresCentro`/
+  `puedeGestionarCierresCentro`.
+  Desde R-06: `excepcionSlot.ts` (nuevo) — `fechaCoincideConDiaSemana` (una excepción solo tiene
+  sentido sobre una ocurrencia real del slot), `motivoCancelacionValido`, `puedeDeclararExcepcion`/
+  `excepcionDelDia` (mismo principio que `esDiaCerrado`), `esDiaCanceladoParaSlot` (criterio previsto
+  para R-04, pendiente), `etiquetaExcepcion` («Cubierto por X»/«Cancelada — motivo») y
+  `slotsEfectivosDelDia(profesorId, slotsPropios, excepcionesDeHoy)` — la pieza que conecta con el
+  motor de propuesta de T-17 (`alumnosPropuestos`) SIN tocar esa función: excluye un slot propio
+  cancelado/sustituido hoy, y añade uno ajeno donde el profesor es el sustituto nombrado, con
+  `profesor_id` sobrescrito al suyo (una proyección de lectura, nunca se escribe de vuelta).
+  `permisosUi.ts` añade `puedeGestionarExcepcionesSlot` (exclusiva de `administrator`).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -172,6 +185,14 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     solape de fechas contra los cierres ACTIVOS (`src/dominio/cierresCentro.ts`) y, si lo hay,
     devuelven `{ tipo: 'solapado', existente }` en vez de intentar la escritura — un cierre
     desactivado libera su periodo. Sin `DELETE`: la baja es siempre `activo = false`.
+  - `excepcionesSlot.ts` (R-06, nuevo) — `declararExcepcionSlot`/`desactivarExcepcionSlot`, ambas
+    EXCLUSIVAMENTE vía RPC (`declarar_excepcion_slot`/`desactivar_excepcion_slot`,
+    `db/013_excepcion_slot.sql`), a diferencia de `cierresCentro.ts`: la tabla `excepcion_slot` no
+    concede INSERT/UPDATE directo a `authenticated` (la comprobación "sin registros ese día" es
+    atómica, en el servidor). `listarExcepcionesDeSlot` (activas de un slot, cualquier fecha, para
+    «Registros») y `listarExcepcionesDelDiaParaProfesor` (activas de una fecha relevantes para el
+    `teacher` que llama —titular o sustituto—, con el slot y el alumno embebidos en una única
+    petición, para pasar lista y «Mi horario») son consultas directas: RLS ya resuelve el alcance.
   - `usuarios.ts` (T-24, nuevo) — `listarUsuarios`/`actualizarUsuario` sobre `perfil` directamente
     (sin RPC: el `UPDATE` de `administrator` sobre cualquier fila ya estaba concedido y aislado por
     RLS desde el bootstrap). `actualizarUsuario` combina nombre/rol/activo en una llamada parcial
@@ -470,6 +491,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     reconciliación tras un error (releer `cargarAsistenciaDeHoy`, mismo criterio que un `Conflicto`:
     un "ya tiene salida" no distingue un segundo toque real de una respuesta perdida de uno que sí
     llegó a escribirse).
+    Desde R-06: `deps.listarExcepcionesDeHoy?(fecha)` (opcional) trae las excepciones de HOY que
+    afectan al profesor —titular de un slot cancelado/sustituido, o sustituto nombrado de uno
+    ajeno—; `dominio/excepcionSlot.ts#slotsEfectivosDelDia` calcula, ANTES de `alumnosPropuestos`, la
+    lista efectiva de slots (excluye el propio afectado, añade el ajeno con `profesor_id`
+    sobrescrito), sin ningún cambio en `alumnosPropuestos` en sí.
   - `comboboxAlumnoExtra.ts` (T-20) — `montarComboboxAlumnoExtra(contenedor, deps)`: combobox
     accesible escrito a mano (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`,
     flechas/Enter/Escape, región `role="status"` que hace de anuncio `aria-live`). Rebote de 250 ms
@@ -492,6 +518,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     aplica. Botón "Pasar lista" solo en el slot `esActual` (`deps.irAPasarLista()`, sin parámetros);
     botón "Ver registros" siempre (`deps.irARegistros(slotId)`), que el router de `teacher` traduce a
     `#/registros/<slotId>`.
+    Desde R-06: `deps.listarExcepcionesDeHoy?(fecha)` (opcional) relabela la fila cuyo `dia_semana`
+    coincide con HOY («Cubierto por [sustituto]»/«Cancelada — motivo», nunca "En curso"/"Siguiente" a
+    la vez, sin ofrecer "Pasar lista") tanto en el resumen superior como en la lista por día —
+    limitación conocida: solo la fila de HOY se relabela, un día futuro de la semana no se anticipa.
   - `pantallaRegistrosSlot.ts` (T-21, ampliada en T-22) — `mostrarPantallaRegistrosSlot(contenedor,
     deps)`: consulta y modificación de los registros de UN slot en UN día, para `teacher` (solo lo
     suyo, sin selector de profesor) y `administrator` (elige profesor,
@@ -530,7 +560,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     "funciona sin conexión", requisito 2). "Registrar aviso enviado" pide primero quién avisó (texto
     libre, deshabilitado hasta rellenarlo) y llama a `deps.actualizar` con la `nota` combinada
     (`notaConAvisoAusencia`, ver arriba) — nunca una confirmación de entrega verificada, etiquetado
-    como tal en la propia interfaz y en el propio texto de la nota (requisito 3).
+    como tal en la propia interfaz y en el propio texto de la nota (requisito 3). Desde R-06: bloque
+    "Excepción de este día", anclado al slot y la fecha ya elegidos — exclusivamente `administrator`
+    (`puedeGestionarExcepcionesSlot`) Y solo si `deps.declararExcepcionSlot` está inyectada (sin
+    wiring para `teacher`, mismo criterio que "Avisar a la familia"). Si el día elegido ya tiene una
+    excepción activa, muestra su etiqueta y un botón "Desactivar" (deshabilitado si ya hay registros
+    ese día); si no, ofrece declarar sustitución (selector de sustituto, reutiliza
+    `listarProfesoresParaSelector`, excluye al propio titular) o cancelación (motivo obligatorio) —
+    deshabilitado también si ya hay registros ese día (requisito 5, comprobado en el cliente ADEMÁS
+    del rechazo autoritativo de la RPC).
   - `pantallaHistorico.ts` (T-23) — `mostrarPantallaHistorico(contenedor, deps)`: consulta
     transversal del histórico completo (no de un solo slot, a diferencia de
     `pantallaRegistrosSlot.ts`), para `administrator` (todo el centro) y `teacher` (solo lo suyo, por
