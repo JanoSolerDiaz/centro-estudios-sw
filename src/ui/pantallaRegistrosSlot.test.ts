@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { mostrarPantallaRegistrosSlot, type DependenciasPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
 import type { AlumnoParaPropuesta, SlotConAlumno } from '../dominio/slots.ts';
-import type { Asistencia, AsistenciaHistorial } from '../dominio/tipos.ts';
+import type { Asistencia, AsistenciaHistorial, PersonaReferencia } from '../dominio/tipos.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { SinPermiso } from '../datos/erroresDominio.ts';
@@ -105,6 +105,8 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     actualizar: overrides.actualizar ?? noImplementado('actualizar'),
     registrarOlvidado: overrides.registrarOlvidado ?? noImplementado('registrarOlvidado'),
     registrarAusencia: overrides.registrarAusencia ?? noImplementado('registrarAusencia'),
+    ...(overrides.obtenerPersonasReferencia ? { obtenerPersonasReferencia: overrides.obtenerPersonasReferencia } : {}),
+    ...(overrides.copiarAlPortapapeles ? { copiarAlPortapapeles: overrides.copiarAlPortapapeles } : {}),
     generarPeticionId:
       overrides.generarPeticionId ??
       (() => {
@@ -482,6 +484,229 @@ void test('una ausencia ya justificada se muestra como "(ausente, justificada)" 
   });
 
   assert.match(contenedor.textContent, /\(ausente, justificada\)/);
+});
+
+// --- Avisar a la familia (R-05) --------------------------------------------------------------
+
+function crearPersonaReferenciaFalsa(sobrescribir: Partial<PersonaReferencia> = {}): PersonaReferencia {
+  return {
+    id: 'pr-1',
+    alumno_id: 'alumno-1',
+    nombre: 'Marta',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    email_referencia: null,
+    telefono_referencia: '600000000',
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    ...sobrescribir,
+  };
+}
+
+void test('avisar: no se ofrece a un teacher, aunque la ausencia esté sin justificar (puedeVerPersonasReferencia)', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'teacher',
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  assert.equal(contenedor.textContent.includes('Ver personas de referencia'), false);
+  assert.equal(contenedor.textContent.includes('Avisar a la familia'), false);
+});
+
+void test('avisar: no se ofrece a un administrator sin la dependencia obtenerPersonasReferencia (nunca "a medias")', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  assert.equal(contenedor.textContent.includes('Ver personas de referencia'), false);
+});
+
+void test('avisar: no se ofrece sobre una ausencia YA justificada (criterio de aceptación de R-05)', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: 'enfermedad' })]),
+  });
+
+  assert.equal(contenedor.textContent.includes('Ver personas de referencia'), false);
+});
+
+void test('avisar: no se ofrece sobre un registro válido o anulado', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida' })]),
+  });
+
+  assert.equal(contenedor.textContent.includes('Ver personas de referencia'), false);
+});
+
+void test('avisar: administrator ve "Ver personas de referencia" sobre una ausencia sin justificar', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  assert.ok(contenedor.textContent.includes('Ver personas de referencia'));
+});
+
+void test('avisar: sin ninguna persona de referencia, lo dice explícitamente en vez de una lista vacía muda', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /no tiene ninguna persona de referencia registrada/);
+});
+
+void test('avisar: un error al cargar personas de referencia se muestra sin romper la pantalla', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.reject(new SinPermiso()),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.textContent.length > 0);
+  assert.equal(contenedor.querySelector('[role="alert"]') !== null, true);
+});
+
+void test('avisar: lista nombre y teléfono de cada persona, y el mailto: solo se ofrece con email (requisitos 1 y 2)', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () =>
+      Promise.resolve([
+        crearPersonaReferenciaFalsa({ id: 'pr-1', nombre: 'Marta', telefono_referencia: '600000001', email_referencia: 'marta@ejemplo.com' }),
+        crearPersonaReferenciaFalsa({ id: 'pr-2', nombre: 'Pedro', telefono_referencia: '600000002', email_referencia: null }),
+      ]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Marta García — 600000001/);
+  assert.match(contenedor.textContent, /Pedro García — 600000002/);
+
+  const enlaces = Array.from(contenedor.querySelectorAll('a')).filter((a) => a.textContent === 'Enviar por correo');
+  assert.equal(enlaces.length, 1); // solo Marta tiene email
+
+  const enlace = enlaces[0];
+  assert.ok(enlace);
+  assert.ok(enlace.href.startsWith('mailto:marta%40ejemplo.com?'));
+  const parametros = new URLSearchParams(enlace.href.split('?')[1]);
+  assert.match(parametros.get('subject') ?? '', /Ana García López/);
+  assert.match(parametros.get('body') ?? '', /Ana García López/);
+  assert.match(parametros.get('body') ?? '', /Matemáticas/);
+});
+
+void test('avisar: copiar mensaje llama a copiarAlPortapapeles con el texto y confirma', async () => {
+  let textoCopiado: string | undefined;
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    copiarAlPortapapeles: (texto) => {
+      textoCopiado = texto;
+      return Promise.resolve();
+    },
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Copiar mensaje').click();
+  await esperarMicrotareas();
+
+  assert.match(textoCopiado ?? '', /Ana García López/);
+  assert.match(contenedor.textContent, /Mensaje copiado al portapapeles/);
+});
+
+void test('avisar: si copiar falla, invita a copiar manualmente en vez de fingir que funcionó', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    copiarAlPortapapeles: () => Promise.reject(new Error('sin permiso del navegador')),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Copiar mensaje').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /selecciona el texto de arriba/);
+});
+
+void test('avisar: "Registrar aviso enviado" está deshabilitado hasta escribir quién avisó', async () => {
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null })]),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  assert.equal(botonPorTexto(contenedor, 'Registrar aviso enviado').disabled, true);
+
+  const campoQuien = contenedor.querySelector<HTMLInputElement>('#aviso-quien-asistencia-1');
+  assert.ok(campoQuien);
+  campoQuien.value = 'María (administradora)';
+  dispararEvento(campoQuien, 'input');
+
+  assert.equal(botonPorTexto(contenedor, 'Registrar aviso enviado').disabled, false);
+});
+
+void test('avisar: registrar aviso enviado añade la anotación a la nota SIN perder lo que ya hubiera (requisito 3)', async () => {
+  let entradaRecibida: unknown;
+  const contenedor = await montarConUnRegistro({
+    rol: 'administrator',
+    listarProfesoresParaSelector: () => Promise.resolve([{ id: 'profesor-1', nombre: 'Marta Ruiz' }]),
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente', motivo_justificacion: null, nota: 'Llegó tarde ayer.' })]),
+    actualizar: (_id, entrada) => {
+      entradaRecibida = entrada;
+      return Promise.resolve(crearAsistencia({ estado: 'ausente', nota: 'Llegó tarde ayer.\nAviso registrado.' }));
+    },
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  const campoQuien = contenedor.querySelector<HTMLInputElement>('#aviso-quien-asistencia-1');
+  assert.ok(campoQuien);
+  campoQuien.value = 'María (administradora)';
+  dispararEvento(campoQuien, 'input');
+
+  botonPorTexto(contenedor, 'Registrar aviso enviado').click();
+  await esperarMicrotareas();
+
+  const entrada = entradaRecibida as { asistenciaId: string; nota: string; notaProvista: boolean };
+  assert.equal(entrada.asistenciaId, 'asistencia-1');
+  assert.equal(entrada.notaProvista, true);
+  assert.match(entrada.nota, /^Llegó tarde ayer\./);
+  assert.match(entrada.nota, /María \(administradora\)/);
+  assert.match(entrada.nota, /anotación manual/);
 });
 
 // --- Marcar / ajustar la salida (R-03) --------------------------------------------------------

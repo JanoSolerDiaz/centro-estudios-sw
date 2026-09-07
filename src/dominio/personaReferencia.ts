@@ -14,6 +14,10 @@ export {
   normalizarTelefonoAlumno as normalizarTelefonoReferencia,
   emailAlumnoValido as emailReferenciaValido,
   telefonoAlumnoValido as telefonoReferenciaValido,
+  /** Mismo criterio de reexportar en vez de duplicar (R-05, requisito 1: "muestra las personas de
+   * referencia... nombre, teléfono"): `PersonaReferencia` comparte exactamente la forma de
+   * `nombre`/`primer_apellido`/`segundo_apellido` que `DatosNombreAlumno`. */
+  nombreCompletoAlumno as nombreCompletoPersonaReferencia,
 } from './alumno.ts';
 
 export interface DatosNombrePersonaReferencia {

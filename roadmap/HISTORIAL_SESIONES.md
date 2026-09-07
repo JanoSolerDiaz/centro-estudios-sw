@@ -37,6 +37,54 @@
 
 ---
 
+### Sesión 2026-09-07 (rutina programada) — R-05 completada, quinta tarea de la oleada v1
+
+**Tarea(s):** R-05 (Aviso de ausencia injustificada listo para enviar)
+**Estado resultante:** R-05 pasa a `COMPLETADA` en §1 — alcance de `administrator` completo y
+funcional; el alcance de `teacher` que pedía literalmente la spec original queda pendiente de la
+pregunta #17 de §6 (no bloquea, valor conservador: sin acceso para `teacher`).
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna — R-05 declara `Migración: No` en su spec, sin ninguna pieza de
+esquema que escribir
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `src/dominio/avisoAusencia.ts` (nuevo: `mensajeAvisoAusencia`,
+`textoAvisoRegistrado`, `notaConAvisoAusencia`, con su test), `src/dominio/asistencia.ts`
+(`puedeAvisarAusencia`, con su test), `src/dominio/personaReferencia.ts` (reexporta
+`nombreCompletoAlumno` como `nombreCompletoPersonaReferencia`, con su test),
+`src/datos/personasReferencia.ts` (`listarPersonasReferencia`, primera función de lectura propia del
+módulo, con sus tests), `src/ui/portapapeles.ts` (nuevo: `copiarAlPortapapelesDelNavegador`, sin test
+propio — mismo criterio que `FabricaProcesadoImagen`, T-14), `src/ui/pantallaRegistrosSlot.ts` (bloque
+nuevo "Avisar a la familia", con sus 12 tests), `src/ui/aplicacion.ts` (wiring de
+`obtenerPersonasReferencia`/`copiarAlPortapapeles` en el router de `administrator`, omitidos con
+comentario explícito en el de `teacher`), `roadmap/SEGUIMIENTO.md` (cabecera; fila de R-05 en §1;
+pregunta #17 nueva en §6), `roadmap/DECISIONES_TECNICAS.md` (cinco filas nuevas), `DEVELOPERS.md`
+(secciones de `personasReferencia.ts`, `asistencia.ts`, `pantallaRegistrosSlot.ts` y `portapapeles.ts`
+actualizadas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** `npm ci` (130 paquetes, 0 vulnerabilidades; `node_modules/` no existía al
+empezar, contenedor nuevo) · tipos ✅ · lint ✅ · tests ✅ (1131/1131, antes 1108) · build ✅
+**Health check post-deploy:** N/A — sin entorno desplegado que comprobar (proveedor de hosting sigue
+`<pendiente>`, pregunta #15 de §6)
+**Decisiones tomadas:** cinco filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-07, R-05): (1) el
+alcance de `teacher` que pedía la spec original se difiere a la pregunta #17, se implementa solo
+`administrator`; (2) la anotación "aviso enviado" reutiliza `nota` genérico, SUMÁNDOSE al valor
+previo, nunca sustituyéndolo; (3) "quién avisó" es siempre texto libre, nunca resuelto desde
+`actualizado_por`; (4) el mensaje se muestra siempre en un `<textarea readonly>`, independiente de si
+el copiado automático funciona
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva del auditor desde `06fb8b0`
+(2026-09-07 por la mañana); `#8` sigue `ABIERTO` esperando al dueño (pregunta #16), `#9` ya `RESUELTO`
+por P-17 en la sesión anterior, el mismo día
+**Hallazgos:** propio de esta sesión (no de auditoría, mismo patrón que el #8 del auditor): la spec de
+R-05 pedía alcance de `teacher` sobre personas de referencia, contradiciendo §0.2 (norma permanente) y
+el propio comentario de `puedeVerPersonasReferencia` desde T-13 — registrado como pregunta #17 de §6,
+no implementado hasta que el dueño decida
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente sesión revisa primero `auditoriacontinua.md` (protocolo); si sigue sin
+hallazgo `ABIERTO` de severidad alta nuevo, la siguiente tarea PENDIENTE de §1 sin dependencia sin
+empezar es **R-06** ("Excepción puntual de un slot: sustitución o cancelación", depende de T-15/T-17/
+T-18, todas `COMPLETADA`) — desbloquearía después a R-13 y R-04, que siguen esperándola.
+
+---
+
 ### Sesión 2026-09-07 (rutina programada) — R-12 arrancada, cuarta tarea de la oleada v1; P-17 resuelta
 
 **Tarea(s):** R-12 (Calendario de cierres del centro) · P-17 (backlog, resuelta en el camino)

@@ -192,13 +192,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     devuelven `AlumnoConCentroYPersonas` (embebe también `personas_referencia:persona_referencia(*)`
     en el mismo `select`); `listarAlumnos` sigue devolviendo `AlumnoConCentro` sin ese embebido.
   - `personasReferencia.ts` (T-13) — `crearPersonaReferencia`/`editarPersonaReferencia`/
-    `eliminarPersonaReferencia` sobre `postgrest.ts`. Sin función de lectura propia: las personas de
-    referencia viajan embebidas en la ficha del alumno (`alumnos.ts`, arriba). `telefono_referencia`
-    es obligatorio (a diferencia del teléfono del propio alumno); `eliminarPersonaReferencia` es
-    borrado real, sin baja lógica — única tabla del sistema donde eso está permitido (§0.2). A
-    diferencia de `alumnos.ts`, sí pide `Prefer: return=representation` (el valor por defecto):
-    `persona_referencia` concede todas sus columnas a `authenticated` en la tabla base, sin ninguna
-    vista de por medio que las reparta de otro modo por rol.
+    `eliminarPersonaReferencia` sobre `postgrest.ts`. Sin función de lectura propia hasta R-05: hasta
+    entonces las personas de referencia solo viajaban embebidas en la ficha del alumno (`alumnos.ts`,
+    arriba). `telefono_referencia` es obligatorio (a diferencia del teléfono del propio alumno);
+    `eliminarPersonaReferencia` es borrado real, sin baja lógica — única tabla del sistema donde eso
+    está permitido (§0.2). A diferencia de `alumnos.ts`, sí pide `Prefer: return=representation` (el
+    valor por defecto): `persona_referencia` concede todas sus columnas a `authenticated` en la tabla
+    base, sin ninguna vista de por medio que las reparta de otro modo por rol. Desde R-05:
+    `listarPersonasReferencia(cliente, alumnoId)` — la primera lectura propia del módulo, solo estas
+    columnas (sin el resto de la ficha del alumno, mismo criterio de minimización que P-02 de T-14),
+    para el botón «avisar» de `pantallaRegistrosSlot.ts`; reservada a `administrator` por RLS, igual
+    que el resto del módulo — un `teacher` recibe un array vacío, nunca un error (RLS filtra filas,
+    no deniega la petición), pero la interfaz no la llama para ese rol (`puedeVerPersonasReferencia`,
+    ver pregunta #17 de §6 de `SEGUIMIENTO.md`).
   - `asistencia.ts` (T-18) — `registrarAsistencia(deps, usuarioId, entrada)`: único punto de llamada
     a la RPC `registrar_asistencia` (`cliente.rpc(...)`, nunca un `INSERT` directo — revocado). No
     genera `peticionId`: es responsabilidad de quien llama (T-19, junto con `proteccionDobleToque`
@@ -220,7 +226,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     régimen que `entrada.ocurridoEn` sobre la entrada), mutuamente excluyentes en la misma llamada; y
     `marcarSalidaAsistencia(deps, profesorDuenoId, asistenciaId)`, un atajo de un solo parámetro sobre
     `actualizarAsistencia` para pantallas (pasar lista) que solo necesitan esa acción, sin construir
-    el resto de `ActualizarAsistenciaEntrada`.
+    el resto de `ActualizarAsistenciaEntrada`. Desde R-05: "avisar a la familia" NO añade ninguna
+    acción nueva a `actualizarAsistencia` — reutiliza `entrada.nota`/`entrada.notaProvista` ya
+    existente (R-05 declara `Migración: No`, sin columna propia para "aviso enviado"); ver
+    `dominio/avisoAusencia.ts#notaConAvisoAusencia`, que compone el nuevo valor de `nota` SUMANDO la
+    anotación a lo que ya hubiera, nunca sustituyéndolo.
     `listarRegistrosDeSlotYFecha(cliente, slotId, fecha, zona?)` — registros de un slot en CUALQUIER
     fecha, cualquier estado (a diferencia de `listarAsistenciaDeHoy`, siempre "hoy" y solo válidos).
     `listarHistorialDeAsistencia(cliente, asistenciaId)` — lee `asistencia_historial`, solo tiene
@@ -364,6 +374,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `crearDescargadorNavegador(documento)` — dispara la descarga de un fichero de texto (`Blob`/
     `URL.createObjectURL`/`<a download>`), inyectable igual que `FabricaProcesadoImagen` (T-14): la
     pantalla que lo usa se testea con un `Descargador` de mentira que solo registra la llamada.
+  - `portapapeles.ts` (R-05) — `copiarAlPortapapelesDelNavegador(texto)`: envoltura de una línea
+    sobre `navigator.clipboard.writeText`, mismo motivo de aislamiento que `FabricaProcesadoImagen`
+    (T-14) y `Descargador` (T-23): `jsdom` no implementa la Clipboard API, así que la pantalla que la
+    usa (`pantallaRegistrosSlot.ts`) recibe la función inyectada (`deps.copiarAlPortapapeles`,
+    opcional) y se testea contra un doble; la función real no tiene test propio, documentado igual
+    que el procesado de imagen real de T-14.
   - `pantallaLogin.ts`, `pantallaRecuperarContrasena.ts`, `pantallaEstablecerContrasenaNueva.ts`,
     `pantallaSinAcceso.ts` (T-09) — una función `mostrarPantallaX(contenedor, deps)` por pantalla,
     con sus dependencias inyectadas (nunca llaman directamente a `gestorSesion.ts`). La de
@@ -500,7 +516,21 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     por fila — un único botón (`puedeMarcarSalida`) mientras no hay salida marcada, con la hora real
     del servidor; un `<input type="time">` para corregirla después, nunca las dos ofertas a la vez —
     y la columna de detalle gana la hora de salida y la duración real junto a la teórica
-    (`duracionRealMinutos`/`duracionTeoricaMinutos`, `dominio/asistencia.ts`).
+    (`duracionRealMinutos`/`duracionTeoricaMinutos`, `dominio/asistencia.ts`). Desde R-05: bloque
+    "Avisar a la familia" — solo sobre una ausencia sin justificar (`puedeAvisarAusencia`,
+    `dominio/asistencia.ts`) Y solo si `puedeVerPersonasReferencia(deps.rol)` es `administrator`
+    (`deps.obtenerPersonasReferencia` es opcional, sin wiring para `teacher` en `aplicacion.ts` — ver
+    `DECISIONES_TECNICAS.md` y la pregunta #17 de `SEGUIMIENTO.md` §6 sobre por qué la spec original
+    pedía también alcance de `teacher` y por qué se difiere). Al pulsar "Ver personas de referencia"
+    (carga perezosa, mismo patrón que "Ver historial"), lista nombre/teléfono
+    (`dominio/personaReferencia.ts#nombreCompletoPersonaReferencia`, reexporta
+    `nombreCompletoAlumno`) y compone el mensaje (`dominio/avisoAusencia.ts#mensajeAvisoAusencia`):
+    un enlace `mailto:` por persona con email, y un `<textarea readonly>` con el mismo texto
+    (visible/copiable a mano incluso si `deps.copiarAlPortapapeles` falla o no está inyectada — así
+    "funciona sin conexión", requisito 2). "Registrar aviso enviado" pide primero quién avisó (texto
+    libre, deshabilitado hasta rellenarlo) y llama a `deps.actualizar` con la `nota` combinada
+    (`notaConAvisoAusencia`, ver arriba) — nunca una confirmación de entrega verificada, etiquetado
+    como tal en la propia interfaz y en el propio texto de la nota (requisito 3).
   - `pantallaHistorico.ts` (T-23) — `mostrarPantallaHistorico(contenedor, deps)`: consulta
     transversal del histórico completo (no de un solo slot, a diferencia de
     `pantallaRegistrosSlot.ts`), para `administrator` (todo el centro) y `teacher` (solo lo suyo, por

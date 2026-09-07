@@ -165,6 +165,17 @@ export function puedeCambiarSlotAtribuido(registro: Pick<Asistencia, 'origen'>):
   return registro.origen === 'slot';
 }
 
+/** ¿Tiene sentido ofrecer «avisar» a la familia (requisito 1 de R-05) sobre `registro`? Solo una
+ * ausencia sin justificar todavía — avisar de una ya justificada (motivo conocido: enfermedad, cita
+ * médica...) alarmaría a la familia de algo que el centro ya tiene explicado, y el criterio de
+ * aceptación de R-05 lo exige literalmente ("el botón «avisar» no aparece si la ausencia está
+ * justificada"). No hay ninguna RPC que rechace esto del lado del servidor (R-05 no escribe ningún
+ * estado nuevo, solo lee y anota el campo `nota` genérico ya existente): esta función es la única
+ * guarda. */
+export function puedeAvisarAusencia(registro: Pick<Asistencia, 'estado' | 'motivo_justificacion'>): boolean {
+  return registro.estado === 'ausente' && registro.motivo_justificacion === null;
+}
+
 /** Clave de un registro por alumno y slot (T-19, requisito 5: "al abrir, ya se ve quién está
  * registrado hoy en ese slot"), único criterio para cruzar la propuesta (`alumnosPropuestos`,
  * `dominio/slots.ts`) con lo que ya devolvió el servidor — mismas dos columnas que la restricción

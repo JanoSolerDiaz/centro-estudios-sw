@@ -41,12 +41,13 @@
  */
 
 import type { Rol } from '../dominio/tipos.ts';
-import type { Asistencia, AsistenciaHistorial, MotivoJustificacionAusencia } from '../dominio/tipos.ts';
+import type { Asistencia, AsistenciaHistorial, MotivoJustificacionAusencia, PersonaReferencia } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import type { SlotConAlumno, AlumnoParaPropuesta } from '../dominio/slots.ts';
 import { fechaLocalISO, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
 import { slotVigenteEn } from '../dominio/slotHorario.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
+import { nombreCompletoPersonaReferencia } from '../dominio/personaReferencia.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import {
   motivoAnulacionValido,
@@ -55,11 +56,13 @@ import {
   puedeCambiarSlotAtribuido,
   puedeJustificarAusencia,
   puedeMarcarSalida,
+  puedeAvisarAusencia,
   duracionRealMinutos,
   duracionTeoricaMinutos,
 } from '../dominio/asistencia.ts';
+import { mensajeAvisoAusencia, notaConAvisoAusencia } from '../dominio/avisoAusencia.ts';
 import { etiquetaMotivoJustificacion } from '../dominio/historicoAsistencia.ts';
-import { puedeEditarAsistenciaDeCualquiera } from '../dominio/permisosUi.ts';
+import { puedeEditarAsistenciaDeCualquiera, puedeVerPersonasReferencia } from '../dominio/permisosUi.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ActualizarAsistenciaEntrada, RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { ProfesorParaSelector } from '../datos/profesores.ts';
@@ -97,6 +100,17 @@ export interface DependenciasPantallaRegistrosSlot {
    * registro olvidado"; el propio índice único de la base de datos es quien de verdad lo impide. */
   registrarAusencia(entrada: RegistrarAusenciaEntrada): Promise<Asistencia>;
   generarPeticionId(): string;
+  /** «Avisar a la familia» (R-05) — solo se llama, y solo se ofrece en pantalla, cuando
+   * `puedeVerPersonasReferencia(rol)` es `administrator`: un `teacher` no ve personas de referencia
+   * "ni siquiera en modo lectura" (`dominio/permisosUi.ts`), y la ampliación de alcance que pedía la
+   * spec original de R-05 para `teacher` queda pendiente de una decisión del dueño (pregunta #17 de
+   * §6 de SEGUIMIENTO.md) — quien monta esta pantalla para `teacher` omite esta dependencia, igual
+   * que ya hace con `listarProfesoresParaSelector`. */
+  obtenerPersonasReferencia?(alumnoId: string): Promise<readonly PersonaReferencia[]>;
+  /** Copia el mensaje de aviso al portapapeles (requisito 2 de R-05) — mismo motivo de opcionalidad
+   * que `obtenerPersonasReferencia`: sin esta dependencia, el botón «Copiar mensaje» simplemente no
+   * se ofrece (el texto sigue visible y seleccionable a mano en el `<textarea>`). */
+  copiarAlPortapapeles?(texto: string): Promise<void>;
 }
 
 interface EstadoFila {
@@ -121,6 +135,12 @@ interface EstadoFila {
   readonly motivoJustificacion: MotivoJustificacionAusencia | '';
   readonly notaJustificacion: string;
   readonly historial: readonly AsistenciaHistorial[] | null;
+  /** Avisar a la familia (R-05) — `null` mientras no se han pedido todavía (botón "Ver personas de
+   * referencia" sin pulsar); un array vacío es una respuesta real (el alumno no tiene ninguna). */
+  readonly personasReferencia: readonly PersonaReferencia[] | null;
+  readonly personasReferenciaError: string;
+  readonly avisoQuien: string;
+  readonly avisoMensaje: string;
 }
 
 const ESTADO_FILA_INICIAL: EstadoFila = {
@@ -136,6 +156,10 @@ const ESTADO_FILA_INICIAL: EstadoFila = {
   slotDestinoId: '',
   motivoAnulacion: '',
   confirmandoAnular: false,
+  personasReferencia: null,
+  personasReferenciaError: '',
+  avisoQuien: '',
+  avisoMensaje: '',
   motivoJustificacion: '',
   notaJustificacion: '',
   historial: null,
@@ -403,6 +427,7 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
           motivoAnulacion: '',
           motivoJustificacion: '',
           notaJustificacion: '',
+          avisoQuien: '',
         });
       } catch (error) {
         actualizarFila(registro.id, { guardando: false, error: mensajeAmigable(error) });
@@ -630,6 +655,122 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
       });
       bloqueJustificar.append(etiquetaMotivo, selectMotivo, campoNotaJustificacion.contenedor, botonJustificar);
       panel.append(bloqueJustificar);
+    }
+
+    // Avisar a la familia (R-05): solo sobre una ausencia sin justificar (puedeAvisarAusencia) y
+    // solo si el rol ve personas de referencia (`puedeVerPersonasReferencia`, administrator hoy —
+    // la ampliación a teacher que pedía la spec original queda pendiente de la pregunta #17 de §6).
+    if (puedeAvisarAusencia(registro) && puedeVerPersonasReferencia(deps.rol) && deps.obtenerPersonasReferencia) {
+      const bloqueAviso = crearElemento(documento, 'div');
+      bloqueAviso.append(crearElemento(documento, 'p', { texto: 'Avisar a la familia de esta ausencia sin justificar:' }));
+
+      if (filaEstado.personasReferenciaError) {
+        const mensajeError = crearZonaMensaje(documento, 'alert');
+        mensajeError.textContent = filaEstado.personasReferenciaError;
+        bloqueAviso.append(mensajeError);
+      }
+
+      if (filaEstado.personasReferencia === null) {
+        const botonVerPersonas = crearBoton(documento, 'Ver personas de referencia', 'button');
+        botonVerPersonas.addEventListener('click', () => {
+          if (!deps.obtenerPersonasReferencia) {
+            return;
+          }
+          deps
+            .obtenerPersonasReferencia(registro.alumno_id)
+            .then((personas) => {
+              actualizarFila(registro.id, { personasReferencia: personas, personasReferenciaError: '' });
+            })
+            .catch((error: unknown) => {
+              actualizarFila(registro.id, { personasReferenciaError: mensajeAmigable(error) });
+            });
+        });
+        bloqueAviso.append(botonVerPersonas);
+      } else if (filaEstado.personasReferencia.length === 0) {
+        bloqueAviso.append(
+          crearElemento(documento, 'p', { texto: 'Este alumno no tiene ninguna persona de referencia registrada.' }),
+        );
+      } else {
+        const nombreAlumnoAviso = almacen.obtener().nombresAlumno.get(registro.alumno_id) ?? 'el alumno';
+        const mensaje = mensajeAvisoAusencia({
+          alumnoNombreCompleto: nombreAlumnoAviso,
+          fechaTexto: formatearFechaHora(registro.ocurrido_en),
+          claseNombre: registro.slot_asignatura_o_grupo,
+        });
+
+        const listaPersonas = crearElemento(documento, 'ul');
+        for (const persona of filaEstado.personasReferencia) {
+          const item = documento.createElement('li');
+          item.append(
+            crearElemento(documento, 'span', {
+              texto: `${nombreCompletoPersonaReferencia(persona)} — ${persona.telefono_referencia}`,
+            }),
+          );
+          if (persona.email_referencia) {
+            const email = persona.email_referencia;
+            const enlaceCorreo = documento.createElement('a');
+            enlaceCorreo.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(mensaje.asunto)}&body=${encodeURIComponent(mensaje.cuerpo)}`;
+            enlaceCorreo.textContent = 'Enviar por correo';
+            item.append(' ', enlaceCorreo);
+          }
+          listaPersonas.append(item);
+        }
+        bloqueAviso.append(listaPersonas);
+
+        const areaMensaje = documento.createElement('textarea');
+        areaMensaje.readOnly = true;
+        areaMensaje.value = `${mensaje.asunto}\n\n${mensaje.cuerpo}`;
+        bloqueAviso.append(areaMensaje);
+
+        if (deps.copiarAlPortapapeles) {
+          const botonCopiar = crearBoton(documento, 'Copiar mensaje', 'button');
+          botonCopiar.addEventListener('click', () => {
+            if (!deps.copiarAlPortapapeles) {
+              return;
+            }
+            deps
+              .copiarAlPortapapeles(areaMensaje.value)
+              .then(() => {
+                actualizarFila(registro.id, { avisoMensaje: 'Mensaje copiado al portapapeles.' });
+              })
+              .catch(() => {
+                actualizarFila(registro.id, {
+                  avisoMensaje: 'No se ha podido copiar automáticamente: selecciona el texto de arriba.',
+                });
+              });
+          });
+          bloqueAviso.append(botonCopiar);
+        }
+
+        if (filaEstado.avisoMensaje) {
+          const zonaEstado = crearZonaMensaje(documento, 'status');
+          zonaEstado.textContent = filaEstado.avisoMensaje;
+          bloqueAviso.append(zonaEstado);
+        }
+
+        // Marcar «aviso enviado» — anotación manual, con quién y cuándo (requisito 3): sin columna
+        // dedicada (R-05 declara "Migración: No"), se añade al `nota` genérico ya editable por
+        // `actualizar_asistencia` (T-21), nunca lo sustituye (`notaConAvisoAusencia`).
+        const campoQuien = crearCampoTexto(documento, `aviso-quien-${registro.id}`, '¿Quién ha avisado?', 'text', 'off');
+        campoQuien.input.value = filaEstado.avisoQuien;
+        campoQuien.input.addEventListener('input', () => {
+          actualizarFila(registro.id, { avisoQuien: campoQuien.input.value });
+        });
+        const botonRegistrarAviso = crearBoton(documento, 'Registrar aviso enviado', 'button');
+        botonRegistrarAviso.disabled = filaEstado.guardando || filaEstado.avisoQuien.trim().length === 0;
+        botonRegistrarAviso.addEventListener('click', () => {
+          const cuandoTexto = formatearFechaHora(deps.reloj.ahora().toISOString());
+          const nota = notaConAvisoAusencia(registro.nota, filaEstado.avisoQuien.trim(), cuandoTexto);
+          void ejecutar({ asistenciaId: registro.id, nota, notaProvista: true });
+        });
+        bloqueAviso.append(
+          campoQuien.contenedor,
+          botonRegistrarAviso,
+          crearElemento(documento, 'p', { texto: 'Anotación manual: no es una confirmación de entrega verificada por el sistema.' }),
+        );
+      }
+
+      panel.append(bloqueAviso);
     }
 
     // Historial completo (requisito 7): solo administrator.

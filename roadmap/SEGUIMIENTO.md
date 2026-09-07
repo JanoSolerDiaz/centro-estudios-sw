@@ -10,8 +10,91 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-07 (rutina programada, "R-12 arrancada, cuarta tarea de la oleada
-v1; P-17 resuelta en el camino") — R-01, R-02 y R-03 seguían `BLOQUEADA` en §1 esperando
+**Última actualización:** 2026-09-07 (rutina programada, "R-05 completada, quinta tarea de la oleada
+v1") — R-01, R-02, R-03 y R-12 seguían `BLOQUEADA` en §1 esperando exclusivamente al dueño (filas 13,
+14, 15 y 16 de §3, sin cambio: aplicar `010`, `011`, `012` y `014`, la 14 condicionada además a la
+pregunta #16 de §6), así que esta sesión revisó primero el registro de hallazgos de
+`auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada nueva del
+auditor desde `06fb8b0` (2026-09-07 por la mañana), así que el estado de los dos `ABIERTO` es el
+mismo ya conocido — `#8` (RGPD/dato de salud en R-02) formalizado como pregunta **#16** de §6,
+esperando al dueño; `#9` (higiene documental) ya `RESUELTO` por **P-17** en la sesión anterior, el
+mismo día — nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1 en orden: las
+dos siguientes `PENDIENTE`, **R-13** ("Aviso de sesiones sin pasar lista en «Mi horario»") y **R-04**
+("Informe mensual por alumno"), dependen ambas de **R-06** ("Excepción puntual de un slot"), que
+sigue `PENDIENTE` sin ningún código escrito todavía — a diferencia de R-01/R-02/R-03/R-12 (código
+completo, solo bloqueadas por una migración sin aplicar), R-06 no tiene nada que reutilizar contra
+dobles, así que R-13 y R-04 dependen de verdad de una tarea que no ha ni empezado, y se saltan (mismo
+criterio que sesiones anteriores usaron con R-01/R-02 mientras sus migraciones seguían sin aplicar,
+pero al revés: aquí el bloqueo es de código, no de migración). La siguiente `PENDIENTE` que no
+depende de nada sin empezar era **R-05**, "Aviso de ausencia injustificada listo para enviar" (spec
+en `roadmap/ROADMAP_PRODUCTO.md`), que depende de R-01, R-02 (código completo desde hace semanas,
+solo migraciones `010`/`011` sin aplicar — no bloquea escribir contra dobles, mismo precedente que
+R-03 usó con R-01/R-02) y T-13 (`COMPLETADA`). Su spec declara `Migración: No`, así que no hay ninguna
+pieza de esquema que escribir ni ninguna fila nueva de §3.
+**Hallazgo propio de esta sesión, registrado como pregunta #17 de §6 (no una P-XX ni un hallazgo de
+auditoría, sino el mismo tipo de contradicción que el auditor ya encontró en R-02/#8):** el requisito
+4 y el criterio de aceptación de R-05 piden literalmente que el `teacher` del alumno acceda a sus
+personas de referencia por el botón «avisar» ("mismo alcance que T-13", que en realidad es
+`administrator`-only desde su origen) — contradice §0.2 de `HOJA_DE_RUTA.md` (norma permanente: "el
+`teacher`... no ve datos de contacto ni personas de referencia") y el propio comentario de
+`dominio/permisosUi.ts#puedeVerPersonasReferencia` desde T-13 ("ni siquiera en modo lectura").
+Concederlo de verdad exigiría además una política RLS nueva que la propia spec no puede traer
+(`Migración: No`). Se implementa R-05 **solo para `administrator`** (funcional y completo), se abre la
+pregunta #17 con tres opciones (ampliar §0.2 con una excepción estrecha, corregir la spec de R-05 para
+que deje de pedir alcance de `teacher`, o alguna acotación intermedia) y R-05 se marca `COMPLETADA` en
+§1 sin esperar respuesta — mismo criterio conservador que el resto de preguntas abiertas del proyecto:
+el valor por defecto (sin acceso para `teacher`) es el más seguro y no bloquea nada. **Segunda
+decisión de diseño:** el "relación/parentesco" que el requisito 1 de R-05 pedía mostrar junto a
+nombre/teléfono no existe en `persona_referencia` — es exactamente el hueco ya abierto como pregunta
+#9 de §6 desde T-13, sin resolver; se muestra solo nombre y teléfono, sin bloquear nada (mismo
+criterio que esa pregunta ya establecía). **Tercera decisión, la más delicada:** R-05 declara
+`Migración: No`, así que la anotación manual «aviso enviado» (requisito 3, "con quién y cuándo") no
+tiene columna propia — reutiliza el campo `nota` genérico ya editable por `actualizar_asistencia`
+(T-21), pero **sumándose** al valor previo, nunca sustituyéndolo (`dominio/avisoAusencia.ts#notaConAvisoAusencia`):
+reemplazarlo sin más habría perdido en silencio cualquier nota anterior sin relación con el aviso, o
+habría borrado el aviso en la siguiente edición de la nota por otro motivo. "Quién avisó" es siempre
+texto libre tecleado por quien marca el aviso (nunca resuelto desde `actualizado_por`/`auth.uid()`,
+mismo criterio de "no resolver nombres ajenos" que ya documentaba `pantallaRegistrosSlot.ts` desde
+T-21) — permite además que quien registra el aviso no sea quien hizo la llamada (p. ej. la
+secretaria). Dominio (`dominio/avisoAusencia.ts`, módulo nuevo: `mensajeAvisoAusencia`,
+`textoAvisoRegistrado`, `notaConAvisoAusencia`; `dominio/asistencia.ts#puedeAvisarAusencia`, ausente Y
+sin justificar; `dominio/personaReferencia.ts` reexporta `nombreCompletoAlumno` como
+`nombreCompletoPersonaReferencia`, misma forma exacta de nombre/apellidos). Datos
+(`datos/personasReferencia.ts#listarPersonasReferencia`, la PRIMERA función de lectura propia del
+módulo — hasta ahora las personas de referencia solo viajaban embebidas en la ficha completa del
+alumno —, minimizada a solo estas columnas, mismo criterio que P-02 de T-14). UI nueva
+(`ui/portapapeles.ts#copiarAlPortapapelesDelNavegador`, envoltura de una línea sobre
+`navigator.clipboard.writeText`, aislada del mismo modo que `FabricaProcesadoImagen` de T-14 porque
+`jsdom` no implementa la Clipboard API — sin test propio, documentado igual). En
+`pantallaRegistrosSlot.ts`, bloque nuevo "Avisar a la familia" junto a "Justificar" — ofrecido solo si
+`puedeAvisarAusencia(registro)` Y `puedeVerPersonasReferencia(deps.rol)` (hoy, `administrator`) Y la
+dependencia `obtenerPersonasReferencia` está inyectada (opcional en la interfaz, sin wiring para
+`teacher` en `aplicacion.ts`, mismo patrón que `listarProfesoresParaSelector`): botón "Ver personas de
+referencia" (carga perezosa, mismo patrón que "Ver historial"), lista nombre/teléfono con un enlace
+`mailto:` por persona con email, un `<textarea readonly>` con el mensaje completo (visible y copiable
+a mano incluso si el copiado automático falla o no está inyectado — así "funciona sin conexión",
+requisito 2) y un botón "Copiar mensaje" (solo si `copiarAlPortapapeles` está inyectada). "Registrar
+aviso enviado" pide primero quién avisó (deshabilitado hasta rellenarlo) y llama a `deps.actualizar`
+con la nota combinada, nunca como confirmación de entrega verificada (etiquetado así en la propia
+interfaz y en el propio texto de la nota). **23 tests nuevos (1131 en total, antes 1108):** 6 de
+`dominio/avisoAusencia.test.ts` (mensaje con/sin clase, anotación con la etiqueta de "no verificado",
+combinar nota con/sin valor previo, nota en blanco tratada como ausente), 2 de
+`dominio/asistencia.test.ts` (`puedeAvisarAusencia`: solo ausente sin justificar, nunca sobre
+válida/anulada), 1 de `dominio/personaReferencia.test.ts` (el reexport de nombre completo), 2 de
+`datos/personasReferencia.test.ts` (`listarPersonasReferencia` filtra por alumno y ordena; un
+`teacher`, 0 filas por RLS, nunca un error) y 12 de `ui/pantallaRegistrosSlot.test.ts` (no se ofrece a
+`teacher`, no se ofrece sin la dependencia inyectada, no se ofrece justificada/válida/anulada, se
+ofrece sobre una ausencia sin justificar, sin ninguna persona lo dice explícitamente, un error de
+carga no rompe la pantalla, lista nombre/teléfono con `mailto:` solo si hay email, copiar confirma,
+copiar fallido invita a copiar a mano, "registrar aviso" deshabilitado hasta escribir quién, y la nota
+combinada conserva lo anterior). Verificación pre-push completa en verde: `npm run typecheck`, `npm
+run lint`, `npm test` (1131/1131) y `npm run build`. **Nota de entorno:** `node_modules/` no existía
+al empezar esta sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) fue el primer
+paso antes de poder ejecutar nada. Sin migración esta sesión (`Migración: No`): sin fila nueva de §3,
+sin cambio en `db/APLICADAS.md`.
+
+**Sesión anterior (2026-09-07, "R-12 arrancada, cuarta tarea de la oleada
+v1; P-17 resuelta en el camino"):** R-01, R-02 y R-03 seguían `BLOQUEADA` en §1 esperando
 exclusivamente al dueño (filas 13, 14 y 15 de §3, sin cambio: aplicar `010`, `011` y `012`, la 14
 condicionada además a la pregunta #16 de §6), así que esta sesión revisó primero el registro de
 hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): el único `ABIERTO` de
@@ -1374,7 +1457,7 @@ pantallas del requisito 2.
 | R-12 | Calendario de cierres del centro (festivos y vacaciones) | BLOQUEADA — pendiente aplicar migración `014` (fila 16 de §3) | 2026-09-07 | Oleada v1 / F-01 · Código y tests completos, contra dobles. Migración `014_calendario_cierres.sql` (renumerada por el PM el 2026-09-02: `010` colisionaba con la nueva numeración de R-06) escrita y empujada, todavía sin aplicar — dependencia nueva de R-04 |
 | R-13 | Aviso de sesiones sin pasar lista en «Mi horario» | PENDIENTE | — | Oleada v1 / F-01 · Sin migración (solo cliente) · añadida por el PM el 2026-09-04, undécimo ciclo — depende de T-19, T-22, R-06 y R-12 |
 | R-04 | Informe mensual por alumno | PENDIENTE | — | Oleada v1 / F-02 · depende también de R-12 (añadido 2026-08-28) y de R-06 (añadido 2026-09-03, exclusión de slots cancelados) |
-| R-05 | Aviso de ausencia injustificada listo para enviar | PENDIENTE | — | Oleada v1 / F-02 · sin envío automático |
+| R-05 | Aviso de ausencia injustificada listo para enviar | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · sin envío automático · alcance de `administrator` completo; el alcance de `teacher` que pedía la spec original queda pendiente de la pregunta #17 de §6 (no bloquea, valor conservador: sin acceso) |
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | PENDIENTE | — | Oleada v1 / F-03 · Migración `013_excepcion_slot` · ampliada por el PM el 2026-09-03 (antes solo "sustitución"; añade el caso de cancelación sin sustituto, misma migración) |
 | R-07 | Pasar lista con conexión intermitente | PENDIENTE | — | Oleada v1 / F-03 · solo cliente |
 | R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
@@ -1491,6 +1574,7 @@ pantallas del requisito 2.
 | 14 | Requisito 6 de T-21: la ventana en la que un `teacher` puede modificar sus propios registros de asistencia es de 7 días desde `registrado_en` (`VENTANA_EDICION_TEACHER_DIAS`, `src/dominio/asistencia.ts`, ya escrita desde T-03/T-18 con este mismo valor de partida; la RPC `actualizar_asistencia` de `db/008_rpc_actualizar_asistencia.sql` aplica la misma cifra del lado del servidor). `administrator` no tiene límite en ningún caso. ¿Confirma el dueño 7 días, o prefiere otro plazo? Constante en dos sitios (RPC y dominio de cliente, sincronizadas a mano), no una migración de esquema — cambiarla exige tocar los dos y, si el runner ya aplicó `008`, escribir una migración nueva para la RPC (`008` queda inmutable en cuanto se aplique). Mientras no haya respuesta, se usa el valor conservador y esto no bloquea nada. | T-21 | |
 | 15 | T-25 (requisito 1, cabeceras de seguridad) necesita saber el proveedor de hosting estático para escribir la sintaxis exacta de configuración — hoy sigue `<pendiente>` desde el arranque del proyecto (§0.1 de `HOJA_DE_RUTA.md`). Se ha dejado escrito y listo para Netlify/Cloudflare Pages (fichero `_headers` en la raíz, ya commiteado, ambos lo leen igual sin configuración adicional) porque son gratuitos para este volumen de tráfico y no exigen nada más; si el dueño prefiere Vercel, el mismo contenido se traslada a un `vercel.json` en cuanto se confirme (trabajo menor). **GitHub Pages queda descartado como opción viable**: no admite cabeceras HTTP propias, y sin ellas el requisito 1 de T-25 sería imposible de cumplir sin añadir un proxy — infraestructura nueva fuera del stack fijado. Dar de alta el proveedor elegido es, además, del tipo de acción que una P-XX nunca puede tomar por su cuenta (§0.3: "dar de alta servicios externos... ni contratar infraestructura"). Relacionado: la región del proyecto de producción de Supabase (recomendada en la Unión Europea por el RGPD, ver `roadmap/PRODUCCION_T25.md` §3.1) es la misma familia de decisión. Mientras no haya respuesta, T-25 queda con este único punto sin poder cerrarse del todo (fila 12 de §3) y el resto de la tarea sigue completo. | T-25 | |
 | 16 | **Hallazgo #8 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-05):** R-02 (migración `011_justificacion_ausencia.sql`, escrita y empujada, todavía sin aplicar) añade `asistencia.motivo_justificacion` con un `CHECK` de lista cerrada que incluye `enfermedad` y `cita_medica` — dato de salud a efectos del artículo 9 del RGPD por definición (art. 4.15), con independencia de que la lista sea corta y sin diagnóstico; y `nota_justificacion`, texto libre sin ninguna restricción, permite además que un profesor añada voluntariamente detalle médico todavía más explícito de un menor. §0.2 de `HOJA_DE_RUTA.md` (documento inmutable) prohíbe "cualquier categoría especial del artículo 9 del RGPD" sin decisión expresa del dueño, y no consta ninguna: la spec de R-02 (`Origen: roadmap`, la propuso el ciclo del PM) fijó "Bloqueo humano: ninguno" sin que se activara el mismo tipo de pregunta que sí se abrió para T-09 (bloqueo de cuenta, una ampliación de alcance mucho menos sensible). Arrastra además dos documentos que hoy siguen afirmando "cero dato de salud, cero categoría del artículo 9": `legal/POLITICA_PRIVACIDAD.md:32-34` y el inventario RGPD de `roadmap/PRODUCCION_T25.md` §3 — ciertos cuando se escribieron (antes de R-02), falsos desde el commit `d16626e`. Tres opciones, ninguna que el PM pueda decidir por su cuenta: **(a)** aceptar el campo como dato de salud, con base jurídica explícita del artículo 9.2 (probablemente consentimiento explícito, distinta del "interés legítimo" que hoy cubre el resto de asistencia) y medidas específicas, corrigiendo los cuatro documentos de `legal/` y el inventario de `PRODUCCION_T25.md`; **(b)** reformular la lista para no revelar categoría médica — por ejemplo una única opción `justificada` sin desglose de motivo, dejando cualquier detalle solo en el texto libre que el propio profesor decide si escribe; **(c)** retirar `motivo_justificacion` de la lista cerrada (dejando solo `nota_justificacion` libre, o retirando también esta). Mientras no haya respuesta, **la migración `011` no debe aplicarse** (fila 14 de §3, actualizada con esta condición) y los cuatro textos legales de T-25 no deben darse por aprobables — el resto de R-02 (RPC, triggers, ventana de edición, tests) no tiene ningún otro defecto según la auditoría del 2026-09-05. | R-02 / T-25 | |
+| 17 | **R-05 (requisito 4 y su criterio de aceptación) pide literalmente que el `teacher` del alumno acceda a sus personas de referencia por el botón «avisar»** ("mismo alcance que T-13", y "un `teacher` no ve personas de referencia de un alumno fuera de sus slots" — que da a entender que sí las ve DENTRO de sus slots). Esto contradice §0.2 de `HOJA_DE_RUTA.md` (norma permanente): "el `teacher`... no gestiona fichas ni ve datos de contacto ni personas de referencia", sin ninguna excepción para una vía estrecha; y `dominio/permisosUi.ts#puedeVerPersonasReferencia` ya lo documentaba desde T-13 ("ni siquiera en modo lectura"). Además, concederlo de verdad exigiría una política RLS nueva sobre `persona_referencia` (acotada a alumnos con un slot del `teacher`), y R-05 declara `Migración: No` — ni siquiera sería ejecutable dentro de esta tarea tal como está escrita. Tres opciones: **(a)** ampliar §0.2 con una excepción explícita y estrecha ("el `teacher` SÍ ve nombre/teléfono de personas de referencia de sus propios alumnos, solo desde «avisar»", con la migración RLS correspondiente); **(b)** dejar R-05 como quedó implementada esta sesión — solo `administrator` — y corregir el requisito 4 y el criterio de aceptación de `ROADMAP_PRODUCTO.md` para que dejen de pedir alcance de `teacher`; **(c)** alguna otra acotación (p. ej. solo el teléfono, sin nombre completo ni email). Mientras no haya respuesta, R-05 se entrega en su alcance de `administrator` (real y funcional) y esto no bloquea nada — el botón «avisar» simplemente no aparece para `teacher`. | R-05 | |
 
 ---
 

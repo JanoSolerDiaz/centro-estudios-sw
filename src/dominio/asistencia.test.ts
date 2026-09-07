@@ -21,6 +21,7 @@ import {
   ocurridoEnSalidaValido,
   duracionRealMinutos,
   duracionTeoricaMinutos,
+  puedeAvisarAusencia,
   type RegistroAsistencia,
   type UsuarioAutenticado,
 } from './asistencia.ts';
@@ -275,6 +276,18 @@ void test('puedeJustificarAusencia: solo tiene sentido sobre un registro con est
   assert.equal(puedeJustificarAusencia({ estado: 'ausente' }), true);
   assert.equal(puedeJustificarAusencia({ estado: 'valida' }), false);
   assert.equal(puedeJustificarAusencia({ estado: 'anulada' }), false);
+});
+
+// --- Avisar a la familia (R-05) --------------------------------------------------------------
+
+void test('puedeAvisarAusencia: solo una ausencia SIN justificar (requisito 1, criterio de aceptación)', () => {
+  assert.equal(puedeAvisarAusencia({ estado: 'ausente', motivo_justificacion: null }), true);
+  assert.equal(puedeAvisarAusencia({ estado: 'ausente', motivo_justificacion: 'enfermedad' }), false);
+});
+
+void test('puedeAvisarAusencia: nunca sobre un registro válido o anulado, aunque no tengan motivo de justificación', () => {
+  assert.equal(puedeAvisarAusencia({ estado: 'valida', motivo_justificacion: null }), false);
+  assert.equal(puedeAvisarAusencia({ estado: 'anulada', motivo_justificacion: null }), false);
 });
 
 // --- Registro de salida y cómputo de horas reales (R-03) ------------------------------------

@@ -124,3 +124,14 @@ export async function editarPersonaReferencia(
 export async function eliminarPersonaReferencia(cliente: ClientePostgrest, id: string): Promise<void> {
   await cliente.desde<PersonaReferencia>(TABLA).eq('id', id).eliminar();
 }
+
+/** Lista las personas de referencia de UN alumno (R-05, requisito 1: "muestra las personas de
+ * referencia del alumno" desde el botón «avisar») — a diferencia del resto de este módulo (T-13,
+ * siempre embebidas en la ficha completa vía `alumnos.ts#obtenerAlumno`), trae solo estas columnas,
+ * sin el resto de la ficha que «avisar» no necesita (mismo criterio de minimización que P-02, T-14).
+ * Reservada a `administrator` por RLS (`persona_referencia_admin_todo`, `003_politicas_rls.sql`); un
+ * `teacher` que la llamara recibiría cero filas, nunca un error — pero la interfaz no la llama para
+ * ese rol (`puedeVerPersonasReferencia`, ver pregunta abierta #17 de §6 de SEGUIMIENTO.md). */
+export async function listarPersonasReferencia(cliente: ClientePostgrest, alumnoId: string): Promise<readonly PersonaReferencia[]> {
+  return cliente.desde<PersonaReferencia>(TABLA).eq('alumno_id', alumnoId).order('creado_en').seleccionar('*');
+}

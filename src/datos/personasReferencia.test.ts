@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
-import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferencia } from './personasReferencia.ts';
+import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferencia, listarPersonasReferencia } from './personasReferencia.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { PersonaReferencia } from '../dominio/tipos.ts';
 
@@ -183,4 +183,32 @@ void test('un teacher (rechazado por RLS al escribir) recibe SinPermiso, no un e
     () => crearPersonaReferencia(cliente, 'a1', { nombre: 'Juan', primer_apellido: 'García', telefono_referencia: '600000000' }),
     SinPermiso,
   );
+});
+
+void test('listarPersonasReferencia filtra por alumno_id y ordena por creado_en (R-05, requisito 1)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [JUAN] };
+  });
+
+  const personas = await listarPersonasReferencia(cliente, 'a1');
+
+  assert.deepEqual(personas, [JUAN]);
+  assert.equal(peticiones.length, 1);
+  const peticion = peticiones[0];
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'GET');
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/persona_referencia');
+  assert.equal(url.searchParams.get('alumno_id'), 'eq.a1');
+  assert.equal(url.searchParams.get('order'), 'creado_en.asc');
+});
+
+void test('listarPersonasReferencia: un teacher (0 filas por RLS, no un error) recibe un array vacío', async () => {
+  const cliente = crearCliente(() => ({ estado: 200, cuerpo: [] }));
+
+  const personas = await listarPersonasReferencia(cliente, 'a1');
+
+  assert.deepEqual(personas, []);
 });

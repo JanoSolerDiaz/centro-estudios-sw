@@ -49,7 +49,12 @@ import {
   resolverContactoAlumnos,
 } from '../datos/alumnos.ts';
 import { crearRebote } from '../nucleo/rebote.ts';
-import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferencia } from '../datos/personasReferencia.ts';
+import {
+  crearPersonaReferencia,
+  editarPersonaReferencia,
+  eliminarPersonaReferencia,
+  listarPersonasReferencia,
+} from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
 import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
 import { listarProfesoresActivos, resolverNombresProfesores } from '../datos/profesores.ts';
@@ -66,6 +71,7 @@ import {
   listarHistoricoAsistenciaCompleto,
 } from '../datos/asistencia.ts';
 import { crearDescargadorNavegador } from './dom.ts';
+import { copiarAlPortapapelesDelNavegador } from './portapapeles.ts';
 import { mostrarPantallaLogin } from './pantallaLogin.ts';
 import { mostrarPantallaRecuperarContrasena } from './pantallaRecuperarContrasena.ts';
 import { mostrarPantallaEstablecerContrasenaNueva } from './pantallaEstablecerContrasenaNueva.ts';
@@ -240,6 +246,8 @@ function mostrarAppAdministrador(
         registrarOlvidado: (entrada) => registrarAsistencia({ postgrest: app.postgrest }, perfil.id, entrada),
         registrarAusencia: (entrada) => registrarAusencia({ postgrest: app.postgrest }, perfil.id, entrada),
         generarPeticionId: () => crypto.randomUUID(),
+        obtenerPersonasReferencia: (alumnoId2) => listarPersonasReferencia(app.postgrest, alumnoId2),
+        copiarAlPortapapeles: (texto) => copiarAlPortapapelesDelNavegador(texto),
       });
       return;
     }
@@ -420,6 +428,8 @@ function mostrarAppProfesor(
         profesorId: perfil.id,
         reloj: app.reloj,
         // Sin listarProfesoresParaSelector: teacher nunca elige profesor (puedeEditarAsistenciaDeCualquiera es false).
+        // Sin obtenerPersonasReferencia ni copiarAlPortapapeles: "avisar" (R-05) es solo administrator
+        // (puedeVerPersonasReferencia) hasta que el dueño responda la pregunta #17 de §6.
         ...(ruta.slotId !== undefined ? { slotInicialId: ruta.slotId } : {}),
         listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesorConAlumno(app.postgrest, profesorId),
         listarRegistros: (slotId, fecha) => listarRegistrosDeSlotYFecha(app.postgrest, slotId, fecha),

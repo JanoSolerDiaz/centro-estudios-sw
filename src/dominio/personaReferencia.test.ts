@@ -5,6 +5,7 @@ import {
   normalizarTelefonoReferencia,
   emailReferenciaValido,
   telefonoReferenciaValido,
+  nombreCompletoPersonaReferencia,
 } from './personaReferencia.ts';
 import type { PersonaReferencia } from './tipos.ts';
 
@@ -77,4 +78,12 @@ void test('las funciones reexportadas de alumno.ts siguen siendo las mismas regl
   assert.equal(telefonoReferenciaValido('12345'), false);
   assert.equal(emailReferenciaValido('tutor@ejemplo.com'), true);
   assert.equal(emailReferenciaValido('no-es-un-email'), false);
+});
+
+void test('nombreCompletoPersonaReferencia (R-05): compone el nombre completo, omitiendo un segundo apellido nulo', () => {
+  assert.equal(
+    nombreCompletoPersonaReferencia({ nombre: 'Juan', primer_apellido: 'García', segundo_apellido: 'López' }),
+    'Juan García López',
+  );
+  assert.equal(nombreCompletoPersonaReferencia({ nombre: 'Juan', primer_apellido: 'García', segundo_apellido: null }), 'Juan García');
 });
