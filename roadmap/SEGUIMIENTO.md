@@ -10,8 +10,31 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-07 (rutina programada, "R-04 completada, octava tarea de la
-oleada v1") — R-01, R-02, R-03, R-12 y R-06 seguían `BLOQUEADA` en §1 esperando exclusivamente al
+**Última actualización:** 2026-09-07 (rutina programada, "decimocuarto ciclo del PM — nueva R-14,
+autoseñalada por el requisito 7 de R-06") — revisado primero el registro de hallazgos de
+`auditoriacontinua.md`: sigue sin ninguna pasada nueva desde `06fb8b0` (2026-09-07 por la mañana), así
+que el estado de los dos `ABIERTO` (`#8`, pregunta #16 de §6, esperando al dueño; `#9`, `RESUELTO` de
+facto por P-17 — ejecutada por la sesión de R-12, sin que el auditor lo haya vuelto a comprobar
+todavía) sigue siendo el mismo, y ninguno aporta nada nuevo que traducir como R-XX o backlog este
+ciclo. `FEEDBACK.md` sigue con su única fila plantilla vacía, sin ninguna entrada `nuevo` que
+convertir. Revisadas las trece R-XX existentes contra el estado real de §1 (mucho código nuevo desde
+el decimotercer ciclo: R-06 y R-12 arrancadas, R-05/R-13/R-04 `COMPLETADA`, detalle sesión a sesión
+más abajo) y contra la visión de producto: **una R-XX nueva, R-14** ("Aviso de clase cancelada a las
+familias", Oleada v1 / F-03, spec completa en `ROADMAP_PRODUCTO.md`, fila nueva en §1) — no la propone
+el auditor ni `FEEDBACK.md`, la propone la propia spec de R-06 (requisito 7, escrita desde que R-06
+se especificó): "avisar a las familias de una clase cancelada... es una ampliación del mecanismo ya
+construido por R-05, no una pieza nueva". Con R-05 y R-06 ya con su código completo (ambas solo
+pendientes de migración o ya `COMPLETADA`), ese hueco autoseñalado deja de ser hipotético: hoy, si una
+clase se cancela, ninguna familia se entera por la aplicación. Depende de R-05 y R-06 (ninguna
+bloquea escribirla contra dobles, mismo precedente que el resto de la oleada); sin ningún otro cambio
+al roadmap este ciclo — inventar una tarea sin necesidad real sería el vicio que este protocolo existe
+para evitar. Nada que mover a `ROADMAP_HISTORICO.md`: ninguna oleada está desplegada en producción
+todavía (T-25 sigue bloqueada, fila 12 de §3). Sin ninguna decisión reservada al dueño que añadir a §6
+(R-14 no reabre ninguna pregunta existente: hereda la misma respuesta que tenga R-05 en cada momento
+sobre el alcance de `teacher`, pregunta #17).
+
+**Sesión anterior (2026-09-07, "R-04 completada, octava tarea de la
+oleada v1"):** R-01, R-02, R-03, R-12 y R-06 seguían `BLOQUEADA` en §1 esperando exclusivamente al
 dueño (filas 13, 14, 15, 16 y 17 de §3, sin cambio: aplicar `010`, `011`, `012`, `014` y `013`, la 14
 condicionada además a la pregunta #16 de §6), así que esta sesión revisó primero el registro de
 hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sigue sin ninguna pasada
@@ -1659,6 +1682,7 @@ pantallas del requisito 2.
 | R-05 | Aviso de ausencia injustificada listo para enviar | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · sin envío automático · alcance de `administrator` completo; el alcance de `teacher` que pedía la spec original queda pendiente de la pregunta #17 de §6 (no bloquea, valor conservador: sin acceso) |
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | BLOQUEADA — pendiente aplicar migración `013` (fila 17 de §3) | 2026-09-07 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `013_excepcion_slot.sql` escrita y empujada, todavía sin aplicar — desbloquea código-wise a R-13 y R-04 (sus otras dependencias, T-19/T-22/R-12, ya completas o bloqueadas solo por migración) |
 | R-07 | Pasar lista con conexión intermitente | PENDIENTE | — | Oleada v1 / F-03 · solo cliente |
+| R-14 | Aviso de clase cancelada a las familias | PENDIENTE | — | Oleada v1 / F-03 · nueva este ciclo del PM (2026-09-07), autoseñalada por el requisito 7 de R-06 |
 | R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
 | R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |
 | R-10 | Expediente completo del alumno (RGPD) | PENDIENTE | — | Oleada v2 / F-05 |

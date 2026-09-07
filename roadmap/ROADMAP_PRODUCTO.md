@@ -8,28 +8,42 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-06 — decimotercer ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. La pasada de hoy de
-`auditoriacontinua.md` (commit `5a27918`) es puramente narrativa —un único commit desde la anterior,
-sin tocar `db/`, `src/` ni `herramientas/`— y confirma que la traducción del ciclo anterior del PM
-fue correcta: **#8** (severidad alta, dato de salud del artículo 9 del RGPD en R-02) sigue `ABIERTO`
-en pregunta **#16** de §6 de `SEGUIMIENTO.md`, sin que el dueño haya respondido todavía, y **#9**
-(baja, higiene documental) sigue `ABIERTO` en **P-17** del backlog de §5, sin que se haya ejecutado
-todavía. Ninguno de los dos aporta nada nuevo que traducir este ciclo.
+**Última actualización:** 2026-09-07 — decimocuarto ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sigue sin ninguna
+pasada nueva desde `06fb8b0` (2026-09-07 por la mañana, ya conocida por las sesiones de programador
+posteriores): los dos hallazgos `ABIERTO` (**#8**, dato de salud del artículo 9 del RGPD en R-02,
+formalizado en pregunta **#16** de §6, esperando al dueño; **#9**, higiene documental, ya `RESUELTO`
+de facto por **P-17** — ejecutada 2026-09-07, todavía sin que el auditor lo haya vuelto a comprobar)
+siguen sin aportar nada nuevo que traducir. Ninguno de los dos es un hallazgo de producto/arquitectura
+que dé pie a una R-XX nueva por sí solo.
 
-**Sin desarrollo de código entre la revisión anterior y esta:** R-01, R-02 y R-03 siguen
-`BLOQUEADA` en §1 esperando exclusivamente al dueño (aplicar `010`/`011`/`012`, filas 13/14/15 de
-§3 — la 14 sigue condicionada a la pregunta #16), y el MVP (T-00 a T-25) sigue sin estar completo,
-así que la oleada v1 sigue sin poder darse por arrancada de verdad. Nada que mover a
+**Mucho desarrollo de código entre la revisión anterior y esta, aunque sigue sin haber ningún
+despliegue en producción:** desde el decimotercer ciclo, las sesiones de programador completaron
+código y tests de **R-06** (arrancada, `BLOQUEADA` solo por la migración `013`), **R-05**
+(`COMPLETADA`, alcance de `administrator`), **R-12** (arrancada, `BLOQUEADA` solo por la migración
+`014`), **R-13** (`COMPLETADA`) y **R-04** (`COMPLETADA`) — el detalle completo, sesión a sesión, está
+en §1/§2 de `SEGUIMIENTO.md`, no se repite aquí. R-01, R-02 y R-03 siguen `BLOQUEADA` esperando
+exclusivamente al dueño (aplicar `010`/`011`/`012`, filas 13/14/15 de §3 — la 14 sigue condicionada a
+la pregunta #16). El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
+producción), así que la oleada v1 sigue sin poder darse por arrancada de verdad **en el sentido
+formal** de este documento — aunque en la práctica casi todo su código ya existe. Nada que mover a
 `ROADMAP_HISTORICO.md` esta vez.
 
-**Revisadas las trece R-XX contra el estado actual y contra la visión de producto: sin ningún
-cambio y sin R-XX nueva este ciclo** — doce ciclos consecutivos de PM ya han traducido a tareas
-concretas todo el hueco real entre el MVP y el objetivo de producto (asistencia completa, informes y
-aviso a familias, continuidad operativa, arranque rápido, confianza legal y visión de centro), y ni
-el auditor ni `FEEDBACK.md` aportan hoy ningún hallazgo de producto/arquitectura que justifique
-ampliar ese backlog: inventar una tarea sin una necesidad real detrás sería exactamente el vicio que
-este protocolo existe para evitar.
+**Una R-XX nueva este ciclo: R-14, aviso de clase cancelada a las familias.** No la propone ni el
+auditor ni `FEEDBACK.md` — la propone la propia spec de R-06 (requisito 7, ya escrito desde que R-06
+se especificó): "avisar a las familias de una clase cancelada queda fuera del alcance de esta tarea;
+si se quiere en el futuro, es una ampliación del mecanismo ya construido por R-05, no una pieza
+nueva". Con R-05 (aviso de ausencia) y R-06 (excepción de slot) ya con su código completo, ese hueco
+autoseñalado deja de ser hipotético: hoy, si una clase se cancela por falta de profesor, ninguna
+familia se entera por la aplicación — el propio centro tiene que acordarse de avisar por su cuenta,
+exactamente la misma fricción que R-05 ya resolvió para una ausencia individual, pero sin resolver
+para una clase entera. Encaja en F-03 (continuidad operativa) por ser la otra cara de R-06, y depende
+de R-05 (mecanismo) y R-06 (origen del evento a notificar) — ninguna de las dos bloquea escribirla
+contra dobles, mismo precedente que el resto de la oleada. **Revisado el resto del roadmap contra el
+estado actual y la visión de producto: sin ningún otro cambio.** Trece ciclos consecutivos de PM ya
+habían traducido a tareas concretas el hueco real entre el MVP y el objetivo de producto; este
+catorceavo no encuentra ningún otro hueco real más allá de R-14 — inventar una tarea sin una
+necesidad real detrás sería exactamente el vicio que este protocolo existe para evitar.
 
 ---
 
@@ -89,7 +103,8 @@ ni toca al rol `student`.
   enteren. R-04, R-05.
 - **F-03 — Continuidad operativa.** Lo que mantiene el producto fiable cuando la realidad de un
   centro no es la ideal: un profesor falta —con o sin quien lo cubra—, o el aula no tiene buena
-  conexión. R-06, R-07.
+  conexión. R-06, R-07. Se añade R-14 (aviso de clase cancelada a las familias): la propia spec de
+  R-06 dejaba dicho que este era el paso natural siguiente, no una pieza nueva sin relación.
 
 > Quedan fuera de esta oleada, por depender de una decisión del dueño y anotadas en §6 de
 > `SEGUIMIENTO.md`: el envío automático (no solo preparado) del aviso a la familia, y cualquier
@@ -486,6 +501,50 @@ se pierda.
 **Criterio de aceptación:** test que simula un fallo de red en el toque, cierra y reabre la
 pestaña, y verifica que el registro pendiente sigue en cola y se envía al recuperar conexión sin
 duplicar; test de que la card nunca pasa a «registrado» sin confirmación del servidor.
+
+---
+
+### R-14 — Aviso de clase cancelada a las familias
+**Oleada / Fase:** v1 / F-03 · **Migración:** Sí (columna(s) nuevas en `excepcion_slot` para dejar
+constancia de quién avisó y cuándo) · **Depende de:** R-05, R-06
+**Origen:** roadmap (autoseñalada por el requisito 7 de la propia spec de R-06)
+
+**Objetivo:** cuando una clase se cancela por falta de profesor y sin sustituto (R-06), hoy ninguna
+familia se entera por la aplicación — el centro tiene que acordarse de avisar por su cuenta, la misma
+fricción que R-05 ya resolvió para una ausencia individual, pero sin resolver para una clase entera.
+R-06 (requisito 7) ya dejó dicho que esto era una ampliación del mecanismo de R-05, no una pieza
+nueva: con las dos ya con su código completo, este hueco autoseñalado deja de ser hipotético.
+
+**Requisitos:**
+1. Sobre una cancelación ya declarada (bloque "Excepción de este día" de «Registros», R-06, hoy
+   exclusivo de `administrator`), un botón «Avisar a las familias» lista **todos** los alumnos del
+   slot cancelado con sus personas de referencia (nombre, teléfono, email) — mismo componente que
+   R-05 (`listarPersonasReferencia`), sin duplicarlo.
+2. Mensaje prellenado por alumno con su nombre, la fecha y el motivo de la cancelación (reutiliza el
+   patrón de `mensajeAvisoAusencia`, no la misma función literal: el texto es distinto, "se cancela
+   la clase de..." en vez de "faltó a..."). Mismas dos acciones que R-05 sobre ese mensaje: `mailto:`
+   si la persona de referencia tiene email, copiar al portapapeles siempre.
+3. Marcar «aviso enviado» es una anotación manual, con quién y cuándo, del mismo profesor de guardia
+   o `administrator` que declaró la cancelación — **una sola vez para la excepción completa**, no una
+   por alumno: a diferencia de R-05 (una ausencia es de un alumno), una cancelación es un único
+   evento que afecta a todo el slot por igual, así que no hay una fila de asistencia individual a la
+   que enganchar la nota (R-06 requisito 3: una cancelación no crea ninguna fila de `asistencia`).
+   Igual que R-05, se etiqueta en la interfaz como anotación no verificada, nunca como confirmación
+   de entrega.
+4. No aplica a una sustitución (R-06): hubo clase, solo cambió quién la dio, y no hay nada que avisar
+   a ninguna familia.
+5. Mismo alcance de acceso a personas de referencia que R-05 (hoy exclusivo de `administrator`,
+   sujeto a la misma pregunta abierta **#17** de §6 sobre si `teacher` debería acceder también —
+   R-14 no reabre esa pregunta, hereda la misma respuesta que tenga R-05 en cada momento).
+6. Sin envío automático, igual que R-05: sigue pendiente de la misma decisión del dueño (pregunta
+   **#1** de §6).
+
+**Bloqueo humano:** ninguno — no da de alta ninguna cuenta ni integración externa.
+
+**Criterio de aceptación:** al declarar una cancelación sobre un slot con tres alumnos, «Avisar a las
+familias» muestra los tres con sus personas de referencia y un mensaje prellenado que nombra el
+motivo de la cancelación; marcar «aviso enviado» registra quién y cuándo una sola vez para toda la
+excepción, no una vez por alumno; el botón no aparece sobre una sustitución del mismo slot.
 
 ---
 
