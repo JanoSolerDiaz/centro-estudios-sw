@@ -10,14 +10,49 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-08 (rutina programada, "R-08 arrancada, undécima tarea de la
-oleada v1/v2") — revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo,
-paso previo a elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f` (2026-09-08 por la
-mañana, la misma ya conocida y atendida por sesiones anteriores con P-18/P-19), así que el estado del
+**Última actualización:** 2026-09-08 (rutina programada, "R-09 completada, duodécima tarea de la
+oleada v2") — revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso
+previo a elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f`, así que el estado del
 único hallazgo `ABIERTO` (`#8`, RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de
 §6) sigue siendo el mismo — nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1
-en orden: **R-06** y **R-14** seguían `BLOQUEADA` solo por migración sin aplicar (filas 17 y 18 de §3,
-sin cambio), y la siguiente `PENDIENTE` que no depende de nada sin terminar era **R-08**,
+en orden: **R-01, R-02, R-03, R-06, R-12, R-14** seguían `BLOQUEADA` solo por migración sin aplicar
+(sin cambio en ninguna fila de §3), y la siguiente `PENDIENTE` que no depende de nada sin terminar era
+**R-09** ("Aplicación instalable y arranque sin red", spec en `ROADMAP_PRODUCTO.md`, oleada v2,
+`Migración: No`, depende solo de T-19 `COMPLETADA`). Implementada completa, sin bloqueo: `manifest.json`
+(nombre, `display: standalone`, `theme_color: #1D4ED8` — el mismo azul de acento que ya usa
+`pantallaPasarLista.ts` — e iconos 192/512 `any` + 512 `maskable`); `iconos/*.png` generados sin
+ninguna dependencia de imagen (`herramientas/iconos/generarPng.ts`, PNG mínimo a mano sobre
+`node:zlib`, con test de CRC-32/estructura de chunks/píxeles exactos, y `herramientas/iconos/
+generarIconos.ts`, `npm run generar-iconos`, ejecutado en esta sesión); `sw.js` (raíz, JavaScript
+plano, único Service Worker del proyecto — requisito 3), estrategia "red primero, caché de
+seguridad" sobre un cascarón mínimo precacheado más todo lo que una visita real resuelve por red
+(nunca las peticiones a otro origen, o sea Supabase: los datos siguen exigiendo red o la cola de
+R-07); `src/nucleo/registroServiceWorker.ts` (orquestación del aviso de versión nueva, requisito 4,
+7 tests contra un `NavegadorServiceWorker` de mentira) + `src/ui/avisoNuevaVersion.ts` (el banner,
+4 tests), conectados en `main.ts`; `index.html` con el `<link rel="manifest">`/`apple-touch-icon`/
+`theme-color` y el contenedor del aviso; `_headers` con `Cache-Control: no-cache` para `/sw.js`
+(para que un CDN no retrase la detección de versión nueva). **20 tests nuevos (1396 en total, antes
+1376).** Verificado además con Playwright (Chromium headless, servido con `http-server` local, sin
+tocar ningún fichero de test del proyecto): tras una visita online, las ~90 peticiones del grafo de
+módulos de `dist/` quedan cacheadas solas, y una recarga con red cortada (`context.setOffline(true)`)
+sirve la aplicación completa — mismo título, mismo contenido — sin ningún error de red, que es
+literalmente el criterio de aceptación de R-09 ("tras una visita previa"). **Límite de verificación
+documentado sin rodeos** (detalle en `DEVELOPERS.md`, sección de R-09): no fue posible, dentro de
+esta sesión, reproducir en Chromium headless que editar `sw.js` y forzar `registration.update()`/una
+recarga dispare el ciclo de instalación de una versión nueva — probable límite de temporización del
+propio headless, no un defecto de código (el patrón `waiting`/`skipWaiting`/`controllerchange` es el
+estándar documentado de la plataforma, y su orquestación sí está probada con dobles). Verificación
+pre-push completa en verde: `npm run typecheck`, `npm run lint`, `npm test` (1396/1396) y
+`npm run build`.
+
+**Sesión anterior (2026-09-08, "R-08 arrancada, undécima tarea de la oleada v1/v2"):** revisado
+primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea):
+sin ninguna pasada nueva del auditor desde `97bd24f` (2026-09-08 por la mañana, la misma ya conocida
+y atendida por sesiones anteriores con P-18/P-19), así que el estado del único hallazgo `ABIERTO`
+(`#8`, RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de §6) seguía siendo el
+mismo — nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1 en orden: **R-06**
+y **R-14** seguían `BLOQUEADA` solo por migración sin aplicar (filas 17 y 18 de §3, sin cambio), y la
+siguiente `PENDIENTE` que no depende de nada sin terminar era **R-08**,
 "Importación masiva de alumnos y horarios" (spec en `ROADMAP_PRODUCTO.md`, primera de la oleada v2),
 que depende de T-12, T-15 y T-16 (las tres `COMPLETADA`) — no depende de ninguna R-XX bloqueada, así
 que no hace falta esperarlas. Su spec declara `Migración: No`, pero el requisito 3 ("horario...
@@ -1880,7 +1915,7 @@ pantallas del requisito 2.
 | R-07 | Pasar lista con conexión intermitente | COMPLETADA | 2026-09-08 | Oleada v1 / F-03 · solo cliente · código y tests completos. `nucleo/colaAsistenciaOffline.ts` (IndexedDB real, sin test propio — jsdom no la implementa) + `nucleo/detectorConexion.ts` (con test propio); las dos opcionales en `pantallaPasarLista.ts`, sin ellas funciona igual que antes de R-07 |
 | R-14 | Aviso de clase cancelada a las familias | BLOQUEADA — pendiente aplicar migración `015` (fila 18 de §3) | 2026-09-08 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `015_aviso_cancelacion_slot.sql` escrita y empujada, todavía sin aplicar — amplía `excepcion_slot` (R-06, `013`, también sin aplicar) con dos columnas nuevas y su RPC de escritura |
 | R-08 | Importación masiva de alumnos y horarios | BLOQUEADA — pendiente aplicar migración `016` (fila 19 de §3) | 2026-09-08 | Oleada v2 / F-04 · Código y tests completos, contra dobles. Su spec declara `Migración: No`, pero el requisito 3 (profesor por email) exige `db/016_resolver_profesor_por_email.sql`, escrita y empujada, todavía sin aplicar — el resto del alcance (alumnos, resto de horarios) no depende de la migración |
-| R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |
+| R-09 | Aplicación instalable y arranque sin red | COMPLETADA | 2026-09-08 | Oleada v2 / F-04 · solo cliente · `manifest.json` + iconos generados sin dependencias (`herramientas/iconos/`) + `sw.js` (único Service Worker, "red primero, caché de seguridad") + aviso de versión nueva (`nucleo/registroServiceWorker.ts`/`ui/avisoNuevaVersion.ts`). Verificado con Playwright headless: offline tras una visita previa funciona; el disparo real de "versión nueva" en el propio navegador no se pudo reproducir en esta sesión (detalle en `DEVELOPERS.md`), la orquestación sí tiene 7 tests con dobles |
 | R-10 | Expediente completo del alumno (RGPD) | PENDIENTE | — | Oleada v2 / F-05 |
 | R-11 | Panel de centro para el administrador | PENDIENTE | — | Oleada v2 / F-06 |
 

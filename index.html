@@ -4,9 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GestorAcademia</title>
+    <!-- R-09: instalable ("añadir a pantalla de inicio") + arranque sin red tras una visita
+         previa (sw.js, registrado desde main.ts). apple-touch-icon aparte porque iOS no lee
+         manifest.json para el icono de instalación. -->
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#1D4ED8" />
+    <link rel="icon" href="./iconos/icono-192.png" />
+    <link rel="apple-touch-icon" href="./iconos/icono-apple-touch.png" />
   </head>
   <body>
     <div id="app">Cargando…</div>
+    <!-- Contenedor del aviso de versión nueva (R-09, requisito 4): fuera de #app a propósito,
+         para que sobreviva a cualquier cambio de pantalla — ver src/ui/avisoNuevaVersion.ts. -->
+    <div id="aviso-nueva-version"></div>
     <!-- config.js (no commiteado, ver config.ejemplo.js) inyecta window.__CONFIG__ ANTES de
          main.js: URL del proyecto Supabase y clave anónima, las dos únicas credenciales admitidas
          en el cliente (§0.2). Sin él, la aplicación sigue funcionando; solo se pierde el envío

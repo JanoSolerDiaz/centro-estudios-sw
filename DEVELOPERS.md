@@ -453,6 +453,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     Compuesto en `aplicacion.ts` solo si `documento.defaultView?.indexedDB` existe (nunca en los tests
     de `aplicacion.test.ts`, que corren sobre `jsdom`) — sin él, pasar lista sigue funcionando
     exactamente como antes de R-07 (ver `pantallaPasarLista.ts` más abajo).
+  - `registroServiceWorker.ts` (R-09) — `registrarServiceWorker(navegador, opciones)`: orquesta el
+    aviso de versión nueva sobre una interfaz mínima que envuelve `navigator.serviceWorker`/
+    `ServiceWorkerRegistration` (mismo criterio que `ObjetivoRouter` con `window`). Detalle completo
+    en la sección "Aplicación instalable y arranque sin red (R-09)" más abajo.
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido para que se puedan testear montando un
   contenedor con `jsdom`. Ninguna función de pantalla toca el `document` global directamente: reciben
@@ -897,6 +901,53 @@ T-24): lo impide el trigger `perfil_before_update` de `db/009_administracion_usu
 base de datos, no la interfaz — si alguna vez hiciera falta saltárselo en una emergencia real (por
 ejemplo, para retirar al único administrador sin ascender antes a nadie), la única vía es, de
 nuevo, el editor SQL del panel de Supabase.
+
+## Aplicación instalable y arranque sin red (R-09)
+
+Sin migración, solo cliente. Cuatro piezas nuevas:
+
+- **`manifest.json`** (raíz): nombre, `display: standalone`, `theme_color: #1D4ED8` (el mismo azul
+  de acento que ya usa `pantallaPasarLista.ts`), y los tres iconos que exige la instalabilidad
+  estándar (192/512 `any`, 512 `maskable`). `index.html` lo enlaza (`<link rel="manifest">`) junto
+  con `<link rel="apple-touch-icon">` — iOS no lee `manifest.json` para el icono de instalación,
+  necesita esa etiqueta aparte.
+- **`iconos/`** (raíz, PNG committeados): generados por `herramientas/iconos/generarIconos.ts`
+  (`npm run generar-iconos`), sin ninguna dependencia de imagen — el stack fijado (§0.2) cierra la
+  lista de `devDependencies` de herramienta y no admite un paquete de rasterizado. La geometría
+  (rectángulo redondeado + marca de verificación, sin texto) y el codificador PNG mínimo sobre
+  `node:zlib` viven en `herramientas/iconos/generarPng.ts`, con test propio (CRC-32 contra un
+  vector conocido, estructura de chunks, píxeles exactos tras descomprimir el `IDAT`). Reejecutar
+  el generador el día que el dueño aporte un logo real y este generador se sustituya.
+- **`sw.js`** (raíz, JavaScript plano — ver su cabecera para por qué no pasa por `tsc`): el único
+  Service Worker del proyecto (cualquier necesidad futura se añade AQUÍ, nunca en un fichero
+  paralelo). Estrategia "red primero, caché como red de seguridad": cada petición GET del mismo
+  origen intenta la red antes que la caché (así que con conexión siempre se ve el despliegue más
+  reciente — `develop` despliega varias veces al día) y solo cae a lo cacheado cuando la red falla.
+  Sin bundler no hay forma de enumerar de antemano el grafo completo de módulos `.js` de `dist/`:
+  en vez de precachear una lista completa, se precachea solo el cascarón mínimo conocido
+  (`index.html`, `manifest.json`, iconos, `config.js`) y todo lo demás se cachea en cuanto una
+  petición real lo resuelve por red — verificado con Playwright en esta sesión: tras una visita
+  online, las ~90 peticiones del grafo de módulos quedan en caché, y una recarga con
+  `context.setOffline(true)` sirve la aplicación completa (mismo título, mismo contenido) sin red.
+  Las peticiones a Supabase (otro origen) nunca se interceptan: los datos siguen exigiendo red o la
+  cola de R-07, sin cambio.
+- **`src/nucleo/registroServiceWorker.ts`** + **`src/ui/avisoNuevaVersion.ts`**: el aviso de
+  versión nueva (requisito 4). El primero envuelve `navigator.serviceWorker`/
+  `ServiceWorkerRegistration` tras una interfaz mínima (mismo criterio que `ObjetivoRouter` con
+  `window`) y decide CUÁNDO hay una versión nueva esperando; el segundo es el banner en sí
+  (`#aviso-nueva-version` en `index.html`, fuera de `#app` a propósito, para sobrevivir a
+  cualquier cambio de pantalla). `main.ts` los conecta: al pulsar "Actualizar ahora" se manda al
+  Service Worker en espera el mensaje que le hace tomar el control (`self.skipWaiting()` dentro de
+  `sw.js`), y `controllerchange` recarga la página. Sin test posible de `sw.js` en sí (`jsdom` no
+  implementa Service Worker, mismo criterio que la cola de IndexedDB de R-07); la orquestación de
+  `registroServiceWorker.ts` sí tiene 7 tests contra un `NavegadorServiceWorker` de mentira. **Límite
+  de verificación documentado honestamente:** en esta sesión no fue posible reproducir en
+  Chromium headless, dentro del tiempo de una única ejecución, que modificar `sw.js` y forzar
+  `registration.update()`/recargar dispare de verdad el ciclo de instalación — probable
+  limitación de temporización del propio headless, no algo achacable al código (el patrón
+  `waiting`/`skipWaiting`/`controllerchange` es el estándar documentado de la plataforma). Quien
+  lo despliegue de verdad puede confirmarlo editando `sw.js`, desplegando, y comprobando que el
+  aviso aparece en una pestaña que ya tenía la aplicación abierta.
 
 ## Producción (T-25)
 

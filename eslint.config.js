@@ -209,4 +209,20 @@ export default tseslint.config(
       globals: { window: 'writable' },
     },
   },
+
+  // `sw.js` (R-09) es el Service Worker, JavaScript plano en la raíz por el mismo motivo que
+  // `config.ejemplo.js`: no pasa por `tsc` y por tanto tampoco por el `no-undef: off` que el
+  // bloque de `**/*.ts` de arriba concede confiando en los tipos. Su ámbito global es el de un
+  // `ServiceWorkerGlobalScope`, distinto del `window` de `src/`, así que necesita su propia lista.
+  {
+    files: ['sw.js'],
+    languageOptions: {
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        Response: 'readonly',
+      },
+    },
+  },
 );

@@ -14,6 +14,8 @@ import { crearFabricaProcesadoImagenNavegador } from '../datos/avatarAlumno.ts';
 import { crearLimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import { relojDelSistema } from '../nucleo/reloj.ts';
 import { programadorIntervaloReal } from '../nucleo/programadorIntervalo.ts';
+import { registrarServiceWorker } from '../nucleo/registroServiceWorker.ts';
+import { montarAvisoNuevaVersion } from './avisoNuevaVersion.ts';
 
 declare global {
   interface Window {
@@ -126,4 +128,28 @@ if (contenedorApp) {
   } else {
     mostrarPantallaInicial(contenedorApp);
   }
+}
+
+// R-09: instalable y con arranque sin red tras una visita previa. `contenedorAviso` está SIEMPRE
+// en `index.html` (fuera de `#app`, ver su comentario ahí), a diferencia de `contenedorApp`, cuya
+// ausencia sí se comprueba arriba porque un test puede montar un documento sin él.
+const contenedorAviso = document.querySelector<HTMLDivElement>('#aviso-nueva-version');
+if (contenedorAviso && 'serviceWorker' in navigator) {
+  // Se manda a `nucleo/registroServiceWorker.ts` en cuanto `onNuevaVersionDisponible` avisa —
+  // `activarNuevaVersion` guarda esa función hasta que la persona pulse "Actualizar ahora" en el
+  // aviso, que puede tardar arbitrariamente (o no llegar nunca, si sigue con la pestaña abierta).
+  let activarNuevaVersion: (() => void) | undefined;
+  const controladorAviso = montarAvisoNuevaVersion(contenedorAviso, () => {
+    activarNuevaVersion?.();
+  });
+  void registrarServiceWorker(navigator.serviceWorker, {
+    urlScript: './sw.js',
+    onNuevaVersionDisponible: (activar) => {
+      activarNuevaVersion = activar;
+      controladorAviso.mostrar();
+    },
+    alRecargar: () => {
+      window.location.reload();
+    },
+  });
 }

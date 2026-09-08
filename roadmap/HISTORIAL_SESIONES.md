@@ -37,6 +37,84 @@
 
 ---
 
+### Sesión 2026-09-08 (rutina programada) — R-09 completada, duodécima tarea de la oleada v2
+
+**Tarea(s):** R-09 (Aplicación instalable y arranque sin red)
+**Estado resultante:** R-09 pasa a `COMPLETADA` en §1 — sin bloqueo, código y tests completos, y
+verificada además con un navegador real (Playwright + Chromium headless) contra un servidor
+estático local, no solo contra dobles.
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (la spec de R-09 declara `Migración: No`, solo cliente; no hizo
+falta ninguna migración nueva, a diferencia de R-08).
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `manifest.json` (nuevo, raíz), `iconos/icono-192.png`,
+`iconos/icono-512.png`, `iconos/icono-512-maskable.png`, `iconos/icono-apple-touch.png` (nuevos,
+generados, binarios committeados), `herramientas/iconos/generarPng.ts` (nuevo: CRC-32, codificador
+PNG mínimo sobre `node:zlib`, SDF de rectángulo redondeado + distancia a segmento para la marca de
+verificación), `herramientas/iconos/generarPng.test.ts` (nuevo, 9 tests), `herramientas/iconos/
+generarIconos.ts` (nuevo, CLI sin test, mismo patrón que `migrar.ts`/`seed.ts` — a diferencia de
+esos dos, este SÍ lo ejecuta el agente: sin credenciales ni red), `sw.js` (nuevo, raíz, único
+Service Worker del proyecto), `src/nucleo/registroServiceWorker.ts` (nuevo: orquestación del aviso
+de versión nueva sobre una interfaz mínima de `navigator.serviceWorker`), `src/nucleo/
+registroServiceWorker.test.ts` (nuevo, 7 tests), `src/ui/avisoNuevaVersion.ts` (nuevo: banner
+persistente), `src/ui/avisoNuevaVersion.test.ts` (nuevo, 4 tests), `src/ui/main.ts` (wiring: monta
+el banner y registra el Service Worker solo si `'serviceWorker' in navigator`), `index.html`
+(`<link rel="manifest">`, `<meta name="theme-color">`, `<link rel="icon">`/`apple-touch-icon`,
+contenedor `#aviso-nueva-version` fuera de `#app`), `eslint.config.js` (hueco de `globals` para
+`sw.js`, mismo patrón que `config.ejemplo.js`), `_headers` (`Cache-Control: no-cache` para
+`/sw.js`), `package.json` (script `generar-iconos`), `DEVELOPERS.md` (sección nueva "Aplicación
+instalable y arranque sin red (R-09)" + bullet de `registroServiceWorker.ts` en la Estructura),
+`roadmap/SEGUIMIENTO.md` (§1: fila de R-09 a `COMPLETADA`; nueva entrada de "Última actualización",
+la anterior pasa a "Sesión anterior"), `roadmap/DECISIONES_TECNICAS.md` (siete filas nuevas, ver
+más abajo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1396/1396, antes 1376) · build ✅
+**Verificación adicional con navegador real:** Playwright (Chromium headless, ya presente en el
+entorno de ejecución, no añadido al repositorio) contra el `dist/` construido servido con
+`http-server` local. Confirmado: (1) `manifest.json`, `sw.js` y los cuatro iconos responden 200; (2)
+tras una visita online, el Service Worker se instala y activa, y las ~90 peticiones reales del
+grafo de módulos de `dist/` (sin ninguna lista precacheada de por medio) quedan en `CacheStorage`
+solas; (3) con `context.setOffline(true)` y una recarga, la aplicación completa se sirve desde
+caché — mismo título, mismo contenido, sin ningún error de red — que es literalmente el criterio de
+aceptación de R-09 ("tras una visita previa"). **Límite encontrado y documentado, no ocultado:**
+intentar reproducir en el mismo script que editar `sw.js` y forzar `registration.update()` (o una
+recarga) dispara un `installing`/`waiting` nuevo no funcionó dentro de esta sesión, pese a varios
+reintentos con esperas crecientes — probable comportamiento de temporización propio de Chromium
+headless (los navegadores no siempre baten un chequeo de actualización inmediato tras un registro
+recién instalado), no un defecto del propio `sw.js` ni de `registroServiceWorker.ts`: el patrón
+`waiting`/`skipWaiting()`/`controllerchange` que usa es el estándar documentado de la plataforma, y
+su orquestación completa (worker ya esperando al registrar, actualización mientras la pestaña sigue
+abierta, primera instalación que NO debe avisar, `controllerchange` una sola vez, `register()` que
+rechaza) está probada con 7 tests contra un `NavegadorServiceWorker` de mentira.
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`)
+**Decisiones tomadas:** siete filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-08: (1) PNG
+propio sobre `node:zlib` en vez de una `devDependency` de imagen, fuera de la lista cerrada de
+§0.2; (2) marca de verificación geométrica en vez de un monograma de letras, sin fuente disponible
+en Node puro; (3) `sw.js` JavaScript plano en la raíz, mismo criterio que `config.ejemplo.js`, por
+incompatibilidad de `lib: DOM` con `lib: WebWorker` en el mismo programa TypeScript; (4) "red
+primero, caché de seguridad" en vez de "caché primero", para no arrastrar código viejo con
+`develop` desplegando varias veces al día; (5) sin precachear el grafo completo de módulos (no hay
+bundler que lo enumere), confiando en que la estrategia de red cachee lo real de cada visita; (6)
+aviso de versión nueva en vez de activación silenciosa, para no interrumpir a un profesor a mitad
+de pasar lista; (7) verificación con Playwright fuera de `npm test`, por no tener doble razonable
+de un Service Worker real y no poder añadir Playwright como `devDependency` de test.
+**Hallazgos del auditor atendidos:** ninguno (sin pasada nueva del auditor desde `97bd24f`; el
+único hallazgo `ABIERTO` que queda, `#8`, sigue esperando al dueño en la pregunta #16 de §6, sin
+nada nuevo que hacer sobre él esta sesión).
+**Hallazgos:** ninguno nuevo — solo el límite de verificación ya descrito arriba (no reproducir en
+Chromium headless, dentro de esta sesión, el disparo real de "versión nueva"), documentado como tal
+en `DEVELOPERS.md` y `SEGUIMIENTO.md`, no como un defecto pendiente de arreglar.
+**Tareas autopropuestas (P-XX):** ninguna esta sesión.
+**Próximo paso:** la siguiente `PENDIENTE` de §1 que no depende de una migración sin aplicar es
+`R-10` ("Expediente completo del alumno — acceso y portabilidad RGPD", oleada v2, depende de T-13 y
+T-23, ambas `COMPLETADA`) — o, si el dueño ya aplicó `010`-`016` para entonces, retomar el paso a
+producción de T-25 (fila 12 de §3) en cuanto se resuelva también la pregunta #16 de §6 (dato de
+salud de R-02). Quien retome R-09 en el futuro (o lo verifique en un navegador real desplegado) puede
+confirmar el punto no reproducido aquí: editar `sw.js`, desplegar, y comprobar que una pestaña que
+ya tenía la aplicación abierta muestra el aviso de versión nueva.
+
+---
+
 ### Sesión 2026-09-08 (rutina programada) — R-08 arrancada, undécima tarea de la oleada v1/v2
 
 **Tarea(s):** R-08 (Importación masiva de alumnos y horarios)

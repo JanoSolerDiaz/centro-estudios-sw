@@ -1,0 +1,17 @@
+{
+  "name": "GestorAcademia",
+  "short_name": "GestorAcademia",
+  "description": "Pasar lista, horarios y gestión de alumnos del centro de estudios.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1D4ED8",
+  "lang": "es",
+  "icons": [
+    { "src": "./iconos/icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./iconos/icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./iconos/icono-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

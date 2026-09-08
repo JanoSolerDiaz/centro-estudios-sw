@@ -17,3 +17,10 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   X-Frame-Options: DENY
+
+# R-09: el Service Worker (sw.js) es quien decide cuándo servir una versión cacheada frente a red
+# (ver su cabecera) — pero eso solo funciona si el PROPIO fichero sw.js llega siempre fresco al
+# navegador. Un proxy/CDN que lo cachee retrasaría la detección de versión nueva (requisito 4) por
+# el tiempo que dure esa caché, encima de cualquier margen que ya imponga el propio navegador.
+/sw.js
+  Cache-Control: no-cache
