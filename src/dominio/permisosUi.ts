@@ -134,3 +134,12 @@ export function puedeGenerarInformeMensual(rol: Rol): boolean {
 export function puedeImportarMasivamente(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Exportar el expediente completo de un alumno (R-10, acceso y portabilidad RGPD): ficha,
+ * personas de referencia e histórico íntegro en un único documento. Exclusivamente
+ * `administrator` (requisito 3: "mismo alcance que T-13 y la ficha completa de T-12") — mismo
+ * motivo que `puedeVerPersonasReferencia`: un `teacher` no ve datos de contacto ni personas de
+ * referencia, así que tampoco puede exportarlos junto al resto en un expediente. */
+export function puedeExportarExpedienteCompleto(rol: Rol): boolean {
+  return rol === 'administrator';
+}

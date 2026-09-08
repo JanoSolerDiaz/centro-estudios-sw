@@ -382,6 +382,12 @@ function mostrarAppAdministrador(
       crearSlot: (datos) => crearSlot(app.postgrest, datos),
       modificarSlot: (slotId, cambios, fechaEfecto) => modificarSlot(app.postgrest, slotId, cambios, fechaEfecto),
       cesarSlot: (slotId, fechaEfecto) => cesarSlot(app.postgrest, slotId, fechaEfecto),
+      listarHistoricoCompletoDeAlumno: (id) => listarHistoricoAsistenciaCompleto(app.postgrest, { alumnoId: id }),
+      resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
+      reloj: app.reloj,
+      nombreUsuarioActual: perfil.nombre,
+      descargador: crearDescargadorNavegador(documento),
+      abridorImpresion,
       volver: () => {
         router.navegar({ nombre: 'alumnos' });
       },

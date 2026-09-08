@@ -4,7 +4,9 @@ import { JSDOM } from 'jsdom';
 import { mostrarPantallaFichaAlumno, type DependenciasPantallaFichaAlumno } from './pantallaFichaAlumno.ts';
 import { SinPermiso } from '../datos/erroresDominio.ts';
 import type { AlumnoConCentro, AlumnoConCentroYPersonas, DatosAlumno } from '../datos/alumnos.ts';
-import type { CentroEstudios, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
+import type { Asistencia, CentroEstudios, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
+import type { Descargador, AbridorVentanaImpresion, VentanaImpresion } from './dom.ts';
+import { crearRelojFijo } from '../nucleo/reloj.ts';
 
 const CENTRO: CentroEstudios = {
   id: 'c1',
@@ -63,11 +65,67 @@ const SLOT: SlotHorario = {
   actualizado_en: '2026-01-01T00:00:00Z',
 };
 
+function crearAsistencia(overrides: Partial<Asistencia> = {}): Asistencia {
+  return {
+    id: 'asis-1',
+    alumno_id: 'a1',
+    profesor_id: 'prof1',
+    registrado_en: '2026-03-04T17:01:00.000Z',
+    ocurrido_en: '2026-03-04T17:00:00.000Z',
+    ocurrido_en_salida: null,
+    es_retroactivo: false,
+    origen: 'slot',
+    slot_id: 's1',
+    slot_dia_semana: 1,
+    slot_hora_inicio: '16:00',
+    slot_hora_fin: '17:00',
+    slot_asignatura_o_grupo: 'Matemáticas',
+    estado: 'valida',
+    motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
+    nota: null,
+    actualizado_en: null,
+    actualizado_por: null,
+    peticion_id: 'peticion-1',
+    ...overrides,
+  };
+}
+
 function crearContenedorDePruebas(): HTMLElement {
   const dom = new JSDOM('<!doctype html><body><div id="app"></div></body>');
   const contenedor = dom.window.document.querySelector<HTMLElement>('#app');
   assert.ok(contenedor, 'el documento de pruebas no tiene #app');
   return contenedor;
+}
+
+function crearDescargadorDeMentira(): Descargador & { llamadas: { contenido: string; nombre: string; tipo: string }[] } {
+  const llamadas: { contenido: string; nombre: string; tipo: string }[] = [];
+  return {
+    llamadas,
+    descargar(contenido, nombreFichero, tipoMime) {
+      llamadas.push({ contenido, nombre: nombreFichero, tipo: tipoMime });
+    },
+  };
+}
+
+function crearAbridorImpresionDeMentira(): AbridorVentanaImpresion & { readonly titulos: string[]; impresiones: number } {
+  const titulos: string[] = [];
+  const resultado = {
+    titulos,
+    impresiones: 0,
+    abrir(titulo: string): VentanaImpresion {
+      titulos.push(titulo);
+      const documento = new JSDOM('<!doctype html><body></body>').window.document;
+      return {
+        document: documento,
+        imprimir: () => {
+          resultado.impresiones += 1;
+        },
+      };
+    },
+  };
+  return resultado;
 }
 
 function crearDepsFalsas(overrides: Partial<DependenciasPantallaFichaAlumno> = {}): DependenciasPantallaFichaAlumno {
@@ -93,6 +151,12 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaFichaAlumno> = {
     crearSlot: overrides.crearSlot ?? noImplementado('crearSlot'),
     modificarSlot: overrides.modificarSlot ?? noImplementado('modificarSlot'),
     cesarSlot: overrides.cesarSlot ?? noImplementado('cesarSlot'),
+    listarHistoricoCompletoDeAlumno: overrides.listarHistoricoCompletoDeAlumno ?? (() => Promise.resolve([])),
+    resolverNombresProfesores: overrides.resolverNombresProfesores ?? (() => Promise.resolve(new Map())),
+    reloj: overrides.reloj ?? crearRelojFijo(new Date('2026-03-04T10:00:00.000Z')),
+    nombreUsuarioActual: overrides.nombreUsuarioActual ?? 'Admin de pruebas',
+    descargador: overrides.descargador ?? crearDescargadorDeMentira(),
+    abridorImpresion: overrides.abridorImpresion ?? crearAbridorImpresionDeMentira(),
     volver: overrides.volver ?? (() => undefined),
     alCrearAlumno: overrides.alCrearAlumno ?? (() => undefined),
     irAHistorico: overrides.irAHistorico ?? (() => undefined),
@@ -195,7 +259,7 @@ void test('modo edición: un 403 (SinPermiso) al cargar muestra un mensaje compr
   assert.ok(contenedor.querySelector('button')); // "Volver al listado" sigue presente
 });
 
-void test('modo edición: carga con éxito pinta los cuatro bloques con sus cabeceras', async () => {
+void test('modo edición: carga con éxito pinta los cinco bloques con sus cabeceras', async () => {
   const contenedor = crearContenedorDePruebas();
   mostrarPantallaFichaAlumno(
     contenedor,
@@ -209,7 +273,7 @@ void test('modo edición: carga con éxito pinta los cuatro bloques con sus cabe
   await esperarMicrotareas();
 
   const cabeceras = Array.from(contenedor.querySelectorAll('h3')).map((h) => h.textContent);
-  assert.deepEqual(cabeceras, ['Datos y centro', 'Avatar', 'Personas de referencia', 'Horario']);
+  assert.deepEqual(cabeceras, ['Datos y centro', 'Avatar', 'Personas de referencia', 'Horario', 'Expediente completo (RGPD)']);
   assert.match(contenedor.textContent, /Marta García López/); // título con nombre completo
 });
 
@@ -799,4 +863,87 @@ void test('un fallo al subir el avatar no descarta los cambios sin guardar del b
   // ...pero el campo de nombre del bloque de datos conserva el cambio sin guardar.
   const campoNombreTrasFallo = contenedor.querySelector<HTMLInputElement>('#ficha-datos-nombre');
   assert.equal(campoNombreTrasFallo?.value, 'Cambio sin guardar');
+});
+
+// --- Bloque de expediente completo (R-10, acceso y portabilidad RGPD) -------------------------
+
+void test('bloque de expediente: descargar JSON llama al descargador con el expediente completo', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha({ personas_referencia: [PERSONA] })),
+      listarHistoricoCompletoDeAlumno: () => Promise.resolve([crearAsistencia()]),
+      resolverNombresProfesores: () => Promise.resolve(new Map([['prof1', 'Pedro Profesor']])),
+      reloj: crearRelojFijo(new Date('2026-09-08T09:00:00.000Z')),
+      nombreUsuarioActual: 'Ana Admin',
+      descargador,
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Descargar JSON').click();
+  await esperarMicrotareas();
+
+  assert.equal(descargador.llamadas.length, 1);
+  const llamada = descargador.llamadas[0];
+  assert.ok(llamada);
+  assert.equal(llamada.nombre, 'expediente-a1.json');
+  assert.equal(llamada.tipo, 'application/json;charset=utf-8');
+  const expediente = JSON.parse(llamada.contenido) as {
+    alumno: { nombreCompleto: string };
+    personasReferencia: readonly unknown[];
+    historicoAsistencia: readonly { profesor: string }[];
+    generadoPor: string;
+  };
+  assert.equal(expediente.alumno.nombreCompleto, 'Marta García López');
+  assert.equal(expediente.personasReferencia.length, 1);
+  assert.equal(expediente.historicoAsistencia.length, 1);
+  assert.equal(expediente.historicoAsistencia[0]?.profesor, 'Pedro Profesor');
+  assert.equal(expediente.generadoPor, 'Ana Admin');
+});
+
+void test('bloque de expediente: imprimir abre la ventana con el nombre del alumno en el título', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const abridorImpresion = crearAbridorImpresionDeMentira();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarHistoricoCompletoDeAlumno: () => Promise.resolve([]),
+      abridorImpresion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Imprimir / PDF').click();
+  await esperarMicrotareas();
+
+  assert.equal(abridorImpresion.titulos.length, 1);
+  assert.match(abridorImpresion.titulos[0] ?? '', /Marta García López/);
+  assert.equal(abridorImpresion.impresiones, 1);
+});
+
+void test('bloque de expediente: un fallo al traer el histórico se muestra en su propia zona, sin tirar el resto de bloques', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarHistoricoCompletoDeAlumno: () => Promise.reject(new Error('el servidor ha fallado')),
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Descargar JSON').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /No se ha podido completar la acción/);
+  // El bloque de datos sigue intacto: su campo de nombre precargado no desaparece.
+  const campoNombre = contenedor.querySelector<HTMLInputElement>('#ficha-datos-nombre');
+  assert.equal(campoNombre?.value, 'Marta');
 });

@@ -154,6 +154,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   `nucleo/csv.ts` ampliado con `analizarCsv`/`detectarSeparadorCsv` (parseo propio, comillas dobles
   estilo RFC 4180, separador `;`/`,` autodetectado). `permisosUi.ts` añade `puedeImportarMasivamente`
   (exclusiva de `administrator`).
+  Desde R-10: `expedienteAlumno.ts` (nuevo) — `construirDatosExpedienteAlumno(parametros)` compone,
+  a partir de la ficha ya cargada (T-12/T-13, con centro y personas de referencia embebidos) y el
+  histórico ÍNTEGRO de asistencia (T-23, sin filtro de mes ni de estado — incluye anuladas y
+  retroactivas), el documento único del expediente; reutiliza sin duplicar las etiquetas de
+  `historicoAsistencia.ts` y las duraciones de `asistencia.ts`. `ordenarCronologico` reordena el
+  histórico de más antiguo a más reciente (al contrario que la consulta de revisión de T-23) sin
+  mutar el array de quien llama. `generarJsonExpediente` (JSON indentado) y `filasCabeceraExpediente`/
+  `filaPersonaReferenciaExpediente`/`filaHistoricoExpediente` (única fuente de filas para el
+  documento imprimible, mismo criterio que `filasInformeMensual` de R-04) completan el módulo. El
+  avatar se informa como `tieneAvatar: booleano`, nunca la ruta ni una URL (§0.2). `permisosUi.ts`
+  añade `puedeExportarExpedienteCompleto` (exclusiva de `administrator`).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -541,13 +552,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     completa vive en su propia pantalla. Enteramente de `administrator`, igual que su predecesora.
   - `pantallaFichaAlumno.ts` (T-12/T-13, **reescrita por completo en T-16**) —
     `mostrarPantallaFichaAlumno(contenedor, deps)`: la ficha de un alumno como **pantalla completa**
-    (`#/alumnos/nuevo` o `#/alumnos/<id>`), con cuatro bloques — datos y centro, avatar (T-14),
-    personas de referencia (T-13) y horario (T-15) —, cada uno montado por su propia función
-    `montarBloqueX(contenedorDelBloque, ...)` con su propio estado y su propio `pintar()` que solo
-    toca el DOM de ESE bloque. Es la pieza central del requisito 5 de T-16 ("un fallo al subir el
-    avatar no debe tirar la edición de los datos personales"): como ningún bloque repinta el de otro,
-    un cambio de estado en uno nunca descarta un campo sin guardar en otro. En modo alta
-    (`deps.alumnoId === null`) solo existe el bloque de datos; al crear con éxito,
+    (`#/alumnos/nuevo` o `#/alumnos/<id>`), con cinco bloques — datos y centro, avatar (T-14),
+    personas de referencia (T-13), horario (T-15) y expediente completo (R-10) —, cada uno montado
+    por su propia función `montarBloqueX(contenedorDelBloque, ...)` con su propio estado y su propio
+    `pintar()` que solo toca el DOM de ESE bloque. Es la pieza central del requisito 5 de T-16 ("un
+    fallo al subir el avatar no debe tirar la edición de los datos personales"): como ningún bloque
+    repinta el de otro, un cambio de estado en uno nunca descarta un campo sin guardar en otro. En
+    modo alta (`deps.alumnoId === null`) solo existe el bloque de datos; al crear con éxito,
     `deps.alCrearAlumno(id)` deja que el router navegue a la ficha ya en modo edición. El bloque de
     horario muestra la **fecha de efecto** de cada versión y una nota de que editar o cesar un
     horario no cambia el histórico (requisito 3 de T-16); usa `src/datos/profesores.ts` para el
@@ -556,7 +567,14 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     pantalla independiente de personas de referencia ni de avatar, por spec. Desde R-04: en modo
     edición, botón "Ver histórico e informe mensual" (`deps.irAHistorico(alumnoId)`, ausente en modo
     alta) que navega a `#/historico/<alumnoId>` — la ficha no genera el informe ella misma, solo
-    preselecciona el alumno en `pantallaHistorico.ts`, que es donde vive la funcionalidad.
+    preselecciona el alumno en `pantallaHistorico.ts`, que es donde vive la funcionalidad. Desde
+    R-10: bloque "Expediente completo (RGPD)" (`puedeExportarExpedienteCompleto`, `permisosUi.ts`),
+    con dos botones bajo pedido (nunca se precarga al abrir la ficha) — "Descargar JSON" e "Imprimir
+    / PDF" — sobre los MISMOS datos (`construirDatosExpedienteAlumno`, `dominio/expedienteAlumno.ts`),
+    así que los dos formatos siempre coinciden; el histórico se trae íntegro
+    (`deps.listarHistoricoCompletoDeAlumno`, sin filtro de fecha) y los nombres de profesor se
+    resuelven en lote (`deps.resolverNombresProfesores`, mismo resolutor que `pantallaHistorico.ts`).
+    Bloque aislado, mismo criterio que los otros cuatro.
   - `pantallaPasarLista.ts` (T-19) — `mostrarPantallaPasarLista(contenedor, deps)`: la pantalla que
     un profesor usa cada día, exclusiva de `teacher` (`puedeUsarPasarLista`, `permisosUi.ts`).
     `deps.cargarPropuesta()` (todos los slots del profesor) y `deps.cargarAsistenciaDeHoy(instante)`

@@ -10,14 +10,61 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-08 (rutina programada, "R-09 completada, duodécima tarea de la
+**Última actualización:** 2026-09-08 (rutina programada, "R-10 completada, decimotercera tarea de la
 oleada v2") — revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso
-previo a elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f`, así que el estado del
-único hallazgo `ABIERTO` (`#8`, RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de
-§6) sigue siendo el mismo — nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1
-en orden: **R-01, R-02, R-03, R-06, R-12, R-14** seguían `BLOQUEADA` solo por migración sin aplicar
-(sin cambio en ninguna fila de §3), y la siguiente `PENDIENTE` que no depende de nada sin terminar era
-**R-09** ("Aplicación instalable y arranque sin red", spec en `ROADMAP_PRODUCTO.md`, oleada v2,
+previo a elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f` (hallazgo #10 ya
+`RESUELTO` por `P-18` en la sesión anterior), así que el estado del único hallazgo `ABIERTO` (`#8`,
+RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de §6) sigue siendo el mismo — nada
+nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1 en orden: **R-01, R-02, R-03,
+R-06, R-12, R-14** seguían `BLOQUEADA` solo por migración sin aplicar (sin cambio en ninguna fila de
+§3), y la siguiente `PENDIENTE` que no depende de nada sin terminar era **R-10** ("Expediente completo
+del alumno (acceso y portabilidad RGPD)", spec en `ROADMAP_PRODUCTO.md`, oleada v2/F-05, `Migración:
+No`, depende de T-13 y T-23, ambas `COMPLETADA`).
+
+Implementada completa, sin bloqueo: módulo nuevo `dominio/expedienteAlumno.ts` (lógica pura, sin red
+ni DOM) que compone el expediente a partir de la ficha ya cargada (T-12/T-13, con centro y personas de
+referencia embebidos) y el histórico ÍNTEGRO de asistencia (T-23, sin ningún filtro de mes ni de
+estado — incluye anuladas y retroactivas, requisito 1 literal: "un derecho de acceso que oculta lo
+anulado no es un acceso completo"), reutilizando sin duplicar las etiquetas de `historicoAsistencia.ts`
+(T-23) y las duraciones de `asistencia.ts`, para que el expediente cuente EXACTAMENTE lo mismo que ya
+cuenta el histórico en pantalla — nunca una tercera traducción de los mismos datos que pudiera
+divergir. 19 tests nuevos del dominio (altas/bajas, con/sin personas de referencia, reordenación
+cronológica del histórico sin mutar el array de entrada, anuladas/retroactivas/justificadas incluidas,
+JSON indentado que reproduce los mismos datos al parsear). Bloque quinto nuevo en
+`pantallaFichaAlumno.ts` ("Expediente completo (RGPD)"), con dos botones — "Descargar JSON" (JSON
+legible, indentado) e "Imprimir / PDF" (ventana de impresión, mismo mecanismo `AbridorVentanaImpresion`
+que ya usa el informe mensual de R-04) — sobre los MISMOS datos (`construirDatosExpedienteAlumno`,
+única fuente), así que los dos formatos siempre coinciden. Reservado a `administrator`
+(`puedeExportarExpedienteCompleto`, nueva en `permisosUi.ts`, mismo criterio que
+`puedeVerPersonasReferencia`): un `teacher` ni siquiera llega a esta pantalla, bloqueada entera desde
+T-12 (`puedeGestionarFichaAlumno`). 4 tests nuevos de interfaz: descarga de JSON con el contenido
+verificado (nombre completo, personas de referencia, histórico con el profesor ya resuelto en lote,
+quién genera), impresión con el nombre del alumno en el título de la ventana, aislamiento de un fallo
+de red al traer el histórico en su propia zona de mensaje (el bloque de datos no se ve afectado,
+requisito 5 de T-16), y el recuento de cinco cabeceras `<h3>` (antes cuatro). **1418 tests en total
+(antes 1376).**
+
+**Decisión de diseño de esta sesión, documentada en `DECISIONES_TECNICAS.md`:** el avatar del alumno
+se informa en el expediente como `tieneAvatar: booleano`, nunca como la ruta interna ni una URL
+(firmada o no) — coherente con §0.2 ("nunca sirvas un avatar por una URL que no caduque, guarda en la
+base de datos la ruta base del fichero, nunca una URL"): un documento que se archiva y puede
+compartirse con una familia no debe llevar ni siquiera la ruta interna del fichero de Storage. El
+histórico se reordena de más antiguo a más reciente (al contrario que la consulta de revisión de T-23,
+`listarHistoricoAsistenciaCompleto`, que es del más reciente al más antiguo) porque un expediente que
+se archiva es una narrativa cronológica, no una bandeja de revisión — la reordenación vive en el
+dominio (`ordenarCronologico`, sin mutar el array de quien llama), no en la pantalla.
+
+Verificación pre-push completa en verde: `npm run typecheck`, `npm run lint`, `npm test` (1418/1418,
+incluido el test de fuga de secretos que compila `dist/` de verdad) y `npm run build`.
+
+**Sesión anterior (2026-09-08, "R-09 completada, duodécima tarea de la oleada v2"):** revisado primero
+el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso previo a elegir tarea): sin ninguna
+pasada nueva del auditor desde `97bd24f`, así que el estado del único hallazgo `ABIERTO` (`#8`,
+RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de §6) seguía siendo el mismo — nada
+nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1 en orden: **R-01, R-02, R-03,
+R-06, R-12, R-14** seguían `BLOQUEADA` solo por migración sin aplicar (sin cambio en ninguna fila de
+§3), y la siguiente `PENDIENTE` que no depende de nada sin terminar era **R-09** ("Aplicación
+instalable y arranque sin red", spec en `ROADMAP_PRODUCTO.md`, oleada v2,
 `Migración: No`, depende solo de T-19 `COMPLETADA`). Implementada completa, sin bloqueo: `manifest.json`
 (nombre, `display: standalone`, `theme_color: #1D4ED8` — el mismo azul de acento que ya usa
 `pantallaPasarLista.ts` — e iconos 192/512 `any` + 512 `maskable`); `iconos/*.png` generados sin
@@ -1916,7 +1963,7 @@ pantallas del requisito 2.
 | R-14 | Aviso de clase cancelada a las familias | BLOQUEADA — pendiente aplicar migración `015` (fila 18 de §3) | 2026-09-08 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `015_aviso_cancelacion_slot.sql` escrita y empujada, todavía sin aplicar — amplía `excepcion_slot` (R-06, `013`, también sin aplicar) con dos columnas nuevas y su RPC de escritura |
 | R-08 | Importación masiva de alumnos y horarios | BLOQUEADA — pendiente aplicar migración `016` (fila 19 de §3) | 2026-09-08 | Oleada v2 / F-04 · Código y tests completos, contra dobles. Su spec declara `Migración: No`, pero el requisito 3 (profesor por email) exige `db/016_resolver_profesor_por_email.sql`, escrita y empujada, todavía sin aplicar — el resto del alcance (alumnos, resto de horarios) no depende de la migración |
 | R-09 | Aplicación instalable y arranque sin red | COMPLETADA | 2026-09-08 | Oleada v2 / F-04 · solo cliente · `manifest.json` + iconos generados sin dependencias (`herramientas/iconos/`) + `sw.js` (único Service Worker, "red primero, caché de seguridad") + aviso de versión nueva (`nucleo/registroServiceWorker.ts`/`ui/avisoNuevaVersion.ts`). Verificado con Playwright headless: offline tras una visita previa funciona; el disparo real de "versión nueva" en el propio navegador no se pudo reproducir en esta sesión (detalle en `DEVELOPERS.md`), la orquestación sí tiene 7 tests con dobles |
-| R-10 | Expediente completo del alumno (RGPD) | PENDIENTE | — | Oleada v2 / F-05 |
+| R-10 | Expediente completo del alumno (RGPD) | COMPLETADA | 2026-09-08 | Oleada v2 / F-05 · Sin migración: depende solo de T-13/T-23, ambas `COMPLETADA`. `dominio/expedienteAlumno.ts` (nuevo, 19 tests) compone ficha + personas de referencia + histórico ÍNTEGRO (incluye anuladas/retroactivas) en un único documento; bloque quinto en `pantallaFichaAlumno.ts` con descarga de JSON legible e impresión (mismo mecanismo que el informe mensual de R-04), reservado a `administrator` (`puedeExportarExpedienteCompleto`, nueva en `permisosUi.ts`). 23 tests nuevos en total (1418 en total, antes 1376) |
 | R-11 | Panel de centro para el administrador | PENDIENTE | — | Oleada v2 / F-06 |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>

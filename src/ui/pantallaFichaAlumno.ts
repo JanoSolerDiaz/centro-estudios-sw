@@ -19,19 +19,37 @@
  * pantalla." y no se dispara ninguna petición de datos.
  */
 
-import { ETIQUETA_DIA_SEMANA, type Rol, type CentroEstudios, type PersonaReferencia, type SlotHorario, type DiaSemana } from '../dominio/tipos.ts';
-import { puedeGestionarFichaAlumno, puedeVerPersonasReferencia, puedeGestionarHorarios } from '../dominio/permisosUi.ts';
+import { ETIQUETA_DIA_SEMANA, type Rol, type CentroEstudios, type PersonaReferencia, type SlotHorario, type DiaSemana, type Asistencia } from '../dominio/tipos.ts';
+import {
+  puedeGestionarFichaAlumno,
+  puedeVerPersonasReferencia,
+  puedeGestionarHorarios,
+  puedeExportarExpedienteCompleto,
+} from '../dominio/permisosUi.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
 import { buscarPersonaReferenciaDuplicada, normalizarTelefonoReferencia } from '../dominio/personaReferencia.ts';
 import type { DatosNombreAlumno } from '../dominio/alumno.ts';
 import { inicialesAlumno, colorMonograma, esTipoImagenOrigenAceptado } from '../dominio/avatarAlumno.ts';
+import { fechaHoraLocalLegible, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
+import {
+  construirDatosExpedienteAlumno,
+  generarJsonExpediente,
+  filasCabeceraExpediente,
+  filaPersonaReferenciaExpediente,
+  filaHistoricoExpediente,
+  CABECERAS_PERSONAS_REFERENCIA_EXPEDIENTE,
+  CABECERAS_HISTORICO_EXPEDIENTE,
+  type DatosExpedienteAlumno,
+  type FilaExpedienteAsistencia,
+} from '../dominio/expedienteAlumno.ts';
 import type { AlumnoConCentro, AlumnoConCentroYPersonas, DatosAlumno } from '../datos/alumnos.ts';
 import type { DatosPersonaReferencia } from '../datos/personasReferencia.ts';
 import type { ArchivoOrigenAvatar } from '../datos/avatarAlumno.ts';
 import type { ProfesorParaSelector } from '../datos/profesores.ts';
 import type { DatosNuevoSlot, CambiosSlot, ResultadoEscrituraSlot } from '../datos/slotsHorario.ts';
+import type { Reloj } from '../nucleo/reloj.ts';
 import { crearCampoTexto, crearZonaMensaje, crearBoton, crearMensajeErrorCampo } from './formularios.ts';
-import { crearElemento } from './dom.ts';
+import { crearElemento, type Descargador, type AbridorVentanaImpresion } from './dom.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
 export interface DependenciasPantallaFichaAlumno {
@@ -61,6 +79,22 @@ export interface DependenciasPantallaFichaAlumno {
   crearSlot(datos: DatosNuevoSlot): Promise<ResultadoEscrituraSlot>;
   modificarSlot(slotId: string, cambios: CambiosSlot, fechaEfecto: Date): Promise<ResultadoEscrituraSlot>;
   cesarSlot(slotId: string, fechaEfecto: Date): Promise<SlotHorario>;
+  /** Histórico ÍNTEGRO de asistencia del alumno (R-10, requisito 1: "sin filtrar por mes"), sin
+   * ningún filtro de fecha — `listarHistoricoAsistenciaCompleto` (T-23) ya trae anuladas y
+   * retroactivos porque no filtra por `estado`. Solo se llama si `puedeExportarExpedienteCompleto`. */
+  listarHistoricoCompletoDeAlumno(alumnoId: string): Promise<readonly Asistencia[]>;
+  /** Resuelve en lote los nombres de profesor del histórico del expediente (§0.2: nunca una
+   * petición por fila) — mismo resolutor que ya usa `pantallaHistorico.ts`. */
+  resolverNombresProfesores(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
+  /** Reloj inyectado (T-03: ninguna pantalla lee la hora del sistema directamente) — solo para la
+   * "Fecha de generación" del expediente (R-10, requisito 2), nunca para ningún cálculo de negocio
+   * (eso vive en `dominio/expedienteAlumno.ts`, que no toca el reloj en absoluto). */
+  readonly reloj: Reloj;
+  /** Nombre para mostrar de quien genera el expediente (`perfil.nombre` de la sesión actual, R-10
+   * requisito 2: "quién la generó, dentro del propio documento"). */
+  readonly nombreUsuarioActual: string;
+  readonly descargador: Descargador;
+  readonly abridorImpresion: AbridorVentanaImpresion;
   volver(): void;
   /** Se llama tras crear el alumno con éxito (modo alta), para que quien monta la pantalla navegue
    * a la ficha ya en modo edición — esta pantalla no se reconstruye a sí misma con un id nuevo. */
@@ -1021,6 +1055,133 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
 }
 
 // ---------------------------------------------------------------------------------------------
+// Bloque 5: expediente completo (R-10, acceso y portabilidad RGPD).
+// ---------------------------------------------------------------------------------------------
+
+interface DependenciasBloqueExpediente {
+  readonly zonaHoraria: string;
+  readonly reloj: Reloj;
+  readonly nombreUsuarioActual: string;
+  readonly descargador: Descargador;
+  readonly abridorImpresion: AbridorVentanaImpresion;
+  listarHistoricoCompleto(): Promise<readonly Asistencia[]>;
+  resolverNombresProfesores(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
+}
+
+const ETIQUETA_PROFESOR_NO_DISPONIBLE_EXPEDIENTE = '(profesor no disponible)';
+const TIPO_MIME_JSON = 'application/json;charset=utf-8';
+
+function construirTablaExpediente(docImpresion: Document, cabeceras: readonly string[], filas: readonly (readonly string[])[]): HTMLTableElement {
+  const tabla = docImpresion.createElement('table');
+  const cabecera = docImpresion.createElement('thead');
+  const filaCabecera = docImpresion.createElement('tr');
+  for (const texto of cabeceras) {
+    filaCabecera.append(crearElemento(docImpresion, 'th', { texto, atributos: { scope: 'col' } }));
+  }
+  cabecera.append(filaCabecera);
+  const cuerpo = docImpresion.createElement('tbody');
+  for (const valores of filas) {
+    const fila = docImpresion.createElement('tr');
+    for (const valor of valores) {
+      fila.append(crearElemento(docImpresion, 'td', { texto: valor }));
+    }
+    cuerpo.append(fila);
+  }
+  tabla.append(cabecera, cuerpo);
+  return tabla;
+}
+
+/** Genera el expediente completo bajo pedido (nunca se precarga al abrir la ficha, requisito 1: es
+ * una acción explícita) y lo ofrece en los dos formatos de la spec — descarga de JSON legible o
+ * ventana de impresión — sobre los MISMOS datos (`construirDatosExpedienteAlumno`, única fuente),
+ * así que los dos formatos siempre coinciden. Bloque aislado, mismo criterio que los otros tres: un
+ * fallo aquí (ventana de impresión bloqueada, error de red al traer el histórico) solo toca su
+ * propia zona de mensaje. */
+function montarBloqueExpediente(contenedorBloque: HTMLElement, deps: DependenciasBloqueExpediente, ficha: AlumnoConCentroYPersonas): void {
+  const documento = contenedorBloque.ownerDocument;
+  const zonaMensaje = crearZonaMensaje(documento, 'alert');
+  const botonJson = crearBoton(documento, 'Descargar JSON', 'button');
+  const botonImprimir = crearBoton(documento, 'Imprimir / PDF', 'button');
+  contenedorBloque.append(
+    crearElemento(documento, 'p', {
+      texto:
+        'Exportación completa de la ficha, las personas de referencia y el histórico íntegro de asistencia — para atender una solicitud de acceso o portabilidad.',
+    }),
+    botonJson,
+    botonImprimir,
+    zonaMensaje,
+  );
+
+  async function construirDatos(): Promise<DatosExpedienteAlumno> {
+    const historico = await deps.listarHistoricoCompleto();
+    const profesorIds = [...new Set(historico.map((registro) => registro.profesor_id))];
+    const profesores = await deps.resolverNombresProfesores(profesorIds);
+    const filasHistorico: readonly FilaExpedienteAsistencia[] = historico.map((asistencia) => ({
+      asistencia,
+      profesorNombre: profesores.get(asistencia.profesor_id) ?? ETIQUETA_PROFESOR_NO_DISPONIBLE_EXPEDIENTE,
+    }));
+    return construirDatosExpedienteAlumno({
+      ficha,
+      historico: filasHistorico,
+      generadoEnLegible: fechaHoraLocalLegible(deps.reloj.ahora(), deps.zonaHoraria),
+      generadoPor: deps.nombreUsuarioActual,
+      zonaHoraria: deps.zonaHoraria,
+    });
+  }
+
+  function imprimirExpediente(datos: DatosExpedienteAlumno): void {
+    const ventana = deps.abridorImpresion.abrir(`Expediente — ${datos.alumno.nombreCompleto}`);
+    if (!ventana) {
+      zonaMensaje.textContent = 'El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes e inténtalo de nuevo.';
+      return;
+    }
+    const docImpresion = ventana.document;
+    docImpresion.body.append(crearElemento(docImpresion, 'h1', { texto: `Expediente completo — ${datos.alumno.nombreCompleto}` }));
+    docImpresion.body.append(construirTablaExpediente(docImpresion, ['Campo', 'Valor'], filasCabeceraExpediente(datos).map(([campo, valor]) => [campo, valor])));
+
+    docImpresion.body.append(crearElemento(docImpresion, 'h2', { texto: 'Personas de referencia' }));
+    docImpresion.body.append(
+      datos.personasReferencia.length === 0
+        ? crearElemento(docImpresion, 'p', { texto: 'Ninguna registrada.' })
+        : construirTablaExpediente(docImpresion, CABECERAS_PERSONAS_REFERENCIA_EXPEDIENTE, datos.personasReferencia.map(filaPersonaReferenciaExpediente)),
+    );
+
+    docImpresion.body.append(crearElemento(docImpresion, 'h2', { texto: 'Histórico de asistencia' }));
+    docImpresion.body.append(
+      datos.historicoAsistencia.length === 0
+        ? crearElemento(docImpresion, 'p', { texto: 'Sin registros.' })
+        : construirTablaExpediente(docImpresion, CABECERAS_HISTORICO_EXPEDIENTE, datos.historicoAsistencia.map(filaHistoricoExpediente)),
+    );
+
+    ventana.imprimir();
+  }
+
+  botonJson.addEventListener('click', () => {
+    void (async () => {
+      zonaMensaje.textContent = '';
+      try {
+        const datos = await construirDatos();
+        deps.descargador.descargar(generarJsonExpediente(datos), `expediente-${ficha.id}.json`, TIPO_MIME_JSON);
+      } catch (error) {
+        zonaMensaje.textContent = mensajeAmigable(error);
+      }
+    })();
+  });
+
+  botonImprimir.addEventListener('click', () => {
+    void (async () => {
+      zonaMensaje.textContent = '';
+      try {
+        const datos = await construirDatos();
+        imprimirExpediente(datos);
+      } catch (error) {
+        zonaMensaje.textContent = mensajeAmigable(error);
+      }
+    })();
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
 // Orquestación de la pantalla.
 // ---------------------------------------------------------------------------------------------
 
@@ -1042,6 +1203,7 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
   const bloquePersonas = documento.createElement('section');
   const bloqueAvatar = documento.createElement('section');
   const bloqueHorario = documento.createElement('section');
+  const bloqueExpediente = documento.createElement('section');
 
   // Referenciar un método de `deps` sin llamarlo (`crearAlumno: deps.crearAlumno`) dispara
   // `@typescript-eslint/unbound-method`: se envuelve aquí una única vez, en vez de en cada punto de
@@ -1132,6 +1294,23 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
           modificarSlot: (slotId, cambios, fechaEfecto) => deps.modificarSlot(slotId, cambios, fechaEfecto),
           cesarSlot: (slotId, fechaEfecto) => deps.cesarSlot(slotId, fechaEfecto),
         });
+      }
+
+      if (puedeExportarExpedienteCompleto(deps.rol)) {
+        areaContenido.append(crearElemento(documento, 'h3', { texto: 'Expediente completo (RGPD)' }), bloqueExpediente);
+        montarBloqueExpediente(
+          bloqueExpediente,
+          {
+            zonaHoraria: ZONA_HORARIA_CENTRO_POR_DEFECTO,
+            reloj: deps.reloj,
+            nombreUsuarioActual: deps.nombreUsuarioActual,
+            descargador: deps.descargador,
+            abridorImpresion: deps.abridorImpresion,
+            listarHistoricoCompleto: () => deps.listarHistoricoCompletoDeAlumno(alumnoId),
+            resolverNombresProfesores: (ids) => deps.resolverNombresProfesores(ids),
+          },
+          ficha,
+        );
       }
     } catch (error) {
       areaContenido.textContent = '';

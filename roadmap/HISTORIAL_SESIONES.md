@@ -37,6 +37,50 @@
 
 ---
 
+### Sesión 2026-09-08 (rutina programada) — R-10 completada, decimotercera tarea de la oleada v2
+
+**Tarea(s):** R-10 (Expediente completo del alumno — acceso y portabilidad RGPD)
+**Estado resultante:** R-10 pasa a `COMPLETADA` en §1 — sin bloqueo, código y tests completos contra
+dobles.
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (la spec de R-10 declara `Migración: No`; depende de T-13 y T-23,
+ambas ya `COMPLETADA` y con todo el esquema que necesita ya aplicado en `dev`).
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `src/dominio/expedienteAlumno.ts` (nuevo: composición pura del
+expediente — ficha, personas de referencia e histórico íntegro — más JSON legible y filas para el
+documento imprimible), `src/dominio/expedienteAlumno.test.ts` (nuevo, 19 tests), `src/dominio/
+permisosUi.ts` (`puedeExportarExpedienteCompleto`, nueva), `src/ui/pantallaFichaAlumno.ts` (quinto
+bloque, "Expediente completo (RGPD)": dos botones, descarga de JSON y ventana de impresión, más los
+campos nuevos de `DependenciasPantallaFichaAlumno`), `src/ui/pantallaFichaAlumno.test.ts` (4 tests
+nuevos del bloque + fakes de `Descargador`/`AbridorVentanaImpresion`/`Reloj` + actualización del test
+de recuento de bloques, ahora cinco), `src/ui/aplicacion.ts` (wiring: `listarHistoricoCompletoDeAlumno`,
+`resolverNombresProfesores`, `reloj`, `nombreUsuarioActual`, `descargador`, `abridorImpresion`, todos
+reutilizando funciones/instancias ya existentes de la ruta de histórico), `roadmap/SEGUIMIENTO.md`
+(§1: fila de R-10 a `COMPLETADA`; nueva entrada de "Última actualización", la anterior pasa a "Sesión
+anterior"), `roadmap/DECISIONES_TECNICAS.md` (dos filas nuevas, ver más abajo), `roadmap/
+HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1418/1418, antes 1376) · build ✅ (incluye
+el test de fuga de secretos, que compila `dist/` de verdad con `tsc -b tsconfig.build.json`)
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`)
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-08: (1) el avatar
+se informa en el expediente como `tieneAvatar: booleano`, nunca la ruta interna ni una URL firmada
+(§0.2); (2) el histórico se reordena de más antiguo a más reciente dentro del dominio (narrativa
+cronológica de archivo), al contrario que la consulta de revisión de T-23.
+**Hallazgos del auditor atendidos:** ninguno nuevo esta sesión (revisado primero, protocolo §0.3): sin
+pasada nueva del auditor desde `97bd24f`; el hallazgo #10 (severidad alta, cobertura de `TRUNCATE` en
+`pruebas_rls.sql`) ya quedó `RESUELTO` por `P-18` en la sesión anterior; el único `ABIERTO` que queda,
+`#8`, sigue esperando al dueño en la pregunta #16 de §6, sin nada nuevo que hacer sobre él.
+**Hallazgos:** ninguno.
+**Tareas autopropuestas (P-XX):** ninguna esta sesión.
+**Próximo paso:** la siguiente `PENDIENTE` de §1 es `R-11` ("Panel de centro para el administrador",
+oleada v2/F-06, depende de T-16 y T-21, ambas `COMPLETADA`, y de R-01 — `BLOQUEADA` solo por la
+migración `010` sin aplicar, pero código y tests completos, mismo precedente que R-13/R-04 con R-06/
+R-12: no bloquea escribir R-11 contra dobles). Comprobar primero si el dueño ya aplicó alguna
+migración pendiente de §3 (desbloquearía la fila correspondiente), y si no, seguir con R-11.
+
+---
+
 ### Sesión 2026-09-08 (rutina programada) — R-09 completada, duodécima tarea de la oleada v2
 
 **Tarea(s):** R-09 (Aplicación instalable y arranque sin red)
