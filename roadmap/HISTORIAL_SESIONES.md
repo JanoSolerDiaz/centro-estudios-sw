@@ -37,6 +37,36 @@
 
 ---
 
+### Sesión 2026-09-08 (rutina de producto) — decimoquinto ciclo del PM: R-15 y R-16, abren la Oleada v3
+
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **decimoquinto ciclo del PM: dos R-XX
+nuevas, R-15 y R-16, abriendo la Oleada v3.**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: decimoquinto ciclo del PM — añade R-15 y
+R-16, Oleada v3)
+**Migraciones aplicadas:** ninguna (rutina de producto, sin código)
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (nueva narrativa de cabecera; nueva
+sección "Oleada v3 — Rendición de cuentas del centro: nómina y portabilidad total" con su F-07; specs
+completas de R-15 y R-16), `roadmap/SEGUIMIENTO.md` (§1: dos filas nuevas, R-15 y R-16, `PENDIENTE`;
+nueva entrada de "Última actualización", la anterior pasa a "Sesión anterior")
+**Verificaciones pre-push:** N/A — sin código, solo documentos vivos de `roadmap/`
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna de `DECISIONES_TECNICAS.md` (ese documento registra decisiones de
+implementación; esta sesión no escribe código)
+**Hallazgos del auditor atendidos:** ninguno nuevo — revisada la tabla de `auditoriacontinua.md`:
+`#8` sigue `ABIERTO` esperando al dueño (pregunta #16 de §6, sin cambio); `#10` y `#11` siguen
+`ABIERTO` en la tabla del auditor pero ya resueltos de facto por `P-18`/`P-19` (§5 de
+`SEGUIMIENTO.md`), pendientes solo de que el auditor los confirme en su próxima pasada
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la siguiente sesión de programador sigue el orden de §1 de `SEGUIMIENTO.md`: la
+próxima `PENDIENTE` que no depende de nada sin terminar es **R-11** (panel de centro para el
+administrador, Oleada v2/F-06); R-15 y R-16 (Oleada v3) quedan detrás, ya especificadas, para cuando
+les llegue el turno
+
+---
+
 ### Sesión 2026-09-08 (rutina programada) — R-10 completada, decimotercera tarea de la oleada v2
 
 **Tarea(s):** R-10 (Expediente completo del alumno — acceso y portabilidad RGPD)

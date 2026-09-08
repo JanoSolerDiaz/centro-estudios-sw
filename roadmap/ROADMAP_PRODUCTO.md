@@ -8,42 +8,49 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-07 — decimocuarto ciclo del PM. `FEEDBACK.md` sigue sin entradas
+**Última actualización:** 2026-09-08 — decimoquinto ciclo del PM. `FEEDBACK.md` sigue sin entradas
 `nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sigue sin ninguna
-pasada nueva desde `06fb8b0` (2026-09-07 por la mañana, ya conocida por las sesiones de programador
-posteriores): los dos hallazgos `ABIERTO` (**#8**, dato de salud del artículo 9 del RGPD en R-02,
-formalizado en pregunta **#16** de §6, esperando al dueño; **#9**, higiene documental, ya `RESUELTO`
-de facto por **P-17** — ejecutada 2026-09-07, todavía sin que el auditor lo haya vuelto a comprobar)
-siguen sin aportar nada nuevo que traducir. Ninguno de los dos es un hallazgo de producto/arquitectura
-que dé pie a una R-XX nueva por sí solo.
+pasada nueva desde `97bd24f` (2026-09-08 por la mañana): el registro de hallazgos tiene tres
+`ABIERTO` en su tabla — **#8** (dato de salud del artículo 9 del RGPD en R-02, formalizado en
+pregunta **#16** de §6, esperando al dueño, sin novedad) y **#10**/**#11** (ambos de calidad de la
+propia batería de pruebas y de gobernanza documental, ya `RESUELTOS` de facto por **P-18** y **P-19**
+— ejecutadas 2026-09-08, todavía sin que el auditor los haya vuelto a comprobar en su próxima pasada).
+Ninguno de los tres es un hallazgo de producto/arquitectura que dé pie a una R-XX nueva por sí solo,
+y los dos de deuda técnica ya tienen su P-XX resuelta en el backlog — nada nuevo que traducir por esta
+vía este ciclo.
 
-**Mucho desarrollo de código entre la revisión anterior y esta, aunque sigue sin haber ningún
-despliegue en producción:** desde el decimotercer ciclo, las sesiones de programador completaron
-código y tests de **R-06** (arrancada, `BLOQUEADA` solo por la migración `013`), **R-05**
-(`COMPLETADA`, alcance de `administrator`), **R-12** (arrancada, `BLOQUEADA` solo por la migración
-`014`), **R-13** (`COMPLETADA`) y **R-04** (`COMPLETADA`) — el detalle completo, sesión a sesión, está
-en §1/§2 de `SEGUIMIENTO.md`, no se repite aquí. R-01, R-02 y R-03 siguen `BLOQUEADA` esperando
-exclusivamente al dueño (aplicar `010`/`011`/`012`, filas 13/14/15 de §3 — la 14 sigue condicionada a
-la pregunta #16). El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
-producción), así que la oleada v1 sigue sin poder darse por arrancada de verdad **en el sentido
-formal** de este documento — aunque en la práctica casi todo su código ya existe. Nada que mover a
-`ROADMAP_HISTORICO.md` esta vez.
+**Oleada v1 prácticamente cerrada en código; oleada v2 a una sola tarea de estarlo también, aunque
+sigue sin haber ningún despliegue en producción.** Desde el decimocuarto ciclo, las sesiones de
+programador completaron código y tests de **R-07** (`COMPLETADA`, solo cliente), **R-08** (arrancada,
+`BLOQUEADA` solo por la migración `016`), **R-09** (`COMPLETADA`) y **R-10** (`COMPLETADA`) — el
+detalle completo, sesión a sesión, está en §1/§2 de `SEGUIMIENTO.md`, no se repite aquí. De toda la
+oleada v1 (R-01 a R-07, R-12 a R-14) solo quedan `BLOQUEADA` por una migración sin aplicar (R-01,
+R-02, R-03, R-06, R-12, R-14) o esperando además una decisión del dueño (R-02, pregunta #16); nada
+sigue `PENDIENTE` sin código. De la oleada v2, solo **R-11** (panel de centro) sigue `PENDIENTE` sin
+ningún código todavía — R-08 arrancada y bloqueada solo por migración, R-09 y R-10 `COMPLETADA`. El
+MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción), así que ninguna
+oleada puede darse por arrancada de verdad **en el sentido formal** de este documento — aunque en la
+práctica casi todo el código de v1 y v2 ya existe. Nada que mover a `ROADMAP_HISTORICO.md` esta vez.
 
-**Una R-XX nueva este ciclo: R-14, aviso de clase cancelada a las familias.** No la propone ni el
-auditor ni `FEEDBACK.md` — la propone la propia spec de R-06 (requisito 7, ya escrito desde que R-06
-se especificó): "avisar a las familias de una clase cancelada queda fuera del alcance de esta tarea;
-si se quiere en el futuro, es una ampliación del mecanismo ya construido por R-05, no una pieza
-nueva". Con R-05 (aviso de ausencia) y R-06 (excepción de slot) ya con su código completo, ese hueco
-autoseñalado deja de ser hipotético: hoy, si una clase se cancela por falta de profesor, ninguna
-familia se entera por la aplicación — el propio centro tiene que acordarse de avisar por su cuenta,
-exactamente la misma fricción que R-05 ya resolvió para una ausencia individual, pero sin resolver
-para una clase entera. Encaja en F-03 (continuidad operativa) por ser la otra cara de R-06, y depende
-de R-05 (mecanismo) y R-06 (origen del evento a notificar) — ninguna de las dos bloquea escribirla
-contra dobles, mismo precedente que el resto de la oleada. **Revisado el resto del roadmap contra el
-estado actual y la visión de producto: sin ningún otro cambio.** Trece ciclos consecutivos de PM ya
-habían traducido a tareas concretas el hueco real entre el MVP y el objetivo de producto; este
-catorceavo no encuentra ningún otro hueco real más allá de R-14 — inventar una tarea sin una
-necesidad real detrás sería exactamente el vicio que este protocolo existe para evitar.
+**Dos R-XX nuevas este ciclo, abriendo la Oleada v3: R-15 (informe de horas por profesor) y R-16
+(exportación completa del centro).** No las propone el auditor ni `FEEDBACK.md` — las propone el
+propio estado del roadmap: con R-11 como única tarea de v2 sin código, y con v1 prácticamente resuelta
+del lado del programador, este ciclo mira más allá de v2, mismo gesto que el noveno ciclo hizo al
+definir v2 completa (R-08 a R-11) mientras v1 seguía en curso. Dos huecos reales, ninguno hipotético:
+(1) **R-03 (horas reales) ya captura, alumno a alumno, la duración exacta de cada clase, pero nadie
+puede sumarlas por profesor** — y el ICP de este producto (academias de refuerzo con varios
+profesores) casi siempre paga por hora dada, así que hoy un centro seguiría reconstruyendo esa cuenta
+a mano en una hoja de cálculo para pagar una nómina, exactamente el problema que este producto existe
+para resolver, solo que aplicado al profesor en vez de al alumno; (2) **R-10 ya resuelve la
+portabilidad y el acceso RGPD para UN alumno, pero no existe ningún volcado del centro completo** —
+sin él, la garantía de que los datos son del centro y no del proveedor (argumento de confianza real
+frente a "me quedo con mi Excel") depende de pedir un volcado a mano a quien tenga acceso a Supabase.
+Ninguna de las dos añade datos personales nuevos, ninguna toca al rol `student`, ninguna necesita
+migración, y ninguna depende de una decisión reservada al dueño. **Revisado el resto del roadmap
+contra el estado actual y la visión de producto: sin ningún otro cambio.** Catorce ciclos
+consecutivos de PM ya habían traducido a tareas concretas el hueco real entre el MVP y el objetivo de
+producto; este decimoquinto no encuentra ningún otro hueco real más allá de R-15/R-16 — inventar una
+tarea sin una necesidad real detrás sería exactamente el vicio que este protocolo existe para evitar.
 
 ---
 
@@ -133,6 +140,29 @@ alternativa actual. Nada de esto añade datos personales nuevos ni toca al rol `
   para archivar. R-10.
 - **F-06 — Visión de centro.** Lo que un administrador no puede ver hoy ni con una hoja de cálculo
   bien hecha: el estado del día y las tendencias del mes, de un vistazo. R-11.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v3 — Rendición de cuentas del centro: nómina y portabilidad total
+
+**Arranca cuando la oleada v2 (R-08 a R-11) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado
+real de esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces las R-XX de esta
+oleada quedan especificadas y en cola, detrás de la oleada v2, en el orden de §1.
+
+Por qué esta oleada y en este orden: v1 y v2 dejan resuelto el ciclo diario de una clase y la
+adopción inicial de una academia, pero dejan sin explotar dos datos que el producto ya tiene
+completos en cuanto R-03 y R-10 existen. El primero es interno al centro: la duración real de cada
+clase (R-03) es exactamente lo que hace falta para pagar a un profesor por hora, y hoy nadie la suma
+por profesor — solo por alumno (R-04). El segundo es externo, de confianza: R-10 ya prueba que un
+alumno puede llevarse todo lo suyo; falta que el centro entero pueda llevarse todo lo suyo, el
+argumento real frente al miedo de "si dejo mi Excel por esto, ¿me quedo atrapado?". Ninguna de las
+dos amplía datos personales ni toca al rol `student`.
+
+- **F-07 — Rendición de cuentas y portabilidad.** Lo que un centro necesita para pagar con datos
+  reales y para no depender de nadie para llevarse los suyos. R-15 (informe de horas por profesor),
+  R-16 (exportación completa del centro).
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -682,3 +712,79 @@ ello.
 **Criterio de aceptación:** con un mes de datos sintéticos que incluya ausencias, registros válidos
 y slots con distinta tasa de asistencia, el panel calcula correctamente ambos rankings y el estado
 de las sesiones de hoy; un `teacher` no accede a esta pantalla.
+
+---
+
+### R-15 — Informe de horas por profesor
+**Oleada / Fase:** v3 / F-07 · **Migración:** No · **Depende de:** R-03, T-24
+**Origen:** roadmap
+
+**Objetivo:** que `administrator` sepa, para un rango de fechas, cuántas horas reales impartió cada
+profesor — hoy esa cuenta solo existe reconstruida a mano sumando el informe mensual (R-04) de cada
+alumno de cada profesor, exactamente el mismo trabajo manual en hoja de cálculo que el resto del
+producto ya evita para el histórico de un alumno. La mayoría de academias de este perfil pagan a sus
+profesores por hora dada: sin este informe, la fuente de la nómina sigue fuera del producto pese a
+que el dato ya existe dentro de él desde R-03.
+
+**Requisitos:**
+1. Desde el panel de `administrator` (integrado en el panel de R-11 o en pantalla propia — decisión
+   de la sesión que lo implemente, sin condicionar esta spec), elegir un rango de fechas (por defecto
+   el mes en curso) y ver, por cada profesor con `perfil.rol = 'teacher'` y `activo = true` (T-24),
+   el número de sesiones con al menos una entrada registrada, las horas reales acumuladas (suma de
+   la duración real de R-03 cuando existe; `null`, nunca `0`, si ningún registro del profesor en ese
+   rango tiene salida marcada) y las horas teóricas del conjunto de slots vigentes de ese profesor en
+   el rango, para poder comparar lo previsto con lo realmente dado.
+2. Las sesiones en las que el profesor actuó como sustituto de otro (R-06) se contabilizan aparte,
+   nunca mezcladas con sus horas propias: a efectos de nómina una sustitución puede pagarse de forma
+   distinta, y fundirlas en una sola cifra ocultaría cuánto de lo impartido fue su propio horario.
+3. Ninguna sesión anulada (`asistencia.estado = 'anulada'`) ni ninguna cancelación de slot (R-06)
+   cuenta como hora impartida — mismo criterio que R-04 aplicado esta vez al profesor, no al alumno.
+4. Exportable a CSV, mismo patrón que R-04 (T-23): cabecera de centro, rango de fechas y fecha de
+   generación, una fila por profesor.
+5. Reservado a `administrator`; ningún profesor ve el informe de otro ni el suyo propio por esta vía
+   (si en el futuro interesa que un `teacher` vea sus propias horas, es una ampliación de alcance
+   nueva, no algo que esta tarea deba resolver de más).
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** con datos sintéticos de dos profesores en un mismo mes, uno de ellos con
+sesiones propias y una sustitución de otro slot, el informe separa horas propias de horas de
+sustitución para cada profesor, sin que ninguna sesión anulada o cancelada las infle; el CSV exportado
+coincide con lo mostrado en pantalla; un `teacher` recibe `SinPermiso` al intentar generarlo.
+
+---
+
+### R-16 — Exportación completa del centro (copia de seguridad y portabilidad)
+**Oleada / Fase:** v3 / F-07 · **Migración:** No · **Depende de:** T-11, T-12, T-13, T-15, T-23
+**Origen:** roadmap
+
+**Objetivo:** que `administrator` pueda obtener, en un clic, un volcado completo de todo lo que el
+centro tiene guardado en el sistema — alumnos, personas de referencia, horarios e histórico de
+asistencia — sin depender de pedirlo a nadie con acceso directo a la base de datos. R-10 ya resuelve
+exactamente esto para UN alumno (acceso y portabilidad RGPD); esta tarea es el mismo derecho a nivel
+de centro completo: la prueba de que los datos son del centro y no del proveedor, y de que hacer una
+copia de seguridad propia o cambiar de herramienta el día de mañana nunca depende de un tercero.
+
+**Requisitos:**
+1. Desde el panel de `administrator`, un botón «Exportar todo el centro» genera un único documento
+   JSON legible con: el catálogo de centros de referencia (T-11), todos los alumnos con su ficha
+   completa y sus personas de referencia (T-12, T-13), todos los slots de horario —vigentes e
+   históricos, con su versionado íntegro (T-15)— y el histórico completo de asistencia de todos los
+   alumnos (T-23), incluidas las filas anuladas con su motivo y las marcadas retroactivas — mismo
+   criterio de integridad que R-04 del expediente individual: un volcado que oculta lo anulado no es
+   un volcado completo.
+2. Nunca incluye la fotografía de ningún avatar —solo `tieneAvatar: booleano` por alumno, mismo
+   criterio exacto que R-10— ni ninguna credencial de ningún usuario: es un volcado de los datos de
+   negocio del centro, nunca de contenido binario sensible ni de secretos de autenticación.
+3. Incluye, dentro del propio documento, la fecha de generación y quién la generó.
+4. El volumen es el de todo el centro, no el de un alumno: la sesión que lo implemente decide cómo
+   paginar o agrupar las peticiones al servidor para no disparar más peticiones de las necesarias ni
+   agotar memoria del cliente con un centro grande — detalle de implementación fuera de esta spec.
+5. Reservado a `administrator`.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** exportar un centro sintético con 50 alumnos, historial de asistencia
+mixto (válido, anulado, retroactivo) y horarios con más de una versión por slot produce un único
+documento JSON coherente con lo almacenado, sin ninguna fotografía ni credencial; un `teacher` recibe
+`SinPermiso` al intentarlo.

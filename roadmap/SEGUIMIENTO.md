@@ -10,8 +10,35 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-08 (rutina programada, "R-10 completada, decimotercera tarea de la
-oleada v2") — revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso
+**Última actualización:** 2026-09-08 (rutina programada de producto, "decimoquinto ciclo del PM — dos
+R-XX nuevas, R-15 y R-16, abriendo la Oleada v3") — revisado primero el registro de hallazgos de
+`auditoriacontinua.md` (protocolo, paso previo a cualquier cambio de roadmap): sin ninguna pasada
+nueva desde `97bd24f` (2026-09-08 por la mañana). De los tres `ABIERTO` de su tabla, **#8** (RGPD/dato
+de salud en R-02) sigue esperando al dueño en la pregunta #16 de §6, sin novedad; **#10** y **#11**
+(calidad de la batería de pruebas y gobernanza documental) ya están `RESUELTOS` de facto por **P-18**
+y **P-19** (ejecutadas 2026-09-08), pendientes solo de que el auditor los confirme en su próxima
+pasada — ninguno de los tres pide una R-XX ni una entrada de backlog nueva este ciclo. `FEEDBACK.md`
+sigue con su única fila plantilla vacía: nada que convertir.
+
+Revisado §1 completo contra la visión de producto: de la oleada v1, solo queda **R-11** de la oleada
+v2 sin ningún código escrito (`PENDIENTE`); el resto de v1 y v2 está `COMPLETADA` o `BLOQUEADA` solo
+por una migración sin aplicar (detalle sesión a sesión más abajo). Con v2 a una sola tarea de estar
+completa en código, este ciclo mira más allá y abre la **Oleada v3** en `ROADMAP_PRODUCTO.md`, con
+dos R-XX nuevas: **R-15** ("Informe de horas por profesor", F-07) — R-03 ya captura la duración real
+de cada clase pero nadie puede sumarla por profesor, y la mayoría de academias de este perfil pagan
+por hora dada, así que ese dato sigue reconstruyéndose a mano para nómina pese a existir ya dentro
+del producto — y **R-16** ("Exportación completa del centro", F-07) — R-10 ya prueba la portabilidad
+RGPD de un alumno, pero no existe el mismo derecho a nivel de centro completo, el argumento real de
+confianza frente al miedo a quedarse atrapado en la herramienta. Ninguna de las dos añade datos
+personales, toca al rol `student`, necesita migración, ni depende de una decisión reservada al dueño.
+Filas nuevas en §1 (ambas `PENDIENTE`, detrás de R-11 en el orden de "siguiente tarea"). Sin ningún
+otro cambio al roadmap este ciclo — inventar una tarea sin necesidad real sería el vicio que este
+protocolo existe para evitar. Nada que mover a `ROADMAP_HISTORICO.md`: ninguna oleada está desplegada
+en producción todavía (T-25 sigue bloqueada, fila 12 de §3). Sin ninguna pregunta nueva en §6 (ni
+R-15 ni R-16 reabren ninguna existente ni crean una nueva).
+
+**Sesión anterior (2026-09-08, rutina programada, "R-10 completada, decimotercera tarea de la
+oleada v2"):** revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso
 previo a elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f` (hallazgo #10 ya
 `RESUELTO` por `P-18` en la sesión anterior), así que el estado del único hallazgo `ABIERTO` (`#8`,
 RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de §6) sigue siendo el mismo — nada
@@ -1965,6 +1992,8 @@ pantallas del requisito 2.
 | R-09 | Aplicación instalable y arranque sin red | COMPLETADA | 2026-09-08 | Oleada v2 / F-04 · solo cliente · `manifest.json` + iconos generados sin dependencias (`herramientas/iconos/`) + `sw.js` (único Service Worker, "red primero, caché de seguridad") + aviso de versión nueva (`nucleo/registroServiceWorker.ts`/`ui/avisoNuevaVersion.ts`). Verificado con Playwright headless: offline tras una visita previa funciona; el disparo real de "versión nueva" en el propio navegador no se pudo reproducir en esta sesión (detalle en `DEVELOPERS.md`), la orquestación sí tiene 7 tests con dobles |
 | R-10 | Expediente completo del alumno (RGPD) | COMPLETADA | 2026-09-08 | Oleada v2 / F-05 · Sin migración: depende solo de T-13/T-23, ambas `COMPLETADA`. `dominio/expedienteAlumno.ts` (nuevo, 19 tests) compone ficha + personas de referencia + histórico ÍNTEGRO (incluye anuladas/retroactivas) en un único documento; bloque quinto en `pantallaFichaAlumno.ts` con descarga de JSON legible e impresión (mismo mecanismo que el informe mensual de R-04), reservado a `administrator` (`puedeExportarExpedienteCompleto`, nueva en `permisosUi.ts`). 23 tests nuevos en total (1418 en total, antes 1376) |
 | R-11 | Panel de centro para el administrador | PENDIENTE | — | Oleada v2 / F-06 |
+| R-15 | Informe de horas por profesor | PENDIENTE | — | Oleada v3 / F-07 · nueva este ciclo (decimoquinto del PM) |
+| R-16 | Exportación completa del centro (copia de seguridad y portabilidad) | PENDIENTE | — | Oleada v3 / F-07 · nueva este ciclo (decimoquinto del PM) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 
