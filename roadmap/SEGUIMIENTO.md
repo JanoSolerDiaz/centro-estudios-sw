@@ -10,8 +10,65 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-08 (rutina programada, "R-07 completada, novena tarea de la oleada
-v1; P-18 urgente en el camino") — revisado primero el registro de hallazgos de `auditoriacontinua.md`
+**Última actualización:** 2026-09-08 (rutina programada, "R-14 arrancada, décima tarea de la oleada
+v1") — revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso previo a
+elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f` (2026-09-08 por la mañana, la
+misma ya conocida y atendida por la sesión anterior con P-18/P-19), así que el estado del único
+hallazgo `ABIERTO` (`#8`, RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de §6)
+sigue siendo el mismo — nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1 en
+orden: **R-06** seguía `BLOQUEADA` solo por la migración `013` sin aplicar (fila 17 de §3, sin
+cambio), y la siguiente `PENDIENTE` que no depende de nada sin terminar era **R-14**, "Aviso de clase
+cancelada a las familias" (spec en `ROADMAP_PRODUCTO.md`), que depende de **R-05** (`COMPLETADA`) y
+**R-06** (código y tests completos, solo bloqueada por una migración sin aplicar — mismo precedente
+que R-13/R-04 ya usaron con R-06/R-12, no bloquea escribir R-14 contra los mismos dobles). Su spec
+declara `Migración: Sí` (columnas nuevas en `excepcion_slot` para dejar constancia de quién avisó y
+cuándo), así que sigue el procedimiento de §0.1: migración nueva `db/015_aviso_cancelacion_slot.sql`
+escrita y empujada, fila 18 nueva de §3, R-14 pasa a `BLOQUEADA` — pero todo el código y los tests que
+consumen ese esquema se escriben igual, contra dobles.
+
+**Decisión de diseño de esta sesión, documentada en `DECISIONES_TECNICAS.md`:** a diferencia de R-05
+(sin columna propia, reutiliza `asistencia.nota` genérico sumándose, porque su spec declaraba
+`Migración: No`), R-14 SÍ declara migración, así que `excepcion_slot` gana dos columnas DEDICADAS
+(`aviso_familias_quien`/`aviso_familias_en`) en vez de forzar la anotación dentro de `motivo` — con
+dos `CHECK` nuevos que expresan en el propio esquema las dos invariantes del requisito 3 (solo sobre
+una cancelación; los dos campos siempre juntos, nunca uno sin el otro). Única vía de escritura:
+`registrar_aviso_cancelacion_slot(...)` (`SECURITY DEFINER`, `administrator` únicamente, mismo patrón
+exacto que `declarar_excepcion_slot()`/`desactivar_excepcion_slot()` de `013` — sin GRANT de UPDATE
+directo a `authenticated` sobre `excepcion_slot`, la comprobación de rol vive en la RPC), que rechaza
+un `quien` vacío, una excepción inexistente o desactivada, y una excepción de tipo `sustitucion`
+(requisito 4: "no aplica a una sustitución"). Módulo nuevo `dominio/avisoCancelacion.ts`: reutiliza la
+FORMA `MensajeAvisoAusencia` (asunto/cuerpo) de `dominio/avisoAusencia.ts` sin reexportarla como
+propia — `mensajeAvisoCancelacion` compone un texto distinto ("se cancela la clase de...", no "no ha
+asistido"), y `textoAvisoCancelacionRegistrado` es solo de PRESENTACIÓN (a diferencia de
+`notaConAvisoAusencia` de R-05, aquí no hay nada que componer para guardar: el servidor fija los dos
+campos directamente). La interfaz añade el bloque «Avisar a las familias» DENTRO del bloque ya
+existente "Excepción de este día" de R-06 (`pantallaRegistrosSlot.ts`), solo cuando la excepción
+activa es de tipo `cancelacion` (requisito 4) y solo si `puedeVerPersonasReferencia(rol)`
+(`administrator` hoy, requisito 5: misma pregunta #17 de §6 pendiente que R-05) — reutiliza
+`deps.obtenerPersonasReferencia`/`deps.copiarAlPortapapeles`, las MISMAS dos dependencias opcionales
+de R-05, sin duplicar el componente (requisito 1: "mismo componente... sin duplicarlo"); quien monta
+esta pantalla para `teacher` no necesita omitir nada nuevo, ya omite esas dos. "Registrar aviso
+enviado" es una anotación única para la excepción COMPLETA, nunca una por alumno (requisito 3) —
+llama a la nueva `deps.registrarAvisoCancelacionSlot?(excepcion.id, quien)` y recarga; en cuanto la
+excepción ya tiene aviso registrado, el bloque muestra quién y cuándo en vez del formulario. Nueva
+sección **8l** en `db/pruebas_rls.sql` (administrator anota el aviso sobre una cancelación propia,
+teacher/student rechazados, quien vacío rechazado, una sustitución rechazada por no admitir aviso),
+con sus propios slots de prueba (nunca los de la sección 8k, ya mutados por ella) — sin ningún cambio
+en los barridos obligatorios de las secciones 6/8f: `excepcion_slot` ya estaba en las dos desde `013`,
+y esta migración no crea ninguna tabla. Nuevo fichero estático
+`herramientas/migraciones/avisoCancelacionSlot.test.ts` (mismo patrón que `excepcionSlot.test.ts`).
+**21 tests nuevos (1307 en total, antes 1286):** 4 de `dominio/avisoCancelacion.test.ts`, 9 estáticos
+de la migración, 2 de `datos/excepcionesSlot.test.ts` (`registrarAvisoCancelacionSlot`) y 6 de
+`ui/pantallaRegistrosSlot.test.ts` (no se ofrece sobre una sustitución; no se ofrece sin la
+dependencia; se ofrece sobre una cancelación; lista personas y compone el mensaje con el motivo;
+registrar aviso llama a la RPC con el id de la excepción y recarga mostrando quién/cuándo; deshabilitado
+hasta escribir quién avisó). Verificación pre-push completa en verde: `npm run typecheck`, `npm run
+lint`, `npm test` (1307/1307) y `npm run build`. **Nota de entorno:** `node_modules/` no existía al
+empezar esta sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) fue el primer paso
+antes de poder ejecutar nada.
+
+**Sesión anterior (2026-09-08, "R-07 completada, novena tarea de la oleada
+v1; P-18 urgente en el camino"):** revisado primero el registro de hallazgos de `auditoriacontinua.md`
 (protocolo, paso previo a elegir tarea): a diferencia de las sesiones anteriores, esta vez SÍ hay una
 pasada nueva del auditor desde la última sesión (commit `97bd24f`, 2026-09-08 por la mañana, tres
 hallazgos nuevos: `#10` alta, `#11` baja) que ninguna sesión de programador había atendido todavía.
@@ -1753,7 +1810,7 @@ pantallas del requisito 2.
 | R-05 | Aviso de ausencia injustificada listo para enviar | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · sin envío automático · alcance de `administrator` completo; el alcance de `teacher` que pedía la spec original queda pendiente de la pregunta #17 de §6 (no bloquea, valor conservador: sin acceso) |
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | BLOQUEADA — pendiente aplicar migración `013` (fila 17 de §3) | 2026-09-07 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `013_excepcion_slot.sql` escrita y empujada, todavía sin aplicar — desbloquea código-wise a R-13 y R-04 (sus otras dependencias, T-19/T-22/R-12, ya completas o bloqueadas solo por migración) |
 | R-07 | Pasar lista con conexión intermitente | COMPLETADA | 2026-09-08 | Oleada v1 / F-03 · solo cliente · código y tests completos. `nucleo/colaAsistenciaOffline.ts` (IndexedDB real, sin test propio — jsdom no la implementa) + `nucleo/detectorConexion.ts` (con test propio); las dos opcionales en `pantallaPasarLista.ts`, sin ellas funciona igual que antes de R-07 |
-| R-14 | Aviso de clase cancelada a las familias | PENDIENTE | — | Oleada v1 / F-03 · nueva este ciclo del PM (2026-09-07), autoseñalada por el requisito 7 de R-06 |
+| R-14 | Aviso de clase cancelada a las familias | BLOQUEADA — pendiente aplicar migración `015` (fila 18 de §3) | 2026-09-08 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `015_aviso_cancelacion_slot.sql` escrita y empujada, todavía sin aplicar — amplía `excepcion_slot` (R-06, `013`, también sin aplicar) con dos columnas nuevas y su RPC de escritura |
 | R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
 | R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |
 | R-10 | Expediente completo del alumno (RGPD) | PENDIENTE | — | Oleada v2 / F-05 |
@@ -1797,6 +1854,7 @@ pantallas del requisito 2.
 | 15 | Aplicar la migración `012_registro_salida` en `dev`, **después** de la fila 14 (`011`) | R-03 | `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `12`, y ejecutar también `npm run probar-rls` (nueva sección 8i: marcar salida dentro de la ventana del profesor, ajustar una salida ya marcada, marcar dos veces rechazado, ajustar a una hora anterior o igual a la entrada rechazado, marcar y ajustar combinados en la misma llamada rechazado, ajustar una salida no marcada rechazado, marcar salida de una ausencia rechazado, fuera de la ventana rechazado para `teacher` y aceptado para `administrator`) | PENDIENTE |
 | 16 | Aplicar la migración `014_calendario_cierres` en `dev` | R-12 | `014` no depende conceptualmente de `010`/`011`/`012` (tabla nueva, sin relación con `asistencia`), pero el runner aplica SIEMPRE en orden numérico dentro de la misma invocación: no llegará a `014` mientras `010`/`011`/`012` sigan pendientes, y la fila 14 de esta misma tabla pide explícitamente **no aplicar `011` todavía** (pregunta #16 de §6 sin responder). Así que, en la práctica, esta fila queda detrás de la 14 aunque no exista ninguna dependencia real entre ambas migraciones — si el dueño quiere `014` sin esperar a que se resuelva la pregunta #16, tocaría aplicarla a mano en el editor SQL de `dev` fuera del runner, o renumerarla por delante de `011`/`012` (ninguna de las dos aplicada todavía, así que renumerar no rompe nada ya aplicado). Vía normal: `git pull` y `npm run migrate` en local (una vez resueltas las filas 13-15). Al terminar, comprobar que `esquema_version()` devuelve `14`, y ejecutar también `npm run probar-rls` (nueva sección 8j: alta y edición de un cierre por `administrator`, rechazadas para `teacher`, el `teacher` lee un cierre activo pero no uno inactivo; más `cierre_centro` añadida a los barridos obligatorios de `student`, sección 6, y `anon`, sección 8f) | PENDIENTE |
 | 17 | Aplicar la migración `013_excepcion_slot` en `dev` (y, en el mismo `npm run migrate`, `010_registro_ausencias`, editada en este mismo commit — ver `db/APLICADAS.md`) | R-06 | `013` no depende conceptualmente de `011`/`012` (tabla nueva sobre `slot_horario`, no sobre las columnas que añaden esas dos), pero SÍ depende de `010` (edita `registrar_ausencia`, que `010` crea) y el runner aplica siempre en orden numérico: en la práctica queda detrás de las tres, igual que la fila 16 con `014`. `git pull` y `npm run migrate` en local (una vez resueltas las filas 13-15). Al terminar, comprobar que `esquema_version()` devuelve `13` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8k: administrator declara sustitución/cancelación, teacher/student rechazados, fecha que no coincide con el día de la semana rechazada, cancelación sin motivo rechazada, retroactiva sobre un slot con registros rechazada, cancelación bloquea registrar_asistencia/registrar_ausencia a cualquiera, el titular no registra el día que le sustituyen, el sustituto SÍ registra y SÍ lee el slot ajeno, desactivar rechazada con registros y permitida sin ellos; más `excepcion_slot` añadida a los barridos obligatorios de `student`, sección 6, y `anon`, sección 8f) | PENDIENTE |
+| 18 | Aplicar la migración `015_aviso_cancelacion_slot` en `dev`, **junto con** la fila 17 (`013`) | R-14 | `015` amplía `excepcion_slot`, que crea `013`: el runner no llegará a `015` mientras `013` siga pendiente, así que en la práctica ambas se aplican en la misma pasada de `npm run migrate` (orden numérico). No crea ninguna tabla nueva: solo dos columnas (`aviso_familias_quien`/`aviso_familias_en`) y una RPC (`registrar_aviso_cancelacion_slot`), así que no hay ningún barrido nuevo que añadir a las secciones 6/8f de `db/pruebas_rls.sql` (esas son por TABLA, y `excepcion_slot` ya está en las dos desde `013`). `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `15` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8l: administrator anota el aviso sobre una cancelación propia, teacher/student rechazados, quien vacío rechazado, y una sustitución rechazada por no admitir aviso) | PENDIENTE |
 
 ---
 

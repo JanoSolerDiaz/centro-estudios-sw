@@ -37,6 +37,55 @@
 
 ---
 
+### Sesión 2026-09-08 (rutina programada) — R-14 arrancada, décima tarea de la oleada v1
+
+**Tarea(s):** R-14 (Aviso de clase cancelada a las familias)
+**Estado resultante:** R-14 pasa a `BLOQUEADA` en §1 — pendiente aplicar migración `015` (fila 18 de
+§3). Código y tests completos, contra dobles.
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (el agente no aplica DDL en ningún caso, §0.1). Migración nueva
+`db/015_aviso_cancelacion_slot.sql` escrita y empujada, todavía sin aplicar — fila 18 nueva de §3.
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `db/015_aviso_cancelacion_slot.sql` (nuevo: dos columnas en
+`excepcion_slot`, `aviso_familias_quien`/`aviso_familias_en`, con sus dos `CHECK`; RPC
+`registrar_aviso_cancelacion_slot`, `SECURITY DEFINER`, `administrator` únicamente),
+`herramientas/migraciones/avisoCancelacionSlot.test.ts` (nuevo, 9 tests estáticos),
+`db/pruebas_rls.sql` (nueva sección 8l, 5 comprobaciones con sus propios slots de prueba),
+`db/APLICADAS.md` (nota de pendiente para `015`), `db/MODELO.md` (sección nueva "Aviso de clase
+cancelada a las familias"), `src/dominio/tipos.ts` (`ExcepcionSlot` gana
+`aviso_familias_quien`/`aviso_familias_en`), `src/dominio/avisoCancelacion.ts` (nuevo:
+`mensajeAvisoCancelacion`, `textoAvisoCancelacionRegistrado`), `src/dominio/avisoCancelacion.test.ts`
+(nuevo, 4 tests), `src/datos/excepcionesSlot.ts` (`registrarAvisoCancelacionSlot`),
+`src/datos/excepcionesSlot.test.ts` (2 tests nuevos), `src/ui/pantallaRegistrosSlot.ts` (bloque nuevo
+«Avisar a las familias» dentro de "Excepción de este día", `deps.registrarAvisoCancelacionSlot?`
+opcional, estado `avisoFamilias*` nuevo, helper `formatearFecha`), `src/ui/pantallaRegistrosSlot.test.ts`
+(6 tests nuevos, sección "R-14"), `src/ui/aplicacion.ts` (wiring de `registrarAvisoCancelacionSlot`
+para `administrator`; comentario de omisión de `teacher` ampliado), `DEVELOPERS.md` (secciones de
+`excepcionesSlot.ts` y `pantallaRegistrosSlot.ts` actualizadas), `roadmap/SEGUIMIENTO.md` (§1: fila de
+R-14 a `BLOQUEADA`; §3: fila 18 nueva; nueva entrada de "Última actualización", la anterior pasa a
+"Sesión anterior"), `roadmap/DECISIONES_TECNICAS.md` (cuatro filas nuevas, ver más abajo, más la
+matriz rol × tabla × operación actualizada), `roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1307/1307, antes 1286) · build ✅
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`)
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-08: (1) dos
+columnas dedicadas en `excepcion_slot` en vez de reutilizar `motivo`, porque R-14 (a diferencia de
+R-05) declara `Migración: Sí`; (2) RPC propia `registrar_aviso_cancelacion_slot` en vez de un `GRANT`
+de columna nuevo a `authenticated`, mismo principio de "toda escritura vía RPC" que R-06 ya fijó para
+esta tabla; (3) sobrescribir sin comprobar un aviso previo, en vez de rechazar una segunda llamada —no
+hay ninguna fila de `asistencia` en juego, corregir quién avisó es un caso legítimo.
+**Hallazgos del auditor atendidos:** ninguno (sin pasada nueva del auditor desde `97bd24f`, ya
+atendida por la sesión anterior con P-18/P-19; el único hallazgo `ABIERTO` que queda, `#8`, sigue
+esperando al dueño en la pregunta #16 de §6, sin nada nuevo que hacer sobre él esta sesión).
+**Hallazgos:** ninguno nuevo.
+**Tareas autopropuestas (P-XX):** ninguna esta sesión.
+**Próximo paso:** la siguiente `PENDIENTE` de §1 que no dependa de una migración sin aplicar es la
+primera de la oleada v2 (`R-08`, "Importación masiva de alumnos y horarios", `Migración: No`) — o,
+si el dueño ya aplicó `010`-`015` para entonces, retomar el paso a producción de T-25 (fila 12 de §3)
+en cuanto se resuelva también la pregunta #16 de §6 (dato de salud de R-02).
+
+---
+
 ### Sesión 2026-09-08 (rutina programada) — R-07 completada, novena tarea de la oleada v1; P-18 urgente en el camino
 
 **Tarea(s):** P-18 (urgente, §0.3, atendida antes de la cola normal), P-19, R-07 (Pasar lista con

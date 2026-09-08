@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { mostrarPantallaRegistrosSlot, type DependenciasPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
 import type { AlumnoParaPropuesta, SlotConAlumno } from '../dominio/slots.ts';
-import type { Asistencia, AsistenciaHistorial, PersonaReferencia } from '../dominio/tipos.ts';
+import type { Asistencia, AsistenciaHistorial, ExcepcionSlot, PersonaReferencia } from '../dominio/tipos.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { SinPermiso } from '../datos/erroresDominio.ts';
@@ -111,6 +111,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     ...(overrides.listarExcepcionesDeSlot ? { listarExcepcionesDeSlot: overrides.listarExcepcionesDeSlot } : {}),
     ...(overrides.declararExcepcionSlot ? { declararExcepcionSlot: overrides.declararExcepcionSlot } : {}),
     ...(overrides.desactivarExcepcionSlot ? { desactivarExcepcionSlot: overrides.desactivarExcepcionSlot } : {}),
+    ...(overrides.registrarAvisoCancelacionSlot ? { registrarAvisoCancelacionSlot: overrides.registrarAvisoCancelacionSlot } : {}),
     generarPeticionId:
       overrides.generarPeticionId ??
       (() => {
@@ -1223,6 +1224,8 @@ void test('excepción: declarar una sustitución llama a declararExcepcionSlot c
                 profesor_sustituto_id: 'profesor-2',
                 motivo: null,
                 activo: true,
+                aviso_familias_quien: null,
+                aviso_familias_en: null,
                 creado_en: '2026-01-01T00:00:00.000Z',
                 actualizado_en: '2026-01-01T00:00:00.000Z',
               },
@@ -1240,6 +1243,8 @@ void test('excepción: declarar una sustitución llama a declararExcepcionSlot c
         profesor_sustituto_id: 'profesor-2',
         motivo: null,
         activo: true,
+        aviso_familias_quien: null,
+        aviso_familias_en: null,
         creado_en: '2026-01-01T00:00:00.000Z',
         actualizado_en: '2026-01-01T00:00:00.000Z',
       });
@@ -1304,6 +1309,8 @@ void test('excepción: declarar una cancelación exige motivo, envía tipo cance
                 profesor_sustituto_id: null,
                 motivo: 'Profesor de baja',
                 activo: true,
+                aviso_familias_quien: null,
+                aviso_familias_en: null,
                 creado_en: '2026-01-01T00:00:00.000Z',
                 actualizado_en: '2026-01-01T00:00:00.000Z',
               },
@@ -1321,6 +1328,8 @@ void test('excepción: declarar una cancelación exige motivo, envía tipo cance
         profesor_sustituto_id: null,
         motivo: 'Profesor de baja',
         activo: true,
+        aviso_familias_quien: null,
+        aviso_familias_en: null,
         creado_en: '2026-01-01T00:00:00.000Z',
         actualizado_en: '2026-01-01T00:00:00.000Z',
       });
@@ -1373,6 +1382,8 @@ void test('excepción: desactivar llama a desactivarExcepcionSlot y vuelve al fo
                 profesor_sustituto_id: null,
                 motivo: 'Imprevisto',
                 activo: true,
+                aviso_familias_quien: null,
+                aviso_familias_en: null,
                 creado_en: '2026-01-01T00:00:00.000Z',
                 actualizado_en: '2026-01-01T00:00:00.000Z',
               },
@@ -1390,6 +1401,8 @@ void test('excepción: desactivar llama a desactivarExcepcionSlot y vuelve al fo
         profesor_sustituto_id: null,
         motivo: 'Imprevisto',
         activo: false,
+        aviso_familias_quien: null,
+        aviso_familias_en: null,
         creado_en: '2026-01-01T00:00:00.000Z',
         actualizado_en: '2026-01-01T00:00:00.000Z',
       });
@@ -1421,6 +1434,8 @@ void test('excepción: desactivar está deshabilitado si ya hay registros ese d�
           profesor_sustituto_id: 'profesor-2',
           motivo: null,
           activo: true,
+          aviso_familias_quien: null,
+          aviso_familias_en: null,
           creado_en: '2026-01-01T00:00:00.000Z',
           actualizado_en: '2026-01-01T00:00:00.000Z',
         },
@@ -1432,4 +1447,127 @@ void test('excepción: desactivar está deshabilitado si ya hay registros ese d�
   const boton = botonPorTexto(contenedor, 'Desactivar excepción');
   assert.equal(boton.disabled, true);
   assert.match(contenedor.textContent, /no se puede desactivar la excepción/);
+});
+
+// --- R-14: avisar a las familias de una clase cancelada -----------------------------------------
+
+function crearExcepcionCancelacion(sobrescribir: Partial<ExcepcionSlot> = {}): ExcepcionSlot {
+  return {
+    id: 'exc-1',
+    slot_id: 'slot-1',
+    fecha: '2026-08-26',
+    tipo: 'cancelacion',
+    profesor_sustituto_id: null,
+    motivo: 'Profesor de baja',
+    activo: true,
+    aviso_familias_quien: null,
+    aviso_familias_en: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    ...sobrescribir,
+  };
+}
+
+void test('aviso a las familias: no se ofrece sobre una sustitución (requisito 4)', async () => {
+  const contenedor = await montarComoAdminConSlot({
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarExcepcionesDeSlot: () =>
+      Promise.resolve([crearExcepcionCancelacion({ tipo: 'sustitucion', profesor_sustituto_id: 'profesor-2', motivo: null })]),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  assert.equal(contenedor.textContent.includes('Avisar a las familias'), false);
+});
+
+void test('aviso a las familias: no se ofrece sin la dependencia obtenerPersonasReferencia (nunca "a medias")', async () => {
+  const contenedor = await montarComoAdminConSlot({
+    listarExcepcionesDeSlot: () => Promise.resolve([crearExcepcionCancelacion()]),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  assert.equal(contenedor.textContent.includes('Avisar a las familias'), false);
+});
+
+void test('aviso a las familias: administrator ve "Ver personas de referencia" sobre una cancelación', async () => {
+  const contenedor = await montarComoAdminConSlot({
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarExcepcionesDeSlot: () => Promise.resolve([crearExcepcionCancelacion()]),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  assert.match(contenedor.textContent, /Avisar a las familias de esta clase cancelada/);
+  assert.ok(contenedor.textContent.includes('Ver personas de referencia'));
+});
+
+void test('aviso a las familias: lista personas y compone el mensaje con el motivo de la cancelación (requisitos 1 y 2)', async () => {
+  const contenedor = await montarComoAdminConSlot({
+    obtenerPersonasReferencia: () =>
+      Promise.resolve([
+        crearPersonaReferenciaFalsa({ id: 'pr-1', nombre: 'Marta', telefono_referencia: '600000001', email_referencia: 'marta@ejemplo.com' }),
+      ]),
+    listarExcepcionesDeSlot: () => Promise.resolve([crearExcepcionCancelacion({ motivo: 'Profesor de baja' })]),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Marta García — 600000001/);
+  const enlace = Array.from(contenedor.querySelectorAll('a')).find((a) => a.textContent === 'Enviar por correo');
+  assert.ok(enlace);
+  const parametros = new URLSearchParams(enlace.href.split('?')[1]);
+  assert.match(parametros.get('subject') ?? '', /Ana García López/);
+  assert.match(parametros.get('body') ?? '', /Ana García López/);
+  assert.match(parametros.get('body') ?? '', /Matemáticas/);
+  assert.match(parametros.get('body') ?? '', /Profesor de baja/);
+  assert.match(parametros.get('body') ?? '', /se cancela la clase/);
+});
+
+void test('aviso a las familias: "Registrar aviso enviado" llama a registrarAvisoCancelacionSlot con el id de la excepción, una sola vez para toda la excepción (requisito 3)', async () => {
+  let idRecibido: string | undefined;
+  let quienRecibido: string | undefined;
+  let avisada = false;
+  const contenedor = await montarComoAdminConSlot({
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarExcepcionesDeSlot: () =>
+      Promise.resolve([avisada ? crearExcepcionCancelacion({ aviso_familias_quien: 'María', aviso_familias_en: '2026-08-26T12:00:00Z' }) : crearExcepcionCancelacion()]),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+    registrarAvisoCancelacionSlot: (excepcionId, quien) => {
+      idRecibido = excepcionId;
+      quienRecibido = quien;
+      avisada = true;
+      return Promise.resolve(crearExcepcionCancelacion({ aviso_familias_quien: quien, aviso_familias_en: '2026-08-26T12:00:00Z' }));
+    },
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  const campoQuien = contenedor.querySelector<HTMLInputElement>('#aviso-familias-quien');
+  assert.ok(campoQuien);
+  campoQuien.value = 'María';
+  dispararEvento(campoQuien, 'input');
+
+  botonPorTexto(contenedor, 'Registrar aviso enviado').click();
+  await esperarMicrotareas();
+
+  assert.equal(idRecibido, 'exc-1');
+  assert.equal(quienRecibido, 'María');
+  assert.match(contenedor.textContent, /Aviso registrado por María el/);
+  assert.match(contenedor.textContent, /sin confirmación de entrega/);
+  assert.equal(contenedor.textContent.includes('Registrar aviso enviado'), false);
+});
+
+void test('aviso a las familias: "Registrar aviso enviado" está deshabilitado hasta escribir quién avisó', async () => {
+  const contenedor = await montarComoAdminConSlot({
+    obtenerPersonasReferencia: () => Promise.resolve([crearPersonaReferenciaFalsa()]),
+    listarExcepcionesDeSlot: () => Promise.resolve([crearExcepcionCancelacion()]),
+    declararExcepcionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+    registrarAvisoCancelacionSlot: () => Promise.reject(new Error('no se esperaba esta llamada')),
+  });
+
+  botonPorTexto(contenedor, 'Ver personas de referencia').click();
+  await esperarMicrotareas();
+
+  assert.equal(botonPorTexto(contenedor, 'Registrar aviso enviado').disabled, true);
 });

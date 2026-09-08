@@ -2574,6 +2574,125 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8l. Aviso de clase cancelada a las familias (R-14,
+--     db/015_aviso_cancelacion_slot.sql) — anotación manual de
+--     quién/cuándo sobre una excepción de tipo cancelación, ÚNICA vía
+--     de escritura: registrar_aviso_cancelacion_slot(). Crea sus
+--     PROPIOS slots (nunca reutiliza los de la sección 8k, ya
+--     mutados por ella), con horas distintas para no chocar con nada,
+--     mismo criterio de "hoy en Europe/Madrid" que 8k.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_alumno_id     uuid := pg_temp.dato('alumno_prueba');
+  v_teacher_id    uuid;
+  v_teacher2_id   uuid;
+  v_slot_canc_id  uuid;
+  v_slot_sust_id  uuid;
+  v_fecha         date := (now() at time zone 'Europe/Madrid')::date;
+  v_exc_canc      public.excepcion_slot;
+  v_exc_sust      public.excepcion_slot;
+  v_fila          public.excepcion_slot;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
+
+  if v_alumno_id is null or v_teacher_id is null or v_teacher2_id is null or not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / administrator anota el aviso', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / teacher no puede llamar (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / student no puede llamar (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / quien vacío (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / rechazada sobre una sustitución (debe fallar)', 'falta el alumno, un segundo teacher o el administrator de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_fecha)::smallint, '16:00', '17:00', current_date)
+      returning id into v_slot_canc_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_fecha)::smallint, '17:00', '18:00', current_date)
+      returning id into v_slot_sust_id;
+    select * into v_exc_canc from public.declarar_excepcion_slot(
+      p_slot_id => v_slot_canc_id, p_fecha => v_fecha, p_tipo => 'cancelacion', p_motivo => '__prueba_rls__aviso_familias'
+    );
+    select * into v_exc_sust from public.declarar_excepcion_slot(
+      p_slot_id => v_slot_sust_id, p_fecha => v_fecha, p_tipo => 'sustitucion', p_profesor_sustituto_id => v_teacher2_id
+    );
+  exception when others then
+    v_slot_canc_id := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_slot_canc_id is null or v_exc_canc.id is null or v_exc_sust.id is null then
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / administrator anota el aviso', 'no se pudo declarar la excepción de prueba propia de esta sección');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / teacher no puede llamar (debe fallar)', 'no se pudo declarar la excepción de prueba propia de esta sección');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / student no puede llamar (debe fallar)', 'no se pudo declarar la excepción de prueba propia de esta sección');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / quien vacío (debe fallar)', 'no se pudo declarar la excepción de prueba propia de esta sección');
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / rechazada sobre una sustitución (debe fallar)', 'no se pudo declarar la excepción de prueba propia de esta sección');
+    return;
+  end if;
+
+  -- teacher no puede anotar el aviso (§0.2: solo administrator, requisito 5 de R-14).
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.registrar_aviso_cancelacion_slot(v_exc_canc.id, '__prueba_rls__teacher');
+    perform pg_temp.registrar('registrar_aviso_cancelacion_slot / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se anotó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('registrar_aviso_cancelacion_slot / teacher no puede llamar (debe fallar)', array['%solo un administrador puede anotar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student, tampoco.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('registrar_aviso_cancelacion_slot / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.registrar_aviso_cancelacion_slot(v_exc_canc.id, '__prueba_rls__student');
+      perform pg_temp.registrar('registrar_aviso_cancelacion_slot / student no puede llamar (debe fallar)', 'prohibido', false, 'se anotó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('registrar_aviso_cancelacion_slot / student no puede llamar (debe fallar)', array['%solo un administrador puede anotar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Quien vacío: rechazado.
+  begin
+    perform public.registrar_aviso_cancelacion_slot(v_exc_canc.id, '   ');
+    perform pg_temp.registrar('registrar_aviso_cancelacion_slot / quien vacío (debe fallar)', 'prohibido', false, 'se anotó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('registrar_aviso_cancelacion_slot / quien vacío (debe fallar)', array['%falta quién ha avisado%'], sqlerrm);
+  end;
+
+  -- Una sustitución no admite aviso (requisito 4 de R-14): rechazada.
+  begin
+    perform public.registrar_aviso_cancelacion_slot(v_exc_sust.id, '__prueba_rls__sustitucion');
+    perform pg_temp.registrar('registrar_aviso_cancelacion_slot / rechazada sobre una sustitución (debe fallar)', 'prohibido', false, 'se anotó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('registrar_aviso_cancelacion_slot / rechazada sobre una sustitución (debe fallar)', array['%solo una cancelación admite aviso%'], sqlerrm);
+  end;
+
+  -- Alta real, permitida.
+  begin
+    select * into v_fila from public.registrar_aviso_cancelacion_slot(v_exc_canc.id, '__prueba_rls__administrator');
+    perform pg_temp.registrar(
+      'registrar_aviso_cancelacion_slot / administrator anota el aviso', 'permitido',
+      v_fila.aviso_familias_quien = '__prueba_rls__administrator' and v_fila.aviso_familias_en is not null
+    );
+  exception when others then
+    perform pg_temp.registrar('registrar_aviso_cancelacion_slot / administrator anota el aviso', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

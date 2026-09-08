@@ -478,6 +478,34 @@ a nivel de slot en vez de centro entero) es el criterio previsto para que R-04 (
 pendiente) excluya un día cancelado de "sesiones esperadas" — solo la cancelación excluye, la
 sustitución sigue contando (hubo clase, solo cambió quién la impartió).
 
+## Aviso de clase cancelada a las familias (`015_aviso_cancelacion_slot.sql`, R-14)
+
+Ampliación del mecanismo ya construido por R-05 (aviso de ausencia injustificada) para una
+CANCELACIÓN de `excepcion_slot` (R-06) en vez de una ausencia individual — requisito 7 de la propia
+spec de R-06. No crea ninguna tabla: `excepcion_slot` gana dos columnas,
+`aviso_familias_quien`/`aviso_familias_en`, UNA sola anotación para la excepción completa, no una por
+alumno (requisito 3) — a diferencia de R-05 (sin columna propia, reutiliza `asistencia.nota`
+sumándose), aquí sí hay columnas dedicadas porque R-14 declara `Migración: Sí`.
+
+**Única vía de escritura: `registrar_aviso_cancelacion_slot(...)`**, `SECURITY DEFINER`,
+`administrator` únicamente (requisito 5: mismo alcance que R-05, misma pregunta #17 de §6 pendiente
+para `teacher`) — mismo patrón exacto que `declarar_excepcion_slot()`/`desactivar_excepcion_slot()`
+de `013`: sin GRANT de UPDATE directo a `authenticated` sobre `excepcion_slot`, la comprobación de rol
+vive en la RPC. Rechaza un `quien` vacío, una excepción inexistente o desactivada, y una excepción de
+tipo `sustitucion` (requisito 4: "no aplica a una sustitución, no hay nada que avisar"). Dos `CHECK`
+nuevos sobre `excepcion_slot` refuerzan la misma invariante en el esquema: `aviso_familias_en` solo
+puede tener valor si `tipo = 'cancelacion'`, y `aviso_familias_quien`/`aviso_familias_en` van siempre
+juntos (nunca uno sin el otro).
+
+**`dominio/avisoCancelacion.ts`** reutiliza la forma `MensajeAvisoAusencia` (asunto/cuerpo) de
+`dominio/avisoAusencia.ts` sin reexportarla como propia: `mensajeAvisoCancelacion` compone un texto
+distinto ("se cancela la clase de...", no "no ha asistido"), y `textoAvisoCancelacionRegistrado` es
+solo de PRESENTACIÓN (a diferencia de `notaConAvisoAusencia` de R-05, aquí no hay nada que componer
+para guardar: el servidor fija `aviso_familias_quien`/`aviso_familias_en` directamente). La interfaz
+(«Registros», bloque "Excepción de este día" de R-06) ofrece «Avisar a las familias» solo sobre una
+cancelación, reutilizando `deps.obtenerPersonasReferencia`/`deps.copiarAlPortapapeles` — las mismas
+dependencias de R-05, sin duplicar el componente (requisito 1).
+
 ## Calendario de cierres del centro (`014_calendario_cierres.sql`, R-12)
 
 Tabla nueva, `cierre_centro`: `fecha_inicio`/`fecha_fin` (`date`, ambos inclusive — puede coincidir

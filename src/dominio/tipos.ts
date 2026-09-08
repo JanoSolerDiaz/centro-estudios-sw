@@ -123,7 +123,11 @@ export type TipoExcepcionSlot = 'sustitucion' | 'cancelacion';
 /** Excepción de UN día sobre un slot_horario recurrente (R-06, `db/013_excepcion_slot.sql`):
  * sustitución (otro profesor cubre la clase) o cancelación (no hay clase, con motivo). `fecha` en
  * formato `AAAA-MM-DD`. `profesor_sustituto_id` solo para `tipo === 'sustitucion'`; `motivo` solo
- * (y obligatorio) para `tipo === 'cancelacion'`. Baja lógica (`activo`), nunca DELETE. */
+ * (y obligatorio) para `tipo === 'cancelacion'`. Baja lógica (`activo`), nunca DELETE.
+ * `aviso_familias_quien`/`aviso_familias_en` (R-14, `db/015_aviso_cancelacion_slot.sql`): anotación
+ * manual de que se avisó a las familias de una cancelación — nunca para `tipo === 'sustitucion'`,
+ * una sola vez para la excepción completa, no por alumno. `null`/`null` mientras no se ha
+ * registrado; los dos a la vez en cuanto se registra (nunca uno sin el otro). */
 export interface ExcepcionSlot {
   readonly id: string;
   readonly slot_id: string;
@@ -132,6 +136,8 @@ export interface ExcepcionSlot {
   readonly profesor_sustituto_id: string | null;
   readonly motivo: string | null;
   readonly activo: boolean;
+  readonly aviso_familias_quien: string | null;
+  readonly aviso_familias_en: string | null;
   readonly creado_en: string;
   readonly actualizado_en: string;
 }

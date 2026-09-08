@@ -152,6 +152,22 @@ un cierre activo pero no uno inactivo; más las dos tablas añadidas a los barri
 fila 12) queda inafectada: `014` es posterior y no forma parte de las diez migraciones de su paso a
 producción.
 
+**`015_aviso_cancelacion_slot.sql`** (R-14, "aviso de clase cancelada a las familias") — escrita y
+empujada a `develop` el 2026-09-08, todavía sin aplicar. No crea ninguna tabla: amplía `excepcion_slot`
+(`013`, también sin aplicar) con dos columnas, `aviso_familias_quien`/`aviso_familias_en` (una sola
+anotación por excepción, nunca una por alumno — requisito 3), con dos `CHECK` nuevos (solo sobre una
+cancelación; los dos campos siempre juntos, nunca uno sin el otro). Única vía de escritura:
+`registrar_aviso_cancelacion_slot()` (`SECURITY DEFINER`, `administrator` únicamente, mismo patrón que
+`declarar_excepcion_slot()`/`desactivar_excepcion_slot()` de `013`) — rechaza un `quien` vacío, una
+excepción inexistente o desactivada, y una excepción de tipo `sustitucion` (requisito 4: no aplica).
+Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local (aplica `013` y `015` en la
+misma pasada, en ese orden — el runner va siempre en orden numérico), comprobar que
+`esquema_version()` devuelve `15` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm
+run probar-rls` (nueva sección 8l de `db/pruebas_rls.sql`: administrator anota el aviso sobre una
+cancelación propia, teacher/student rechazados, quien vacío rechazado, y una sustitución rechazada por
+no admitir aviso). Fila 18 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada:
+`015` es posterior y no forma parte de las diez migraciones de su paso a producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

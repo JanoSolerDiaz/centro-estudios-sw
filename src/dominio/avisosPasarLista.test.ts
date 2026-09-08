@@ -56,6 +56,8 @@ function crearExcepcion(sobrescribir: Partial<ExcepcionSlot> = {}): ExcepcionSlo
     profesor_sustituto_id: null,
     motivo: 'Sin profesor',
     activo: true,
+    aviso_familias_quien: null,
+    aviso_familias_en: null,
     creado_en: '2026-01-01T00:00:00.000Z',
     actualizado_en: '2026-01-01T00:00:00.000Z',
     ...sobrescribir,

@@ -217,7 +217,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     petición, para pasar lista y «Mi horario») son consultas directas: RLS ya resuelve el alcance.
     `listarExcepcionesDeProfesorEnRango` (R-13, nuevo) — activas cuya `fecha` cae en `[desde, hasta]`,
     sin el slot embebido (el aviso de "sesiones sin pasar lista" ya tiene los slots por su cuenta),
-    para la ventana de aviso completa en vez de un único día.
+    para la ventana de aviso completa en vez de un único día. `registrarAvisoCancelacionSlot` (R-14,
+    nuevo) — tercera RPC del mismo fichero (`registrar_aviso_cancelacion_slot`,
+    `db/015_aviso_cancelacion_slot.sql`), anota quién avisó a las familias de una cancelación y
+    cuándo, una sola vez para la excepción completa (no por alumno); mismo motivo de opacidad que las
+    otras dos: sin GRANT de UPDATE directo, la RPC es la única vía.
   - `usuarios.ts` (T-24, nuevo) — `listarUsuarios`/`actualizarUsuario` sobre `perfil` directamente
     (sin RPC: el `UPDATE` de `administrator` sobre cualquier fila ya estaba concedido y aislado por
     RLS desde el bootstrap). `actualizarUsuario` combina nombre/rol/activo en una llamada parcial
@@ -658,7 +662,16 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     ese día); si no, ofrece declarar sustitución (selector de sustituto, reutiliza
     `listarProfesoresParaSelector`, excluye al propio titular) o cancelación (motivo obligatorio) —
     deshabilitado también si ya hay registros ese día (requisito 5, comprobado en el cliente ADEMÁS
-    del rechazo autoritativo de la RPC).
+    del rechazo autoritativo de la RPC). Desde R-14: dentro del mismo bloque "Excepción de este día",
+    y solo sobre una CANCELACIÓN (nunca una sustitución), "Avisar a las familias" — mismas dos
+    dependencias que "Avisar a la familia" de R-05 (`deps.obtenerPersonasReferencia`/
+    `deps.copiarAlPortapapeles`, sin duplicarlas), reutiliza `dominio/avisoCancelacion.ts` (mensaje
+    distinto, "se cancela la clase de..."). "Registrar aviso enviado" llama a
+    `deps.registrarAvisoCancelacionSlot(excepcion.id, quien)` — UNA sola vez para la excepción
+    completa (no por alumno, requisito 3): a diferencia de R-05, con columnas dedicadas
+    (`excepcion_slot.aviso_familias_quien`/`aviso_familias_en`, R-14 declara `Migración: Sí`), sin
+    necesidad de componer ningún texto que se sume a una nota previa. En cuanto la excepción ya tiene
+    aviso registrado, el bloque muestra quién y cuándo en vez del formulario.
   - `pantallaHistorico.ts` (T-23) — `mostrarPantallaHistorico(contenedor, deps)`: consulta
     transversal del histórico completo (no de un solo slot, a diferencia de
     `pantallaRegistrosSlot.ts`), para `administrator` (todo el centro) y `teacher` (solo lo suyo, por

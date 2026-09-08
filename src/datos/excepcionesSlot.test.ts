@@ -8,6 +8,7 @@ import {
   listarExcepcionesDeSlot,
   listarExcepcionesDelDiaParaProfesor,
   listarExcepcionesDeProfesorEnRango,
+  registrarAvisoCancelacionSlot,
 } from './excepcionesSlot.ts';
 import { SinPermiso } from './erroresDominio.ts';
 import type { ExcepcionSlot } from '../dominio/tipos.ts';
@@ -20,6 +21,8 @@ const SUSTITUCION: ExcepcionSlot = {
   profesor_sustituto_id: 'teacher2',
   motivo: null,
   activo: true,
+  aviso_familias_quien: null,
+  aviso_familias_en: null,
   creado_en: '2026-01-01T00:00:00Z',
   actualizado_en: '2026-01-01T00:00:00Z',
 };
@@ -170,4 +173,37 @@ void test('listarExcepcionesDeProfesorEnRango filtra por fecha entre desde y has
   assert.equal(url.searchParams.get('activo'), 'eq.true');
   assert.deepEqual(url.searchParams.getAll('fecha'), ['gte.2026-08-31', 'lte.2026-09-07']);
   assert.deepEqual(filas, [SUSTITUCION]);
+});
+
+void test('registrarAvisoCancelacionSlot llama a la RPC registrar_aviso_cancelacion_slot con el id y quien (R-14)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cancelacionAvisada: ExcepcionSlot = {
+    ...SUSTITUCION,
+    tipo: 'cancelacion',
+    profesor_sustituto_id: null,
+    motivo: 'Imprevisto',
+    aviso_familias_quien: 'María (administradora)',
+    aviso_familias_en: '2026-12-21T12:00:00Z',
+  };
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: cancelacionAvisada };
+  });
+
+  const fila = await registrarAvisoCancelacionSlot(cliente, 'exc1', 'María (administradora)');
+
+  assert.ok(peticion);
+  assert.equal(peticion.url, 'https://proyecto.supabase.co/rest/v1/rpc/registrar_aviso_cancelacion_slot');
+  assert.equal(peticion.metodo, 'POST');
+  assert.deepEqual(peticion.cuerpo, { p_excepcion_id: 'exc1', p_quien: 'María (administradora)' });
+  assert.deepEqual(fila, cancelacionAvisada);
+});
+
+void test('registrarAvisoCancelacionSlot propaga SinPermiso cuando la RPC rechaza a un teacher', async () => {
+  const cliente = crearCliente(() => ({
+    estado: 403,
+    cuerpo: { message: 'solo un administrador puede anotar un aviso a las familias' },
+  }));
+
+  await assert.rejects(() => registrarAvisoCancelacionSlot(cliente, 'exc1', 'María'), SinPermiso);
 });

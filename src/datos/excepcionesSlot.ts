@@ -10,6 +10,9 @@
  *
  * Lectura, en cambio, es una consulta directa sobre la tabla: RLS ya resuelve quién ve qué
  * (`administrator` todas, `teacher` solo las suyas —como titular o como sustituto—, activas).
+ *
+ * `registrarAvisoCancelacionSlot` (R-14) es la tercera RPC de este fichero, mismo motivo de opacidad
+ * (`db/015_aviso_cancelacion_slot.sql`, `SECURITY DEFINER`, sin GRANT de UPDATE directo).
  */
 
 import type { ClientePostgrest } from './postgrest.ts';
@@ -48,6 +51,15 @@ export async function declararExcepcionSlot(cliente: ClientePostgrest, entrada: 
  * declarar: no se puede "deshacer" un día que ya ocurrió de verdad). */
 export async function desactivarExcepcionSlot(cliente: ClientePostgrest, excepcionId: string): Promise<ExcepcionSlot> {
   return cliente.rpc<ExcepcionSlot>('desactivar_excepcion_slot', { p_excepcion_id: excepcionId });
+}
+
+/** Anota que se avisó a las familias de una cancelación (R-14, requisito 3), EXCLUSIVAMENTE vía RPC
+ * (`registrar_aviso_cancelacion_slot`, `db/015_aviso_cancelacion_slot.sql`, `SECURITY DEFINER`) —
+ * mismo motivo de opacidad que declarar/desactivar: la RPC comprueba de forma atómica que la
+ * excepción exista, esté activa y sea de tipo `cancelacion` (una sustitución no admite aviso,
+ * requisito 4), y rechaza un `quien` vacío. Una sola anotación por excepción, nunca una por alumno. */
+export async function registrarAvisoCancelacionSlot(cliente: ClientePostgrest, excepcionId: string, quien: string): Promise<ExcepcionSlot> {
+  return cliente.rpc<ExcepcionSlot>('registrar_aviso_cancelacion_slot', { p_excepcion_id: excepcionId, p_quien: quien });
 }
 
 /** Todas las excepciones ACTIVAS de `slotId` (cualquier fecha) — usa «Registros»

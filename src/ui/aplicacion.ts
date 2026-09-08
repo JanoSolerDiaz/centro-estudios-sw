@@ -42,6 +42,7 @@ import {
   listarExcepcionesDeSlot,
   listarExcepcionesDelDiaParaProfesor,
   listarExcepcionesDeProfesorEnRango,
+  registrarAvisoCancelacionSlot,
 } from '../datos/excepcionesSlot.ts';
 import {
   listarAlumnos,
@@ -264,6 +265,7 @@ function mostrarAppAdministrador(
         listarExcepcionesDeSlot: (slotId) => listarExcepcionesDeSlot(app.postgrest, slotId),
         declararExcepcionSlot: (entrada) => declararExcepcionSlot(app.postgrest, entrada),
         desactivarExcepcionSlot: (excepcionId) => desactivarExcepcionSlot(app.postgrest, excepcionId),
+        registrarAvisoCancelacionSlot: (excepcionId, quien) => registrarAvisoCancelacionSlot(app.postgrest, excepcionId, quien),
       });
       return;
     }
@@ -469,10 +471,11 @@ function mostrarAppProfesor(
         profesorId: perfil.id,
         reloj: app.reloj,
         // Sin listarProfesoresParaSelector: teacher nunca elige profesor (puedeEditarAsistenciaDeCualquiera es false).
-        // Sin obtenerPersonasReferencia ni copiarAlPortapapeles: "avisar" (R-05) es solo administrator
-        // (puedeVerPersonasReferencia) hasta que el dueño responda la pregunta #17 de §6.
-        // Sin listarExcepcionesDeSlot/declararExcepcionSlot/desactivarExcepcionSlot (R-06): declarar
-        // excepciones es solo administrator (puedeGestionarExcepcionesSlot); teacher solo las ve
+        // Sin obtenerPersonasReferencia ni copiarAlPortapapeles: "avisar" (R-05/R-14) es solo
+        // administrator (puedeVerPersonasReferencia) hasta que el dueño responda la pregunta #17 de §6.
+        // Sin listarExcepcionesDeSlot/declararExcepcionSlot/desactivarExcepcionSlot/
+        // registrarAvisoCancelacionSlot (R-06/R-14): declarar excepciones y avisar de una
+        // cancelación es solo administrator (puedeGestionarExcepcionesSlot); teacher solo las ve
         // reflejadas en «Mi horario» y en pasar lista.
         ...(ruta.slotId !== undefined ? { slotInicialId: ruta.slotId } : {}),
         ...(ruta.fecha !== undefined ? { fechaInicial: ruta.fecha } : {}),

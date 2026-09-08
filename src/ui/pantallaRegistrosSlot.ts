@@ -61,6 +61,7 @@ import {
   duracionTeoricaMinutos,
 } from '../dominio/asistencia.ts';
 import { mensajeAvisoAusencia, notaConAvisoAusencia } from '../dominio/avisoAusencia.ts';
+import { mensajeAvisoCancelacion } from '../dominio/avisoCancelacion.ts';
 import { etiquetaMotivoJustificacion } from '../dominio/historicoAsistencia.ts';
 import { excepcionDelDia, etiquetaExcepcion, fechaCoincideConDiaSemana, motivoCancelacionValido } from '../dominio/excepcionSlot.ts';
 import { puedeEditarAsistenciaDeCualquiera, puedeGestionarExcepcionesSlot, puedeVerPersonasReferencia } from '../dominio/permisosUi.ts';
@@ -134,6 +135,13 @@ export interface DependenciasPantallaRegistrosSlot {
   /** Desactiva una excepción ya declarada (vuelve al horario normal) — mismo requisito 5: la RPC la
    * rechaza si el slot ya tiene registros esa fecha. */
   desactivarExcepcionSlot?(excepcionId: string): Promise<ExcepcionSlot>;
+  /** «Avisar a las familias» de una clase cancelada (R-14) — solo se ofrece sobre una excepción de
+   * tipo `cancelacion` (nunca una sustitución, requisito 4) y solo si `puedeVerPersonasReferencia(rol)`
+   * (`administrator`, requisito 5: mismo alcance que R-05, misma pregunta #17 de §6 pendiente para
+   * `teacher`). Reutiliza `deps.obtenerPersonasReferencia`/`deps.copiarAlPortapapeles`, las mismas
+   * dependencias de R-05 (requisito 1: "mismo componente... sin duplicarlo"), así que quien monta esta
+   * pantalla para `teacher` no necesita omitir nada nuevo: ya omite esas dos. */
+  registrarAvisoCancelacionSlot?(excepcionId: string, quien: string): Promise<ExcepcionSlot>;
 }
 
 interface EstadoFila {
@@ -219,6 +227,15 @@ interface EstadoPantalla {
   readonly excepcionGuardando: boolean;
   readonly excepcionError: string;
   readonly excepcionDesactivando: boolean;
+  /** «Avisar a las familias» (R-14) — ligado a la excepción de CANCELACIÓN del día elegido, no a una
+   * fila de `asistencia` (a diferencia de `personasReferencia`/`avisoQuien` de R-05, que son por
+   * `EstadoFila`): requisito 3, "una sola vez para la excepción completa". `null` mientras no se han
+   * pedido todavía las personas de referencia; un array vacío es una respuesta real. */
+  readonly avisoFamiliasPersonas: readonly PersonaReferencia[] | null;
+  readonly avisoFamiliasError: string;
+  readonly avisoFamiliasQuien: string;
+  readonly avisoFamiliasMensaje: string;
+  readonly avisoFamiliasGuardando: boolean;
 }
 
 /** `HH:MM` a partir de un `timestamptz` de PostgREST, en la zona horaria del centro — para
@@ -257,6 +274,19 @@ function formatearFechaHora(iso: string, zonaHoraria: string = ZONA_HORARIA_CENT
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(iso));
+}
+
+/** `fechaIso` (`AAAA-MM-DD`, de calendario, sin hora) a `DD/MM/AAAA` — para el mensaje de aviso de
+ * cancelación (R-14, requisito 2), que necesita la fecha de la clase sin hora. Mediodía UTC, mismo
+ * criterio que `pintarCabecera` para evitar que un cambio de zona horaria mueva la fecha de calendario
+ * al día anterior o siguiente. */
+function formatearFecha(fechaIso: string): string {
+  return new Intl.DateTimeFormat('es', {
+    timeZone: 'UTC',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${fechaIso}T12:00:00Z`));
 }
 
 /** Frase de la columna de detalle con la salida y la duración (R-03, requisito 3: "junto a la
@@ -310,6 +340,11 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     excepcionGuardando: false,
     excepcionError: '',
     excepcionDesactivando: false,
+    avisoFamiliasPersonas: null,
+    avisoFamiliasError: '',
+    avisoFamiliasQuien: '',
+    avisoFamiliasMensaje: '',
+    avisoFamiliasGuardando: false,
   });
 
   function actualizarFila(id: string, cambios: Partial<EstadoFila>): void {
@@ -367,6 +402,10 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
         excepcionMotivo: '',
         excepcionSustitutoId: '',
         excepcionError: '',
+        avisoFamiliasPersonas: null,
+        avisoFamiliasError: '',
+        avisoFamiliasQuien: '',
+        avisoFamiliasMensaje: '',
       });
     } catch (error) {
       almacen.actualizar({ cargando: false, error: mensajeAmigable(error) });
@@ -1116,6 +1155,144 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
           );
         }
       }
+
+      // Avisar a las familias (R-14) — solo sobre una CANCELACIÓN (requisito 4: una sustitución no
+      // tiene nada que avisar), y solo si el rol ve personas de referencia (`puedeVerPersonasReferencia`,
+      // administrator hoy — requisito 5, misma pregunta #17 de §6 pendiente que R-05).
+      if (excepcion.tipo === 'cancelacion' && puedeVerPersonasReferencia(deps.rol) && deps.obtenerPersonasReferencia) {
+        const bloqueAviso = crearElemento(documento, 'div');
+        bloqueAviso.append(crearElemento(documento, 'p', { texto: 'Avisar a las familias de esta clase cancelada:' }));
+
+        if (excepcion.aviso_familias_en) {
+          bloqueAviso.append(
+            crearElemento(documento, 'p', {
+              texto:
+                `Aviso registrado por ${excepcion.aviso_familias_quien ?? ''} el ${formatearFechaHora(excepcion.aviso_familias_en)} ` +
+                '(anotación manual, sin confirmación de entrega).',
+            }),
+          );
+        } else if (estado.avisoFamiliasPersonas === null) {
+          if (estado.avisoFamiliasError) {
+            const mensajeError = crearZonaMensaje(documento, 'alert');
+            mensajeError.textContent = estado.avisoFamiliasError;
+            bloqueAviso.append(mensajeError);
+          }
+          const botonVerPersonas = crearBoton(documento, 'Ver personas de referencia', 'button');
+          botonVerPersonas.addEventListener('click', () => {
+            if (!deps.obtenerPersonasReferencia) {
+              return;
+            }
+            deps
+              .obtenerPersonasReferencia(slotElegido.alumno_id)
+              .then((personas) => {
+                almacen.actualizar({ avisoFamiliasPersonas: personas, avisoFamiliasError: '' });
+              })
+              .catch((error: unknown) => {
+                almacen.actualizar({ avisoFamiliasError: mensajeAmigable(error) });
+              });
+          });
+          bloqueAviso.append(botonVerPersonas);
+        } else if (estado.avisoFamiliasPersonas.length === 0) {
+          bloqueAviso.append(
+            crearElemento(documento, 'p', { texto: 'Este alumno no tiene ninguna persona de referencia registrada.' }),
+          );
+        } else {
+          const mensaje = mensajeAvisoCancelacion({
+            alumnoNombreCompleto: nombreCompletoAlumno(slotElegido.alumno),
+            fechaTexto: formatearFecha(estado.fechaIso),
+            claseNombre: slotElegido.asignatura_o_grupo,
+            motivo: excepcion.motivo ?? '',
+          });
+
+          const listaPersonas = crearElemento(documento, 'ul');
+          for (const persona of estado.avisoFamiliasPersonas) {
+            const item = documento.createElement('li');
+            item.append(
+              crearElemento(documento, 'span', {
+                texto: `${nombreCompletoPersonaReferencia(persona)} — ${persona.telefono_referencia}`,
+              }),
+            );
+            if (persona.email_referencia) {
+              const email = persona.email_referencia;
+              const enlaceCorreo = documento.createElement('a');
+              enlaceCorreo.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(mensaje.asunto)}&body=${encodeURIComponent(mensaje.cuerpo)}`;
+              enlaceCorreo.textContent = 'Enviar por correo';
+              item.append(' ', enlaceCorreo);
+            }
+            listaPersonas.append(item);
+          }
+          bloqueAviso.append(listaPersonas);
+
+          const areaMensaje = documento.createElement('textarea');
+          areaMensaje.readOnly = true;
+          areaMensaje.value = `${mensaje.asunto}\n\n${mensaje.cuerpo}`;
+          bloqueAviso.append(areaMensaje);
+
+          if (deps.copiarAlPortapapeles) {
+            const botonCopiar = crearBoton(documento, 'Copiar mensaje', 'button');
+            botonCopiar.addEventListener('click', () => {
+              if (!deps.copiarAlPortapapeles) {
+                return;
+              }
+              deps
+                .copiarAlPortapapeles(areaMensaje.value)
+                .then(() => {
+                  almacen.actualizar({ avisoFamiliasMensaje: 'Mensaje copiado al portapapeles.' });
+                })
+                .catch(() => {
+                  almacen.actualizar({
+                    avisoFamiliasMensaje: 'No se ha podido copiar automáticamente: selecciona el texto de arriba.',
+                  });
+                });
+            });
+            bloqueAviso.append(botonCopiar);
+          }
+
+          if (estado.avisoFamiliasMensaje) {
+            const zonaEstadoAviso = crearZonaMensaje(documento, 'status');
+            zonaEstadoAviso.textContent = estado.avisoFamiliasMensaje;
+            bloqueAviso.append(zonaEstadoAviso);
+          }
+
+          // Marcar «aviso enviado» — una sola anotación para la excepción COMPLETA, no una por
+          // alumno (requisito 3): a diferencia de R-05, con columnas dedicadas (Migración: Sí), sin
+          // necesidad de componer un texto que se sume a nada previo.
+          if (deps.registrarAvisoCancelacionSlot) {
+            if (estado.avisoFamiliasError) {
+              const mensajeError = crearZonaMensaje(documento, 'alert');
+              mensajeError.textContent = estado.avisoFamiliasError;
+              bloqueAviso.append(mensajeError);
+            }
+            const campoQuien = crearCampoTexto(documento, 'aviso-familias-quien', '¿Quién ha avisado?', 'text', 'off');
+            campoQuien.input.value = estado.avisoFamiliasQuien;
+            campoQuien.input.addEventListener('input', () => {
+              almacen.actualizar({ avisoFamiliasQuien: campoQuien.input.value });
+            });
+            const botonRegistrarAviso = crearBoton(documento, 'Registrar aviso enviado', 'button');
+            botonRegistrarAviso.disabled = estado.avisoFamiliasGuardando || estado.avisoFamiliasQuien.trim().length === 0;
+            botonRegistrarAviso.addEventListener('click', () => {
+              void (async () => {
+                const quien = almacen.obtener().avisoFamiliasQuien.trim();
+                almacen.actualizar({ avisoFamiliasGuardando: true, avisoFamiliasError: '' });
+                try {
+                  await deps.registrarAvisoCancelacionSlot?.(excepcion.id, quien);
+                  await cargarRegistros();
+                } catch (error) {
+                  almacen.actualizar({ avisoFamiliasGuardando: false, avisoFamiliasError: mensajeAmigable(error) });
+                }
+              })();
+            });
+            bloqueAviso.append(
+              campoQuien.contenedor,
+              botonRegistrarAviso,
+              crearElemento(documento, 'p', { texto: 'Anotación manual: no es una confirmación de entrega verificada por el sistema.' }),
+            );
+          }
+        }
+
+        bloque.append(bloqueAviso);
+      }
+
       zonaExcepcion.append(bloque);
       return;
     }
