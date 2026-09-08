@@ -143,6 +143,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   que pinta la pantalla en la ventana de impresión, así que los dos formatos coinciden siempre en
   las cifras (criterio de aceptación de R-04). `permisosUi.ts` añade `puedeGenerarInformeMensual`
   (`administrator` y `teacher`, mismo conjunto que `puedeVerHistorico` pero como capacidad propia).
+  Desde R-08: `importacionAlumnos.ts` (nuevo) — `analizarCsvAlumnos(filasCrudas, centros, alumnosExistentes)`
+  valida cada fila y decide `'nueva'`/`'duplicada'`/`'error'` con el motivo exacto; `alumnosSonDuplicados`
+  compara nombre completo + centro, acento-insensible (mismo algoritmo NFD que `normalizarNombreCentro`
+  de T-11, duplicado a propósito en vez de reexportado — ver `DECISIONES_TECNICAS.md`). `importacionHorarios.ts`
+  (nuevo) — `analizarCsvHorarios` resuelve el alumno por nombre y apellidos EXACTOS (a propósito más
+  estricto que el de alumnos) y el profesor contra un mapa YA resuelto por quien llama;
+  `diaSemanaDesdeTexto` acepta el dígito 1-7 o el nombre del día en español; `emailsProfesorUnicosDeCsvHorarios`
+  extrae los emails distintos de un fichero para resolverlos una sola vez, nunca por fila. Sobre
+  `nucleo/csv.ts` ampliado con `analizarCsv`/`detectarSeparadorCsv` (parseo propio, comillas dobles
+  estilo RFC 4180, separador `;`/`,` autodetectado). `permisosUi.ts` añade `puedeImportarMasivamente`
+  (exclusiva de `administrator`).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -189,13 +200,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     fuera de las ocho de T-08 (login con contraseña incorrecta no es lo mismo que "sin sesión").
     Endpoints sin poder verificarse contra documentación en vivo en esta sesión, mismo aviso que
     T-06/T-07/T-08.
-  - `profesores.ts` (T-16, ampliado en T-23) — `listarProfesoresActivos`: los únicos datos de
+  - `profesores.ts` (T-16, ampliado en T-23 y R-08) — `listarProfesoresActivos`: los únicos datos de
     `perfil` que necesita el selector de profesor del bloque de horario de la ficha de alumno (`id`,
     `nombre`, `rol=teacher`, `activo=true`). Solo lectura; el alta de usuarios es T-24. Desde T-23:
     `resolverNombresProfesores(cliente, ids)` — resuelve en LOTE el nombre de cada id, sin filtrar
     por `rol`/`activo` (un profesor que ya no da clase sigue siendo el que registró históricamente
     esa fila); para un `teacher` (que solo tiene `perfil_leer_propio`) el mapa devuelto contiene como
-    mucho su propia fila.
+    mucho su propia fila. Desde R-08: `resolverProfesorPorEmail(cliente, email)` — `perfil` no
+    guarda el email (vive en `auth.users`), así que llama a la RPC `resolver_profesor_por_email`
+    (`SECURITY DEFINER`, `db/016_resolver_profesor_por_email.sql`, exclusiva de `administrator`) en
+    vez de filtrar una columna que no existe; `null` si no hay ninguna cuenta de `teacher` activa con
+    ese email.
   - `centrosEstudios.ts` (T-11) — `listarCentros`/`crearCentro`/`editarNombreCentro`/
     `contarAlumnosActivosDeCentro`/`desactivarCentro`/`reactivarCentro` sobre `postgrest.ts`. El alta
     y la edición de nombre comprueban antes el duplicado acento-insensible
@@ -312,6 +327,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     distinguir el motivo (alumno inexistente o quien pregunta no es `administrator`, único rol al
     que `alumno_ficha` devuelve fila) — un `teacher` simplemente no ve el campo "Centro" en su
     informe, nunca un error.
+  - `importacionMasiva.ts` (R-08, nuevo) — `listarAlumnosParaImportacion(cliente)`: catálogo
+    completo de alumnos (id + columnas de emparejamiento), una única petición sin paginar, para las
+    dos funciones puras de `dominio/importacionAlumnos.ts`/`importacionHorarios.ts`.
+    `importarAlumnosValidados(cliente, filas)`: un ÚNICO `INSERT` con todas las filas nuevas (genera
+    el `id` en el cliente, `Prefer: return=minimal`, mismo patrón que `crearAlumno`).
+    `importarHorariosValidados(cliente, reloj, filas)`: una llamada a `crearSlot` (T-15) POR FILA,
+    sin abortar en la primera que falle — un solape con un horario ya existente (incluida la
+    reimportación del mismo fichero sin cambios) queda recogido en `errores`, con el motivo real de
+    `crearSlot`, nunca el genérico de `mensajeAmigable`.
 
   ### Configuración del cliente (`config.js`)
 
@@ -387,13 +411,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13 y R-04) — dos routers por
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04 y R-08) — dos routers por
     `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor
     interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator`
     (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`,
     `#/historico[/<alumnoId>]` — el segmento de `alumnoId`, opcional, añadido por R-04 para que la
     ficha de alumno enlace al informe mensual con el alumno ya preseleccionado —, `#/usuarios` desde
-    T-24, `#/cierres` desde R-12) y `crearRouterProfesor(objetivo)`
+    T-24, `#/cierres` desde R-12, `#/importacion` desde R-08) y `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>[/<fecha>]]` — el segmento de
     `slotId` es opcional, para el enlace profundo de "mi horario" a los registros de un slot
     concreto; el de `fecha` (`AAAA-MM-DD`), añadido por R-13, solo tiene sentido junto a `slotId` y
@@ -460,7 +484,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `document` de esa ventana nueva (nunca una cadena HTML cruda) y llama a `imprimir()`
     (`focus()` + `print()`). `undefined` si el navegador bloquea la ventana emergente — quien llama
     debe avisarlo. Mismo patrón de inyección que `Descargador`; la implementación real no tiene test
-    propio.
+    propio. Desde R-08: `LectorFichero`/`crearLectorFicheroNavegador()` — `leerTexto(archivo: File)`
+    sobre `File.prototype.text()`, mismo patrón inyectable, para leer el CSV subido en
+    `pantallaImportacionMasiva.ts` sin depender de `FileReader` en los tests.
   - `portapapeles.ts` (R-05) — `copiarAlPortapapelesDelNavegador(texto)`: envoltura de una línea
     sobre `navigator.clipboard.writeText`, mismo motivo de aislamiento que `FabricaProcesadoImagen`
     (T-14) y `Descargador` (T-23): `jsdom` no implementa la Clipboard API, así que la pantalla que la
@@ -725,6 +751,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     DOS aplicaciones (`#/cierres`): `administrator` con las cuatro operaciones de escritura
     (`puedeGestionarCierresCentro`); `teacher` en modo exclusivamente lectura, sin las cuatro
     operaciones opcionales de la interfaz de dependencias, viendo solo los cierres activos.
+  - `pantallaImportacionMasiva.ts` (R-08, nuevo) — `mostrarPantallaImportacionMasiva(contenedor, deps)`:
+    dos bloques independientes (alumnos/horarios), cada uno con el mismo flujo en dos pasos: elegir
+    un fichero (`<input type="file">`, leído con `deps.leerFichero`) analiza y muestra una vista
+    previa obligatoria (fila a fila, qué se creará/omitirá/fallará y por qué); confirmar exige un
+    segundo toque explícito y solo entonces escribe. El bloque de horarios resuelve cada email de
+    profesor distinto UNA vez (`emailsProfesorUnicosDeCsvHorarios`) antes de analizar las filas.
+    Exclusiva de `administrator` (`puedeImportarMasivamente`). Enrutada como `#/importacion`.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin

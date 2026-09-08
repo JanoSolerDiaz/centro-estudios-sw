@@ -168,6 +168,23 @@ cancelación propia, teacher/student rechazados, quien vacío rechazado, y una s
 no admitir aviso). Fila 18 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada:
 `015` es posterior y no forma parte de las diez migraciones de su paso a producción.
 
+**`016_resolver_profesor_por_email.sql`** (R-08, "importación masiva de alumnos y horarios") —
+escrita y empujada a `develop` el 2026-09-08, todavía sin aplicar. La spec de R-08 declara
+`Migración: No`, pero el requisito 3 ("horario... profesor por email de una cuenta que ya existe")
+resultó depender de una comprobación real de esquema: `perfil` no guarda el email (vive en
+`auth.users`) y ninguna vista ni columna lo expone a `authenticated` — mismo patrón que T-24 ya
+detectó antes de esta tarea ("comprobar la dependencia real antes de dar la spec de 'Migración: No'
+por buena"). No crea ninguna tabla ni columna: una única función nueva,
+`resolver_profesor_por_email(p_email)` (`SECURITY DEFINER`, `administrator` únicamente, mismo patrón
+que `registrar_intento_fallido()` de `002` para leer `auth.users.email` de forma segura), que
+devuelve como mucho una fila (id + nombre) del profesor activo con ese email, o ninguna si no existe,
+no es `teacher`, o está inactivo. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate`
+en local, comprobar que `esquema_version()` devuelve `16` (o más, si `011`/`012` ya se resolvieron), y
+ejecutar también `npm run probar-rls` (nueva sección: administrator resuelve el email de un teacher
+activo, teacher/student rechazados, un email sin cuenta o de un administrator/teacher inactivo no
+devuelve ninguna fila). Fila 19 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda
+inafectada: `016` es posterior y no forma parte de las diez migraciones de su paso a producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

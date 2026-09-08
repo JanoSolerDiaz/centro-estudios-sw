@@ -37,6 +37,63 @@
 
 ---
 
+### Sesión 2026-09-08 (rutina programada) — R-08 arrancada, undécima tarea de la oleada v1/v2
+
+**Tarea(s):** R-08 (Importación masiva de alumnos y horarios)
+**Estado resultante:** R-08 pasa a `BLOQUEADA` en §1 — pendiente aplicar migración `016` (fila 19 de
+§3). Código y tests completos, contra dobles; solo el emparejamiento de profesor por email depende de
+la migración, el resto del alcance (alumnos, resto de horarios) funciona en cuanto se despliega.
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (el agente no aplica DDL en ningún caso, §0.1). Migración nueva
+`db/016_resolver_profesor_por_email.sql` escrita y empujada, todavía sin aplicar — fila 19 nueva de
+§3. Su spec declaraba `Migración: No`; el requisito 3 (profesor por email) resultó exigirla de todas
+formas (ver §7 de `SEGUIMIENTO.md`, fila nueva).
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `db/016_resolver_profesor_por_email.sql` (nuevo: RPC
+`resolver_profesor_por_email(p_email)`, `SECURITY DEFINER`, `administrator` únicamente, lee
+`auth.users.email`), `herramientas/migraciones/resolverProfesorPorEmail.test.ts` (nuevo, 6 tests
+estáticos), `db/pruebas_rls.sql` (nueva sección 8m, 5 comprobaciones), `db/APLICADAS.md` (nota de
+pendiente para `016`), `db/MODELO.md` (sección nueva "`resolver_profesor_por_email`"),
+`src/nucleo/csv.ts` (`analizarCsv`/`detectarSeparadorCsv`, nuevo — parseo de CSV propio),
+`src/nucleo/csv.test.ts` (14 tests nuevos), `src/dominio/importacionAlumnos.ts` (nuevo: análisis de
+CSV de alumnos, `alumnosSonDuplicados`), `src/dominio/importacionAlumnos.test.ts` (nuevo, 16 tests),
+`src/dominio/importacionHorarios.ts` (nuevo: análisis de CSV de horarios, `diaSemanaDesdeTexto`,
+`emailsProfesorUnicosDeCsvHorarios`), `src/dominio/importacionHorarios.test.ts` (nuevo, 14 tests),
+`src/dominio/permisosUi.ts` (`puedeImportarMasivamente`), `src/dominio/permisosUi.test.ts` (1 test
+nuevo), `src/datos/profesores.ts` (`resolverProfesorPorEmail`), `src/datos/profesores.test.ts` (2
+tests nuevos), `src/datos/importacionMasiva.ts` (nuevo: `listarAlumnosParaImportacion`,
+`importarAlumnosValidados`, `importarHorariosValidados`), `src/datos/importacionMasiva.test.ts`
+(nuevo, 6 tests), `src/ui/dom.ts` (`LectorFichero`/`crearLectorFicheroNavegador`),
+`src/ui/pantallaImportacionMasiva.ts` (nuevo: pantalla de dos bloques, alumnos/horarios, vista previa
++ confirmación), `src/ui/pantallaImportacionMasiva.test.ts` (nuevo, 9 tests), `src/nucleo/router.ts`
+(ruta `importacion`), `src/nucleo/router.test.ts` (1 test nuevo), `src/ui/aplicacion.ts` (wiring
+completo de la ruta `importacion` y su nav), `roadmap/SEGUIMIENTO.md` (§1: fila de R-08 a
+`BLOQUEADA`; §3: fila 19 nueva; §7: fila nueva del patrón "Migración: No" incumplido; nueva entrada de
+"Última actualización", la anterior pasa a "Sesión anterior"), `roadmap/DECISIONES_TECNICAS.md` (ocho
+filas nuevas, ver más abajo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1376/1376, antes 1307) · build ✅
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`)
+**Decisiones tomadas:** ocho filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-08: (1) migración
+nueva pese a `Migración: No` declarado, mismo patrón que T-09/T-20; (2) parseo de CSV propio con
+separador autodetectado, sin librería; (3) duplicado inline del algoritmo de normalización de
+`normalizarNombreCentro` en vez de reexportarlo, por no acoplar dominios; (4) emparejamiento de
+alumno EXACTO en horarios, distinto de la comparación acento-insensible de duplicados de alumnos; (5)
+sin comprobación de duplicado de cliente para horarios, apoyada en el solape ya existente de
+`crearSlot` (T-15); (6) INSERT en lote para alumnos frente a una llamada por fila para horarios; (7)
+`LectorFichero` inyectable, mismo patrón que `Descargador`/`AbridorVentanaImpresion`.
+**Hallazgos del auditor atendidos:** ninguno (sin pasada nueva del auditor desde `97bd24f`, ya
+atendida por sesiones anteriores con P-18/P-19; el único hallazgo `ABIERTO` que queda, `#8`, sigue
+esperando al dueño en la pregunta #16 de §6, sin nada nuevo que hacer sobre él esta sesión).
+**Hallazgos:** ninguno nuevo.
+**Tareas autopropuestas (P-XX):** ninguna esta sesión.
+**Próximo paso:** la siguiente `PENDIENTE` de §1 que no dependa de una migración sin aplicar es
+`R-09` ("Aplicación instalable y arranque sin red", oleada v2, `Migración: No`, solo cliente) — o, si
+el dueño ya aplicó `010`-`016` para entonces, retomar el paso a producción de T-25 (fila 12 de §3) en
+cuanto se resuelva también la pregunta #16 de §6 (dato de salud de R-02).
+
+---
+
 ### Sesión 2026-09-08 (rutina programada) — R-14 arrancada, décima tarea de la oleada v1
 
 **Tarea(s):** R-14 (Aviso de clase cancelada a las familias)

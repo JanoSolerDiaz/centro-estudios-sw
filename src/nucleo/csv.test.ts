@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { filaCsv, documentoCsv } from './csv.ts';
+import { filaCsv, documentoCsv, analizarCsv, detectarSeparadorCsv } from './csv.ts';
 
 void test('filaCsv une los valores con punto y coma, no con coma', () => {
   assert.equal(filaCsv(['a', 'b', 'c']), 'a;b;c');
@@ -43,4 +43,88 @@ void test('documentoCsv empieza por el BOM UTF-8, seguido de la cabecera y las f
 void test('documentoCsv sin filas es solo el BOM y la cabecera', () => {
   const documento = documentoCsv(['Alumno'], []);
   assert.equal(documento, '\uFEFFAlumno\r\n');
+});
+
+// --- detectarSeparadorCsv / analizarCsv (R-08, importaci\u00F3n) --------------------------------------
+
+void test('detectarSeparadorCsv: m\u00E1s punto y coma que comas, asume punto y coma', () => {
+  assert.equal(detectarSeparadorCsv('nombre;apellido;centro'), ';');
+});
+
+void test('detectarSeparadorCsv: m\u00E1s comas que puntos y coma, asume coma', () => {
+  assert.equal(detectarSeparadorCsv('nombre,apellido,centro'), ',');
+});
+
+void test('detectarSeparadorCsv: empate o ninguno de los dos, asume punto y coma (por defecto del proyecto)', () => {
+  assert.equal(detectarSeparadorCsv('una,sola;cabecera'), ';');
+  assert.equal(detectarSeparadorCsv('sin separador'), ';');
+});
+
+void test('analizarCsv: separa por punto y coma detectado y devuelve la cabecera como primera fila', () => {
+  const filas = analizarCsv('nombre;apellido\r\nJuan;P\u00E9rez\r\n');
+  assert.deepEqual(filas, [
+    ['nombre', 'apellido'],
+    ['Juan', 'P\u00E9rez'],
+  ]);
+});
+
+void test('analizarCsv: quita el BOM UTF-8 inicial antes de analizar', () => {
+  const filas = analizarCsv('\uFEFFnombre;apellido\r\nJuan;P\u00E9rez\r\n');
+  assert.deepEqual(filas[0], ['nombre', 'apellido']);
+});
+
+void test('analizarCsv: acepta \\n solo, sin \\r', () => {
+  const filas = analizarCsv('a;b\nc;d\n');
+  assert.deepEqual(filas, [
+    ['a', 'b'],
+    ['c', 'd'],
+  ]);
+});
+
+void test('analizarCsv: la \u00FAltima l\u00EDnea sin salto final tambi\u00E9n se analiza', () => {
+  const filas = analizarCsv('a;b\r\nc;d');
+  assert.deepEqual(filas, [
+    ['a', 'b'],
+    ['c', 'd'],
+  ]);
+});
+
+void test('analizarCsv: un campo entrecomillado puede contener el separador', () => {
+  const filas = analizarCsv('nombre;nota\r\n"P\u00E9rez;Garc\u00EDa";"bien"\r\n');
+  assert.deepEqual(filas[1], ['P\u00E9rez;Garc\u00EDa', 'bien']);
+});
+
+void test('analizarCsv: una comilla doble interna escapada como "" se convierte en una sola', () => {
+  const filas = analizarCsv('alias\r\n"Alias ""el profe"""\r\n');
+  assert.deepEqual(filas[1], ['Alias "el profe"']);
+});
+
+void test('analizarCsv: un campo entrecomillado puede contener un salto de l\u00EDnea', () => {
+  const filas = analizarCsv('nota\r\n"l\u00EDnea uno\nl\u00EDnea dos"\r\nsiguiente\r\n');
+  assert.deepEqual(filas, [['nota'], ['l\u00EDnea uno\nl\u00EDnea dos'], ['siguiente']]);
+});
+
+void test('analizarCsv: conserva tildes y e\u00F1es sin ning\u00FAn escapado especial', () => {
+  const filas = analizarCsv('nombre;apellido\r\nJos\u00E9;Mu\u00F1oz Pe\u00F1a\r\n');
+  assert.deepEqual(filas[1], ['Jos\u00E9', 'Mu\u00F1oz Pe\u00F1a']);
+});
+
+void test('analizarCsv: omite una l\u00EDnea en blanco al final del fichero', () => {
+  const filas = analizarCsv('a;b\r\nc;d\r\n\r\n');
+  assert.equal(filas.length, 2);
+});
+
+void test('analizarCsv: acepta separador por coma cuando se detecta o se fuerza', () => {
+  assert.deepEqual(analizarCsv('a,b\r\nc,d\r\n'), [
+    ['a', 'b'],
+    ['c', 'd'],
+  ]);
+  assert.deepEqual(analizarCsv('a;b,c\r\n1;2,3\r\n', ','), [
+    ['a;b', 'c'],
+    ['1;2', '3'],
+  ]);
+});
+
+void test('analizarCsv: texto vac\u00EDo no produce ninguna fila', () => {
+  assert.deepEqual(analizarCsv(''), []);
 });

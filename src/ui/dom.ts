@@ -91,6 +91,21 @@ export function crearAbridorVentanaImpresionNavegador(
   };
 }
 
+/** Lee el contenido de texto de un fichero elegido por el usuario (R-08, importación masiva de CSV
+ * desde un `<input type="file">`). Inyectable — mismo criterio exacto que `Descargador`: la
+ * orquestación de quien la usa se testea con un `LectorFichero` de mentira que devuelve un texto fijo
+ * sin ningún `File` real, y `crearLectorFicheroNavegador` (con `File.prototype.text()`, estándar de
+ * la plataforma) es la única implementación real, sin test propio. */
+export interface LectorFichero {
+  leerTexto(archivo: File): Promise<string>;
+}
+
+export function crearLectorFicheroNavegador(): LectorFichero {
+  return {
+    leerTexto: (archivo) => archivo.text(),
+  };
+}
+
 export function crearElemento<K extends keyof HTMLElementTagNameMap>(
   documento: Document,
   etiqueta: K,

@@ -127,3 +127,10 @@ export function puedeGestionarExcepcionesSlot(rol: Rol): boolean {
 export function puedeGenerarInformeMensual(rol: Rol): boolean {
   return rol === 'administrator' || rol === 'teacher';
 }
+
+/** Importación masiva de alumnos y horarios (R-08). Exclusivamente `administrator` (requisito 6:
+ * "reservado a administrator, igual que T-12 y T-15"): un `teacher` no gestiona fichas ni horarios,
+ * así que tampoco puede darlos de alta en lote. */
+export function puedeImportarMasivamente(rol: Rol): boolean {
+  return rol === 'administrator';
+}

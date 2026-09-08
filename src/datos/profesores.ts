@@ -27,6 +27,19 @@ export async function listarProfesoresActivos(cliente: ClientePostgrest): Promis
     .seleccionar('id,nombre');
 }
 
+/** Resuelve un profesor por el email de su cuenta (R-08, requisito 3: "profesor... por email de una
+ * cuenta que ya existe — la importación nunca crea usuarios ni cuentas"). `perfil` no guarda el
+ * email (vive en `auth.users`, ver `db/MODELO.md`): esta función llama a la RPC
+ * `resolver_profesor_por_email` (`SECURITY DEFINER`, `db/016_resolver_profesor_por_email.sql`,
+ * exclusiva de `administrator`) en vez de intentar filtrar `perfil` por una columna que no existe.
+ * `null` si no hay ninguna cuenta con ese email, o si la tiene pero no es un `teacher` activo — quien
+ * llama (la importación) no distingue el motivo, igual que otros resolutores del proyecto: la fila
+ * queda en error con "profesor no encontrado", sin filtrar si el email existe con otro rol. */
+export async function resolverProfesorPorEmail(cliente: ClientePostgrest, email: string): Promise<ProfesorParaSelector | null> {
+  const filas = await cliente.rpc<readonly ProfesorParaSelector[]>('resolver_profesor_por_email', { p_email: email });
+  return filas[0] ?? null;
+}
+
 /** Resuelve en LOTE (nunca una petición por fila) el nombre de cada `id` de `ids` — T-23, histórico
  * de asistencia: una página puede mezclar registros de varios profesores. Sin filtrar por
  * `rol`/`activo`: un profesor que ya no da clase, o que cambió de rol, sigue siendo el que registró

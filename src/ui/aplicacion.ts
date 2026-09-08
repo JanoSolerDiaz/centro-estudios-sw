@@ -68,8 +68,9 @@ import {
 } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
 import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
-import { listarProfesoresActivos, resolverNombresProfesores } from '../datos/profesores.ts';
+import { listarProfesoresActivos, resolverNombresProfesores, resolverProfesorPorEmail } from '../datos/profesores.ts';
 import { listarUsuarios, actualizarUsuario } from '../datos/usuarios.ts';
+import { listarAlumnosParaImportacion, importarAlumnosValidados, importarHorariosValidados } from '../datos/importacionMasiva.ts';
 import {
   registrarAsistencia,
   registrarAusencia,
@@ -81,7 +82,7 @@ import {
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
 } from '../datos/asistencia.ts';
-import { crearDescargadorNavegador, crearAbridorVentanaImpresionNavegador } from './dom.ts';
+import { crearDescargadorNavegador, crearAbridorVentanaImpresionNavegador, crearLectorFicheroNavegador } from './dom.ts';
 import { copiarAlPortapapelesDelNavegador } from './portapapeles.ts';
 import { mostrarPantallaLogin } from './pantallaLogin.ts';
 import { mostrarPantallaRecuperarContrasena } from './pantallaRecuperarContrasena.ts';
@@ -96,6 +97,7 @@ import { mostrarPantallaMiHorario } from './pantallaMiHorario.ts';
 import { mostrarPantallaHistorico } from './pantallaHistorico.ts';
 import { mostrarPantallaUsuarios } from './pantallaUsuarios.ts';
 import { mostrarPantallaCierresCentro } from './pantallaCierresCentro.ts';
+import { mostrarPantallaImportacionMasiva } from './pantallaImportacionMasiva.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -206,11 +208,24 @@ function mostrarAppAdministrador(
   enlaceCierres.addEventListener('click', () => {
     router.navegar({ nombre: 'cierres' });
   });
+  const enlaceImportacion = crearBoton(documento, 'Importación', 'button');
+  enlaceImportacion.addEventListener('click', () => {
+    router.navegar({ nombre: 'importacion' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlaceCentros, enlaceAlumnos, enlaceRegistros, enlaceHistorico, enlaceUsuarios, enlaceCierres, botonSalir);
+  nav.append(
+    enlaceCentros,
+    enlaceAlumnos,
+    enlaceRegistros,
+    enlaceHistorico,
+    enlaceUsuarios,
+    enlaceCierres,
+    enlaceImportacion,
+    botonSalir,
+  );
 
   cabecera.append(titulo, saludo, nav);
 
@@ -311,6 +326,19 @@ function mostrarAppAdministrador(
         editarCierre: (id, fechaInicio, fechaFin, motivo) => editarCierre(app.postgrest, id, fechaInicio, fechaFin, motivo),
         desactivarCierre: (id) => desactivarCierre(app.postgrest, id),
         reactivarCierre: (id) => reactivarCierre(app.postgrest, id),
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'importacion') {
+      mostrarPantallaImportacionMasiva(areaPantalla, {
+        rol: perfil.rol,
+        leerFichero: crearLectorFicheroNavegador(),
+        listarCentrosParaImportacion: () => listarCentros(app.postgrest),
+        listarAlumnosParaImportacion: () => listarAlumnosParaImportacion(app.postgrest),
+        resolverProfesorPorEmail: (email) => resolverProfesorPorEmail(app.postgrest, email),
+        importarAlumnos: (filas) => importarAlumnosValidados(app.postgrest, filas),
+        importarHorarios: (filas) => importarHorariosValidados(app.postgrest, app.reloj, filas),
       });
       return;
     }

@@ -12,6 +12,7 @@ import {
   puedeGestionarHorarios,
   puedeGestionarUsuarios,
   puedeGenerarInformeMensual,
+  puedeImportarMasivamente,
   puedeUsarPasarLista,
   puedeVerAvatarEnCards,
   puedeVerCierresCentro,
@@ -102,4 +103,10 @@ void test('puedeGenerarInformeMensual: administrator y teacher, nunca student', 
   assert.equal(puedeGenerarInformeMensual('administrator'), true);
   assert.equal(puedeGenerarInformeMensual('teacher'), true);
   assert.equal(puedeGenerarInformeMensual('student'), false);
+});
+
+void test('puedeImportarMasivamente: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeImportarMasivamente('administrator'), true);
+  assert.equal(puedeImportarMasivamente('teacher'), false);
+  assert.equal(puedeImportarMasivamente('student'), false);
 });

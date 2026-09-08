@@ -64,6 +64,10 @@ void test('analizarRuta: "#/cierres" es la pantalla del calendario de cierres de
   assert.deepEqual(analizarRuta('#/cierres'), { nombre: 'cierres' });
 });
 
+void test('analizarRuta: "#/importacion" es la pantalla de importación masiva (R-08)', () => {
+  assert.deepEqual(analizarRuta('#/importacion'), { nombre: 'importacion' });
+});
+
 void test('analizarRuta: funciona igual sin el "#" inicial', () => {
   assert.deepEqual(analizarRuta('/centros'), { nombre: 'centros' });
 });
@@ -79,6 +83,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'historico', alumnoId: 'abc-123' },
     { nombre: 'usuarios' },
     { nombre: 'cierres' },
+    { nombre: 'importacion' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);

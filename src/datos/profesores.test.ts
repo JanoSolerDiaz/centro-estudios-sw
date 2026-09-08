@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
-import { listarProfesoresActivos, resolverNombresProfesores } from './profesores.ts';
+import { listarProfesoresActivos, resolverNombresProfesores, resolverProfesorPorEmail } from './profesores.ts';
 
 function crearCliente(manejador: Parameters<typeof crearFetchSimulado>[0]) {
   return crearClientePostgrest({
@@ -83,4 +83,26 @@ void test('resolverNombresProfesores: un id sin fila devuelta (p. ej. un teacher
 
   assert.equal(mapa.size, 1);
   assert.equal(mapa.has('otro-profesor'), false);
+});
+
+// --- resolverProfesorPorEmail (R-08, importación masiva de horarios) ----------------------------
+
+void test('resolverProfesorPorEmail: llama a la RPC con p_email y devuelve la fila encontrada', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [{ id: 'p1', nombre: 'Ana Profesora' }] };
+  });
+
+  const profesor = await resolverProfesorPorEmail(cliente, 'ana@example.com');
+
+  assert.ok(peticion);
+  assert.equal(new URL(peticion.url).pathname, '/rest/v1/rpc/resolver_profesor_por_email');
+  assert.deepEqual(peticion.cuerpo, { p_email: 'ana@example.com' });
+  assert.deepEqual(profesor, { id: 'p1', nombre: 'Ana Profesora' });
+});
+
+void test('resolverProfesorPorEmail: sin ninguna fila (no existe, no es teacher, o está inactivo), devuelve null', async () => {
+  const cliente = crearCliente(() => ({ estado: 200, cuerpo: [] }));
+  assert.equal(await resolverProfesorPorEmail(cliente, 'nadie@example.com'), null);
 });

@@ -10,8 +10,76 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-08 (rutina programada, "R-14 arrancada, décima tarea de la oleada
-v1") — revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso previo a
+**Última actualización:** 2026-09-08 (rutina programada, "R-08 arrancada, undécima tarea de la
+oleada v1/v2") — revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo,
+paso previo a elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f` (2026-09-08 por la
+mañana, la misma ya conocida y atendida por sesiones anteriores con P-18/P-19), así que el estado del
+único hallazgo `ABIERTO` (`#8`, RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de
+§6) sigue siendo el mismo — nada nuevo que atender como P-XX urgente. Con eso confirmado, se revisó §1
+en orden: **R-06** y **R-14** seguían `BLOQUEADA` solo por migración sin aplicar (filas 17 y 18 de §3,
+sin cambio), y la siguiente `PENDIENTE` que no depende de nada sin terminar era **R-08**,
+"Importación masiva de alumnos y horarios" (spec en `ROADMAP_PRODUCTO.md`, primera de la oleada v2),
+que depende de T-12, T-15 y T-16 (las tres `COMPLETADA`) — no depende de ninguna R-XX bloqueada, así
+que no hace falta esperarlas. Su spec declara `Migración: No`, pero el requisito 3 ("horario...
+profesor por email de una cuenta que ya existe") resultó depender de una comprobación real de
+esquema al escribir el código: `perfil` no guarda el email (vive en `auth.users`) y ninguna vista ni
+columna lo concede a `authenticated` — mismo patrón que T-24 ya dejó anotado antes de esta tarea
+("comprobar la dependencia real antes de dar la spec de 'Migración: No' por buena"). Sigue el
+procedimiento de §0.1: migración nueva `db/016_resolver_profesor_por_email.sql` escrita y empujada,
+fila 19 nueva de §3, R-08 pasa a `BLOQUEADA` — pero todo el código y los tests que consumen ese
+esquema (la resolución de profesor por email) se escriben igual, contra dobles; el resto del alcance
+de la tarea (alumnos, horarios sin ese único campo) no depende de la migración y queda completo.
+
+**Decisión de diseño de esta sesión, documentada en `DECISIONES_TECNICAS.md`:** `016` añade una única
+función, `resolver_profesor_por_email(p_email)` (`SECURITY DEFINER`, exclusiva de `administrator`,
+mismo patrón que `registrar_intento_fallido()` de `002` para leer `auth.users.email` de forma
+segura), sin tocar ninguna tabla ni columna — devuelve como mucho una fila (id + nombre) si esa cuenta
+es HOY un `teacher` activo, ninguna en cualquier otro caso, sin distinguir el motivo. El resto de R-08
+es enteramente de cliente, contra dobles: parseo de CSV propio sin librería
+(`nucleo/csv.ts#analizarCsv`, comillas dobles estilo RFC 4180, separador `;`/`,` autodetectado por
+recuento en la cabecera — un CSV de importación puede venir de cualquier hoja de cálculo, no solo de
+la exportación propia del proyecto). Módulo nuevo `dominio/importacionAlumnos.ts`: valida cada fila
+(nombre/apellidos, centro resuelto por nombre con la misma comparación acento-insensible de T-11
+`buscarCentroDuplicado`, teléfono/email opcionales con los mismos validadores de T-12) y detecta
+duplicados (requisito 4: "nombre completo + centro", nueva `alumnosSonDuplicados`, acento-insensible)
+tanto contra alumnos YA existentes como entre dos filas del MISMO fichero — necesario porque `alumno`
+no tiene ninguna restricción de unicidad natural en el esquema que lo impida por sí sola. Módulo nuevo
+`dominio/importacionHorarios.ts`: valida día (dígito 1-7 o nombre en español, acento-insensible),
+horas (`HH:MM`, fin posterior a inicio) y asignatura; resuelve el alumno por nombre y apellidos
+EXACTOS (a propósito más estricto que la comparación de alumnos: confundir a un alumno con otro al
+asignarle un horario es más grave que un alta duplicada evitable a mano) contra el mismo catálogo
+completo, y el profesor contra un mapa YA resuelto por quien llama (`emailsProfesorUnicosDeCsvHorarios`
+evita una petición de red por fila que comparta profesor). **Sin comprobación de duplicado de cliente
+propia para horarios** (a diferencia de alumnos): `slot_horario` ya rechaza en el servidor un alta que
+se solape en día y hora con un slot vigente del MISMO alumno (requisito 4 de T-15, invariante ya
+existente) — reimportar el mismo fichero de horarios sin corregir nada simplemente falla fila a fila
+al confirmar con ese mismo motivo, sin necesitar lógica nueva que pudiera divergir de la ya probada.
+`datos/importacionMasiva.ts`: alta de alumnos en un ÚNICO `INSERT` con todas las filas nuevas (sin
+restricción cruzada que lo impida, evita 50 peticiones para un alta de 50), alta de horarios con una
+llamada a `crearSlot` (T-15) POR FILA sin abortar en la primera que falle (criterio de aceptación:
+"un profesor sin cuenta... deja esa fila en error sin bloquear el resto", aplicado también a un fallo
+de solape que solo puede detectarse al escribir). Pantalla nueva `pantallaImportacionMasiva.ts`, dos
+bloques independientes (alumnos/horarios) con el mismo flujo en dos pasos que exige el requisito 2:
+analizar y mostrar vista previa obligatoria, confirmar solo con un segundo toque explícito. `ui/dom.ts`
+gana `LectorFichero`/`crearLectorFicheroNavegador` (mismo patrón inyectable que `Descargador`/
+`AbridorVentanaImpresion`, sobre `File.prototype.text()`). Enrutada en `aplicacion.ts` como
+`#/importacion`, exclusiva de `administrator` (`puedeImportarMasivamente`, nueva en `permisosUi.ts`).
+Nueva sección de `db/pruebas_rls.sql` (administrator resuelve un teacher activo por email, un email
+sin cuenta o de un administrator no devuelve fila sin error, teacher/student rechazados) — sin ningún
+cambio en los barridos obligatorios de las secciones 6/8f/8: esta migración no crea ninguna tabla.
+Nuevo fichero estático `herramientas/migraciones/resolverProfesorPorEmail.test.ts` (mismo patrón que
+`avisoCancelacionSlot.test.ts`). **69 tests nuevos (1376 en total, antes 1307):** 16 de
+`dominio/importacionAlumnos.test.ts`, 14 de `dominio/importacionHorarios.test.ts`, 6 de
+`datos/importacionMasiva.test.ts`, 9 de `ui/pantallaImportacionMasiva.test.ts`, 6 estáticos de la
+migración, 2 de `datos/profesores.test.ts` (`resolverProfesorPorEmail`), 1 de `permisosUi.test.ts`
+(`puedeImportarMasivamente`), 14 de `nucleo/csv.test.ts` (`detectarSeparadorCsv`/`analizarCsv`) y 1 de
+`nucleo/router.test.ts` (la ruta `importacion`, ida y vuelta). Verificación pre-push completa en
+verde: `npm run typecheck`, `npm run lint`, `npm test` (1376/1376) y `npm run build`. **Nota de
+entorno:** `node_modules/` no existía al empezar esta sesión (contenedor nuevo); `npm ci` (130
+paquetes, 0 vulnerabilidades) fue el primer paso antes de poder ejecutar nada.
+
+**Sesión anterior (2026-09-08, "R-14 arrancada, décima tarea de la oleada
+v1"):** revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo, paso previo a
 elegir tarea): sin ninguna pasada nueva del auditor desde `97bd24f` (2026-09-08 por la mañana, la
 misma ya conocida y atendida por la sesión anterior con P-18/P-19), así que el estado del único
 hallazgo `ABIERTO` (`#8`, RGPD/dato de salud en R-02, esperando al dueño en la pregunta #16 de §6)
@@ -1811,7 +1879,7 @@ pantallas del requisito 2.
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | BLOQUEADA — pendiente aplicar migración `013` (fila 17 de §3) | 2026-09-07 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `013_excepcion_slot.sql` escrita y empujada, todavía sin aplicar — desbloquea código-wise a R-13 y R-04 (sus otras dependencias, T-19/T-22/R-12, ya completas o bloqueadas solo por migración) |
 | R-07 | Pasar lista con conexión intermitente | COMPLETADA | 2026-09-08 | Oleada v1 / F-03 · solo cliente · código y tests completos. `nucleo/colaAsistenciaOffline.ts` (IndexedDB real, sin test propio — jsdom no la implementa) + `nucleo/detectorConexion.ts` (con test propio); las dos opcionales en `pantallaPasarLista.ts`, sin ellas funciona igual que antes de R-07 |
 | R-14 | Aviso de clase cancelada a las familias | BLOQUEADA — pendiente aplicar migración `015` (fila 18 de §3) | 2026-09-08 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `015_aviso_cancelacion_slot.sql` escrita y empujada, todavía sin aplicar — amplía `excepcion_slot` (R-06, `013`, también sin aplicar) con dos columnas nuevas y su RPC de escritura |
-| R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
+| R-08 | Importación masiva de alumnos y horarios | BLOQUEADA — pendiente aplicar migración `016` (fila 19 de §3) | 2026-09-08 | Oleada v2 / F-04 · Código y tests completos, contra dobles. Su spec declara `Migración: No`, pero el requisito 3 (profesor por email) exige `db/016_resolver_profesor_por_email.sql`, escrita y empujada, todavía sin aplicar — el resto del alcance (alumnos, resto de horarios) no depende de la migración |
 | R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |
 | R-10 | Expediente completo del alumno (RGPD) | PENDIENTE | — | Oleada v2 / F-05 |
 | R-11 | Panel de centro para el administrador | PENDIENTE | — | Oleada v2 / F-06 |
@@ -1855,6 +1923,7 @@ pantallas del requisito 2.
 | 16 | Aplicar la migración `014_calendario_cierres` en `dev` | R-12 | `014` no depende conceptualmente de `010`/`011`/`012` (tabla nueva, sin relación con `asistencia`), pero el runner aplica SIEMPRE en orden numérico dentro de la misma invocación: no llegará a `014` mientras `010`/`011`/`012` sigan pendientes, y la fila 14 de esta misma tabla pide explícitamente **no aplicar `011` todavía** (pregunta #16 de §6 sin responder). Así que, en la práctica, esta fila queda detrás de la 14 aunque no exista ninguna dependencia real entre ambas migraciones — si el dueño quiere `014` sin esperar a que se resuelva la pregunta #16, tocaría aplicarla a mano en el editor SQL de `dev` fuera del runner, o renumerarla por delante de `011`/`012` (ninguna de las dos aplicada todavía, así que renumerar no rompe nada ya aplicado). Vía normal: `git pull` y `npm run migrate` en local (una vez resueltas las filas 13-15). Al terminar, comprobar que `esquema_version()` devuelve `14`, y ejecutar también `npm run probar-rls` (nueva sección 8j: alta y edición de un cierre por `administrator`, rechazadas para `teacher`, el `teacher` lee un cierre activo pero no uno inactivo; más `cierre_centro` añadida a los barridos obligatorios de `student`, sección 6, y `anon`, sección 8f) | PENDIENTE |
 | 17 | Aplicar la migración `013_excepcion_slot` en `dev` (y, en el mismo `npm run migrate`, `010_registro_ausencias`, editada en este mismo commit — ver `db/APLICADAS.md`) | R-06 | `013` no depende conceptualmente de `011`/`012` (tabla nueva sobre `slot_horario`, no sobre las columnas que añaden esas dos), pero SÍ depende de `010` (edita `registrar_ausencia`, que `010` crea) y el runner aplica siempre en orden numérico: en la práctica queda detrás de las tres, igual que la fila 16 con `014`. `git pull` y `npm run migrate` en local (una vez resueltas las filas 13-15). Al terminar, comprobar que `esquema_version()` devuelve `13` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8k: administrator declara sustitución/cancelación, teacher/student rechazados, fecha que no coincide con el día de la semana rechazada, cancelación sin motivo rechazada, retroactiva sobre un slot con registros rechazada, cancelación bloquea registrar_asistencia/registrar_ausencia a cualquiera, el titular no registra el día que le sustituyen, el sustituto SÍ registra y SÍ lee el slot ajeno, desactivar rechazada con registros y permitida sin ellos; más `excepcion_slot` añadida a los barridos obligatorios de `student`, sección 6, y `anon`, sección 8f) | PENDIENTE |
 | 18 | Aplicar la migración `015_aviso_cancelacion_slot` en `dev`, **junto con** la fila 17 (`013`) | R-14 | `015` amplía `excepcion_slot`, que crea `013`: el runner no llegará a `015` mientras `013` siga pendiente, así que en la práctica ambas se aplican en la misma pasada de `npm run migrate` (orden numérico). No crea ninguna tabla nueva: solo dos columnas (`aviso_familias_quien`/`aviso_familias_en`) y una RPC (`registrar_aviso_cancelacion_slot`), así que no hay ningún barrido nuevo que añadir a las secciones 6/8f de `db/pruebas_rls.sql` (esas son por TABLA, y `excepcion_slot` ya está en las dos desde `013`). `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `15` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8l: administrator anota el aviso sobre una cancelación propia, teacher/student rechazados, quien vacío rechazado, y una sustitución rechazada por no admitir aviso) | PENDIENTE |
+| 19 | Aplicar la migración `016_resolver_profesor_por_email` en `dev` | R-08 | `016` no depende conceptualmente de ninguna migración anterior (no toca ninguna tabla, solo añade una función nueva que lee `auth.users`), pero el runner aplica siempre en orden numérico dentro de la misma invocación: quedará detrás de las filas 13-18 mientras sigan pendientes. `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `16` (o más, si `011`/`012`/`013`/`014`/`015` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección: administrator resuelve el email de un teacher activo, un email sin cuenta o de un administrator no devuelve ninguna fila sin error, teacher/student rechazados) | PENDIENTE |
 
 ---
 
@@ -1950,3 +2019,4 @@ pantallas del requisito 2.
 | 2026-09-04 | T-14 / T-25 | **Criterio de aceptación no cumplido literalmente durante casi un mes: el requisito 8 de T-14 (aviso de consentimiento del tutor legal para el avatar) nunca llegó a la interfaz.** `HOJA_DE_RUTA.md` §0.2 lo exige como norma permanente ("hasta entonces la interfaz debe advertir de que el consentimiento es responsabilidad del centro"), pero T-14 (`COMPLETADA` desde 2026-08-31) no incluyó ningún texto al respecto en `pantallaFichaAlumno.ts`, y sobrevivió a varias pasadas de auditoría sin que se notara. Descubierto al escribir T-25 (requisito 4, textos legales), cuya propia spec dice que sustituye "el aviso provisional de T-14" — contradicción que solo se hizo visible al leer el código real del bloque de avatar y no encontrar ningún aviso | Corregido en el mismo commit que T-25 (2026-09-04): nuevo párrafo junto al control de subida de avatar, marcado como provisional, con test dedicado. Origen: hallazgo #9 de `auditoriacontinua.md` (severidad baja, la propia ausencia de esta fila), registrado como P-17 en §5 |
 | 2026-09-05 | R-02 | **Alcance de datos personales ampliado sin decisión expresa del dueño: `motivo_justificacion` de R-02 incluye valores de dato de salud (artículo 9 RGPD).** `db/011_justificacion_ausencia.sql` (escrita y empujada, todavía sin aplicar) añade un `CHECK` de lista cerrada que incluye `enfermedad` y `cita_medica` — información que revela el estado de salud por definición (art. 4.15 RGPD), pese a que `HOJA_DE_RUTA.md` §0.2 prohíbe expresamente "cualquier categoría especial del artículo 9 del RGPD" sin decisión del dueño; la spec de R-02 fijó "Bloqueo humano: ninguno" sin que se activara ninguna pregunta al respecto | Hallazgo #8 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-05), escalado por el duodécimo ciclo del PM a la pregunta #16 de §6; la migración `011` no debe aplicarse hasta que el dueño responda (fila 14 de §3). Registrado también como P-17 en §5 |
 | 2026-09-07 | R-05 | **Alcance de rol pedido por la spec y no concedido sin decisión expresa del dueño (a la inversa del patrón de la fila anterior): el requisito 4 de R-05 pedía que el `teacher` accediera a las personas de referencia del alumno por el botón «avisar», "mismo alcance que T-13".** Concederlo habría contradicho §0.2 de `HOJA_DE_RUTA.md` ("el `teacher`... no ve datos de contacto ni personas de referencia") y habría exigido además una política RLS nueva que la propia spec no podía traer (`Migración: No`) | R-05 se entregó solo para `administrator` (funcional y completo); se abrió la pregunta #17 de §6 con tres opciones para el dueño, sin bloquear la tarea (valor por defecto conservador: sin acceso para `teacher`). Origen: hallazgo #11 de `auditoriacontinua.md` (severidad baja, la propia ausencia de esta fila — mismo patrón que el hallazgo #9 ya resuelto), registrado como P-19 en §5 |
+| 2026-09-08 | R-08 | **R-08 pasa a necesitar migración, y su spec dice `Migración: No`** (mismo patrón que T-09 y T-20, filas de 2026-08-27 y 2026-09-01 de este §7). El requisito 3 ("horario... profesor por email de una cuenta que ya existe") exige resolver un email contra `auth.users`, dato que `perfil` no guarda y que ninguna vista ni columna concede a `authenticated` — no hay forma de cumplirlo sin una RPC `SECURITY DEFINER` nueva | Descubierto al escribir el código, no al leer la spec: `db/016_resolver_profesor_por_email.sql` (fila 19 de §3), sin tocar ninguna tabla ni columna. Documentado también en `DECISIONES_TECNICAS.md` y en la cabecera de la propia migración, para que ninguna sesión futura repita la comprobación |

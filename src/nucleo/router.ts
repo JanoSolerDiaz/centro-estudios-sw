@@ -72,7 +72,8 @@ export type Ruta =
    * criterio que `slotId` opcional en la ruta `registros` de `RutaProfesor` (T-22). */
   | { readonly nombre: 'historico'; readonly alumnoId?: string }
   | { readonly nombre: 'usuarios' }
-  | { readonly nombre: 'cierres' };
+  | { readonly nombre: 'cierres' }
+  | { readonly nombre: 'importacion' };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -102,6 +103,9 @@ export function analizarRuta(hash: string): Ruta {
   }
   if (primero === 'cierres') {
     return { nombre: 'cierres' };
+  }
+  if (primero === 'importacion') {
+    return { nombre: 'importacion' };
   }
   if (primero === 'alumnos') {
     if (segundo === undefined) {
@@ -135,6 +139,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/usuarios';
     case 'cierres':
       return '#/cierres';
+    case 'importacion':
+      return '#/importacion';
   }
 }
 

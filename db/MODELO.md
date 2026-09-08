@@ -506,6 +506,35 @@ para guardar: el servidor fija `aviso_familias_quien`/`aviso_familias_en` direct
 cancelación, reutilizando `deps.obtenerPersonasReferencia`/`deps.copiarAlPortapapeles` — las mismas
 dependencias de R-05, sin duplicar el componente (requisito 1).
 
+## `resolver_profesor_por_email` (`016_resolver_profesor_por_email.sql`, R-08)
+
+Importación masiva de alumnos y horarios. La spec de R-08 declara `Migración: No`, pero el requisito
+3 ("horario... profesor por email de una cuenta que ya existe") resultó depender de una comprobación
+real de esquema (mismo patrón ya detectado por T-24 antes de esta tarea, "comprobar la dependencia
+real antes de dar la spec de 'Migración: No' por buena"): `perfil` no guarda el email —vive en
+`auth.users`, ver la sección "Tablas que ya existían" más arriba— y ninguna vista ni columna lo
+concede a `authenticated`. No crea ninguna tabla ni columna: una única función nueva,
+`resolver_profesor_por_email(p_email text) returns table(id uuid, nombre text)`, `SECURITY DEFINER`
+(imprescindible: `authenticated` no tiene, ni debe tener, acceso a `auth.users`) — mismo patrón que
+`registrar_intento_fallido()` (`002_bloqueo_cuenta.sql`) para leer `auth.users.email` de forma
+segura, pero con la comprobación de rol invertida: aquella la llama `anon` sin sesión, esta exige
+`es_administrator()` y lanza una excepción si quien llama no lo es. Devuelve como mucho una fila (el
+`id` y el `nombre` de `perfil`) si esa cuenta es HOY un `teacher` activo; ninguna en cualquier otro
+caso (email sin cuenta, cuenta de otro rol, `teacher` inactivo) — sin distinguir el motivo, la
+importación no necesita saber cuál: la fila del CSV queda en error con "profesor no encontrado". No
+crea usuarios ni cambia roles (requisito 3: "la importación nunca crea usuarios ni cuentas").
+
+El resto del alcance de R-08 es enteramente de cliente, contra dobles: parseo de CSV propio
+(`nucleo/csv.ts#analizarCsv`, comillas dobles estilo RFC 4180, separador `;`/`,` autodetectado, sin
+librería de terceros), análisis puro de filas de alumnos (`dominio/importacionAlumnos.ts`, con
+detección de duplicados nombre completo + centro, acento-insensible como T-11) y de horarios
+(`dominio/importacionHorarios.ts`, alumno por nombre y apellidos EXACTOS, profesor por email ya
+resuelto), y la orquestación de escritura (`datos/importacionMasiva.ts`): un único `INSERT` en lote
+para los alumnos nuevos (sin restricción natural que dependa de las demás filas), una llamada a
+`crearSlot` (T-15) por cada horario nuevo, sin abortar en la primera que falle — el propio solape de
+T-15 es quien impide reimportar el mismo fichero de horarios sin corregir nada, sin necesitar una
+comprobación de duplicado de cliente propia como la de alumnos.
+
 ## Calendario de cierres del centro (`014_calendario_cierres.sql`, R-12)
 
 Tabla nueva, `cierre_centro`: `fecha_inicio`/`fecha_fin` (`date`, ambos inclusive — puede coincidir

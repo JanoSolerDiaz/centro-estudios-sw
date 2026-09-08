@@ -2693,6 +2693,95 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8m. Resolver un profesor por email (R-08, importación masiva,
+--     db/016_resolver_profesor_por_email.sql) — RPC de solo lectura,
+--     exclusiva de administrator, que busca en auth.users. El email de
+--     los fixtures de esta batería vive de verdad en auth.users (no es
+--     un dato inventado por esta sección): se lee sin impersonar, en el
+--     tramo donde el rol de sesión sigue siendo el privilegiado con el
+--     que arranca este script (antes de la primera pg_temp.impersonar),
+--     igual que 002_bloqueo_cuenta.sql lo lee dentro de su propia RPC.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_teacher_id     uuid;
+  v_admin_id       uuid;
+  v_teacher_email  text;
+  v_admin_email    text;
+  v_id_resuelto    uuid;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_admin_id from _fixture_usuarios where rol = 'administrator';
+
+  if v_teacher_id is null or v_admin_id is null then
+    perform pg_temp.omitir('resolver_profesor_por_email / administrator resuelve un teacher activo', 'falta un teacher o un administrator de prueba');
+    perform pg_temp.omitir('resolver_profesor_por_email / email sin ninguna cuenta no devuelve fila (sin error)', 'falta un teacher o un administrator de prueba');
+    perform pg_temp.omitir('resolver_profesor_por_email / el email de un administrator no devuelve fila (no es teacher)', 'falta un teacher o un administrator de prueba');
+    perform pg_temp.omitir('resolver_profesor_por_email / teacher no puede llamar (debe fallar)', 'falta un teacher o un administrator de prueba');
+    perform pg_temp.omitir('resolver_profesor_por_email / student no puede llamar (debe fallar)', 'falta un teacher o un administrator de prueba');
+    return;
+  end if;
+
+  select email into v_teacher_email from auth.users where id = v_teacher_id;
+  select email into v_admin_email from auth.users where id = v_admin_id;
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Camino feliz: administrator resuelve el email de un teacher activo.
+  begin
+    select id into v_id_resuelto from public.resolver_profesor_por_email(v_teacher_email);
+    perform pg_temp.registrar('resolver_profesor_por_email / administrator resuelve un teacher activo', 'permitido', v_id_resuelto = v_teacher_id);
+  exception when others then
+    perform pg_temp.registrar('resolver_profesor_por_email / administrator resuelve un teacher activo', 'permitido', false, sqlerrm);
+  end;
+
+  -- Un email que no tiene ninguna cuenta: cero filas, nunca un error (la importación lo trata como
+  -- "profesor no encontrado", sin distinguir el motivo).
+  begin
+    select id into v_id_resuelto from public.resolver_profesor_por_email('__prueba_rls__sin_cuenta@example.invalid');
+    perform pg_temp.registrar('resolver_profesor_por_email / email sin ninguna cuenta no devuelve fila (sin error)', 'permitido', v_id_resuelto is null);
+  exception when others then
+    perform pg_temp.registrar('resolver_profesor_por_email / email sin ninguna cuenta no devuelve fila (sin error)', 'permitido', false, sqlerrm);
+  end;
+
+  -- El email de un administrator existe, pero no es teacher: tampoco devuelve fila.
+  begin
+    select id into v_id_resuelto from public.resolver_profesor_por_email(v_admin_email);
+    perform pg_temp.registrar('resolver_profesor_por_email / el email de un administrator no devuelve fila (no es teacher)', 'permitido', v_id_resuelto is null);
+  exception when others then
+    perform pg_temp.registrar('resolver_profesor_por_email / el email de un administrator no devuelve fila (no es teacher)', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher no puede llamar (§0.2, requisito de R-08: exclusiva de administrator).
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.resolver_profesor_por_email(v_teacher_email);
+    perform pg_temp.registrar('resolver_profesor_por_email / teacher no puede llamar (debe fallar)', 'prohibido', false, 'no lanzó error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('resolver_profesor_por_email / teacher no puede llamar (debe fallar)', array['%solo un administrador puede resolver%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student, tampoco.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('resolver_profesor_por_email / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.resolver_profesor_por_email(v_teacher_email);
+      perform pg_temp.registrar('resolver_profesor_por_email / student no puede llamar (debe fallar)', 'prohibido', false, 'no lanzó error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('resolver_profesor_por_email / student no puede llamar (debe fallar)', array['%solo un administrador puede resolver%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.
