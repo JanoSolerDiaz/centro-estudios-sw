@@ -406,6 +406,25 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `setInterval`, `crearProgramadorIntervaloDePrueba` no espera de verdad y expone `disparar()`
     para ejecutar a mano los ticks programados. Lo usa `pantallaPasarLista.ts` para refrescar la
     hora visible y recalcular la propuesta sin volver a pedir datos al servidor en cada tick.
+  - `detectorConexion.ts` (R-07) — `DetectorConexion` (`estaConectado()`/`alCambiar(escuchador)`)
+    sobre los eventos `online`/`offline` nativos; `crearDetectorConexionNavegador(fuente)` recibe la
+    forma MÍNIMA que necesita (`FuenteConexionNavegador`, no `Window` completo), así que SÍ tiene
+    test propio con un objeto de mentira (a diferencia de `colaAsistenciaOffline.ts`, ver abajo): no
+    hace falta `jsdom` para probarlo. `crearDetectorConexionDePrueba(inicial?)` para tests de quien
+    lo consume, con `simularCambio(conectado)`.
+  - `colaAsistenciaOffline.ts` (R-07) — `AlmacenColaAsistenciaOffline` (`listar`/`agregar`/`eliminar`
+    de `ElementoColaAsistencia`, cada uno con el `peticionId` de T-18/R-01 como clave de idempotencia)
+    para la cola de toques que no se pudieron enviar por falta de red. `crearAlmacenColaAsistenciaIndexedDB(fabrica)`
+    es la implementación real (IndexedDB, un único almacén de objetos por `peticionId`) — `jsdom` no
+    implementa IndexedDB, así que sigue el mismo criterio que `FabricaProcesadoImagen` (T-14) y
+    `copiarAlPortapapelesDelNavegador` (R-05): sin test propio, aislada detrás de la interfaz.
+    `crearAlmacenColaAsistenciaEnMemoria()` es el doble de test, y es también lo que demuestra "sobrevive
+    a un cierre de pestaña" en `pantallaPasarLista.test.ts`: dos montajes sucesivos de la pantalla sobre
+    la MISMA instancia de este almacén simulan el cierre y la reapertura real, porque lo que sobrevive
+    en un navegador de verdad es el propio IndexedDB, no ninguna variable en memoria de la pantalla.
+    Compuesto en `aplicacion.ts` solo si `documento.defaultView?.indexedDB` existe (nunca en los tests
+    de `aplicacion.test.ts`, que corren sobre `jsdom`) — sin él, pasar lista sigue funcionando
+    exactamente como antes de R-07 (ver `pantallaPasarLista.ts` más abajo).
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido para que se puedan testear montando un
   contenedor con `jsdom`. Ninguna función de pantalla toca el `document` global directamente: reciben
@@ -542,6 +561,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     ajeno—; `dominio/excepcionSlot.ts#slotsEfectivosDelDia` calcula, ANTES de `alumnosPropuestos`, la
     lista efectiva de slots (excluye el propio afectado, añade el ajeno con `profesor_id`
     sobrescrito), sin ningún cambio en `alumnosPropuestos` en sí.
+    Desde R-07: `deps.colaOffline`/`deps.detectorConexion` (opcionales, LAS DOS juntas — sin ellas,
+    esta pantalla funciona exactamente como antes de R-07). Un `ErrorDeRed` al registrar/marcar
+    ausente/añadir un extra encola el intento en `colaOffline` (mismo `peticionId` que ya llevaba) y
+    la card pasa a `'pendiente_offline'` — no clicable, ni error todavía. `vaciarColaOffline`
+    reintenta la cola entera cuando `detectorConexion` notifica que volvió la conexión (y, de red de
+    seguridad, en cada tick de `INTERVALO_TICK_MS`, protegida contra solapamiento con
+    `crearProtectorDobleToque`): se detiene en el primer `ErrorDeRed` (probablemente seguimos sin
+    conexión de verdad), reconcilia un `Conflicto` buscando la fila por `peticion_id` (nunca por la
+    clave alumno+slot+día, que un "alumno extra" no tiene), y saca de la cola cualquier otro error
+    mostrándolo como `'error'` normal. Al montar, `restaurarColaOffline` relee lo que `colaOffline` ya
+    tuviera guardado —de una pestaña cerrada y reabierta— y repinta esas cards antes de intentar
+    vaciar la cola si ya hay conexión. El indicador de conectividad y de cuántos registros quedan por
+    enviar vive en la cabecera, junto a la hora.
   - `comboboxAlumnoExtra.ts` (T-20) — `montarComboboxAlumnoExtra(contenedor, deps)`: combobox
     accesible escrito a mano (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`,
     flechas/Enter/Escape, región `role="status"` que hace de anuncio `aria-live`). Rebote de 250 ms

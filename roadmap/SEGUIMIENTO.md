@@ -10,28 +10,99 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-07 (rutina programada, "decimocuarto ciclo del PM — nueva R-14,
-autoseñalada por el requisito 7 de R-06") — revisado primero el registro de hallazgos de
-`auditoriacontinua.md`: sigue sin ninguna pasada nueva desde `06fb8b0` (2026-09-07 por la mañana), así
-que el estado de los dos `ABIERTO` (`#8`, pregunta #16 de §6, esperando al dueño; `#9`, `RESUELTO` de
-facto por P-17 — ejecutada por la sesión de R-12, sin que el auditor lo haya vuelto a comprobar
-todavía) sigue siendo el mismo, y ninguno aporta nada nuevo que traducir como R-XX o backlog este
-ciclo. `FEEDBACK.md` sigue con su única fila plantilla vacía, sin ninguna entrada `nuevo` que
-convertir. Revisadas las trece R-XX existentes contra el estado real de §1 (mucho código nuevo desde
-el decimotercer ciclo: R-06 y R-12 arrancadas, R-05/R-13/R-04 `COMPLETADA`, detalle sesión a sesión
-más abajo) y contra la visión de producto: **una R-XX nueva, R-14** ("Aviso de clase cancelada a las
-familias", Oleada v1 / F-03, spec completa en `ROADMAP_PRODUCTO.md`, fila nueva en §1) — no la propone
-el auditor ni `FEEDBACK.md`, la propone la propia spec de R-06 (requisito 7, escrita desde que R-06
-se especificó): "avisar a las familias de una clase cancelada... es una ampliación del mecanismo ya
-construido por R-05, no una pieza nueva". Con R-05 y R-06 ya con su código completo (ambas solo
-pendientes de migración o ya `COMPLETADA`), ese hueco autoseñalado deja de ser hipotético: hoy, si una
-clase se cancela, ninguna familia se entera por la aplicación. Depende de R-05 y R-06 (ninguna
-bloquea escribirla contra dobles, mismo precedente que el resto de la oleada); sin ningún otro cambio
-al roadmap este ciclo — inventar una tarea sin necesidad real sería el vicio que este protocolo existe
-para evitar. Nada que mover a `ROADMAP_HISTORICO.md`: ninguna oleada está desplegada en producción
-todavía (T-25 sigue bloqueada, fila 12 de §3). Sin ninguna decisión reservada al dueño que añadir a §6
-(R-14 no reabre ninguna pregunta existente: hereda la misma respuesta que tenga R-05 en cada momento
-sobre el alcance de `teacher`, pregunta #17).
+**Última actualización:** 2026-09-08 (rutina programada, "R-07 completada, novena tarea de la oleada
+v1; P-18 urgente en el camino") — revisado primero el registro de hallazgos de `auditoriacontinua.md`
+(protocolo, paso previo a elegir tarea): a diferencia de las sesiones anteriores, esta vez SÍ hay una
+pasada nueva del auditor desde la última sesión (commit `97bd24f`, 2026-09-08 por la mañana, tres
+hallazgos nuevos: `#10` alta, `#11` baja) que ninguna sesión de programador había atendido todavía.
+`#10` (alta: la sección 8 de `db/pruebas_rls.sql`, el barrido de `TRUNCATE` por `authenticated`, no se
+amplió con `cierre_centro`/`excepcion_slot` — las dos tablas nuevas de R-12/R-06 — aunque los otros dos
+barridos obligatorios del mismo fichero, secciones 6 y 8f, SÍ se ampliaron) se atendió de inmediato
+como **P-18 urgente** (§0.3, antes de la cola normal): añadidas las dos tablas al array de la sección
+8, sin tocar ningún `GRANT` real (el auditor ya verificó que las dos migraciones conceden los
+privilegios correctos hoy — el hueco era solo de cobertura de la prueba, no del esquema). `#11` (baja,
+mismo patrón que el hallazgo #9 ya `RESUELTO`: falta una fila en §7 para la desviación de R-05,
+2026-09-07) se resolvió en el mismo gesto, como **P-19** — trivial y de bajo riesgo, mismo criterio que
+usaron P-03/P-13/P-14/P-17 con hallazgos de la misma clase documental. Con eso hecho, se revisó §1 en
+orden: **R-06** seguía `BLOQUEADA` solo por la migración `013` sin aplicar (fila 17 de §3, sin cambio),
+y la siguiente `PENDIENTE` que no depende de nada sin terminar era **R-07**, "Pasar lista con conexión
+intermitente" (spec en `ROADMAP_PRODUCTO.md`), que depende de T-18 y T-19 (ambas `COMPLETADA`) — no de
+R-06/R-14, así que no hace falta esperarlas. Su spec declara `Migración: No`, así que no hay ninguna
+pieza de esquema que escribir ni ninguna fila nueva de §3 — R-07 queda `COMPLETADA` de verdad, sin
+ningún bloqueo propio, en cuanto termina esta sesión. `FEEDBACK.md` sigue con su única fila plantilla
+vacía: sin ninguna entrada `nuevo` que convertir, y elegir tarea no pasa por ahí en una sesión de
+programador (eso es del ciclo de PM).
+
+**Decisión de diseño de esta sesión, documentada en `DECISIONES_TECNICAS.md`:** los cuatro requisitos
+de R-07 (cola en IndexedDB con el mismo `peticionId`, reintento automático al recuperar conexión sin
+duplicar, indicador de conectividad y de pendientes, supervivencia a un cierre de pestaña) se resolvieron
+con DOS piezas nuevas en `nucleo/`, ambas OPCIONALES en `DependenciasPantallaPasarLista` — sin ellas,
+`pantallaPasarLista.ts` funciona exactamente igual que antes de R-07, mismo criterio que
+`listarExcepcionesDeHoy` de R-06, y es lo que mantiene verdes sin tocar ni una línea los 52 tests
+existentes de esa pantalla. `nucleo/detectorConexion.ts#DetectorConexion` envuelve los eventos
+`online`/`offline` nativos sobre una interfaz mínima (`FuenteConexionNavegador`, no `Window` completo,
+mismo criterio que `AlmacenSesion`) — SÍ tiene test propio, sin necesitar `jsdom`. `nucleo/colaAsistenciaOffline.ts#AlmacenColaAsistenciaOffline`
+persiste cada intento fallido por red con su `peticionId`; la implementación real
+(`crearAlmacenColaAsistenciaIndexedDB`) usa IndexedDB puro (requisito 5: API del navegador, sin
+librería) pero `jsdom` no la implementa, así que sigue el mismo criterio ya usado por
+`FabricaProcesadoImagen` (T-14) y `copiarAlPortapapelesDelNavegador` (R-05): aislada detrás de la
+interfaz, sin test propio — lo que se testea es la orquestación de `pantallaPasarLista.ts` contra
+`crearAlmacenColaAsistenciaEnMemoria` (el doble). **La demostración del requisito 4** ("sobrevive a un
+cierre de pestaña") no necesita simular un cierre real de nada: dos montajes sucesivos de
+`mostrarPantallaPasarLista` sobre la MISMA instancia del almacén (en vez de sobre un `contenedor`
+reciclado) bastan, porque lo que sobrevive en un navegador real es el propio IndexedDB, nunca ninguna
+variable en memoria de la función de la pantalla — el test nuevo hace exactamente eso y confirma que
+la segunda "apertura" reenvía el toque pendiente con el MISMO `peticionId`, sin duplicar. Un
+`ErrorDeRed` al registrar/marcar ausente/añadir un extra encola el intento (nueva fase de card,
+`'pendiente_offline'`: no clicable, ni error todavía) en vez de mostrarse como error; `vaciarColaOffline`
+reintenta la cola completa al recibir el evento de reconexión (y, como red de seguridad, en cada tick
+de 20 s) protegida contra solapamiento reutilizando `crearProtectorDobleToque` (mismo mecanismo que la
+protección de doble toque de T-06, otra intención) — se detiene en el primer `ErrorDeRed` del barrido
+(probablemente seguimos sin conexión de verdad pese al evento), reconcilia un `Conflicto` buscando la
+fila por `peticion_id` (nunca por la clave alumno+slot+día, que un "alumno extra" no tiene — la misma
+limitación que ya documentaba R-01 para el `Conflicto` en vivo de un extra, aquí sí resoluble porque
+`listarAsistenciaDeHoy` trae `peticion_id` en cada fila), y saca de la cola cualquier otro error
+mostrándolo como `'error'` normal, porque reintentarlo a ciegas no lo arreglaría. Compuesto en
+`aplicacion.ts` solo si `documento.defaultView?.indexedDB` existe (nunca en `jsdom`, incluidos los
+tests de `aplicacion.test.ts` — que sin este guard fallaban con un rechazo sin capturar al intentar
+`indexedDB.open` sobre `undefined`, arreglado con el mismo guard y, además, con `try/catch` defensivo
+en `restaurarColaOffline`/`vaciarColaOffline` por si IndexedDB existe pero falla en tiempo de ejecución,
+p. ej. un modo privado especialmente restrictivo — mismo criterio de "mejor esfuerzo" que ya usa
+`renovarSesion`). **21 tests nuevos (1286 en total, antes 1265 — el número ya incluye P-18, que no
+sumó ningún test propio: es una batería SQL, no TypeScript; sin ninguna migración esta sesión,
+`Migración: No`):** 5 de `nucleo/detectorConexion.test.ts`, 7 de
+`nucleo/colaAsistenciaOffline.test.ts` (solo el doble en memoria, ver arriba) y 9 de
+`ui/pantallaPasarLista.test.ts` (encolar y no mostrar error; reenvío automático con el mismo
+`peticionId`; supervivencia a un cierre de pestaña simulado sobre el mismo almacén; el indicador de la
+cabecera; sin las dos dependencias, comportamiento idéntico a antes de R-07; un segundo fallo de red no
+pierde el elemento; un `Conflicto` al reenviar reconcilia; el mismo camino para "marcar ausente" y para
+un "alumno extra"). Verificación pre-push completa en verde: `npm run typecheck`, `npm run lint`, `npm
+test` (1286/1286) y `npm run build`. **Nota de entorno:** `node_modules/` no existía al empezar esta
+sesión (contenedor nuevo); `npm ci` (130 paquetes, 0 vulnerabilidades) fue el primer paso antes de poder
+ejecutar nada.
+
+**Sesión anterior (2026-09-07, "decimocuarto ciclo del PM — nueva R-14, autoseñalada por el requisito 7
+de R-06"):** revisado primero el registro de hallazgos de `auditoriacontinua.md`: en ese momento
+seguía sin ninguna pasada nueva desde `06fb8b0` (2026-09-07 por la mañana), así que el estado de los
+dos `ABIERTO` (`#8`, pregunta #16 de §6, esperando al dueño; `#9`, `RESUELTO` de facto por P-17 —
+ejecutada por la sesión de R-12, sin que el auditor lo hubiera vuelto a comprobar todavía) seguía
+siendo el mismo, y ninguno aportaba nada nuevo que traducir como R-XX o backlog ese ciclo. `FEEDBACK.md`
+seguía con su única fila plantilla vacía, sin ninguna entrada `nuevo` que convertir. Revisadas las trece
+R-XX existentes contra el estado real de §1 (mucho código nuevo desde el decimotercer ciclo: R-06 y
+R-12 arrancadas, R-05/R-13/R-04 `COMPLETADA`, detalle sesión a sesión más abajo) y contra la visión de
+producto: **una R-XX nueva, R-14** ("Aviso de clase cancelada a las familias", Oleada v1 / F-03, spec
+completa en `ROADMAP_PRODUCTO.md`, fila nueva en §1) — no la propone el auditor ni `FEEDBACK.md`, la
+propone la propia spec de R-06 (requisito 7, escrita desde que R-06 se especificó): "avisar a las
+familias de una clase cancelada... es una ampliación del mecanismo ya construido por R-05, no una pieza
+nueva". Con R-05 y R-06 ya con su código completo (ambas solo pendientes de migración o ya
+`COMPLETADA`), ese hueco autoseñalado deja de ser hipotético: hoy, si una clase se cancela, ninguna
+familia se entera por la aplicación. Depende de R-05 y R-06 (ninguna bloquea escribirla contra dobles,
+mismo precedente que el resto de la oleada); sin ningún otro cambio al roadmap ese ciclo — inventar una
+tarea sin necesidad real sería el vicio que este protocolo existe para evitar. Nada que mover a
+`ROADMAP_HISTORICO.md`: ninguna oleada está desplegada en producción todavía (T-25 sigue bloqueada,
+fila 12 de §3). Sin ninguna decisión reservada al dueño que añadir a §6 (R-14 no reabre ninguna
+pregunta existente: hereda la misma respuesta que tenga R-05 en cada momento sobre el alcance de
+`teacher`, pregunta #17).
 
 **Sesión anterior (2026-09-07, "R-04 completada, octava tarea de la
 oleada v1"):** R-01, R-02, R-03, R-12 y R-06 seguían `BLOQUEADA` en §1 esperando exclusivamente al
@@ -1681,7 +1752,7 @@ pantallas del requisito 2.
 | R-04 | Informe mensual por alumno | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · Código y tests completos, contra dobles. Reutiliza `esDiaCerrado` (R-12) y `esDiaCanceladoParaSlot` (R-06): igual que R-13, un informe real fallará con un error de servidor mientras `013`/`014` sigan sin aplicar — no bloquea, mismo precedente |
 | R-05 | Aviso de ausencia injustificada listo para enviar | COMPLETADA | 2026-09-07 | Oleada v1 / F-02 · sin envío automático · alcance de `administrator` completo; el alcance de `teacher` que pedía la spec original queda pendiente de la pregunta #17 de §6 (no bloquea, valor conservador: sin acceso) |
 | R-06 | Excepción puntual de un slot: sustitución o cancelación | BLOQUEADA — pendiente aplicar migración `013` (fila 17 de §3) | 2026-09-07 | Oleada v1 / F-03 · Código y tests completos, contra dobles. Migración `013_excepcion_slot.sql` escrita y empujada, todavía sin aplicar — desbloquea código-wise a R-13 y R-04 (sus otras dependencias, T-19/T-22/R-12, ya completas o bloqueadas solo por migración) |
-| R-07 | Pasar lista con conexión intermitente | PENDIENTE | — | Oleada v1 / F-03 · solo cliente |
+| R-07 | Pasar lista con conexión intermitente | COMPLETADA | 2026-09-08 | Oleada v1 / F-03 · solo cliente · código y tests completos. `nucleo/colaAsistenciaOffline.ts` (IndexedDB real, sin test propio — jsdom no la implementa) + `nucleo/detectorConexion.ts` (con test propio); las dos opcionales en `pantallaPasarLista.ts`, sin ellas funciona igual que antes de R-07 |
 | R-14 | Aviso de clase cancelada a las familias | PENDIENTE | — | Oleada v1 / F-03 · nueva este ciclo del PM (2026-09-07), autoseñalada por el requisito 7 de R-06 |
 | R-08 | Importación masiva de alumnos y horarios | PENDIENTE | — | Oleada v2 / F-04 |
 | R-09 | Aplicación instalable y arranque sin red | PENDIENTE | — | Oleada v2 / F-04 · solo cliente |
@@ -1762,6 +1833,8 @@ pantallas del requisito 2.
 | P-15 | **Backlog técnico (código muerto, no urgente): `columnasVisiblesFichaAlumno` no la usa ninguna pantalla.** `src/dominio/permisosUi.ts:56` la define y la testea (`permisosUi.test.ts:47-62`), pero `grep -rn "columnasVisiblesFichaAlumno" src/` solo devuelve su propia definición y su test — no hay ningún consumidor real. No es una fuga (la protección real de las columnas de contacto vive en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`, ninguno de los dos depende de esta función), pero acumula una función que aparenta ser parte del control de acceso sin estar en el camino real. El programador debe decidir, al atenderla, entre conectarla a la pantalla de ficha (si la intención original era filtrar columnas también en el cliente) o eliminarla | origen: hallazgo #7 de `auditoriacontinua.md` (severidad baja, calidad de código) | **RESUELTA 2026-09-02 — eliminada, no conectada.** No existe ninguna pantalla de ficha para `teacher` en el roadmap ni puede existir dentro del alcance actual (§0.2: `teacher` "no gestiona fichas ni ve datos de contacto ni personas de referencia", regla permanente); el escenario que la función preveía está prohibido, no solo pendiente. La protección real de las columnas de contacto sigue viviendo en el `GRANT` de columna de `003_politicas_rls.sql` y en la vista `alumno_ficha`. Detalle en `DECISIONES_TECNICAS.md` | — |
 | P-16 | **Urgente (§0.3): un `declare` mal colocado en la sección 8e tumbaba la batería de RLS COMPLETA, no una comprobación.** `db/pruebas_rls.sql` declaraba `v_filas` (y `v_visto`) en el `declare` del primer sub-bloque de cada rama de la sección 8e —el que hace el `SELECT` del perfil ajeno— y leía `v_filas` en el SEGUNDO `begin … end;`, que es **hermano** del primero, no hijo: en plpgsql un `declare` pertenece solo al bloque que lo sigue, así que ahí la variable no existe. Y como el error es de COMPILACIÓN del `do` (`42601: "v_filas" is not a known variable`) y el fichero se envía a la Management API en una sola sentencia, no fallaba la sección 8e: no llegaba a ejecutarse **ninguna** comprobación del fichero. **Arreglado** subiendo `v_filas` al `declare` del propio `do`, que es donde ya vivía `v_admin_id` y sirve a las dos ramas (`teacher` y `student`) — mismo patrón que la sección 4b, en vez de repetir un `declare` por sub-bloque. **Blindado** con un quinto test en `herramientas/migraciones/pruebasRlsEstatico.test.ts`, que sigue los ámbitos `declare`/`begin`/`end;` del fichero y falla si una variable `v_…` se lee desde un bloque que no la declara ni está dentro del que lo hace | **El fallo lo encontró la ejecución real, no la lectura**: T-24 escribió la sección 8e el 2026-09-02 y pasó `typecheck`, `lint`, 942 tests y `build` — ninguna de esas cuatro puertas mira dentro de un `do $$ … $$`, y los cuatro tests estáticos que ya existían (P-10/P-12) cubrían otras tres formas de romper este fichero, no los ámbitos. Es además la tercera vez que un defecto de la propia batería la inhabilita en silencio o en bloque (P-08 la cascada de fixtures, P-12 la fila compuesta): la herramienta que demuestra el aislamiento de datos vuelve a ser la pieza menos protegida del proyecto, y por eso el arreglo incluye la comprobación estática y no solo la línea movida. Origen: ejecución del dueño del 2026-09-03 | **IMPLEMENTADA Y VERIFICADA EN EJECUCIÓN 2026-09-03** — `npm run probar-rls` contra `dev`: **105 comprobaciones, 0 omitidas, 0 fallidas**, «ningún acceso prohibido tuvo éxito». Es la primera ejecución de la batería sin una sola omisión (las 3 legítimas del bucket de T-14 las cerró P-09 con sus propios fixtures). Las cuatro comprobaciones de la sección 8e que T-24 nunca llegó a ver correr aparecen ahora en verde por su motivo: `perfil / teacher no puede modificar perfiles ajenos` y su gemela de `student` con `filas_afectadas=0`. Criterio de cierre del blindaje, comprobado antes de commitear: con el fichero revertido al estado roto, el test nuevo falla nombrando las seis referencias fuera de ámbito (líneas 1650/1651/1680/1681); con el arreglo, pasa | — |
 | P-17 | **Backlog técnico (higiene documental, no urgente): faltan dos filas en §7 de este documento.** `roadmap/SEGUIMIENTO.md` §7 ("Desviaciones respecto a la hoja de ruta original") no recoge (a) la corrección real de T-14 hecha dentro de T-25 (requisito 8, aviso de consentimiento del avatar, ausente de la interfaz pese a que T-14 llevaba `COMPLETADA` desde el 2026-08-31, corregida en el commit `4499eaf`) ni (b) el hallazgo #8 de `auditoriacontinua.md` (categoría de dato de salud en R-02). Ambas desviaciones ya están documentadas en otro sitio (`DECISIONES_TECNICAS.md`/`HISTORIAL_SESIONES.md` la primera; el propio `auditoriacontinua.md` y la pregunta #16 de §6 la segunda), así que no se han perdido, pero §7 deja de servir como resumen de un vistazo, que es su propósito. Al atenderla: añadir una fila por cada desviación, con el mismo formato que las ya existentes | origen: hallazgo #9 de `auditoriacontinua.md` (severidad baja, gobernanza documental) | **RESUELTA 2026-09-07** — añadidas las dos filas de §7 (T-14/T-25, 2026-09-04; R-02, 2026-09-05), con el mismo formato que las ya existentes | — |
+| P-18 | **Urgente (§0.3): la sección 8 de `db/pruebas_rls.sql` (barrido de `TRUNCATE` por `authenticated`) no incluía las dos tablas nuevas del lote anterior, `cierre_centro` (R-12) y `excepcion_slot` (R-06).** El array literal de tablas de la sección 8 (`'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa'`) se quedó igual que antes de R-06/R-12, mientras que los otros dos barridos obligatorios del mismo fichero (sección 6, `student`; sección 8f, `anon`) sí se ampliaron correctamente con las dos tablas nuevas. `TRUNCATE` es el privilegio que RLS no filtra en absoluto — el que ya causó el incidente de `000b_arreglo_permisos.sql` — y es la única comprobación de este proyecto pensada para detectar automáticamente que Supabase reintroduce el `GRANT` por defecto en cada tabla nueva, así que dejar sin ejercitar precisamente las dos tablas más recientes anulaba el propósito del barrido para ellas. **Implementado:** añadidas `'cierre_centro', 'excepcion_slot'` al array de la sección 8 | origen: hallazgo #10 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-08, "calidad de la batería de pruebas / privilegios de tabla") — verificado por el auditor que los `GRANT` reales de `013_excepcion_slot.sql`/`014_calendario_cierres.sql` son correctos hoy (ninguna fuga activa), y que el hueco era solo de cobertura de la prueba, no del esquema | **IMPLEMENTADA 2026-09-08**, atendida antes de la cola normal por ser hallazgo de severidad alta (§0.3). Verificación pre-push completa en verde (`npm run typecheck`, `npm run lint`, `npm test` 1265/1265, `npm run build`); ninguna de las dos migraciones está aplicada todavía en `dev` (`db/APLICADAS.md`, sin cambio), así que la primera ejecución real de `npm run probar-rls` tras aplicar `013`/`014` es quien confirmará las once tablas en vivo. Pendiente de que el auditor reevalúe y cierre el hallazgo #10 en su próxima pasada | — |
+| P-19 | **Backlog técnico (higiene documental, no urgente): falta una fila en §7 de este documento para la desviación de R-05 (2026-09-07).** Mismo patrón exacto que P-17 (hallazgo #9, ya `RESUELTA`): §7 se quedó en la fila de R-02 (2026-09-05) sin ninguna fila para R-05, pese a que esa sesión abrió la pregunta #17 de §6 por el mismo tipo de contradicción con §0.2 (aquí, a la inversa: alcance de rol pedido por la spec y no concedido sin decisión del dueño). Sin impacto funcional — la desviación real ya está documentada en `DECISIONES_TECNICAS.md` y en la pregunta #17 de §6 —, pero reduce el valor de §7 como resumen de un vistazo | origen: hallazgo #11 de `auditoriacontinua.md` (severidad baja, gobernanza documental, "mismo patrón que el hallazgo #9, ya RESUELTO") | **RESUELTA 2026-09-08** — añadida la fila de §7 (R-05, 2026-09-07), con el mismo formato que las ya existentes | — |
 
 ---
 
@@ -1818,3 +1891,4 @@ pantallas del requisito 2.
 | 2026-09-01 | T-20 | **T-20 pasa a necesitar migración, y su spec dice `Migración: No`; además, `007` (no `006`) es el número que le toca, dejando la de T-21 en `008`.** El requisito 3 ("el centro cuando hay homónimos") exige que un `teacher` sepa a qué centro pertenece un alumno, columna que su `GRANT` sobre `alumno` no incluye — no hay forma de cumplirlo sin DDL. Y la proyección de la fila anterior de este mismo §7 (`006_rpc_actualizar_asistencia` para T-21) ya había quedado obsoleta ANTES de esta sesión: `006` lo ocupó el arreglo de T-18 (`006_arreglo_limite_tasa_ambiguo.sql`, mismo día). T-20 toma el `007` que quedaba libre; T-21 pasa a `008_rpc_actualizar_asistencia.sql` | Mismo precedente que T-09 (fila de 2026-08-27 de este §7): la hoja de ruta es inmutable, así que la ampliación/renumeración se registra aquí, en `DECISIONES_TECNICAS.md`, en la cabecera de `007_rpc_buscar_alumnos.sql` y en las filas de T-20/T-21 de §1, para que la sesión de T-21 no lo descubra a mitad |
 | 2026-09-04 | T-14 / T-25 | **Criterio de aceptación no cumplido literalmente durante casi un mes: el requisito 8 de T-14 (aviso de consentimiento del tutor legal para el avatar) nunca llegó a la interfaz.** `HOJA_DE_RUTA.md` §0.2 lo exige como norma permanente ("hasta entonces la interfaz debe advertir de que el consentimiento es responsabilidad del centro"), pero T-14 (`COMPLETADA` desde 2026-08-31) no incluyó ningún texto al respecto en `pantallaFichaAlumno.ts`, y sobrevivió a varias pasadas de auditoría sin que se notara. Descubierto al escribir T-25 (requisito 4, textos legales), cuya propia spec dice que sustituye "el aviso provisional de T-14" — contradicción que solo se hizo visible al leer el código real del bloque de avatar y no encontrar ningún aviso | Corregido en el mismo commit que T-25 (2026-09-04): nuevo párrafo junto al control de subida de avatar, marcado como provisional, con test dedicado. Origen: hallazgo #9 de `auditoriacontinua.md` (severidad baja, la propia ausencia de esta fila), registrado como P-17 en §5 |
 | 2026-09-05 | R-02 | **Alcance de datos personales ampliado sin decisión expresa del dueño: `motivo_justificacion` de R-02 incluye valores de dato de salud (artículo 9 RGPD).** `db/011_justificacion_ausencia.sql` (escrita y empujada, todavía sin aplicar) añade un `CHECK` de lista cerrada que incluye `enfermedad` y `cita_medica` — información que revela el estado de salud por definición (art. 4.15 RGPD), pese a que `HOJA_DE_RUTA.md` §0.2 prohíbe expresamente "cualquier categoría especial del artículo 9 del RGPD" sin decisión del dueño; la spec de R-02 fijó "Bloqueo humano: ninguno" sin que se activara ninguna pregunta al respecto | Hallazgo #8 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-05), escalado por el duodécimo ciclo del PM a la pregunta #16 de §6; la migración `011` no debe aplicarse hasta que el dueño responda (fila 14 de §3). Registrado también como P-17 en §5 |
+| 2026-09-07 | R-05 | **Alcance de rol pedido por la spec y no concedido sin decisión expresa del dueño (a la inversa del patrón de la fila anterior): el requisito 4 de R-05 pedía que el `teacher` accediera a las personas de referencia del alumno por el botón «avisar», "mismo alcance que T-13".** Concederlo habría contradicho §0.2 de `HOJA_DE_RUTA.md` ("el `teacher`... no ve datos de contacto ni personas de referencia") y habría exigido además una política RLS nueva que la propia spec no podía traer (`Migración: No`) | R-05 se entregó solo para `administrator` (funcional y completo); se abrió la pregunta #17 de §6 con tres opciones para el dueño, sin bloquear la tarea (valor por defecto conservador: sin acceso para `teacher`). Origen: hallazgo #11 de `auditoriacontinua.md` (severidad baja, la propia ausencia de esta fila — mismo patrón que el hallazgo #9 ya resuelto), registrado como P-19 en §5 |

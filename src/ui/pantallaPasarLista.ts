@@ -38,7 +38,26 @@
  * al renovar el token, así que `aplicacion.ts` nunca vuelve a llamar a `mostrarAppProfesor` dentro
  * de una misma sesión iniciada; solo un cierre de sesión seguido de un nuevo inicio en la misma
  * pestaña dejaría un intervalo huérfano recalculando sobre un DOM ya descartado, sin ningún efecto
- * de red duplicado.
+ * de red duplicado. `deps.detectorConexion` (R-07, más abajo) tampoco se desuscribe, mismo criterio.
+ *
+ * **R-07 (pasar lista con conexión intermitente), `deps.colaOffline`/`deps.detectorConexion`,
+ * OPCIONALES ambas — sin ellas, esta pantalla funciona exactamente como antes de R-07** (un
+ * `ErrorDeRed` se muestra como cualquier otro error, mismo criterio que `listarExcepcionesDeHoy` de
+ * R-06): un `ErrorDeRed` al registrar/marcar ausente NUNCA se muestra como "Pendiente — no se ha
+ * podido conectar" cuando las dos están inyectadas — se encola en `colaOffline` (mismo `peticionId`,
+ * requisito 1/2) y la card pasa a `'pendiente_offline'`, un estado terminal-que-no-lo-es: no acepta
+ * un segundo toque (protege contra duplicar el encolado), pero tampoco es un error definitivo.
+ * `vaciarColaOffline` reintenta cada elemento pendiente cuando `detectorConexion` notifica que
+ * volvió la conexión (y, en el tick de `INTERVALO_TICK_MS`, como red de seguridad si el evento
+ * `online` no llegara a dispararse en un wifi que se degrada sin desconectarse del todo nunca) — se
+ * detiene en el primer `ErrorDeRed` de ese barrido (probablemente seguimos sin conexión de verdad) y
+ * dejando el resto en cola; un `Conflicto` se reconcilia releyendo `cargarAsistenciaDeHoy` y
+ * buscando la fila por `peticion_id` (nunca por la clave alumno+slot+día, que un "alumno extra" no
+ * tiene); cualquier otro error saca el elemento de la cola y lo muestra como `'error'` normal —
+ * reintentarlo a ciegas no lo arreglaría. Al montar, `restaurarColaOffline` relee lo que ya hubiera
+ * en `colaOffline` (requisito 4: sobrevive a un cierre de pestaña, porque lo que sobrevive es el
+ * ALMACÉN inyectado, nunca el estado en memoria de esta función) y repinta esas cards como
+ * `'pendiente_offline'` antes de intentar vaciar la cola si ya hay conexión.
  */
 
 import type { Rol, SlotHorario } from '../dominio/tipos.ts';
@@ -66,13 +85,15 @@ import type { Rebote } from '../nucleo/rebote.ts';
 import { crearProtectorDobleToque } from '../nucleo/proteccionDobleToque.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
+import type { AlmacenColaAsistenciaOffline, ElementoColaAsistencia } from '../nucleo/colaAsistenciaOffline.ts';
+import type { DetectorConexion } from '../nucleo/detectorConexion.ts';
 import { crearElemento } from './dom.ts';
 import { crearZonaMensaje, crearBoton } from './formularios.ts';
 import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import type { RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { AlumnoConRutaAvatar } from '../datos/avatarAlumno.ts';
 import type { ExcepcionSlotConSlot } from '../datos/excepcionesSlot.ts';
-import { Conflicto } from '../datos/erroresDominio.ts';
+import { Conflicto, ErrorDeRed } from '../datos/erroresDominio.ts';
 
 /** Cada cuánto se recalcula la propuesta y se refresca la hora visible de la cabecera, sin red
  * (requisito 1 y 5 de T-19). Ni tan corto que recargue la rejilla (y con ella el foco, ver
@@ -122,9 +143,13 @@ export interface DependenciasPantallaPasarLista {
   readonly rebote: Rebote;
   readonly zonaHoraria?: string;
   readonly tolerancia?: number;
+  /** R-07, las dos opcionales juntas (ver cabecera del módulo): sin ellas, un `ErrorDeRed` se
+   * muestra como cualquier otro error, exactamente igual que antes de R-07. */
+  readonly colaOffline?: AlmacenColaAsistenciaOffline;
+  readonly detectorConexion?: DetectorConexion;
 }
 
-type FaseTarjeta = 'pendiente' | 'enviando' | 'registrado' | 'ausente' | 'error';
+type FaseTarjeta = 'pendiente' | 'enviando' | 'registrado' | 'ausente' | 'pendiente_offline' | 'error';
 
 interface EstadoTarjeta {
   readonly alumno: AlumnoParaPropuesta;
@@ -181,6 +206,10 @@ interface EstadoPantalla {
   readonly tarjetas: ReadonlyMap<string, EstadoTarjeta>;
   readonly extras: ReadonlyMap<string, EstadoTarjetaExtra>;
   readonly avatares: ReadonlyMap<string, string>;
+  /** R-07: estado de conectividad, repintado solo cuando `deps.detectorConexion` notifica un
+   * cambio real — `true` por defecto sin la dependencia inyectada (el indicador no se muestra en
+   * ese caso, ver `pintar`). */
+  readonly conectado: boolean;
 }
 
 function formatearMinutos(minutos: number): string {
@@ -234,6 +263,8 @@ function textoEstadoTarjeta(tarjeta: ConEstadoDeTarjeta, zonaHoraria: string): s
       const hora = tarjeta.asistencia ? instanteLocal(new Date(tarjeta.asistencia.registrado_en), zonaHoraria).horaMinuto : '';
       return `Ausente (marcado a las ${hora})`;
     }
+    case 'pendiente_offline':
+      return 'Pendiente de enviar (sin conexión)';
     case 'error':
       return `Pendiente — ${tarjeta.mensajeError ?? 'No se ha podido registrar.'}`;
   }
@@ -265,17 +296,22 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     tarjetas: new Map(),
     extras: new Map(),
     avatares: new Map(),
+    conectado: deps.detectorConexion?.estaConectado() ?? true,
   });
 
   const zonaError = crearZonaMensaje(documento, 'alert');
   const cabecera = documento.createElement('div');
   const horaEl = crearElemento(documento, 'p', {});
+  // R-07, requisito 3: indicador de conexión y de cuántos registros quedan por enviar — oculto por
+  // completo si `deps.detectorConexion` no está inyectada (mismo criterio que el resto de bloques
+  // opcionales de esta pantalla), nunca un texto fijo "conectado" que pudiera mentir.
+  const estadoConexionEl = crearElemento(documento, 'p', {});
   const estadoSlotEl = documento.createElement('div');
   const botonActualizar = crearBoton(documento, 'Actualizar', 'button');
   botonActualizar.addEventListener('click', () => {
     void cargar();
   });
-  cabecera.append(horaEl, estadoSlotEl, botonActualizar);
+  cabecera.append(horaEl, estadoConexionEl, estadoSlotEl, botonActualizar);
 
   const mensajeCargando = crearElemento(documento, 'p', { texto: 'Cargando…' });
   const rejilla = documento.createElement('div');
@@ -357,7 +393,8 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
    * un control "distinguible del toque simple", nunca el mismo gesto con doble significado. */
   function crearTarjetaElemento(clave: string, tarjeta: EstadoTarjeta, avatares: ReadonlyMap<string, string>): HTMLElement {
     const { alumno } = tarjeta;
-    const resuelta = tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando';
+    const resuelta =
+      tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando' || tarjeta.fase === 'pendiente_offline';
 
     const contenedorTarjeta = documento.createElement('div');
     contenedorTarjeta.setAttribute('role', 'group');
@@ -380,7 +417,15 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     boton.style.borderRadius = '8px';
     boton.style.fontSize = '16px';
     boton.style.backgroundColor =
-      tarjeta.fase === 'registrado' ? '#DCFCE7' : tarjeta.fase === 'ausente' ? '#FEF3C7' : tarjeta.fase === 'error' ? '#FEE2E2' : '#FFFFFF';
+      tarjeta.fase === 'registrado'
+        ? '#DCFCE7'
+        : tarjeta.fase === 'ausente'
+          ? '#FEF3C7'
+          : tarjeta.fase === 'error'
+            ? '#FEE2E2'
+            : tarjeta.fase === 'pendiente_offline'
+              ? '#DBEAFE'
+              : '#FFFFFF';
 
     boton.append(crearAvatarWrap(alumno, avatares));
 
@@ -480,7 +525,8 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     boton.style.border = '2px dashed #92400E';
     boton.style.borderRadius = '8px';
     boton.style.fontSize = '16px';
-    boton.style.backgroundColor = extra.fase === 'registrado' ? '#DCFCE7' : extra.fase === 'error' ? '#FEE2E2' : '#FFFBEB';
+    boton.style.backgroundColor =
+      extra.fase === 'registrado' ? '#DCFCE7' : extra.fase === 'error' ? '#FEE2E2' : extra.fase === 'pendiente_offline' ? '#DBEAFE' : '#FFFBEB';
 
     boton.append(crearAvatarWrap(alumno, avatares));
 
@@ -507,7 +553,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       'aria-label',
       `Extra. ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}. ${textoEstado}`,
     );
-    boton.disabled = extra.fase === 'registrado' || extra.fase === 'enviando';
+    boton.disabled = extra.fase === 'registrado' || extra.fase === 'enviando' || extra.fase === 'pendiente_offline';
 
     boton.addEventListener('click', () => {
       void obtenerProtectorExtra(clave)();
@@ -538,6 +584,15 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     horaEl.textContent = `Hora actual: ${instanteLocal(estado.instante, zonaHoraria).horaMinuto}`;
     botonActualizar.disabled = estado.cargando;
     pintarEstadoSlot(estado.propuesta);
+
+    if (deps.detectorConexion) {
+      const pendientes = [...estado.tarjetas.values(), ...estado.extras.values()].filter((t) => t.fase === 'pendiente_offline').length;
+      estadoConexionEl.textContent = estado.conectado
+        ? pendientes > 0
+          ? `Conectado. Enviando ${String(pendientes)} registro${pendientes === 1 ? '' : 's'} pendiente${pendientes === 1 ? '' : 's'}…`
+          : 'Conectado.'
+        : `Sin conexión. ${String(pendientes)} registro${pendientes === 1 ? '' : 's'} pendiente${pendientes === 1 ? '' : 's'} de enviar en cuanto vuelva la conexión.`;
+    }
 
     mensajeCargando.hidden = !estado.cargando;
     rejilla.hidden = estado.cargando;
@@ -584,17 +639,18 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         continue;
       }
       const previa = anterior.get(clave);
-      if (previa && (previa.fase === 'enviando' || previa.fase === 'error')) {
+      if (previa && (previa.fase === 'enviando' || previa.fase === 'error' || previa.fase === 'pendiente_offline')) {
         nuevo.set(clave, previa);
         continue;
       }
       nuevo.set(clave, { alumno, slot, fase: 'pendiente', peticionId: deps.generarPeticionId(), peticionIdAusente: deps.generarPeticionId() });
     }
-    // Una petición en curso nunca desaparece de la rejilla aunque el tramo horario cambie mientras
-    // se espera la respuesta del servidor (p. ej. la ventana de tolerancia se cierra justo en ese
-    // instante): solo se retira cuando la propia petición resuelve y `fijarTarjeta` la reemplaza.
+    // Una petición en curso (o encolada offline, R-07: tampoco confirmada todavía) nunca desaparece
+    // de la rejilla aunque el tramo horario cambie mientras se espera la respuesta del servidor
+    // (p. ej. la ventana de tolerancia se cierra justo en ese instante): solo se retira cuando la
+    // propia petición resuelve y `fijarTarjeta` la reemplaza.
     for (const [clave, tarjeta] of anterior) {
-      if (!nuevo.has(clave) && tarjeta.fase === 'enviando') {
+      if (!nuevo.has(clave) && (tarjeta.fase === 'enviando' || tarjeta.fase === 'pendiente_offline')) {
         nuevo.set(clave, tarjeta);
       }
     }
@@ -667,6 +723,181 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     });
   }
 
+  /** Aplica a la card (de slot o "extra", cualquiera que tenga `clave`) la fila REAL que el
+   * servidor confirmó para un elemento que estaba `'pendiente_offline'` — mismo criterio de fase
+   * terminal (`faseDeAsistencia`) que un alta en vivo. Sin efecto si `clave` ya no corresponde a
+   * ninguna card visible (p. ej. cambió el día): el dato ya se envió al servidor de todas formas,
+   * que es lo único que exige el requisito 2 — la reconstrucción visual es solo cortesía. */
+  function aplicarResultadoOffline(clave: string, fila: Asistencia): void {
+    const estado = almacen.obtener();
+    const tarjeta = estado.tarjetas.get(clave);
+    if (tarjeta) {
+      registrosHoyCache = new Map([...registrosHoyCache, [clave, fila]]);
+      fijarTarjeta(clave, {
+        alumno: tarjeta.alumno,
+        slot: tarjeta.slot,
+        fase: faseDeAsistencia(fila),
+        peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
+        asistencia: fila,
+      });
+      return;
+    }
+    const extra = estado.extras.get(clave);
+    if (extra) {
+      fijarExtra(clave, { alumno: extra.alumno, fase: faseDeAsistencia(fila), peticionId: extra.peticionId, nota: extra.nota, asistencia: fila });
+    }
+  }
+
+  /** Hermana de `aplicarResultadoOffline`: mueve la card (de slot o "extra") a `'error'` cuando un
+   * elemento que estaba `'pendiente_offline'` no se pudo confirmar ni reconciliar. */
+  function marcarErrorOffline(clave: string, mensaje: string): void {
+    const estado = almacen.obtener();
+    const tarjeta = estado.tarjetas.get(clave);
+    if (tarjeta) {
+      fijarTarjeta(clave, {
+        alumno: tarjeta.alumno,
+        slot: tarjeta.slot,
+        fase: 'error',
+        peticionId: tarjeta.peticionId,
+        peticionIdAusente: tarjeta.peticionIdAusente,
+        mensajeError: mensaje,
+      });
+      return;
+    }
+    const extra = estado.extras.get(clave);
+    if (extra) {
+      fijarExtra(clave, { alumno: extra.alumno, fase: 'error', peticionId: extra.peticionId, nota: extra.nota, mensajeError: mensaje });
+    }
+  }
+
+  /** Reconcilia un elemento offline que chocó con un `Conflicto` al reenviarlo (R-07): a diferencia
+   * de `reconciliarConflicto` (que relee por la clave alumno+slot+día), aquí se busca la fila por
+   * `peticion_id` — el único identificador que sirve tanto para una card de slot como para un
+   * "alumno extra" (que no tiene esa clave, ver `registrarExtra`). */
+  async function reconciliarElementoOffline(elemento: ElementoColaAsistencia): Promise<void> {
+    try {
+      const registros = await deps.cargarAsistenciaDeHoy(almacen.obtener().instante);
+      registrosHoyCache = registrosDeHoyPorAlumnoSlot(registros);
+      const fila = registros.find((registro) => registro.peticion_id === elemento.entrada.peticionId);
+      if (fila) {
+        aplicarResultadoOffline(elemento.clave, fila);
+        return;
+      }
+      marcarErrorOffline(elemento.clave, 'Ya hay un registro para este alumno, pero no se ha podido recuperar. Actualiza la pantalla.');
+    } catch (error) {
+      marcarErrorOffline(elemento.clave, mensajeAmigable(error));
+    }
+  }
+
+  /** Reintenta cada elemento pendiente de `deps.colaOffline`, EN ORDEN (requisito 2: "un reintento
+   * nunca duplica", con el mismo `peticionId` que ya llevaba encolado). Se detiene en el primer
+   * `ErrorDeRed` — probablemente seguimos sin conexión de verdad pese al evento `online` (un wifi
+   * que va y viene puede dispararlo antes de que la red vuelva a responder de verdad) — dejando ESE
+   * elemento y todos los siguientes en la cola para el próximo intento. Un `Conflicto` se reconcilia
+   * (`reconciliarElementoOffline`); cualquier otro error saca el elemento de la cola y lo muestra
+   * como `'error'` normal, porque reintentarlo a ciegas no lo arreglaría. Protegida contra
+   * solapamiento (ver más abajo, `vaciarColaProtegida`): sin ella, el evento `online` y el tick de
+   * `INTERVALO_TICK_MS` podrían disparar dos barridos a la vez sobre la misma cola. */
+  async function vaciarColaOffline(): Promise<void> {
+    if (!deps.colaOffline) {
+      return;
+    }
+    let pendientes: readonly ElementoColaAsistencia[];
+    try {
+      pendientes = await deps.colaOffline.listar();
+    } catch {
+      // Best-effort (mismo criterio que `renovarSesion`): un almacén roto (p. ej. IndexedDB
+      // bloqueada por un modo privado especialmente restrictivo) no debe romper el resto de la
+      // pantalla — se reintentará en el próximo evento `online` o tick.
+      return;
+    }
+    for (const elemento of pendientes) {
+      try {
+        const fila =
+          elemento.tipo === 'presencia' ? await deps.registrar(elemento.entrada) : await deps.registrarAusencia(elemento.entrada);
+        await deps.colaOffline.eliminar(elemento.entrada.peticionId);
+        aplicarResultadoOffline(elemento.clave, fila);
+      } catch (error) {
+        if (error instanceof ErrorDeRed) {
+          return;
+        }
+        await deps.colaOffline.eliminar(elemento.entrada.peticionId);
+        if (error instanceof Conflicto) {
+          await reconciliarElementoOffline(elemento);
+          continue;
+        }
+        marcarErrorOffline(elemento.clave, mensajeAmigable(error));
+      }
+    }
+  }
+
+  /** Protector de doble toque REUTILIZADO como protector de solapamiento (mismo mecanismo, otra
+   * intención): mientras un vaciado esté en curso, un segundo disparador (evento `online` Y tick
+   * casi a la vez) recibe la MISMA promesa en vez de arrancar un segundo barrido concurrente sobre
+   * la misma cola. */
+  const vaciarColaProtegida = crearProtectorDobleToque(vaciarColaOffline);
+
+  /** Al montar (R-07, requisito 4): repinta como `'pendiente_offline'` lo que `deps.colaOffline` ya
+   * tuviera guardado de una sesión anterior —de la pestaña cerrada y reabierta, o de un cierre de
+   * navegador— y, si ya hay conexión, intenta vaciarlo de inmediato en vez de esperar al primer
+   * evento `online` (que no llegaría a dispararse si la conexión nunca se perdió DE VERDAD entre
+   * medias, solo se cerró la pestaña). Solo reconstruye la card de slot que `cargar()` ya haya
+   * puesto en `tarjetas`; un "alumno extra" no tiene de dónde salir sin red propia, así que nace con
+   * un alumno provisional (solo el id) y se hidrata con `actualizarAlumnoDeExtra`, mismo mecanismo
+   * que T-20 ya usa tras un alta en vivo. */
+  async function restaurarColaOffline(): Promise<void> {
+    if (!deps.colaOffline) {
+      return;
+    }
+    let pendientes: readonly ElementoColaAsistencia[];
+    try {
+      pendientes = await deps.colaOffline.listar();
+    } catch {
+      // Best-effort, mismo criterio que `vaciarColaOffline`.
+      return;
+    }
+    if (pendientes.length === 0) {
+      return;
+    }
+    const idsExtrasAHidratar: { readonly clave: string; readonly alumnoId: string }[] = [];
+    almacen.actualizar((actual) => {
+      const tarjetas = new Map(actual.tarjetas);
+      const extras = new Map(actual.extras);
+      for (const elemento of pendientes) {
+        const tarjeta = tarjetas.get(elemento.clave);
+        if (tarjeta) {
+          tarjetas.set(elemento.clave, { ...tarjeta, fase: 'pendiente_offline' });
+          continue;
+        }
+        if (elemento.tipo === 'presencia' && elemento.entrada.origen === 'manual') {
+          const alumnoProvisional: AlumnoParaPropuesta = {
+            id: elemento.entrada.alumnoId,
+            nombre: '',
+            primer_apellido: '',
+            segundo_apellido: null,
+            avatar_ruta: null,
+            activo: true,
+          };
+          extras.set(elemento.clave, {
+            alumno: alumnoProvisional,
+            fase: 'pendiente_offline',
+            peticionId: elemento.entrada.peticionId,
+            nota: elemento.entrada.nota ?? null,
+          });
+          idsExtrasAHidratar.push({ clave: elemento.clave, alumnoId: elemento.entrada.alumnoId });
+        }
+      }
+      return { ...actual, tarjetas, extras };
+    });
+    for (const { clave, alumnoId } of idsExtrasAHidratar) {
+      void actualizarAlumnoDeExtra(clave, alumnoId);
+    }
+    if (deps.detectorConexion?.estaConectado() ?? false) {
+      void vaciarColaProtegida();
+    }
+  }
+
   /** Reconcilia un `Conflicto` (409) tanto de `manejarToque` como de `manejarAusente` (R-01): en
    * los dos casos la fila ya existe de verdad en el servidor —presente O ausente, indistinguibles
    * por diseño en el propio conflicto (`asistencia_peticion_id_unico` o
@@ -710,7 +941,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
   async function manejarToque(clave: string): Promise<void> {
     const tarjeta = almacen.obtener().tarjetas.get(clave);
-    if (!tarjeta || tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando') {
+    if (!tarjeta || tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando' || tarjeta.fase === 'pendiente_offline') {
       return;
     }
     fijarTarjeta(clave, {
@@ -741,6 +972,21 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         await reconciliarConflicto(clave, tarjeta);
         return;
       }
+      if (error instanceof ErrorDeRed && deps.colaOffline) {
+        await deps.colaOffline.agregar({
+          clave,
+          tipo: 'presencia',
+          entrada: { alumnoId: tarjeta.alumno.id, origen: 'slot', slotId: tarjeta.slot.id, peticionId: tarjeta.peticionId },
+        });
+        fijarTarjeta(clave, {
+          alumno: tarjeta.alumno,
+          slot: tarjeta.slot,
+          fase: 'pendiente_offline',
+          peticionId: tarjeta.peticionId,
+          peticionIdAusente: tarjeta.peticionIdAusente,
+        });
+        return;
+      }
       fijarTarjeta(clave, {
         alumno: tarjeta.alumno,
         slot: tarjeta.slot,
@@ -757,7 +1003,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
    * (una intención distinta) y la RPC `registrarAusencia`. */
   async function manejarAusente(clave: string): Promise<void> {
     const tarjeta = almacen.obtener().tarjetas.get(clave);
-    if (!tarjeta || tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando') {
+    if (!tarjeta || tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando' || tarjeta.fase === 'pendiente_offline') {
       return;
     }
     fijarTarjeta(clave, {
@@ -785,6 +1031,21 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     } catch (error) {
       if (error instanceof Conflicto) {
         await reconciliarConflicto(clave, tarjeta);
+        return;
+      }
+      if (error instanceof ErrorDeRed && deps.colaOffline) {
+        await deps.colaOffline.agregar({
+          clave,
+          tipo: 'ausencia',
+          entrada: { alumnoId: tarjeta.alumno.id, slotId: tarjeta.slot.id, peticionId: tarjeta.peticionIdAusente },
+        });
+        fijarTarjeta(clave, {
+          alumno: tarjeta.alumno,
+          slot: tarjeta.slot,
+          fase: 'pendiente_offline',
+          peticionId: tarjeta.peticionId,
+          peticionIdAusente: tarjeta.peticionIdAusente,
+        });
         return;
       }
       fijarTarjeta(clave, {
@@ -918,7 +1179,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
    * cuándo pasar a 'enviando'. */
   async function registrarExtra(clave: string, resultado: ResultadoBusquedaAlumno, nota: string | null, peticionId: string): Promise<void> {
     const extraActual = almacen.obtener().extras.get(clave);
-    if (extraActual && (extraActual.fase === 'registrado' || extraActual.fase === 'enviando')) {
+    if (extraActual && (extraActual.fase === 'registrado' || extraActual.fase === 'enviando' || extraActual.fase === 'pendiente_offline')) {
       return;
     }
     const alumnoBase: AlumnoParaPropuesta =
@@ -942,6 +1203,20 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       // DECISIONES_TECNICAS.md). Se trata como cualquier otro error, con el MISMO peticionId listo
       // para reintentar — nunca uno nuevo, o la protección de idempotencia del servidor no protege
       // nada (mismo criterio que datos/asistencia.ts).
+      //
+      // R-07: un `ErrorDeRed` sí se encola (a diferencia de `Conflicto` arriba, `vaciarColaOffline`
+      // SÍ puede reconciliar un extra encolado: busca la fila por `peticion_id`, que
+      // `listarAsistenciaDeHoy` trae en cada registro, no por la clave alumno+slot+día que un
+      // `manual` nunca tiene).
+      if (error instanceof ErrorDeRed && deps.colaOffline) {
+        await deps.colaOffline.agregar({
+          clave,
+          tipo: 'presencia',
+          entrada: { alumnoId: resultado.id, origen: 'manual', slotId: null, peticionId, nota },
+        });
+        fijarExtra(clave, { alumno: alumnoBase, fase: 'pendiente_offline', peticionId, nota });
+        return;
+      }
       fijarExtra(clave, { alumno: alumnoBase, fase: 'error', peticionId, nota, mensajeError: mensajeAmigable(error) });
     }
   }
@@ -990,10 +1265,25 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   almacen.suscribir(pintar);
   contenedor.append(zonaError, cabecera, seccionExtra, mensajeCargando, rejilla);
   pintar(almacen.obtener());
-  void cargar();
+  void cargar().then(() => restaurarColaOffline());
+
+  // R-07, requisito 2: la cola se vacía sola al recuperar conexión, sin que el profesor tenga que
+  // pulsar "Actualizar". Sin desuscribir (ver la cabecera del módulo, mismo criterio que el
+  // `cada(...)` del programador).
+  deps.detectorConexion?.alCambiar((conectado) => {
+    almacen.actualizar({ conectado });
+    if (conectado) {
+      void vaciarColaProtegida();
+    }
+  });
 
   deps.programador.cada(INTERVALO_TICK_MS, () => {
     aplicarRecalculo(deps.reloj.ahora());
     void cargarAvataresPendientes();
+    // Red de seguridad (ver cabecera del módulo): reintenta la cola también en cada tick, por si el
+    // evento `online` no llegara a dispararse.
+    if (deps.detectorConexion?.estaConectado() ?? false) {
+      void vaciarColaProtegida();
+    }
   });
 }

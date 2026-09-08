@@ -1103,7 +1103,8 @@ declare
 begin
   foreach v_tabla in array array[
     'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario',
-    'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa'
+    'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa',
+    'cierre_centro', 'excepcion_slot'
   ]
   loop
     foreach v_rol in array array['administrator', 'teacher']

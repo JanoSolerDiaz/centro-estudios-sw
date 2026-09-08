@@ -37,6 +37,65 @@
 
 ---
 
+### Sesión 2026-09-08 (rutina programada) — R-07 completada, novena tarea de la oleada v1; P-18 urgente en el camino
+
+**Tarea(s):** P-18 (urgente, §0.3, atendida antes de la cola normal), P-19, R-07 (Pasar lista con
+conexión intermitente)
+**Estado resultante:** R-07 pasa a `COMPLETADA` en §1 — `Migración: No`, sin ningún bloqueo propio.
+P-18 y P-19 quedan `RESUELTA`/`IMPLEMENTADA` en §5.
+**Commits a `develop`:** ver commit(s) de esta sesión
+**Migraciones aplicadas:** ninguna (R-07 declara `Migración: No`; P-18 corrige una batería de pruebas
+SQL, no una migración; el agente tampoco aplica DDL en ningún caso, §0.1). Sin fila nueva de §3.
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio)
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (sección 8: array de `TRUNCATE` ampliado con
+`'cierre_centro', 'excepcion_slot'`, P-18/hallazgo #10), `src/nucleo/detectorConexion.ts` (nuevo:
+`DetectorConexion`, `FuenteConexionNavegador`, `crearDetectorConexionNavegador`,
+`crearDetectorConexionDePrueba`), `src/nucleo/detectorConexion.test.ts` (nuevo, 5 tests),
+`src/nucleo/colaAsistenciaOffline.ts` (nuevo: `ElementoColaAsistencia`, `AlmacenColaAsistenciaOffline`,
+`crearAlmacenColaAsistenciaEnMemoria`, `crearAlmacenColaAsistenciaIndexedDB`),
+`src/nucleo/colaAsistenciaOffline.test.ts` (nuevo, 7 tests, solo el doble en memoria),
+`src/ui/pantallaPasarLista.ts` (`deps.colaOffline?`/`deps.detectorConexion?`, nuevas fase de card
+`'pendiente_offline'`, funciones nuevas `aplicarResultadoOffline`/`marcarErrorOffline`/
+`reconciliarElementoOffline`/`vaciarColaOffline`/`vaciarColaProtegida`/`restaurarColaOffline`,
+indicador de conectividad en la cabecera), `src/ui/pantallaPasarLista.test.ts` (9 tests nuevos, sección
+"R-07"), `src/ui/aplicacion.ts` (`colaAsistenciaOffline`/`detectorConexion` construidas en
+`mostrarAppProfesor` solo si `documento.defaultView?.indexedDB` existe, wiring en la composición de
+`mostrarPantallaPasarLista`), `DEVELOPERS.md` (secciones de `nucleo/` y `pantallaPasarLista.ts`
+actualizadas), `roadmap/SEGUIMIENTO.md` (§1: fila de R-07 a `COMPLETADA`; §5: filas P-18/P-19 nuevas;
+nueva entrada de "Última actualización", la anterior pasa a "Sesión anterior"),
+`roadmap/DECISIONES_TECNICAS.md` (seis filas nuevas, ver más abajo), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1286/1286, antes 1265) · build ✅
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`)
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-08: (1) P-18 —
+ampliar el array literal de la sección 8 en vez de rehacerla como consulta dinámica de
+`information_schema`, por ser una corrección puntual de un hallazgo puntual; (2)-(6) R-07 —
+`colaOffline`/`detectorConexion` opcionales JUNTAS (sin romper los 52 tests ya existentes de
+`pantallaPasarLista.test.ts` ni el comportamiento de un `ErrorDeRed` sin ellas); la implementación real
+de IndexedDB sin test propio, mismo criterio que `FabricaProcesadoImagen` (T-14) y
+`copiarAlPortapapelesDelNavegador` (R-05); el requisito 4 ("sobrevive a un cierre de pestaña")
+demostrado con dos montajes sucesivos de la pantalla sobre el MISMO almacén, no con una simulación de
+evento de recarga; `vaciarColaOffline` se detiene por completo en el primer `ErrorDeRed` de un
+reintento, dejando el resto en cola; el guard de composición en `aplicacion.ts`
+(`documento.defaultView?.indexedDB`) es compartido por las dos dependencias, nunca una construida sin
+la otra.
+**Hallazgos del auditor atendidos:** **#10** (alta, `ABIERTO` desde 2026-09-08, batería de `TRUNCATE`
+sin ampliar para las dos tablas nuevas de R-06/R-12) — atendido de inmediato como P-18 urgente antes de
+la cola normal (§0.3), pendiente de que el auditor lo reevalúe y cierre en su próxima pasada. **#11**
+(baja, mismo patrón que el hallazgo #9 ya `RESUELTO`: falta una fila en §7 para la desviación de R-05)
+— resuelto como P-19, fila añadida a §7.
+**Hallazgos:** ninguno propio de esta sesión, más allá de los ya señalados por el auditor.
+**Tareas autopropuestas (P-XX):** **P-18** (urgente, hallazgo #10) registrada e IMPLEMENTADA en §5;
+**P-19** (hallazgo #11, higiene documental) registrada y RESUELTA en §5.
+**Próximo paso:** revisar §1 en orden — R-06 sigue `BLOQUEADA` esperando exclusivamente al dueño (fila
+17 de §3, aplicar `013`); R-01/R-02/R-03/R-12 siguen igual (filas 13-16); la siguiente `PENDIENTE` sin
+dependencias sin empezar es **R-14** ("Aviso de clase cancelada a las familias"), que depende de R-05
+(`COMPLETADA`) y R-06 (código completo, bloqueada solo por migración — no bloquea escribir contra
+dobles, mismo precedente que el resto de la oleada).
+
+---
+
 ### Sesión 2026-09-07 (rutina programada) — R-04 completada, octava tarea de la oleada v1
 
 **Tarea(s):** R-04 (Informe mensual por alumno)

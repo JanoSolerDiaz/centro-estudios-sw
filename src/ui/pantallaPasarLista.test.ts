@@ -10,6 +10,8 @@ import { crearReboteDePrueba } from '../nucleo/rebote.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import type { ExcepcionSlotConSlot } from '../datos/excepcionesSlot.ts';
 import { Conflicto, ErrorDeRed } from '../datos/erroresDominio.ts';
+import { crearAlmacenColaAsistenciaEnMemoria } from '../nucleo/colaAsistenciaOffline.ts';
+import { crearDetectorConexionDePrueba } from '../nucleo/detectorConexion.ts';
 
 // Miércoles 2026-08-26, 17:30 CEST (15:30 UTC): dentro del slot 17:00-18:00 local de dia_semana 3.
 const INSTANTE_EN_CLASE = new Date('2026-08-26T15:30:00.000Z');
@@ -107,6 +109,8 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     ...(overrides.zonaHoraria !== undefined ? { zonaHoraria: overrides.zonaHoraria } : {}),
     ...(overrides.tolerancia !== undefined ? { tolerancia: overrides.tolerancia } : {}),
     ...(overrides.listarExcepcionesDeHoy !== undefined ? { listarExcepcionesDeHoy: overrides.listarExcepcionesDeHoy } : {}),
+    ...(overrides.colaOffline !== undefined ? { colaOffline: overrides.colaOffline } : {}),
+    ...(overrides.detectorConexion !== undefined ? { detectorConexion: overrides.detectorConexion } : {}),
   };
 }
 
@@ -1366,4 +1370,313 @@ void test('un alumno inactivo no aparece en el listado del buscador (requisito 7
   await esperarMicrotareas();
 
   assert.match(contenedor.textContent, /puede estar dado de baja/);
+});
+
+// --- R-07: pasar lista con conexión intermitente -----------------------------------------------
+
+void test('R-07: un ErrorDeRed con colaOffline inyectada encola el toque y la card pasa a "pendiente de enviar", nunca a error', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  let llamadas = 0;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: () => {
+        llamadas += 1;
+        return Promise.reject(new ErrorDeRed());
+      },
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  const boton = botonesDeTarjeta(contenedor)[0];
+  assert.ok(boton);
+  assert.match(boton.textContent, /Pendiente de enviar \(sin conexión\)/);
+  assert.doesNotMatch(boton.textContent, /Registrado/);
+  // Requisito 1: no vuelve a la fase "pendiente" ni queda clicable — ya está encolado.
+  assert.equal(boton.disabled, true);
+  assert.equal(llamadas, 1);
+  assert.equal((await colaOffline.listar()).length, 1);
+});
+
+void test('R-07: al recuperar conexión (evento del detector), la cola se reenvía sola con el MISMO peticionId y la card pasa a registrado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  const peticionesRecibidas: string[] = [];
+  let primeraVez = true;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: (entrada) => {
+        peticionesRecibidas.push(entrada.peticionId);
+        if (primeraVez) {
+          primeraVez = false;
+          return Promise.reject(new ErrorDeRed());
+        }
+        return Promise.resolve(crearAsistencia({ peticion_id: entrada.peticionId }));
+      },
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Pendiente de enviar/);
+
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  assert.equal(peticionesRecibidas.length, 2);
+  assert.equal(peticionesRecibidas[0], peticionesRecibidas[1]);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado/);
+  assert.equal((await colaOffline.listar()).length, 0);
+});
+
+void test('R-07: sobrevive a un cierre de pestaña — un segundo montaje sobre el MISMO almacén recupera la card pendiente y la envía sin duplicar', async () => {
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const peticionesRecibidas: string[] = [];
+
+  // "Primera pestaña": se pierde la red justo al pasar lista.
+  const contenedor1 = crearContenedorDePruebas();
+  mostrarPantallaPasarLista(
+    contenedor1,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: (entrada) => {
+        peticionesRecibidas.push(entrada.peticionId);
+        return Promise.reject(new ErrorDeRed());
+      },
+      colaOffline,
+      detectorConexion: crearDetectorConexionDePrueba(false),
+    }),
+  );
+  await esperarMicrotareas();
+  botonesDeTarjeta(contenedor1)[0]?.click();
+  await esperarMicrotareas();
+  assert.match(botonesDeTarjeta(contenedor1)[0]?.textContent ?? '', /Pendiente de enviar/);
+  assert.equal((await colaOffline.listar()).length, 1);
+
+  // "Se cierra la pestaña y se reabre": nuevo contenedor, nueva llamada a mostrarPantallaPasarLista
+  // — pero la MISMA instancia de `colaOffline`, que es lo que en un navegador real sobrevive al
+  // cierre (IndexedDB), ya con conexión.
+  const contenedor2 = crearContenedorDePruebas();
+  mostrarPantallaPasarLista(
+    contenedor2,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: (entrada) => {
+        peticionesRecibidas.push(entrada.peticionId);
+        return Promise.resolve(crearAsistencia({ peticion_id: entrada.peticionId }));
+      },
+      colaOffline,
+      detectorConexion: crearDetectorConexionDePrueba(true),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(botonesDeTarjeta(contenedor2)[0]?.textContent ?? '', /Registrado/);
+  assert.equal(peticionesRecibidas.length, 2);
+  assert.equal(peticionesRecibidas[0], peticionesRecibidas[1]);
+  assert.equal((await colaOffline.listar()).length, 0);
+});
+
+void test('R-07: el indicador de la cabecera muestra "Sin conexión" con el número de pendientes, y "Conectado" al volver', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: () => Promise.reject(new ErrorDeRed()),
+      colaOffline: crearAlmacenColaAsistenciaEnMemoria(),
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Sin conexión\. 1 registro pendiente de enviar/);
+
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Conectado\./);
+});
+
+void test('R-07: sin colaOffline ni detectorConexion inyectadas, un ErrorDeRed se comporta exactamente como antes (sin el indicador, sin encolar)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: () => Promise.reject(new ErrorDeRed()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  const boton = botonesDeTarjeta(contenedor)[0];
+  assert.ok(boton);
+  assert.match(boton.textContent, /No se ha podido conectar/);
+  assert.equal(boton.disabled, false);
+  assert.doesNotMatch(contenedor.textContent, /Sin conexión|Conectado/);
+});
+
+void test('R-07: si el reintento automático vuelve a fallar por red, el elemento sigue en cola (no se pierde, no se muestra como error)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: () => Promise.reject(new ErrorDeRed()),
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  // Un wifi que se degrada puede disparar el evento `online` antes de que la red responda de
+  // verdad: el segundo intento también falla por red, y el elemento debe seguir en cola.
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Pendiente de enviar/);
+  assert.equal((await colaOffline.listar()).length, 1);
+});
+
+void test('R-07: un Conflicto al reenviar la cola reconcilia releyendo el registro real, en vez de mostrarlo como error', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  let filaReal: Asistencia | null = null;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: (entrada) => {
+        if (!filaReal) {
+          filaReal = crearAsistencia({ peticion_id: entrada.peticionId });
+          return Promise.reject(new ErrorDeRed());
+        }
+        return Promise.reject(new Conflicto());
+      },
+      cargarAsistenciaDeHoy: () => Promise.resolve(filaReal ? [filaReal] : []),
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado/);
+  assert.equal((await colaOffline.listar()).length, 0);
+});
+
+void test('R-07: marcar ausente sin conexión también se encola (peticionIdAusente) y se reenvía al volver', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  const peticionesRecibidas: string[] = [];
+  let primeraVez = true;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrarAusencia: (entrada) => {
+        peticionesRecibidas.push(entrada.peticionId);
+        if (primeraVez) {
+          primeraVez = false;
+          return Promise.reject(new ErrorDeRed());
+        }
+        return Promise.resolve(crearAsistencia({ estado: 'ausente', peticion_id: entrada.peticionId }));
+      },
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonAusente = contenedor.querySelector<HTMLButtonElement>('button[data-ausente-clave]');
+  assert.ok(botonAusente);
+  botonAusente.click();
+  await esperarMicrotareas();
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Pendiente de enviar/);
+
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  assert.equal(peticionesRecibidas.length, 2);
+  assert.equal(peticionesRecibidas[0], peticionesRecibidas[1]);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Ausente/);
+  assert.equal((await colaOffline.listar()).length, 0);
+});
+
+void test('R-07: un "alumno extra" sin conexión también se encola y se reenvía al volver, con el mismo peticionId', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  const peticionesRecibidas: string[] = [];
+  let primeraVez = true;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([]),
+      rebote,
+      buscarAlumnosExtra: () => Promise.resolve([ALUMNO_EXTRA_BUSCADO]),
+      registrar: (entrada) => {
+        peticionesRecibidas.push(entrada.peticionId);
+        if (primeraVez) {
+          primeraVez = false;
+          return Promise.reject(new ErrorDeRed());
+        }
+        return Promise.resolve(crearAsistencia({ id: 'asistencia-extra', alumno_id: 'alumno-extra-1', origen: 'manual', slot_id: null, peticion_id: entrada.peticionId }));
+      },
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  await buscarYSeleccionarExtra(contenedor, rebote);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Pendiente de enviar/);
+
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  assert.equal(peticionesRecibidas.length, 2);
+  assert.equal(peticionesRecibidas[0], peticionesRecibidas[1]);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado/);
+  assert.equal((await colaOffline.listar()).length, 0);
 });

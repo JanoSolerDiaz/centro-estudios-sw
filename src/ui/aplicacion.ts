@@ -57,6 +57,8 @@ import {
   resolverCentroReferenciaIdDeAlumno,
 } from '../datos/alumnos.ts';
 import { crearRebote } from '../nucleo/rebote.ts';
+import { crearAlmacenColaAsistenciaIndexedDB } from '../nucleo/colaAsistenciaOffline.ts';
+import { crearDetectorConexionNavegador } from '../nucleo/detectorConexion.ts';
 import {
   crearPersonaReferencia,
   editarPersonaReferencia,
@@ -391,6 +393,13 @@ function mostrarAppProfesor(
   const abridorImpresion = crearAbridorVentanaImpresionNavegador(
     (url, destino, caracteristicas) => documento.defaultView?.open(url, destino, caracteristicas) ?? null,
   );
+  // R-07: las dos opcionales en `DependenciasPantallaPasarLista` (ver su cabecera) — sin
+  // `documento.defaultView` o sin `indexedDB` (un entorno de test con `jsdom`, que no lo
+  // implementa; en un navegador real, un modo privado especialmente restrictivo), pasar lista
+  // sigue funcionando exactamente como antes de R-07, sin cola ni indicador de conexión.
+  const ventana = documento.defaultView;
+  const colaAsistenciaOffline = ventana?.indexedDB ? crearAlmacenColaAsistenciaIndexedDB(ventana.indexedDB) : undefined;
+  const detectorConexion = ventana ? crearDetectorConexionNavegador(ventana) : undefined;
 
   const cabecera = documento.createElement('header');
   const titulo = documento.createElement('h1');
@@ -562,6 +571,8 @@ function mostrarAppProfesor(
       buscarAlumnosExtra: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
       obtenerAlumnoParaTarjeta: (alumnoId) => obtenerAlumnoParaTarjeta(app.postgrest, alumnoId),
       rebote: crearRebote(),
+      ...(colaAsistenciaOffline ? { colaOffline: colaAsistenciaOffline } : {}),
+      ...(detectorConexion ? { detectorConexion } : {}),
     });
   }
 
