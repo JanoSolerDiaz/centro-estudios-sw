@@ -37,6 +37,53 @@
 
 ---
 
+### Sesión 2026-09-09 (rutina de producto) — decimosexto ciclo del PM: R-17 y R-18, abren la Oleada v4
+
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código) — **decimosexto ciclo del PM: dos R-XX nuevas
+(R-17, R-18, abriendo la Oleada v4) y dos entradas de backlog técnico registradas (P-25, P-26)**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: decimosexto ciclo del PM — añade R-17 y
+R-18, registra P-25/P-26)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada, Oleada v4 con
+F-08/F-09, detalle de R-17/R-18), `roadmap/SEGUIMIENTO.md` (§1 con las filas `PENDIENTE` de R-17/R-18,
+§5 con P-25/P-26), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (no aplica a un ciclo de PM sin cambio de
+arquitectura)
+**Hallazgos del auditor atendidos:** revisados los seis `ABIERTO` del registro de
+`auditoriacontinua.md` (pasada del 2026-09-09). **#8** (dato de salud, R-02) sigue esperando al dueño
+en la pregunta #16 de §6, sin novedad — no le toca nada a este ciclo. **#12/#13** (cola offline, R-07)
+y **#14** (Service Worker, R-09), los tres severidad alta/media, ya están `IMPLEMENTADA` de facto por
+P-20/P-21/P-23 del programador, pendientes solo de que el auditor las reevalúe — tampoco piden nada
+nuevo aquí. **#16** (inyección de fórmula CSV) ya resuelto por P-24. **#15** (importación masiva no
+idempotente ante un reintento, severidad media) y **#17** (dos defectos menores de `sw.js`, severidad
+baja) no tenían ningún P-XX que los recogiera todavía — ninguno es un hallazgo de producto que dé pie
+a una R-XX, así que se registran como backlog técnico: **P-25** (`origen: auditoría #15`) y **P-26**
+(`origen: auditoría #17`), ambas `PENDIENTE` en §5, para que no se pierdan (mismo procedimiento que
+P-02/P-03 del quinto ciclo)
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales; nada que convertir. Revisado el
+estado completo de las oleadas v1 a v3 contra `SEGUIMIENTO.md` §1: con R-11, R-15 y R-16 ya
+`COMPLETADA` desde la sesión de programador de hoy, no queda ninguna R-01 a R-16 `PENDIENTE` sin
+código — lo que sigue `BLOQUEADA` lo está solo por una migración sin aplicar o, en el caso de R-02,
+además por la pregunta #16. Con la columna vertebral de código agotada y sin ningún hallazgo de
+producto/arquitectura que traducir, se abre la Oleada v4 (F-08/F-09) con dos R-XX nuevas: **R-17**
+(cierre de slot en un toque, marcar pendientes como ausentes en bloque — completa lo que R-01 dejó
+abierto, sin contradecir su regla de que el sistema nunca infiere una ausencia por sí solo) y **R-18**
+(asistente de primeros pasos para el administrador — ninguna pantalla guía hoy el primer arranque de
+un centro nuevo, con R-08/R-09 ya resueltos pero sin decir en qué orden usarlos). Ninguna de las dos
+añade datos personales, toca al rol `student`, exige migración ni depende de una decisión del dueño
+**Tareas autopropuestas (P-XX):** P-25 y P-26 registradas en §5, `PENDIENTE` — no implementadas por
+este ciclo (el PM no programa)
+**Próximo paso:** el programador tiene cola de nuevo: R-17 y R-18, especificadas y sin código, además
+del backlog técnico P-25/P-26 y de las migraciones pendientes de aplicar por el dueño (filas 13-19 de
+§3). El siguiente ciclo de PM debe repetir esta misma revisión (feedback, hallazgos del auditor,
+progreso de desarrollo) y solo ampliar el roadmap si aparece una señal real — no antes
+
+---
+
 ### Sesión 2026-09-09 (rutina programada de programador) — P-23/P-24 urgentes: backlog del auditor (columna vertebral agotada)
 
 **Tarea(s):** ninguna T-XX/R-XX — revisado primero `auditoriacontinua.md` (protocolo §0.3): sin

@@ -8,49 +8,61 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-08 — decimoquinto ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sigue sin ninguna
-pasada nueva desde `97bd24f` (2026-09-08 por la mañana): el registro de hallazgos tiene tres
-`ABIERTO` en su tabla — **#8** (dato de salud del artículo 9 del RGPD en R-02, formalizado en
-pregunta **#16** de §6, esperando al dueño, sin novedad) y **#10**/**#11** (ambos de calidad de la
-propia batería de pruebas y de gobernanza documental, ya `RESUELTOS` de facto por **P-18** y **P-19**
-— ejecutadas 2026-09-08, todavía sin que el auditor los haya vuelto a comprobar en su próxima pasada).
-Ninguno de los tres es un hallazgo de producto/arquitectura que dé pie a una R-XX nueva por sí solo,
-y los dos de deuda técnica ya tienen su P-XX resuelta en el backlog — nada nuevo que traducir por esta
-vía este ciclo.
+**Última actualización:** 2026-09-09 — decimosexto ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` tiene su pasada del
+2026-09-09 (commit visible en `git log`, tras el lote de R-07/R-08/R-09/R-10/R-15/R-16): seis
+`ABIERTO` en su tabla. **#8** (dato de salud del artículo 9 del RGPD en R-02) sigue formalizado como
+pregunta **#16** de §6, esperando al dueño, sin novedad — no requiere ninguna acción nueva de este
+ciclo. **#12/#13** (cola offline de R-07, severidad alta) y **#14** (Service Worker, severidad media)
+ya están `IMPLEMENTADA` de facto por **P-20/P-21/P-23**, pendientes solo de que el auditor las
+reevalúe en su próxima pasada — tampoco piden nada nuevo aquí. **#16** (inyección de fórmula CSV) ya
+resuelto por **P-24**. Quedan **dos hallazgos de calidad/deuda técnica sin ningún P-XX que los
+recoja todavía** — ninguno de seguridad ni de producto, así que no le tocan al programador como
+urgente ni al roadmap de producto como R-XX: **#15** (la importación masiva de R-08 no es idempotente
+ante un reintento de red) y **#17** (dos defectos menores de `sw.js`, sin impacto práctico hoy). Se
+registran en esta sesión como backlog técnico, **P-25** y **P-26**, en §5 de `SEGUIMIENTO.md`
+(`PENDIENTE`, con `origen: auditoría #15`/`#17`), para que no se pierdan — mismo procedimiento ya
+usado con P-02/P-03 (quinto ciclo) y P-06/P-13/P-14/P-15 (ciclos posteriores).
 
-**Oleada v1 prácticamente cerrada en código; oleada v2 a una sola tarea de estarlo también, aunque
-sigue sin haber ningún despliegue en producción.** Desde el decimocuarto ciclo, las sesiones de
-programador completaron código y tests de **R-07** (`COMPLETADA`, solo cliente), **R-08** (arrancada,
-`BLOQUEADA` solo por la migración `016`), **R-09** (`COMPLETADA`) y **R-10** (`COMPLETADA`) — el
-detalle completo, sesión a sesión, está en §1/§2 de `SEGUIMIENTO.md`, no se repite aquí. De toda la
-oleada v1 (R-01 a R-07, R-12 a R-14) solo quedan `BLOQUEADA` por una migración sin aplicar (R-01,
-R-02, R-03, R-06, R-12, R-14) o esperando además una decisión del dueño (R-02, pregunta #16); nada
-sigue `PENDIENTE` sin código. De la oleada v2, solo **R-11** (panel de centro) sigue `PENDIENTE` sin
-ningún código todavía — R-08 arrancada y bloqueada solo por migración, R-09 y R-10 `COMPLETADA`. El
-MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción), así que ninguna
-oleada puede darse por arrancada de verdad **en el sentido formal** de este documento — aunque en la
-práctica casi todo el código de v1 y v2 ya existe. Nada que mover a `ROADMAP_HISTORICO.md` esta vez.
+**Oleada v1, v2 y v3 con TODO su código completo; sigue sin haber ningún despliegue en producción.**
+Desde el ciclo anterior, las sesiones de programador completaron **R-11** (panel de centro),
+**R-15** (informe de horas por profesor) y **R-16** (exportación completa del centro), las tres
+`COMPLETADA` — el detalle completo, sesión a sesión, está en §1/§2 de `SEGUIMIENTO.md`, no se repite
+aquí. Con esto, **no queda ninguna R-01 a R-16 en estado `PENDIENTE` sin código**: lo que sigue
+`BLOQUEADA` lo está solo por una migración sin aplicar (R-01, R-02, R-03, R-06, R-12, R-14) o
+esperando además una decisión del dueño (R-02, pregunta #16) — nunca por falta de trabajo del
+programador. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción),
+así que ninguna oleada puede darse por arrancada de verdad **en el sentido formal** de este documento
+— aunque en la práctica todo el código de v1, v2 y v3 ya existe. Nada que mover a
+`ROADMAP_HISTORICO.md` esta vez (no existe todavía: ninguna oleada ha llegado a desplegarse).
 
-**Dos R-XX nuevas este ciclo, abriendo la Oleada v3: R-15 (informe de horas por profesor) y R-16
-(exportación completa del centro).** No las propone el auditor ni `FEEDBACK.md` — las propone el
-propio estado del roadmap: con R-11 como única tarea de v2 sin código, y con v1 prácticamente resuelta
-del lado del programador, este ciclo mira más allá de v2, mismo gesto que el noveno ciclo hizo al
-definir v2 completa (R-08 a R-11) mientras v1 seguía en curso. Dos huecos reales, ninguno hipotético:
-(1) **R-03 (horas reales) ya captura, alumno a alumno, la duración exacta de cada clase, pero nadie
-puede sumarlas por profesor** — y el ICP de este producto (academias de refuerzo con varios
-profesores) casi siempre paga por hora dada, así que hoy un centro seguiría reconstruyendo esa cuenta
-a mano en una hoja de cálculo para pagar una nómina, exactamente el problema que este producto existe
-para resolver, solo que aplicado al profesor en vez de al alumno; (2) **R-10 ya resuelve la
-portabilidad y el acceso RGPD para UN alumno, pero no existe ningún volcado del centro completo** —
-sin él, la garantía de que los datos son del centro y no del proveedor (argumento de confianza real
-frente a "me quedo con mi Excel") depende de pedir un volcado a mano a quien tenga acceso a Supabase.
-Ninguna de las dos añade datos personales nuevos, ninguna toca al rol `student`, ninguna necesita
-migración, y ninguna depende de una decisión reservada al dueño. **Revisado el resto del roadmap
-contra el estado actual y la visión de producto: sin ningún otro cambio.** Catorce ciclos
-consecutivos de PM ya habían traducido a tareas concretas el hueco real entre el MVP y el objetivo de
-producto; este decimoquinto no encuentra ningún otro hueco real más allá de R-15/R-16 — inventar una
-tarea sin una necesidad real detrás sería exactamente el vicio que este protocolo existe para evitar.
+**Dos R-XX nuevas este ciclo, abriendo la Oleada v4: R-17 (cierre de slot en un toque) y R-18
+(asistente de primeros pasos).** Con la columna vertebral completa de código (v1 a v3) agotada —
+confirmado en `HISTORIAL_SESIONES.md`, sesión de hoy del programador: "no queda ninguna T-XX/R-XX
+`PENDIENTE`/`EN CURSO` sin depender de una migración sin aplicar" — y sin ningún hallazgo de
+producto/arquitectura que traducir este ciclo, toca mirar más allá de v3, mismo gesto que el noveno
+ciclo (definió v2 completa mientras v1 seguía en curso) y el decimoquinto (definió v3 mientras v1/v2
+seguían sin desplegar). Dos huecos reales, ninguno hipotético, los dos centrados en el usuario de
+mayor frecuencia (el profesor que pasa lista) y en la primera impresión de una academia nueva: (1)
+**R-01 ya deja marcar ausente a un alumno sin registro, pero solo de uno en uno** — cerrar una clase
+donde faltaron varios alumnos sigue costando tantos toques como alumnos faltaron, justo cuando el
+profesor está saliendo de clase; una acción explícita de cierre que marque a todos los pendientes de
+una vez, con confirmación nominal antes de ejecutar, reduce esa cola de toques a uno solo sin tocar la
+regla de R-01 de que el sistema nunca infiere una ausencia por sí solo (sigue siendo un toque
+explícito del profesor, solo que aplicado a varios alumnos a la vez, no un cierre automático). (2)
+**Ninguna pantalla guía hoy a un administrador que entra por primera vez a un centro recién creado** —
+R-08 (importación masiva) y R-09 (aplicación instalable) ya atacan el coste de teclear datos y de
+abrir la aplicación, pero nada dice **qué falta hacer primero** entre dar de alta un centro de
+referencia, un alumno, un horario y un profesor; una lista de comprobación de arranque, calculada
+sobre datos ya existentes y con enlaces directos a cada pantalla, es la primera impresión que decide
+si una academia sigue explorando el producto o lo abandona — el argumento de adopción que el propio
+protocolo de este ciclo pide tener en cuenta. Ninguna de las dos añade datos personales nuevos,
+ninguna toca al rol `student`, ninguna necesita migración, y ninguna depende de una decisión reservada
+al dueño. **Revisado el resto del roadmap contra el estado actual y la visión de producto: sin ningún
+otro cambio.** Quince ciclos consecutivos de PM ya habían traducido a tareas concretas el hueco real
+entre el MVP y el objetivo de producto; este decimosexto no encuentra ningún otro hueco real más allá
+de R-17/R-18 — inventar una tarea sin una necesidad real detrás sería exactamente el vicio que este
+protocolo existe para evitar.
 
 ---
 
@@ -163,6 +175,31 @@ dos amplía datos personales ni toca al rol `student`.
 - **F-07 — Rendición de cuentas y portabilidad.** Lo que un centro necesita para pagar con datos
   reales y para no depender de nadie para llevarse los suyos. R-15 (informe de horas por profesor),
   R-16 (exportación completa del centro).
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v4 — Fricción cero en el día a día, primera impresión en la adopción
+
+**Arranca cuando la oleada v3 (R-15 a R-16) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado
+real de esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces las R-XX de esta
+oleada quedan especificadas y en cola, detrás de la oleada v3, en el orden de §1.
+
+Por qué esta oleada y en este orden: v1 a v3 dejan resuelto el ciclo diario de una clase, la
+adopción de datos ya existentes y la rendición de cuentas del centro, pero quedan dos fricciones
+reales que ninguna de las tres oleadas anteriores atacó todavía, una hacia dentro del uso diario y
+otra hacia el primer contacto con el producto. La primera es del profesor, el usuario de mayor
+frecuencia: R-01 ya permite marcar ausente a quien no vino, pero de uno en uno, así que cerrar una
+clase con varios ausentes sigue costando tantos toques como alumnos faltaron — justo cuando el
+profesor está de salida. La segunda es de la primera sesión de un administrador en un centro
+recién creado: nada en la interfaz de hoy le dice en qué orden dar de alta un centro de referencia,
+un alumno, un horario y un profesor, pese a que R-08/R-09 ya resolvieron el coste de teclear los
+datos y el de abrir la aplicación. Ninguna de las dos añade datos personales nuevos ni toca al rol
+`student`.
+
+- **F-08 — Cierre de sesión sin fricción.** R-17.
+- **F-09 — Primera impresión y adopción.** R-18.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -788,3 +825,88 @@ copia de seguridad propia o cambiar de herramienta el día de mañana nunca depe
 mixto (válido, anulado, retroactivo) y horarios con más de una versión por slot produce un único
 documento JSON coherente con lo almacenado, sin ninguna fotografía ni credencial; un `teacher` recibe
 `SinPermiso` al intentarlo.
+
+---
+
+### R-17 — Cierre de slot en un toque: marcar pendientes como ausentes en bloque
+**Oleada / Fase:** v4 / F-08 · **Migración:** No · **Depende de:** R-01, T-19, T-21
+**Origen:** roadmap
+
+**Objetivo:** R-01 ya deja marcar ausente a un alumno sin registro ese día, pero de uno en uno. Un
+slot con ocho alumnos donde faltaron cinco cuesta cinco toques para cerrarlo — justo el momento en
+que el profesor está saliendo de clase con prisa, exactamente el escenario que este producto existe
+para no penalizar. Una acción explícita que cierre el resto de un solo gesto, con la misma
+trazabilidad de siempre, completa lo que R-01 dejó abierto sin contradecir su propia regla de que el
+sistema nunca infiere una ausencia por sí solo: sigue siendo un toque explícito del profesor, solo
+que aplicado de una vez a quien de verdad falta.
+
+**Requisitos:**
+1. En pasar lista (T-19), cuando el slot en curso tiene al menos un alumno sin ningún registro (ni
+   entrada ni ausencia) ese día, aparece un control explícito y distinguible de las cards
+   individuales — nunca activo por defecto, nunca disparado por un temporizador ni por cambiar de
+   pantalla — del tipo «Marcar el resto como ausente».
+2. Un toque sobre ese control abre una confirmación que **lista nominalmente** a los alumnos que se
+   van a marcar (nunca solo una cifra): el profesor ve exactamente a quién antes de decidir. Solo al
+   confirmar se ejecuta la acción.
+3. Cada alumno pendiente se registra con la misma RPC de R-01 (`registrar_ausencia`), una llamada
+   por alumno — no una operación atómica conjunta —, respetando el límite de tasa ya existente
+   (T-06). Si alguna llamada falla (límite alcanzado, red), las que ya se completaron quedan (igual
+   que si se hubieran marcado una a una) y la interfaz dice exactamente cuáles no se pudieron marcar,
+   para reintentarlas sueltas.
+4. Un alumno que ya tiene un registro de entrada o de ausencia ese día queda excluido de la
+   confirmación desde el principio: la acción nunca sobrescribe ni duplica un registro existente.
+5. Disponible también desde «Registros» (T-21) para el mismo slot y fecha, con el mismo
+   comportamiento — mismo criterio que R-01, que ya se ofrece en los dos sitios.
+6. Cada fila creada es indistinguible, en su naturaleza, de una ausencia marcada individualmente:
+   mismo régimen de edición, anulación y rastro en `asistencia_historial` (§0.2). No crea ningún
+   estado, columna ni tabla nueva.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un slot con ocho alumnos donde tres ya tienen entrada y uno ausencia
+marcada muestra la confirmación con los cuatro restantes exactos, nombrados; confirmar produce cuatro
+registros de ausencia trazables, uno por alumno, sin tocar los cuatro ya existentes; repetir la
+acción sobre el mismo slot y fecha ya no ofrece a nadie, porque todos tienen registro; un fallo de
+red al marcar uno de los cuatro deja completados a los otros tres y avisa cuál falló, sin perderlos.
+
+---
+
+### R-18 — Asistente de primeros pasos para el administrador
+**Oleada / Fase:** v4 / F-09 · **Migración:** No · **Depende de:** T-11, T-12, T-15, T-24
+**Origen:** roadmap
+
+**Objetivo:** el primer administrador que entra a un centro recién creado se encuentra pantallas
+vacías sin ninguna guía de qué hacer primero: un centro de referencia, un alumno, un horario y un
+profesor viven en cuatro pantallas distintas, y hoy nada en la interfaz señala el orden ni el
+progreso. R-08 (importación masiva) y R-09 (aplicación instalable) ya reducen el coste de teclear
+datos y de abrir la aplicación, pero no dicen **qué falta hacer todavía** ni en qué orden. Una lista
+de comprobación visible desde el primer inicio de sesión, con progreso real calculado sobre datos ya
+existentes, es la primera impresión que decide si una academia sigue explorando el producto o lo
+abandona.
+
+**Requisitos:**
+1. Bloque o pantalla visible para `administrator` — accesible en cualquier momento, y mostrado por
+   defecto mientras queden pasos pendientes — con una lista de comprobación de arranque: (a) al
+   menos un centro de estudios de referencia dado de alta (T-11); (b) al menos un alumno activo
+   (T-12; el enlace puede llevar al alta manual o, si existe, a la importación masiva de R-08, según
+   convenga a la sesión que lo implemente); (c) al menos un slot de horario vigente (T-15); (d) al
+   menos un profesor con cuenta activa además del propio administrador (T-24).
+2. Cada paso se calcula en tiempo real contando filas ya existentes — sin campo, columna ni tabla
+   nueva — y se marca hecho en cuanto la condición se cumple, sin que el administrador tenga que
+   marcarlo a mano ni recargar la pantalla.
+3. Cada paso pendiente enlaza directamente a la pantalla donde completarlo, mismo patrón de enlace
+   profundo que T-22/R-13 ya usan.
+4. En cuanto los cuatro pasos están completos, el asistente deja de mostrarse por defecto (el
+   centro ya está operativo), pero sigue accesible bajo demanda en cualquier momento — nunca
+   desaparece de forma irrecuperable, y nunca bloquea el resto de la interfaz mientras algún paso
+   sigue pendiente.
+5. Ningún dato ni tabla nuevos; ninguna comunicación ni cuenta externa; el cálculo respeta el mismo
+   alcance de `administrator` que las pantallas a las que enlaza. Un `teacher` no ve este asistente.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un centro recién creado (sin ningún centro de referencia, alumno, slot
+ni segundo profesor) muestra los cuatro pasos pendientes con sus enlaces; dar de alta el primer
+alumno marca el paso (b) como hecho sin ninguna acción manual adicional; con los cuatro pasos
+completos, el asistente deja de aparecer por defecto pero sigue accesible; un `teacher` no ve este
+asistente.
