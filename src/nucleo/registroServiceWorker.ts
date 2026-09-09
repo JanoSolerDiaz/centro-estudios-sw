@@ -53,8 +53,16 @@ export interface OpcionesRegistroServiceWorker {
  * exactamente igual que sin Service Worker, solo sin caché ni arranque sin red. */
 export async function registrarServiceWorker(navegador: NavegadorServiceWorker, opciones: OpcionesRegistroServiceWorker): Promise<void> {
   let yaRecargando = false;
+  // Si YA había un `controller` antes de este registro, cualquier `controllerchange` posterior es
+  // una actualización real. Si no lo había, el PRIMER `controllerchange` es solo el arranque inicial
+  // tomando el control por primera vez (mismo criterio que ya aplica el guard de `updatefound`
+  // abajo) — avisar aquí recargaría la página a mitad de que alguien escriba su email/contraseña.
+  let esPrimerEvento = true;
+  const huboControllerAlRegistrar = Boolean(navegador.controller);
   navegador.addEventListener('controllerchange', () => {
-    if (yaRecargando) {
+    const esArranqueInicial = esPrimerEvento && !huboControllerAlRegistrar;
+    esPrimerEvento = false;
+    if (esArranqueInicial || yaRecargando) {
       return;
     }
     yaRecargando = true;

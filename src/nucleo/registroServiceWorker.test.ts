@@ -167,9 +167,29 @@ void test('registrarServiceWorker: un "statechange" en un estado intermedio (no 
   assert.equal(avisado, false);
 });
 
-void test('registrarServiceWorker: "controllerchange" llama a alRecargar, una sola vez aunque se dispare varias', async () => {
+void test('registrarServiceWorker: "controllerchange" sin controller previo (primera instalación) nunca recarga', async () => {
   const registro: RegistroServiceWorker = { installing: null, waiting: null, addEventListener: () => undefined };
   const navegador = crearNavegadorDePrueba(registro);
+  navegador.controller = null; // sin Service Worker previo controlando la página: el arranque, no una actualización
+  let recargas = 0;
+
+  await registrarServiceWorker(navegador, {
+    urlScript: '/sw.js',
+    onNuevaVersionDisponible: () => undefined,
+    alRecargar: () => {
+      recargas += 1;
+    },
+  });
+  // Un único disparo: es el que la propia toma de control inicial produce en un navegador real.
+  navegador.dispararControllerChange();
+
+  assert.equal(recargas, 0);
+});
+
+void test('registrarServiceWorker: "controllerchange" CON controller previo recarga una sola vez aunque se dispare varias', async () => {
+  const registro: RegistroServiceWorker = { installing: null, waiting: null, addEventListener: () => undefined };
+  const navegador = crearNavegadorDePrueba(registro);
+  navegador.controller = {}; // ya había una versión anterior controlando la página: esto sí es una actualización real
   let recargas = 0;
 
   await registrarServiceWorker(navegador, {

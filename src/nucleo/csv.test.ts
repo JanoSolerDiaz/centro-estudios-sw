@@ -26,6 +26,24 @@ void test('filaCsv conserva tildes y eñes sin ningún escapado especial', () =>
   assert.equal(filaCsv(['José Muñoz Peña']), 'José Muñoz Peña');
 });
 
+void test('filaCsv antepone un apóstrofo a un valor que empieza por "=" (inyección de fórmula CSV)', () => {
+  assert.equal(filaCsv(['=1+1']), "'=1+1");
+});
+
+void test('filaCsv antepone un apóstrofo a un valor que empieza por "+", "-" o "@"', () => {
+  assert.equal(filaCsv(['+1234']), "'+1234");
+  assert.equal(filaCsv(['-1234']), "'-1234");
+  assert.equal(filaCsv(['@alguien'])[0], "'");
+});
+
+void test('filaCsv no toca un valor que no empieza por un prefijo de fórmula, aunque los contenga en medio', () => {
+  assert.equal(filaCsv(['Precio: -5']), 'Precio: -5');
+});
+
+void test('filaCsv entrecomilla también un valor neutralizado que además necesita comillas por el separador', () => {
+  assert.equal(filaCsv(['=a;b']), '"\'=a;b"');
+});
+
 void test('documentoCsv empieza por el BOM UTF-8, seguido de la cabecera y las filas separadas por CRLF', () => {
   const documento = documentoCsv(['Alumno', 'Profesor'], [
     ['María Ábalos', 'Juan Pérez'],

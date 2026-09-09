@@ -37,6 +37,55 @@
 
 ---
 
+### Sesión 2026-09-09 (rutina programada de programador) — P-23/P-24 urgentes: backlog del auditor (columna vertebral agotada)
+
+**Tarea(s):** ninguna T-XX/R-XX — revisado primero `auditoriacontinua.md` (protocolo §0.3): sin
+pasada nueva del auditor desde `c91f4c0` (la que ya vio la sesión anterior). De sus tres `ABIERTO` de
+severidad alta, `#8` sigue esperando al dueño en la pregunta #16 de §6; `#12`/`#13` siguen `ABIERTO`
+en la tabla del auditor pero ya resueltos de facto por P-20/P-21, pendientes solo de confirmación del
+auditor — ninguno exige una P-XX urgente nueva. Revisado §1: con R-16 ya `COMPLETADA` (sesión
+anterior), no queda ninguna T-XX/R-XX `PENDIENTE`/`EN CURSO` sin depender de una migración sin
+aplicar — el resto de `BLOQUEADA` lo está solo por una fila de §3 a la espera del dueño. Con la
+columna vertebral agotada, esta sesión aplicó §0.3 ("las P-XX se ejecutan cuando la tarea en curso
+está terminada o bloqueada") y atendió dos hallazgos `ABIERTO` de severidad media/baja del propio
+auditor, ambos con dirección de arreglo ya señalada como "evidente y de bajo riesgo": **P-23**
+(hallazgo #14, `registroServiceWorker.ts` recargaba la página en la primera instalación del Service
+Worker, perdiendo lo escrito en el login) y **P-24** (hallazgo #16, el generador de CSV propio no
+neutralizaba la inyección de fórmula CSV).
+**Estado resultante:** sin cambio de estado en §1 (ninguna T-XX/R-XX tocada). P-23 y P-24 registradas
+e **IMPLEMENTADAS** en §5 de `SEGUIMIENTO.md`.
+**Commits a `develop`:** ver commit(s) de esta sesión.
+**Migraciones aplicadas:** ninguna — ninguno de los dos hallazgos toca el esquema.
+**Propagación a prod pendiente:** ninguna nueva.
+**Archivos creados/modificados:** `src/nucleo/registroServiceWorker.ts` (guard de `controllerchange`
+igual al que ya tenía `updatefound`) y su test (dos casos nuevos sustituyen al que fijaba el defecto);
+`src/nucleo/csv.ts` (`neutralizarFormulaCsv`, aplicada dentro de `escaparCampo`) y su test (5 casos
+nuevos). `roadmap/SEGUIMIENTO.md` (nueva entrada de "Última actualización", la anterior pasa a "Sesión
+anterior"; dos filas nuevas en §5, P-23/P-24), `roadmap/DECISIONES_TECNICAS.md` (cuatro filas nuevas,
+ver más abajo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1522/1522, antes 1517) · build ✅.
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`).
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-09, P-23/P-24): el
+guard de `controllerchange` captura el estado de `navegador.controller` ANTES de registrar (no puede
+mirarlo dentro del propio manejador, a diferencia de `updatefound`); solo el primer disparo del
+evento se trata como posible arranque inicial, cualquier disparo posterior es una actualización real;
+la neutralización de fórmula CSV vive en el único punto de paso interno (`escaparCampo`), aplicada
+antes del escapado por comillas ya existente.
+**Hallazgos del auditor atendidos:** #14 (severidad media, "aplicación instalable R-09") y #16
+(severidad baja, "importación masiva R-08"), ambos `IMPLEMENTADA` en §5 — pendientes de que el
+auditor los confirme y cierre en su próxima pasada.
+**Hallazgos:** ninguno nuevo. Quedan en backlog, sin atender esta sesión: #15 (idempotencia de la
+importación masiva de R-08, severidad media) y #17 (dos defectos menores de `sw.js`, severidad baja).
+**Tareas autopropuestas (P-XX):** P-23 y P-24, registradas e implementadas en la misma sesión, ver §5
+de `SEGUIMIENTO.md`.
+**Próximo paso:** sin ninguna T-XX/R-XX disponible en §1 que no dependa de una migración sin aplicar,
+la siguiente sesión debe repetir el mismo chequeo (auditor primero, §1 después) y, si sigue sin haber
+tarea de columna vertebral ni hallazgo `ABIERTO` de severidad alta, continuar con el backlog restante
+del auditor (#15, #17) u otra deuda técnica de §5 pendiente.
+
+---
+
 ### Sesión 2026-09-09 (rutina programada de programador) — R-16 completada: exportación completa del centro
 
 **Tarea(s):** R-16 ("Exportación completa del centro", oleada v3/F-07) — siguiente tarea de la columna

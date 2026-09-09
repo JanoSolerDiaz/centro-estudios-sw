@@ -15,10 +15,26 @@ const SEPARADOR = ';';
 const FIN_DE_LINEA = '\r\n';
 const BOM_UTF8 = '\uFEFF';
 
+/** Prefijos que una hoja de cálculo (Excel, LibreOffice, Google Sheets) interpreta como el inicio de
+ * una fórmula al abrir un CSV. Sin neutralizar, un campo importado sin validar (p. ej. un nombre mal
+ * escrito a propósito) que empiece por uno de ellos se ejecutaría como fórmula viva al reabrir la
+ * exportación — la misma clase de riesgo por la que las hojas de cálculo avisan de macros en un
+ * fichero de origen desconocido. */
+const PREFIJOS_FORMULA_CSV = ['=', '+', '-', '@'];
+
+/** Antepone un apóstrofo a un campo que empiece por un prefijo de fórmula: el apóstrofo hace que el
+ * primer carácter deje de ser uno de los vigilados, así que la hoja de cálculo lo trata como texto
+ * literal en vez de evaluarlo — mismo mecanismo de defensa que documenta OWASP para la inyección de
+ * fórmula CSV. */
+function neutralizarFormulaCsv(valor: string): string {
+  return PREFIJOS_FORMULA_CSV.some((prefijo) => valor.startsWith(prefijo)) ? `'${valor}` : valor;
+}
+
 /** Un campo necesita comillas si contiene el separador, una comilla doble, o un salto de línea —
  * las comillas internas se duplican, que es como CSV escapa una comilla dentro de un campo ya
  * entrecomillado. Un campo con una coma simple (que no es el separador aquí) no necesita nada. */
-function escaparCampo(valor: string): string {
+function escaparCampo(valorOriginal: string): string {
+  const valor = neutralizarFormulaCsv(valorOriginal);
   if (valor.includes(SEPARADOR) || valor.includes('"') || valor.includes('\n') || valor.includes('\r')) {
     return `"${valor.replace(/"/g, '""')}"`;
   }
