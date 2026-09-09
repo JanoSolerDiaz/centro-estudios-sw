@@ -434,7 +434,7 @@ function mostrarAppProfesor(
   // implementa; en un navegador real, un modo privado especialmente restrictivo), pasar lista
   // sigue funcionando exactamente como antes de R-07, sin cola ni indicador de conexión.
   const ventana = documento.defaultView;
-  const colaAsistenciaOffline = ventana?.indexedDB ? crearAlmacenColaAsistenciaIndexedDB(ventana.indexedDB) : undefined;
+  const colaAsistenciaOffline = ventana?.indexedDB ? crearAlmacenColaAsistenciaIndexedDB(ventana.indexedDB, perfil.id) : undefined;
   const detectorConexion = ventana ? crearDetectorConexionNavegador(ventana) : undefined;
 
   const cabecera = documento.createElement('header');

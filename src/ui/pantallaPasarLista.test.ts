@@ -9,7 +9,8 @@ import { crearProgramadorIntervaloDePrueba, type ProgramadorIntervaloDePrueba } 
 import { crearReboteDePrueba } from '../nucleo/rebote.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import type { ExcepcionSlotConSlot } from '../datos/excepcionesSlot.ts';
-import { Conflicto, ErrorDeRed } from '../datos/erroresDominio.ts';
+import { Conflicto, ErrorDeRed, NoAutenticado } from '../datos/erroresDominio.ts';
+import { ErrorLimiteAlcanzado } from '../nucleo/limitadorTasa.ts';
 import { crearAlmacenColaAsistenciaEnMemoria } from '../nucleo/colaAsistenciaOffline.ts';
 import { crearDetectorConexionDePrueba } from '../nucleo/detectorConexion.ts';
 
@@ -1681,4 +1682,217 @@ void test('R-07: un "alumno extra" sin conexión también se encola y se reenví
   assert.equal(peticionesRecibidas[0], peticionesRecibidas[1]);
   assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado/);
   assert.equal((await colaOffline.listar()).length, 0);
+});
+
+// --- Hallazgo #12 de auditoriacontinua.md: el elemento encolado debe guardar el instante REAL del
+// toque (ocurridoEn), no el del vaciado posterior, que puede llegar horas después. ------------
+
+void test('R-07: un toque de slot encolado sin conexión guarda ocurridoEn con el instante del toque, no el del vaciado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  let instanteActual = INSTANTE_EN_CLASE;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      reloj: { ahora: () => instanteActual },
+      registrar: () => Promise.reject(new ErrorDeRed()),
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  // El profesor no recupera conexión hasta mucho más tarde: el reloj avanza ANTES de que nadie
+  // lea la cola, para demostrar que lo guardado ya quedó fijado en el momento del toque.
+  instanteActual = new Date('2026-08-26T20:00:00.000Z');
+
+  const elementos = await colaOffline.listar();
+  assert.equal(elementos.length, 1);
+  const [elemento] = elementos;
+  assert.ok(elemento);
+  assert.equal(elemento.entrada.ocurridoEn?.toISOString(), INSTANTE_EN_CLASE.toISOString());
+});
+
+void test('R-07: marcar ausente encolado sin conexión también guarda ocurridoEn con el instante del toque', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  let instanteActual = INSTANTE_EN_CLASE;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      reloj: { ahora: () => instanteActual },
+      registrarAusencia: () => Promise.reject(new ErrorDeRed()),
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonAusente = contenedor.querySelector<HTMLButtonElement>('button[data-ausente-clave]');
+  assert.ok(botonAusente);
+  botonAusente.click();
+  await esperarMicrotareas();
+
+  instanteActual = new Date('2026-08-26T20:00:00.000Z');
+
+  const elementos = await colaOffline.listar();
+  assert.equal(elementos.length, 1);
+  const [elemento] = elementos;
+  assert.ok(elemento);
+  assert.equal(elemento.entrada.ocurridoEn?.toISOString(), INSTANTE_EN_CLASE.toISOString());
+});
+
+void test('R-07: un "alumno extra" encolado sin conexión también guarda ocurridoEn con el instante del toque', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  let instanteActual = INSTANTE_EN_CLASE;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([]),
+      reloj: { ahora: () => instanteActual },
+      rebote,
+      buscarAlumnosExtra: () => Promise.resolve([ALUMNO_EXTRA_BUSCADO]),
+      registrar: () => Promise.reject(new ErrorDeRed()),
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  await buscarYSeleccionarExtra(contenedor, rebote);
+
+  instanteActual = new Date('2026-08-26T20:00:00.000Z');
+
+  const elementos = await colaOffline.listar();
+  assert.equal(elementos.length, 1);
+  const [elemento] = elementos;
+  assert.ok(elemento);
+  assert.equal(elemento.entrada.ocurridoEn?.toISOString(), INSTANTE_EN_CLASE.toISOString());
+});
+
+// --- Hallazgo #13 de auditoriacontinua.md: un ErrorLimiteAlcanzado o un NoAutenticado a mitad de
+// un vaciado de cola no son culpa del elemento — deben dejarlo (y a los siguientes) en cola, no
+// descartarlos como un error definitivo. ---------------------------------------------------------
+
+void test('R-07: un ErrorLimiteAlcanzado al vaciar la cola detiene el barrido y deja el elemento en cola (no lo descarta)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  let primeraVez = true;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: () => {
+        if (primeraVez) {
+          primeraVez = false;
+          return Promise.reject(new ErrorDeRed());
+        }
+        return Promise.reject(new ErrorLimiteAlcanzado(60_000));
+      },
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  assert.equal((await colaOffline.listar()).length, 1);
+
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  // Ni descartado de la cola ni mostrado como error: sigue pendiente para el próximo intento.
+  assert.equal((await colaOffline.listar()).length, 1);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Pendiente de enviar/);
+});
+
+void test('R-07: un NoAutenticado al vaciar la cola detiene el barrido y deja el elemento en cola (no lo descarta)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  let primeraVez = true;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      registrar: () => {
+        if (primeraVez) {
+          primeraVez = false;
+          return Promise.reject(new ErrorDeRed());
+        }
+        return Promise.reject(new NoAutenticado());
+      },
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  assert.equal((await colaOffline.listar()).length, 1);
+
+  detectorConexion.simularCambio(true);
+  await esperarMicrotareas();
+
+  assert.equal((await colaOffline.listar()).length, 1);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Pendiente de enviar/);
+});
+
+void test('R-07: tras un ErrorLimiteAlcanzado en el primer elemento, el SIGUIENTE elemento de la cola no llega ni a intentarse', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot1 = crearSlot({ id: 'slot-1', alumno_id: 'alumno-1' }, { id: 'alumno-1' });
+  const slot2 = crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' }, { id: 'alumno-2', nombre: 'Bea' });
+  const colaOffline = crearAlmacenColaAsistenciaEnMemoria();
+  const detectorConexion = crearDetectorConexionDePrueba(false);
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot1, slot2]),
+      registrar: () => Promise.reject(new ErrorDeRed()),
+      colaOffline,
+      detectorConexion,
+    }),
+  );
+  await esperarMicrotareas();
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  botonesDeTarjeta(contenedor)[1]?.click();
+  await esperarMicrotareas();
+  assert.equal((await colaOffline.listar()).length, 2);
+
+  // Al volver la conexión, el primer elemento del barrido choca con el límite de tasa: el segundo
+  // no debe ni intentarse, sobre la MISMA instancia de la cola (nuevo montaje, mismo criterio que
+  // el test de "sobrevive a un cierre de pestaña").
+  let llamadasReales = 0;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot1, slot2]),
+      registrar: () => {
+        llamadasReales += 1;
+        return Promise.reject(new ErrorLimiteAlcanzado(60_000));
+      },
+      colaOffline,
+      detectorConexion: crearDetectorConexionDePrueba(true),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(llamadasReales, 1);
+  assert.equal((await colaOffline.listar()).length, 2);
 });

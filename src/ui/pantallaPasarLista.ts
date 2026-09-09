@@ -93,7 +93,8 @@ import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import type { RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { AlumnoConRutaAvatar } from '../datos/avatarAlumno.ts';
 import type { ExcepcionSlotConSlot } from '../datos/excepcionesSlot.ts';
-import { Conflicto, ErrorDeRed } from '../datos/erroresDominio.ts';
+import { Conflicto, ErrorDeRed, NoAutenticado } from '../datos/erroresDominio.ts';
+import { ErrorLimiteAlcanzado } from '../nucleo/limitadorTasa.ts';
 
 /** Cada cuánto se recalcula la propuesta y se refresca la hora visible de la cabecera, sin red
  * (requisito 1 y 5 de T-19). Ni tan corto que recargue la rejilla (y con ella el foco, ver
@@ -791,12 +792,20 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   }
 
   /** Reintenta cada elemento pendiente de `deps.colaOffline`, EN ORDEN (requisito 2: "un reintento
-   * nunca duplica", con el mismo `peticionId` que ya llevaba encolado). Se detiene en el primer
-   * `ErrorDeRed` — probablemente seguimos sin conexión de verdad pese al evento `online` (un wifi
-   * que va y viene puede dispararlo antes de que la red vuelva a responder de verdad) — dejando ESE
-   * elemento y todos los siguientes en la cola para el próximo intento. Un `Conflicto` se reconcilia
-   * (`reconciliarElementoOffline`); cualquier otro error saca el elemento de la cola y lo muestra
-   * como `'error'` normal, porque reintentarlo a ciegas no lo arreglaría. Protegida contra
+   * nunca duplica", con el mismo `peticionId` que ya llevaba encolado). Se detiene, dejando ESE
+   * elemento y todos los siguientes en la cola para el próximo intento, ante tres errores que no
+   * son culpa del elemento sino del momento del reintento entero: `ErrorDeRed` (probablemente
+   * seguimos sin conexión de verdad pese al evento `online` — un wifi que va y viene puede
+   * dispararlo antes de que la red vuelva a responder de verdad), `ErrorLimiteAlcanzado` (un
+   * vaciado de una cola grande puede agotar el límite de tasa de T-06 a mitad de barrido: el resto
+   * de elementos no tiene nada de malo, solo hay que esperar a la siguiente ventana) y
+   * `NoAutenticado` (la sesión caducó mientras el dispositivo estuvo desconectado: sin renovarla,
+   * ningún elemento siguiente va a funcionar tampoco). Descartar cualquiera de los tres del
+   * elemento actual, o de los siguientes en el mismo barrido, perdía registros válidos en silencio
+   * (hallazgo #13 de auditoriacontinua.md). Un `Conflicto` se reconcilia
+   * (`reconciliarElementoOffline`); cualquier otro error SÍ saca el elemento de la cola y lo
+   * muestra como `'error'` normal, porque reintentarlo a ciegas no lo arreglaría (p. ej. un slot
+   * que dejó de estar vigente, o un profesor a quien ya no pertenece el slot). Protegida contra
    * solapamiento (ver más abajo, `vaciarColaProtegida`): sin ella, el evento `online` y el tick de
    * `INTERVALO_TICK_MS` podrían disparar dos barridos a la vez sobre la misma cola. */
   async function vaciarColaOffline(): Promise<void> {
@@ -819,7 +828,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         await deps.colaOffline.eliminar(elemento.entrada.peticionId);
         aplicarResultadoOffline(elemento.clave, fila);
       } catch (error) {
-        if (error instanceof ErrorDeRed) {
+        if (error instanceof ErrorDeRed || error instanceof ErrorLimiteAlcanzado || error instanceof NoAutenticado) {
           return;
         }
         await deps.colaOffline.eliminar(elemento.entrada.peticionId);
@@ -976,7 +985,13 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         await deps.colaOffline.agregar({
           clave,
           tipo: 'presencia',
-          entrada: { alumnoId: tarjeta.alumno.id, origen: 'slot', slotId: tarjeta.slot.id, peticionId: tarjeta.peticionId },
+          entrada: {
+            alumnoId: tarjeta.alumno.id,
+            origen: 'slot',
+            slotId: tarjeta.slot.id,
+            peticionId: tarjeta.peticionId,
+            ocurridoEn: deps.reloj.ahora(),
+          },
         });
         fijarTarjeta(clave, {
           alumno: tarjeta.alumno,
@@ -1037,7 +1052,12 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         await deps.colaOffline.agregar({
           clave,
           tipo: 'ausencia',
-          entrada: { alumnoId: tarjeta.alumno.id, slotId: tarjeta.slot.id, peticionId: tarjeta.peticionIdAusente },
+          entrada: {
+            alumnoId: tarjeta.alumno.id,
+            slotId: tarjeta.slot.id,
+            peticionId: tarjeta.peticionIdAusente,
+            ocurridoEn: deps.reloj.ahora(),
+          },
         });
         fijarTarjeta(clave, {
           alumno: tarjeta.alumno,
@@ -1212,7 +1232,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         await deps.colaOffline.agregar({
           clave,
           tipo: 'presencia',
-          entrada: { alumnoId: resultado.id, origen: 'manual', slotId: null, peticionId, nota },
+          entrada: { alumnoId: resultado.id, origen: 'manual', slotId: null, peticionId, nota, ocurridoEn: deps.reloj.ahora() },
         });
         fijarExtra(clave, { alumno: alumnoBase, fase: 'pendiente_offline', peticionId, nota });
         return;

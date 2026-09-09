@@ -37,6 +37,47 @@
 
 ---
 
+### Sesión 2026-09-09 (rutina programada de programador) — P-20 y P-21 urgentes: hallazgos #12/#13 de auditoría en la cola offline de R-07
+
+**Tarea(s):** P-20, P-21 (hallazgos #12 y #13 de `auditoriacontinua.md`, severidad alta) — atendidas
+antes de la cola normal de §1 por protocolo (§0.3). Ninguna T-XX/R-XX vertebral avanzó esta sesión.
+**Estado resultante:** R-07 sigue `COMPLETADA` en §1 (ya lo estaba); nota ampliada con el detalle de
+las dos correcciones. **P-20** y **P-21** quedan `IMPLEMENTADA` en §5.
+**Commits a `develop`:** ver commit(s) de esta sesión.
+**Migraciones aplicadas:** ninguna — los dos hallazgos son enteramente de cliente, sin ningún cambio
+de esquema ni de RPC (la RPC ya soportaba `ocurrido_en` desde T-18).
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio).
+**Archivos creados/modificados:** `src/nucleo/colaAsistenciaOffline.ts` (`crearAlmacenColaAsistenciaIndexedDB`
+gana el parámetro `profesorId`, nombre de base de datos partido por profesor), `src/ui/aplicacion.ts`
+(pasa `perfil.id` en el único punto de composición), `src/ui/pantallaPasarLista.ts` (los tres puntos
+de encolado —`manejarToque`, `manejarAusente`, `registrarExtra`— añaden `ocurridoEn: deps.reloj.ahora()`;
+`vaciarColaOffline` trata `ErrorLimiteAlcanzado`/`NoAutenticado` igual que `ErrorDeRed`), `src/ui/
+pantallaPasarLista.test.ts` (6 tests nuevos: 3 de `ocurridoEn` con un reloj mutable, 3 del trato de
+`ErrorLimiteAlcanzado`/`NoAutenticado`), `roadmap/SEGUIMIENTO.md` (§1: nota de R-07 ampliada; §5: P-20
+y P-21 nuevas; nueva entrada de "Última actualización", la anterior pasa a "Sesión anterior"),
+`roadmap/DECISIONES_TECNICAS.md` (dos filas nuevas, ver más abajo), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1424/1424, antes 1418) · build ✅.
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`).
+**Decisiones tomadas:** tres filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-09: (1) `ocurridoEn`
+se captura en el momento de encolar, no en el de reenviar; (2) la partición de la cola offline es por
+`perfil.id` (base de datos entera partida, no un filtro sobre una base compartida); (3) `vaciarColaOffline`
+trata `ErrorLimiteAlcanzado`/`NoAutenticado` como `ErrorDeRed`, mismo razonamiento que ya sostiene el
+trato existente de `ErrorDeRed` (fila R-07, 2026-09-08).
+**Hallazgos del auditor atendidos:** **#12** y **#13** (severidad alta, `ABIERTO` desde la pasada del
+auditor de 2026-09-09) — implementados como P-20/P-21 respectivamente, pendientes solo de que el
+auditor los confirme en su próxima pasada. **#8** sigue `ABIERTO` esperando al dueño (pregunta #16 de
+§6), sin nada que el programador pueda hacer sobre él.
+**Hallazgos:** ninguno nuevo.
+**Tareas autopropuestas (P-XX):** **P-20** y **P-21**, registradas e implementadas en la misma sesión
+(§5 de `SEGUIMIENTO.md`), ambas urgentes por severidad alta del auditor.
+**Próximo paso:** la siguiente `PENDIENTE` de §1 que no depende de nada sin terminar es **R-11**
+("Panel de centro para el administrador", oleada v2/F-06, spec en `ROADMAP_PRODUCTO.md`) — sin
+bloqueo, queda para la siguiente sesión de programador por el volumen de esta.
+
+---
+
 ### Sesión 2026-09-08 (rutina de producto) — decimoquinto ciclo del PM: R-15 y R-16, abren la Oleada v3
 
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)

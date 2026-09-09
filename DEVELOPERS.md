@@ -453,10 +453,14 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     lo consume, con `simularCambio(conectado)`.
   - `colaAsistenciaOffline.ts` (R-07) — `AlmacenColaAsistenciaOffline` (`listar`/`agregar`/`eliminar`
     de `ElementoColaAsistencia`, cada uno con el `peticionId` de T-18/R-01 como clave de idempotencia)
-    para la cola de toques que no se pudieron enviar por falta de red. `crearAlmacenColaAsistenciaIndexedDB(fabrica)`
-    es la implementación real (IndexedDB, un único almacén de objetos por `peticionId`) — `jsdom` no
-    implementa IndexedDB, así que sigue el mismo criterio que `FabricaProcesadoImagen` (T-14) y
-    `copiarAlPortapapelesDelNavegador` (R-05): sin test propio, aislada detrás de la interfaz.
+    para la cola de toques que no se pudieron enviar por falta de red. `crearAlmacenColaAsistenciaIndexedDB(fabrica, profesorId)`
+    es la implementación real (IndexedDB, un único almacén de objetos por `peticionId`, base de datos
+    partida por `profesorId` desde P-21/hallazgo #13 de auditoría 2026-09-09 — sin la partición, un
+    dispositivo compartido entre varios profesores mezclaba sus colas) — `jsdom` no implementa
+    IndexedDB, así que sigue el mismo criterio que `FabricaProcesadoImagen` (T-14) y
+    `copiarAlPortapapelesDelNavegador` (R-05): sin test propio, aislada detrás de la interfaz. Cada
+    elemento encolado lleva `ocurridoEn` con el instante REAL del toque (capturado por el reloj al
+    encolar, P-20/hallazgo #12), no el del vaciado posterior.
     `crearAlmacenColaAsistenciaEnMemoria()` es el doble de test, y es también lo que demuestra "sobrevive
     a un cierre de pestaña" en `pantallaPasarLista.test.ts`: dos montajes sucesivos de la pantalla sobre
     la MISMA instancia de este almacén simulan el cierre y la reapertura real, porque lo que sobrevive

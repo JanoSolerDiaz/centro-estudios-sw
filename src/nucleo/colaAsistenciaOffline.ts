@@ -55,7 +55,7 @@ export function crearAlmacenColaAsistenciaEnMemoria(): AlmacenColaAsistenciaOffl
   };
 }
 
-const NOMBRE_BASE_DE_DATOS = 'gestoracademia-cola-asistencia-offline';
+const PREFIJO_BASE_DE_DATOS = 'gestoracademia-cola-asistencia-offline';
 const VERSION_BASE_DE_DATOS = 1;
 const NOMBRE_ALMACEN_OBJETOS = 'elementos';
 
@@ -68,9 +68,9 @@ interface FilaColaAsistencia {
   readonly elemento: ElementoColaAsistencia;
 }
 
-function abrirBaseDeDatos(fabrica: IDBFactory): Promise<IDBDatabase> {
+function abrirBaseDeDatos(fabrica: IDBFactory, nombreBaseDeDatos: string): Promise<IDBDatabase> {
   return new Promise((resolver, rechazar) => {
-    const peticion = fabrica.open(NOMBRE_BASE_DE_DATOS, VERSION_BASE_DE_DATOS);
+    const peticion = fabrica.open(nombreBaseDeDatos, VERSION_BASE_DE_DATOS);
     peticion.onupgradeneeded = () => {
       peticion.result.createObjectStore(NOMBRE_ALMACEN_OBJETOS, { keyPath: 'peticionId' });
     };
@@ -96,10 +96,18 @@ function promesaDePeticion<T>(peticion: IDBRequest<T>): Promise<T> {
 
 /** Implementación real (requisito 5). `fabrica` es `window.indexedDB`, inyectada para no
  * referenciarla directamente fuera del punto de composición (mismo criterio que el resto de este
- * proyecto para una API global del navegador). */
-export function crearAlmacenColaAsistenciaIndexedDB(fabrica: IDBFactory): AlmacenColaAsistenciaOffline {
+ * proyecto para una API global del navegador). `profesorId` (`perfil.id`) parte la base de datos
+ * por profesor: en un dispositivo compartido (un tablet de aula con varios profesores), sin esta
+ * partición la cola de quien cerró sesión sin conexión quedaba visible y se reenviaba con el token
+ * de quien iniciara sesión después en el MISMO navegador — un alta `manual` (sin slot que
+ * comprobar pertenencia) se atribuía en silencio al profesor equivocado; una de `slot` la RPC la
+ * rechazaba, pero ese rechazo no es `ErrorDeRed`, así que el registro se perdía sin más (hallazgo
+ * #13 de auditoriacontinua.md). Con la base de datos partida, la cola de A nunca es visible desde
+ * la sesión de B. */
+export function crearAlmacenColaAsistenciaIndexedDB(fabrica: IDBFactory, profesorId: string): AlmacenColaAsistenciaOffline {
+  const nombreBaseDeDatos = `${PREFIJO_BASE_DE_DATOS}-${profesorId}`;
   async function conAlmacenObjetos<T>(modo: IDBTransactionMode, usar: (almacen: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-    const bd = await abrirBaseDeDatos(fabrica);
+    const bd = await abrirBaseDeDatos(fabrica, nombreBaseDeDatos);
     try {
       const transaccion = bd.transaction(NOMBRE_ALMACEN_OBJETOS, modo);
       return await promesaDePeticion(usar(transaccion.objectStore(NOMBRE_ALMACEN_OBJETOS)));
