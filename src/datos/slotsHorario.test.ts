@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
-import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
 import { ErrorDeValidacion } from './erroresDominio.ts';
 import type { SlotHorario } from '../dominio/tipos.ts';
 
@@ -43,6 +43,35 @@ void test('listarSlotsDeAlumno pide todas las versiones ordenadas por vigente_de
   assert.equal(url.pathname, '/rest/v1/slot_horario');
   assert.equal(url.searchParams.get('alumno_id'), 'eq.alumno-1');
   assert.equal(url.searchParams.get('order'), 'vigente_desde.desc');
+});
+
+void test('listarSlotsDeAlumnos: pide todas las versiones de VARIOS alumnos en una única petición (R-11)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [SLOT_VIGENTE] };
+  });
+
+  const slots = await listarSlotsDeAlumnos(cliente, ['alumno-1', 'alumno-2']);
+
+  assert.deepEqual(slots, [SLOT_VIGENTE]);
+  assert.equal(peticiones.length, 1);
+  const url = new URL(peticiones[0]?.url ?? '');
+  assert.equal(url.pathname, '/rest/v1/slot_horario');
+  assert.equal(url.searchParams.get('alumno_id'), 'in.(alumno-1,alumno-2)');
+});
+
+void test('listarSlotsDeAlumnos: con la lista vacía no hace ninguna petición', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const slots = await listarSlotsDeAlumnos(cliente, []);
+
+  assert.deepEqual(slots, []);
+  assert.equal(peticiones.length, 0);
 });
 
 void test('crearSlot sin conflictos: comprueba solape de alumno y de profesor, luego inserta', async () => {

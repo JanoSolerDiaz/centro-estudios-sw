@@ -11,17 +11,63 @@
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
 **Última actualización:** 2026-09-09 (rutina programada de programador) — revisado primero el
-registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3, paso previo a elegir tarea): la
-pasada del auditor del mismo día (2026-09-09, commit `c91f4c0`) trae **tres** hallazgos `ABIERTO` de
-severidad alta — **#8** (dato de salud en `R-02`, sigue esperando al dueño en la pregunta #16 de §6,
-sin novedad, no es atendible por el programador), **#12** y **#13** (los dos nuevos, cola offline de
-`R-07`, `src/nucleo/colaAsistenciaOffline.ts`/`src/ui/pantallaPasarLista.ts`) — así que, antes de
-tocar la cola normal de §1, esta sesión atendió **#12** y **#13** como **P-20** y **P-21** urgentes
-(§0.3), ver detalle completo en §5. Resumen: **P-20** hace que el elemento encolado guarde el
-instante REAL del toque (`ocurridoEn: deps.reloj.ahora()`), no el del vaciado posterior, en los tres
-puntos de encolado (`manejarToque`, `manejarAusente`, `registrarExtra`) — sin este dato, un vaciado
-tardío fechaba el registro a la hora de la reconexión, con `es_retroactivo = false` aunque fuera en la
-práctica un alta a posteriori. **P-21** parte la base de datos de IndexedDB por profesor
+registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3): sin pasada nueva del auditor desde
+la de esta misma mañana (commit `c91f4c0`). De sus tres `ABIERTO` de severidad alta, **#8** sigue
+esperando al dueño en la pregunta #16 de §6, sin novedad; **#12** y **#13** ya quedaron resueltos de
+facto por **P-20**/**P-21** de la sesión anterior (pendientes solo de que el auditor los confirme en
+su próxima pasada — no le corresponde a esta sesión adelantárselo). Sin ningún hallazgo `ABIERTO` de
+severidad alta nuevo que atender como P-XX urgente, se retomó la cola normal de §1: **R-11** ("Panel
+de centro para el administrador", oleada v2/F-06), que la sesión anterior había dejado como siguiente
+tarea pendiente.
+
+Al escribir R-11 (que necesita, por primera vez en el proyecto, resolver "todos los alumnos activos
+de un centro" para cruzarlos con su horario) salió a la luz un bug real ya en producción potencial,
+no un hallazgo de auditoría: `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del
+histórico, `COMPLETADA` desde 2026-09-01) leía `centro_referencia_id` de la tabla BASE `alumno`,
+columna que `003_politicas_rls.sql` **nunca** concede a `authenticated` en ninguna forma — un
+"permission denied for column centro_referencia_id" contra cualquier entorno real, para
+`administrator` igual que para `teacher` (comparten el mismo rol de Postgres). El propio
+`db/pruebas_rls.sql` ya documentaba este error exacto en un comentario de la sesión de T-21/R-04
+(`resolverCentroReferenciaIdDeAlumno` ya lo evitaba yendo contra `alumno_ficha`), pero nadie había
+vuelto a revisar `idsAlumnosDeCentro` a esa luz. Registrado y corregido como **P-22** urgente (§0.3,
+detalle en §5) antes de continuar con R-11: ahora consulta `alumno_ficha`, mismo patrón que el resto
+de resolutores de centro del proyecto — sin migración, solo cambia qué relación consulta el cliente;
+el filtro por centro del histórico solo lo ejercita `administrator` desde la interfaz, así que el
+arreglo no cambia el comportamiento visible de nadie, solo lo hace funcionar de verdad.
+
+**R-11 completada.** `dominio/panelCentro.ts` (nuevo, 23 tests) compone tres bloques sin tabla nueva
+(requisito 1), reutilizando sin tocarlos los criterios de exclusión ya fijados por R-12
+(`esDiaCerrado`) y R-06 (`esDiaCanceladoParaSlot`): (a) sesiones de hoy y su estado
+(`pasada_lista`/`pendiente`/`sin_pasar_lista`), siempre con `reloj.ahora()`, nunca con el rango de
+fechas elegido (no tiene sentido preguntar "¿qué ha pasado hoy?" sobre un mes ya cerrado); (b)
+ranking de alumnos con más ausencias sin justificar en el rango elegido; (c) ranking de PROFESORES
+(decisión de esta sesión, no de slots — ver `DECISIONES_TECNICAS.md`) con menor proporción de
+sesiones registradas frente a las esperadas, sin invadir el alcance futuro de R-15 (horas por
+profesor). Los rankings muestran solo nombre y cifra, nunca avatar (requisito 2). Nuevas
+`datos/alumnos.ts#listarAlumnosActivosParaPanel` (contra `alumno_ficha`, mismo motivo que P-22) y
+`datos/slotsHorario.ts#listarSlotsDeAlumnos` (en lote, nunca una petición por alumno); nueva
+`puedeVerPanelCentro` en `permisosUi.ts`. Pantalla `ui/pantallaPanelCentro.ts` (nueva, 12 tests),
+enrutada como `#/panel` en el router de `administrator` (`nucleo/router.ts`), exclusiva de
+`administrator`. Filtro por centro y por rango de fechas (por defecto el mes natural en curso,
+reutiliza `limitesDelMes` de R-04) para los dos rankings. Sin migración (requisito propio de la
+spec, "Migración: No"). **42 tests nuevos en total** (1466 en total, antes 1424): 23 de
+`dominio/panelCentro.ts`, 12 de `ui/pantallaPanelCentro.ts`, 3 de `listarAlumnosActivosParaPanel`, 2
+de `listarSlotsDeAlumnos`, 1 de `puedeVerPanelCentro` y 1 de la ruta `#/panel`. `db/APLICADAS.md` sin
+cambio. `FEEDBACK.md` sigue con su única fila plantilla vacía: nada que convertir.
+
+**Sesión anterior (2026-09-09, rutina programada de programador, "P-20/P-21 urgentes, R-11
+identificada como siguiente tarea"):** revisado primero el registro de hallazgos de
+`auditoriacontinua.md` (protocolo §0.3, paso previo a elegir tarea): la pasada del auditor del mismo
+día (2026-09-09, commit `c91f4c0`) trae **tres** hallazgos `ABIERTO` de severidad alta — **#8** (dato
+de salud en `R-02`, sigue esperando al dueño en la pregunta #16 de §6, sin novedad, no es atendible
+por el programador), **#12** y **#13** (los dos nuevos, cola offline de `R-07`,
+`src/nucleo/colaAsistenciaOffline.ts`/`src/ui/pantallaPasarLista.ts`) — así que, antes de tocar la
+cola normal de §1, esta sesión atendió **#12** y **#13** como **P-20** y **P-21** urgentes (§0.3), ver
+detalle completo en §5. Resumen: **P-20** hace que el elemento encolado guarde el instante REAL del
+toque (`ocurridoEn: deps.reloj.ahora()`), no el del vaciado posterior, en los tres puntos de encolado
+(`manejarToque`, `manejarAusente`, `registrarExtra`) — sin este dato, un vaciado tardío fechaba el
+registro a la hora de la reconexión, con `es_retroactivo = false` aunque fuera en la práctica un alta
+a posteriori. **P-21** parte la base de datos de IndexedDB por profesor
 (`crearAlmacenColaAsistenciaIndexedDB(fabrica, profesorId)`, `perfil.id` en `aplicacion.ts`) — en un
 dispositivo compartido, sin esta partición la cola de quien cerró sesión sin conexión quedaba visible
 y se reenviaba con el token de quien iniciara sesión después —, y hace que `vaciarColaOffline` trate
@@ -2020,7 +2066,7 @@ pantallas del requisito 2.
 | R-08 | Importación masiva de alumnos y horarios | BLOQUEADA — pendiente aplicar migración `016` (fila 19 de §3) | 2026-09-08 | Oleada v2 / F-04 · Código y tests completos, contra dobles. Su spec declara `Migración: No`, pero el requisito 3 (profesor por email) exige `db/016_resolver_profesor_por_email.sql`, escrita y empujada, todavía sin aplicar — el resto del alcance (alumnos, resto de horarios) no depende de la migración |
 | R-09 | Aplicación instalable y arranque sin red | COMPLETADA | 2026-09-08 | Oleada v2 / F-04 · solo cliente · `manifest.json` + iconos generados sin dependencias (`herramientas/iconos/`) + `sw.js` (único Service Worker, "red primero, caché de seguridad") + aviso de versión nueva (`nucleo/registroServiceWorker.ts`/`ui/avisoNuevaVersion.ts`). Verificado con Playwright headless: offline tras una visita previa funciona; el disparo real de "versión nueva" en el propio navegador no se pudo reproducir en esta sesión (detalle en `DEVELOPERS.md`), la orquestación sí tiene 7 tests con dobles |
 | R-10 | Expediente completo del alumno (RGPD) | COMPLETADA | 2026-09-08 | Oleada v2 / F-05 · Sin migración: depende solo de T-13/T-23, ambas `COMPLETADA`. `dominio/expedienteAlumno.ts` (nuevo, 19 tests) compone ficha + personas de referencia + histórico ÍNTEGRO (incluye anuladas/retroactivas) en un único documento; bloque quinto en `pantallaFichaAlumno.ts` con descarga de JSON legible e impresión (mismo mecanismo que el informe mensual de R-04), reservado a `administrator` (`puedeExportarExpedienteCompleto`, nueva en `permisosUi.ts`). 23 tests nuevos en total (1418 en total, antes 1376) |
-| R-11 | Panel de centro para el administrador | PENDIENTE | — | Oleada v2 / F-06 |
+| R-11 | Panel de centro para el administrador | COMPLETADA | 2026-09-09 | Oleada v2 / F-06 · Sin migración: depende solo de T-16, T-21 (ambas `COMPLETADA`) y R-01 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-13). `dominio/panelCentro.ts` (nuevo, 23 tests): sesiones de hoy y su estado, ranking de ausencias sin justificar, ranking de profesores por proporción de sesiones registradas. Nuevas `datos/alumnos.ts#listarAlumnosActivosParaPanel`/`datos/slotsHorario.ts#listarSlotsDeAlumnos` y pantalla `ui/pantallaPanelCentro.ts` (`#/panel`, 12 tests). 42 tests nuevos en total (1466 en total, antes 1424). En el camino, corregido un bug real preexistente de T-23 (P-22: `idsAlumnosDeCentro` leía una columna sin `GRANT`, ver §5) |
 | R-15 | Informe de horas por profesor | PENDIENTE | — | Oleada v3 / F-07 · nueva este ciclo (decimoquinto del PM) |
 | R-16 | Exportación completa del centro (copia de seguridad y portabilidad) | PENDIENTE | — | Oleada v3 / F-07 · nueva este ciclo (decimoquinto del PM) |
 
@@ -2104,6 +2150,7 @@ pantallas del requisito 2.
 | P-19 | **Backlog técnico (higiene documental, no urgente): falta una fila en §7 de este documento para la desviación de R-05 (2026-09-07).** Mismo patrón exacto que P-17 (hallazgo #9, ya `RESUELTA`): §7 se quedó en la fila de R-02 (2026-09-05) sin ninguna fila para R-05, pese a que esa sesión abrió la pregunta #17 de §6 por el mismo tipo de contradicción con §0.2 (aquí, a la inversa: alcance de rol pedido por la spec y no concedido sin decisión del dueño). Sin impacto funcional — la desviación real ya está documentada en `DECISIONES_TECNICAS.md` y en la pregunta #17 de §6 —, pero reduce el valor de §7 como resumen de un vistazo | origen: hallazgo #11 de `auditoriacontinua.md` (severidad baja, gobernanza documental, "mismo patrón que el hallazgo #9, ya RESUELTO") | **RESUELTA 2026-09-08** — añadida la fila de §7 (R-05, 2026-09-07), con el mismo formato que las ya existentes | — |
 | P-20 | **Urgente (§0.3): la cola offline de R-07 encolaba cada toque SIN el instante en que ocurrió, así que un vaciado tardío lo fechaba a la hora de la reconexión, no a la del toque real.** Los tres puntos de encolado de `pantallaPasarLista.ts` (`manejarToque`, `manejarAusente`, `registrarExtra`) construían la `entrada` sin `ocurridoEn`; `vaciarColaOffline` la reenvía tal cual, así que la RPC (`registrar_asistencia`/`registrar_ausencia`) usaba `now()` del momento del vaciado como `ocurrido_en`, con `es_retroactivo = false` aunque en la práctica fuera un alta a posteriori — y si el vaciado caía al día siguiente, podía chocar con la restricción de unicidad `(alumno, slot, ocurrido_en::date)` contra un registro genuino de HOY, perdiendo el toque de ayer. **Implementado:** los tres puntos de encolado añaden `ocurridoEn: deps.reloj.ahora()` a la entrada, capturado en el momento del toque (no del vaciado) — parámetro ya soportado por `RegistrarAsistenciaEntrada`/`RegistrarAusenciaEntrada` y por la RPC (T-18), sin ningún cambio de esquema | origen: hallazgo #12 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-09, "cola offline de asistencia") — el propio hallazgo señalaba esta misma dirección de arreglo como "evidente y de bajo riesgo" | **IMPLEMENTADA 2026-09-09**, atendida antes de la cola normal por ser hallazgo de severidad alta (§0.3). 3 tests nuevos en `pantallaPasarLista.test.ts` (uno por punto de encolado), con un reloj mutable que avanza DESPUÉS de encolar para demostrar que lo guardado no cambia con el vaciado. Verificación pre-push completa en verde (`npm run typecheck`, `npm run lint`, `npm test` 1424/1424, `npm run build`). Pendiente de que el auditor reevalúe y cierre el hallazgo #12 en su próxima pasada | — |
 | P-21 | **Urgente (§0.3): la cola offline de R-07 vivía bajo un nombre de base de datos de IndexedDB FIJO, sin partición por profesor, y descartaba de la cola cualquier error que no fuera `ErrorDeRed` — incluidos un límite de tasa o una sesión caducada a mitad de un vaciado, que no son culpa del elemento.** En un dispositivo compartido (un tablet de aula con varios profesores), sin partición la cola de quien cerraba sesión sin conexión quedaba visible y se reenviaba con el token de quien iniciara sesión después: un alta `manual` (sin slot que comprobar pertenencia en la RPC) se atribuía en silencio al profesor equivocado; una de `slot` la RPC la rechazaba por pertenencia, pero ese rechazo no es `ErrorDeRed`, así que el elemento se eliminaba de la cola sin reintento y el registro se perdía. El mismo tramo de código tenía un tercer disparador sin necesitar ningún dispositivo compartido: un vaciado de una cola grande que agotara el límite de tasa de T-06 (`ErrorLimiteAlcanzado`) o una sesión caducada mientras el dispositivo estuvo offline (`NoAutenticado`) tampoco son `ErrorDeRed`, así que borraban en cascada el resto de los elementos pendientes del mismo barrido. **Implementado:** (a) `crearAlmacenColaAsistenciaIndexedDB(fabrica, profesorId)` parte el nombre de la base de datos por `perfil.id` (`aplicacion.ts`, único punto de composición); (b) `vaciarColaOffline` trata `ErrorLimiteAlcanzado` y `NoAutenticado` igual que `ErrorDeRed` — detiene el barrido dejando el elemento actual y los siguientes en cola para el próximo intento, en vez de descartarlos como error definitivo | origen: hallazgo #13 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-09, "cola offline de asistencia") | **IMPLEMENTADA 2026-09-09**, atendida antes de la cola normal por ser hallazgo de severidad alta (§0.3). La partición por `profesorId` no tiene test propio (mismo criterio ya aceptado para toda la implementación real de IndexedDB, `DECISIONES_TECNICAS.md` R-07: `jsdom` no la implementa, y `fake-indexeddb` no está en la lista cerrada de `devDependencies`); el trato de `ErrorLimiteAlcanzado`/`NoAutenticado` sí tiene 3 tests nuevos contra el almacén en memoria, incluido uno que demuestra que un elemento SIGUIENTE de la cola tampoco llega a intentarse. Verificación pre-push completa en verde (`npm run typecheck`, `npm run lint`, `npm test` 1424/1424, `npm run build`). Pendiente de que el auditor reevalúe y cierre el hallazgo #13 en su próxima pasada | — |
+| P-22 | **Urgente (§0.3): `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico, `COMPLETADA` desde 2026-09-01) leía `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca concede a `authenticated` en ninguna forma — "permission denied for column centro_referencia_id" en cualquier entorno real, para `administrator` igual que para `teacher` (comparten el mismo rol de Postgres; la RLS filtra filas, el `GRANT` de columna filtra columnas y se aplica a los dos por igual).** El propio `db/pruebas_rls.sql` (sección de T-21/R-04) ya documentaba este mismo error exacto en un comentario, y `datos/alumnos.ts#resolverCentroReferenciaIdDeAlumno` (R-04) ya lo evitaba yendo contra `alumno_ficha` en vez de la tabla base — pero nadie había vuelto a revisar `idsAlumnosDeCentro`, escrita antes de que ese hallazgo existiera, a la luz de él. **Implementado:** `idsAlumnosDeCentro` consulta ahora `alumno_ficha` (mismo patrón que el resto de resolutores de centro del proyecto) — sigue devolviendo 0 filas a `teacher`, que nunca ejercita este filtro desde la interfaz (`puedeConsultarHistoricoDeCualquiera`, exclusiva de `administrator`, `pantallaHistorico.ts`) | **Hallazgo propio, no de auditoría**, al escribir R-11 (que necesitaba resolver "alumnos activos de un centro" por primera vez desde fuera de `datos/asistencia.ts`) y releer con ese motivo el módulo existente. Es un bug que llevaba `COMPLETADA` desde T-23 (2026-09-01) sin que ninguna ejecución real lo hubiera ejercitado — la suite de tests corre contra dobles de `fetch`, nunca contra Postgres real, así que no podía detectarlo; tampoco lo cubre `db/pruebas_rls.sql`, que prueba SQL/RLS directamente, no las consultas concretas del cliente TypeScript. Consecuencia real: el filtro por centro del histórico de T-23 nunca ha funcionado contra una base de datos real, para ningún rol | **IMPLEMENTADA Y VERIFICADA 2026-09-09** — test de `asistencia.test.ts` actualizado para exigir `/rest/v1/alumno_ficha` (nunca `/rest/v1/alumno`) en la primera petición del filtro por centro. Verificación pre-push completa en verde (`npm run typecheck`, `npm run lint`, `npm test` 1466/1466, `npm run build`). Sin migración: no toca ninguna tabla ni política, solo qué relación consulta el cliente | — |
 
 ---
 

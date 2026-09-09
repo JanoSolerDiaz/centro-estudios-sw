@@ -18,6 +18,7 @@ import {
   puedeVerCierresCentro,
   puedeVerHistorico,
   puedeVerMiHorario,
+  puedeVerPanelCentro,
   puedeVerPersonasReferencia,
 } from './permisosUi.ts';
 
@@ -109,4 +110,10 @@ void test('puedeImportarMasivamente: exclusivamente administrator, ni siquiera t
   assert.equal(puedeImportarMasivamente('administrator'), true);
   assert.equal(puedeImportarMasivamente('teacher'), false);
   assert.equal(puedeImportarMasivamente('student'), false);
+});
+
+void test('puedeVerPanelCentro: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeVerPanelCentro('administrator'), true);
+  assert.equal(puedeVerPanelCentro('teacher'), false);
+  assert.equal(puedeVerPanelCentro('student'), false);
 });

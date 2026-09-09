@@ -703,11 +703,11 @@ void test('listarHistoricoAsistencia: página y tamaño de página se traducen e
   assert.equal(peticion.cabeceras.range, '20-29');
 });
 
-void test('listarHistoricoAsistencia: filtro por centro resuelve primero los ids de alumno de ese centro (dos peticiones)', async () => {
+void test('listarHistoricoAsistencia: filtro por centro resuelve primero los ids de alumno de ese centro contra alumno_ficha (dos peticiones)', async () => {
   const peticiones: PeticionSimulada[] = [];
   const postgrest = crearCliente((p) => {
     peticiones.push(p);
-    if (new URL(p.url).pathname === '/rest/v1/alumno') {
+    if (new URL(p.url).pathname === '/rest/v1/alumno_ficha') {
       return { estado: 200, cuerpo: [{ id: 'al1' }, { id: 'al2' }] };
     }
     return { estado: 200, cuerpo: [FILA], cabeceras: { 'content-range': '0-0/1' } };
@@ -718,7 +718,10 @@ void test('listarHistoricoAsistencia: filtro por centro resuelve primero los ids
   assert.equal(peticiones.length, 2);
   const [primera, segunda] = peticiones;
   const urlPrimera = new URL(primera?.url ?? '');
-  assert.equal(urlPrimera.pathname, '/rest/v1/alumno');
+  // P-22: NUNCA la tabla base `alumno` — `centro_referencia_id` no está concedida ahí a
+  // `authenticated` ni siquiera para `administrator` (permission denied), solo `alumno_ficha` la
+  // expone.
+  assert.equal(urlPrimera.pathname, '/rest/v1/alumno_ficha');
   assert.equal(urlPrimera.searchParams.get('centro_referencia_id'), 'eq.centro1');
   const urlSegunda = new URL(segunda?.url ?? '');
   assert.equal(urlSegunda.pathname, '/rest/v1/asistencia');

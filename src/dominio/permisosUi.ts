@@ -143,3 +143,11 @@ export function puedeImportarMasivamente(rol: Rol): boolean {
 export function puedeExportarExpedienteCompleto(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Panel de centro (R-11): sesiones de hoy y su estado, ranking de alumnos con más ausencias sin
+ * justificar y ranking de profesores con menor proporción de sesiones registradas. Exclusivamente
+ * `administrator` (requisito 4) — es una vista de centro completo, no de "lo mío", así que ni
+ * siquiera tiene sentido para un `teacher` acotado a sus propios slots por RLS. */
+export function puedeVerPanelCentro(rol: Rol): boolean {
+  return rol === 'administrator';
+}

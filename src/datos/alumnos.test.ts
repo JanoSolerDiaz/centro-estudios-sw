@@ -16,6 +16,7 @@ import {
   resolverIdentificacionAlumnos,
   resolverContactoAlumnos,
   resolverCentroReferenciaIdDeAlumno,
+  listarAlumnosActivosParaPanel,
 } from './alumnos.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { AlumnoConCentro, AlumnoConCentroYPersonas } from './alumnos.ts';
@@ -582,4 +583,46 @@ void test('resolverCentroReferenciaIdDeAlumno: un teacher recibe 0 filas de alum
   const centroId = await resolverCentroReferenciaIdDeAlumno(cliente, 'a1');
 
   assert.equal(centroId, null);
+});
+
+void test('listarAlumnosActivosParaPanel: sin centroId consulta alumno_ficha filtrando solo por activo', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [{ id: 'a1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null }] };
+  });
+
+  const alumnos = await listarAlumnosActivosParaPanel(cliente);
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/alumno_ficha');
+  assert.equal(url.searchParams.get('activo'), 'eq.true');
+  assert.equal(url.searchParams.get('centro_referencia_id'), null);
+  assert.equal(url.searchParams.get('select'), 'id,nombre,primer_apellido,segundo_apellido');
+  assert.equal(alumnos.length, 1);
+});
+
+void test('listarAlumnosActivosParaPanel: con centroId añade el filtro de centro (nunca contra la tabla base)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  await listarAlumnosActivosParaPanel(cliente, 'centro1');
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/alumno_ficha');
+  assert.equal(url.searchParams.get('activo'), 'eq.true');
+  assert.equal(url.searchParams.get('centro_referencia_id'), 'eq.centro1');
+});
+
+void test('listarAlumnosActivosParaPanel: un teacher recibe lista vacía de alumno_ficha (RLS), nunca un error', async () => {
+  const cliente = crearCliente(() => ({ estado: 200, cuerpo: [] }));
+
+  const alumnos = await listarAlumnosActivosParaPanel(cliente, 'centro1');
+
+  assert.deepEqual(alumnos, []);
 });

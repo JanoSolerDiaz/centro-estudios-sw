@@ -262,13 +262,20 @@ export interface ResultadoHistorico {
 const PAGINA_POR_DEFECTO_HISTORICO = 20;
 
 /** Ids de los alumnos de `centroId` (T-23, requisito 1: "por centro de estudios de referencia") —
- * contra la tabla base `alumno`, columnas de identificación que `authenticated` ya tiene concedidas
- * (`003_politicas_rls.sql`), así que también resuelve para un `teacher` (acotado a `activo = true`
- * por su propia RLS, igual que cualquier otra lectura suya de `alumno`). Sin paginar: el número de
- * alumnos de un centro es un conjunto acotado, del mismo orden que `listarProfesoresActivos`. */
+ * contra `alumno_ficha`, NUNCA la tabla base `alumno` (P-22): `centro_referencia_id` no está
+ * concedido a `authenticated` en ninguna forma, ni siquiera a `administrator` sobre la tabla base
+ * (`003_politicas_rls.sql`, sección (a) del `GRANT` de columna; documentado también en
+ * `datos/alumnos.ts#resolverCentroReferenciaIdDeAlumno` y confirmado en ejecución real por
+ * `db/pruebas_rls.sql`) — filtrar por ella ahí da "permission denied for column
+ * centro_referencia_id" para cualquier rol, la RLS no entra en juego. `alumno_ficha` sí la expone,
+ * pero solo devuelve fila a `administrator`: el filtro por centro de este módulo solo lo ejercita
+ * `administrator` en la interfaz (`puedeConsultarHistoricoDeCualquiera`, `pantallaHistorico.ts`),
+ * así que un `teacher` que llegara a invocarlo con este filtro vería la lista vacía, nunca un error
+ * — mismo criterio de "RLS silenciosa" que el resto del proyecto. Sin paginar: el número de alumnos
+ * de un centro es un conjunto acotado, del mismo orden que `listarProfesoresActivos`. */
 async function idsAlumnosDeCentro(cliente: ClientePostgrest, centroId: string): Promise<readonly string[]> {
   const filas = await cliente
-    .desde<{ readonly id: string }>('alumno')
+    .desde<{ readonly id: string }>('alumno_ficha')
     .eq('centro_referencia_id', centroId)
     .seleccionar('id');
   return filas.map((fila) => fila.id);

@@ -32,6 +32,7 @@ import {
 } from '../dominio/alumno.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import type { AlumnoParaPropuesta } from '../dominio/slots.ts';
+import type { AlumnoParaPanelCentro } from '../dominio/panelCentro.ts';
 import { ErrorDeValidacion, ErrorDelServidor } from './erroresDominio.ts';
 
 export type FiltroEstadoAlumno = 'activos' | 'inactivos' | 'todos';
@@ -370,4 +371,22 @@ export async function resolverCentroReferenciaIdDeAlumno(cliente: ClientePostgre
     .eq('id', alumnoId)
     .seleccionar('centro_referencia_id');
   return filas[0]?.centro_referencia_id ?? null;
+}
+
+/** Alumnos ACTIVOS del centro elegido (o de todos, sin `centroId`) para el panel de centro
+ * (R-11, requisito 3: "filtro... por centro de estudios de referencia") — solo columnas de
+ * identificación, nunca avatar ni contacto (requisito 2: "los rankings muestran solo nombre y
+ * cifra, nunca avatar"; minimización de datos, mismo criterio que `AlumnoListado` de P-02). Contra
+ * `alumno_ficha`, no la tabla base: `centro_referencia_id` no está concedido a `authenticated` en
+ * ninguna forma (ver `idsAlumnosDeCentro`, `datos/asistencia.ts`, P-22) — que además es la única
+ * forma de filtrar por centro con una sola petición sin resolver antes una lista de ids. Sin
+ * paginar: son solo columnas mínimas y el panel necesita el conjunto completo para cruzarlo con el
+ * horario, no una página. Reservado a `administrator` por diseño de la pantalla
+ * (`puedeVerPanelCentro`, `permisosUi.ts`): `alumno_ficha` no devuelve ninguna fila a `teacher`. */
+export async function listarAlumnosActivosParaPanel(cliente: ClientePostgrest, centroId?: string): Promise<readonly AlumnoParaPanelCentro[]> {
+  let consulta = cliente.desde<AlumnoParaPanelCentro>(VISTA_FICHA).eq('activo', true);
+  if (centroId) {
+    consulta = consulta.eq('centro_referencia_id', centroId);
+  }
+  return consulta.seleccionar('id,nombre,primer_apellido,segundo_apellido');
 }

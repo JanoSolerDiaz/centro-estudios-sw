@@ -68,6 +68,10 @@ void test('analizarRuta: "#/importacion" es la pantalla de importación masiva (
   assert.deepEqual(analizarRuta('#/importacion'), { nombre: 'importacion' });
 });
 
+void test('analizarRuta: "#/panel" es el panel de centro (R-11)', () => {
+  assert.deepEqual(analizarRuta('#/panel'), { nombre: 'panel' });
+});
+
 void test('analizarRuta: funciona igual sin el "#" inicial', () => {
   assert.deepEqual(analizarRuta('/centros'), { nombre: 'centros' });
 });
@@ -84,6 +88,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'usuarios' },
     { nombre: 'cierres' },
     { nombre: 'importacion' },
+    { nombre: 'panel' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);

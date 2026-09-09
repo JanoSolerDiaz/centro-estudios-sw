@@ -56,6 +56,7 @@ import {
   resolverIdentificacionAlumnos,
   resolverContactoAlumnos,
   resolverCentroReferenciaIdDeAlumno,
+  listarAlumnosActivosParaPanel,
 } from '../datos/alumnos.ts';
 import { crearRebote } from '../nucleo/rebote.ts';
 import { crearAlmacenColaAsistenciaIndexedDB } from '../nucleo/colaAsistenciaOffline.ts';
@@ -67,7 +68,7 @@ import {
   listarPersonasReferencia,
 } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
-import { listarSlotsDeAlumno, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
 import { listarProfesoresActivos, resolverNombresProfesores, resolverProfesorPorEmail } from '../datos/profesores.ts';
 import { listarUsuarios, actualizarUsuario } from '../datos/usuarios.ts';
 import { listarAlumnosParaImportacion, importarAlumnosValidados, importarHorariosValidados } from '../datos/importacionMasiva.ts';
@@ -98,6 +99,7 @@ import { mostrarPantallaHistorico } from './pantallaHistorico.ts';
 import { mostrarPantallaUsuarios } from './pantallaUsuarios.ts';
 import { mostrarPantallaCierresCentro } from './pantallaCierresCentro.ts';
 import { mostrarPantallaImportacionMasiva } from './pantallaImportacionMasiva.ts';
+import { mostrarPantallaPanelCentro } from './pantallaPanelCentro.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -184,6 +186,10 @@ function mostrarAppAdministrador(
   saludo.textContent = `Sesión iniciada como ${perfil.nombre}.`;
 
   const nav = documento.createElement('nav');
+  const enlacePanel = crearBoton(documento, 'Panel', 'button');
+  enlacePanel.addEventListener('click', () => {
+    router.navegar({ nombre: 'panel' });
+  });
   const enlaceCentros = crearBoton(documento, 'Centros', 'button');
   enlaceCentros.addEventListener('click', () => {
     router.navegar({ nombre: 'centros' });
@@ -217,6 +223,7 @@ function mostrarAppAdministrador(
     void cerrarSesion();
   });
   nav.append(
+    enlacePanel,
     enlaceCentros,
     enlaceAlumnos,
     enlaceRegistros,
@@ -233,6 +240,21 @@ function mostrarAppAdministrador(
 
   function pintarRuta(ruta: Ruta): void {
     areaPantalla.textContent = '';
+    if (ruta.nombre === 'panel') {
+      mostrarPantallaPanelCentro(areaPantalla, {
+        rol: perfil.rol,
+        reloj: app.reloj,
+        listarCentrosParaFiltro: () => listarCentros(app.postgrest),
+        listarAlumnosActivos: (centroId) => listarAlumnosActivosParaPanel(app.postgrest, centroId),
+        listarSlotsDeAlumnos: (alumnoIds) => listarSlotsDeAlumnos(app.postgrest, alumnoIds),
+        listarCierresActivos: () => listarCierres(app.postgrest, { estado: 'activos' }),
+        listarExcepcionesEnRango: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
+        resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
+      });
+      return;
+    }
+
     if (ruta.nombre === 'centros') {
       mostrarPantallaCentros(areaPantalla, {
         rol: perfil.rol,

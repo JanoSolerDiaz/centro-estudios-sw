@@ -37,6 +37,59 @@
 
 ---
 
+### Sesión 2026-09-09 (rutina programada de programador) — R-11 completada; P-22 urgente: bug propio en el filtro de centro del histórico (T-23)
+
+**Tarea(s):** R-11 ("Panel de centro para el administrador", oleada v2/F-06) — siguiente tarea de la
+columna vertebral, señalada como tal por la sesión anterior. **P-22** (hallazgo propio, no de
+auditoría) atendida antes de continuar, por protocolo de bug real (§0.3).
+**Estado resultante:** **R-11 pasa de `PENDIENTE` a `COMPLETADA`** en §1. **P-22** queda `IMPLEMENTADA`
+en §5.
+**Commits a `develop`:** ver commit(s) de esta sesión.
+**Migraciones aplicadas:** ninguna — R-11 declara `Migración: No` en su propia spec (compone datos ya
+existentes de T-15/R-12/R-06/T-18/R-01, ninguna tabla nueva); P-22 corrige qué relación consulta el
+cliente (`alumno_ficha` en vez de la tabla base `alumno`), sin tocar ningún esquema.
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio).
+**Archivos creados/modificados:** `src/dominio/panelCentro.ts` (nuevo, 23 tests) y su test;
+`src/ui/pantallaPanelCentro.ts` (nuevo, 12 tests) y su test; `src/datos/alumnos.ts`
+(`listarAlumnosActivosParaPanel`, nueva, contra `alumno_ficha`) y su test; `src/datos/slotsHorario.ts`
+(`listarSlotsDeAlumnos`, nueva, en lote) y su test; `src/dominio/permisosUi.ts` (`puedeVerPanelCentro`,
+nueva) y su test; `src/nucleo/router.ts` (ruta `panel` → `#/panel`) y su test; `src/ui/aplicacion.ts`
+(enlace "Panel" en la navegación de `administrator`, wiring de la pantalla nueva). P-22:
+`src/datos/asistencia.ts` (`idsAlumnosDeCentro` consulta ahora `alumno_ficha`) y su test actualizado.
+`DEVELOPERS.md` (entradas de `router.ts`, `pantallaPanelCentro.ts` y P-22). `roadmap/SEGUIMIENTO.md`
+(§1: R-11 a `COMPLETADA`; §5: P-22 nueva; nueva entrada de "Última actualización", la anterior pasa a
+"Sesión anterior"), `roadmap/DECISIONES_TECNICAS.md` (seis filas nuevas, ver más abajo),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1466/1466, antes 1424) · build ✅.
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`).
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-09: (1) P-22,
+`idsAlumnosDeCentro` corregida contra `alumno_ficha`; (2) R-11, el ranking de proporción de sesiones
+registradas agrupa por profesor titular, no por slot; (3) R-11, el alcance de alumnos del panel es
+siempre activos, con los registros de asistencia recibidos vueltos a filtrar contra ese mismo alcance
+antes de cruzarlos; (4) R-11, "sesiones de hoy" usa siempre el reloj real, nunca el filtro de fechas;
+(5) R-11, `AlumnoParaPanelCentro` vive en el dominio y la capa de datos lo importa, sin duplicar el
+tipo.
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada del auditor desde la de esta misma
+mañana (commit `c91f4c0`); `#8` sigue `ABIERTO` esperando al dueño (pregunta #16 de §6, sin cambio);
+`#12`/`#13` siguen `ABIERTO` en la tabla del auditor pero ya resueltos de facto por `P-20`/`P-21` de la
+sesión anterior, pendientes solo de que el auditor los confirme en su próxima pasada.
+**Hallazgos:** **P-22** — bug real y preexistente (T-23, `COMPLETADA` desde 2026-09-01), descubierto al
+escribir R-11: `idsAlumnosDeCentro` leía una columna de la tabla base `alumno` que `authenticated`
+nunca tuvo concedida, así que el filtro por centro del histórico nunca ha funcionado contra una base
+de datos real, para ningún rol. Ver detalle completo en §5 de `SEGUIMIENTO.md` y en
+`DEVELOPERS.md`.
+**Tareas autopropuestas (P-XX):** **P-22**, registrada e implementada en la misma sesión (§5 de
+`SEGUIMIENTO.md`), urgente por ser un bug real ya con impacto potencial en cualquier entorno real.
+**Próximo paso:** con R-11 completada, de la oleada v1/v2 solo quedan tareas `BLOQUEADA` por una
+migración sin aplicar (filas 13 a 19 de §3) — ninguna `PENDIENTE` de código sin bloqueo en v1/v2. La
+siguiente sesión de programador entra en la oleada v3: **R-15** ("Informe de horas por profesor",
+depende de R-03 —código-completa, bloqueada solo por migración— y T-24 —`COMPLETADA`—, mismo
+precedente que R-04/R-13/R-11 para escribir código contra una dependencia bloqueada solo por
+migración) o **R-16** ("Exportación completa del centro"), según el orden que fije §1 en ese momento.
+
+---
+
 ### Sesión 2026-09-09 (rutina programada de programador) — P-20 y P-21 urgentes: hallazgos #12/#13 de auditoría en la cola offline de R-07
 
 **Tarea(s):** P-20, P-21 (hallazgos #12 y #13 de `auditoriacontinua.md`, severidad alta) — atendidas

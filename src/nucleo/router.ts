@@ -73,7 +73,8 @@ export type Ruta =
   | { readonly nombre: 'historico'; readonly alumnoId?: string }
   | { readonly nombre: 'usuarios' }
   | { readonly nombre: 'cierres' }
-  | { readonly nombre: 'importacion' };
+  | { readonly nombre: 'importacion' }
+  | { readonly nombre: 'panel' };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -106,6 +107,9 @@ export function analizarRuta(hash: string): Ruta {
   }
   if (primero === 'importacion') {
     return { nombre: 'importacion' };
+  }
+  if (primero === 'panel') {
+    return { nombre: 'panel' };
   }
   if (primero === 'alumnos') {
     if (segundo === undefined) {
@@ -141,6 +145,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/cierres';
     case 'importacion':
       return '#/importacion';
+    case 'panel':
+      return '#/panel';
   }
 }
 

@@ -422,13 +422,14 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04 y R-08) — dos routers por
-    `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un motor
-    interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para `administrator`
-    (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`,
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08 y R-11) — dos
+    routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un
+    motor interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para
+    `administrator` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`,
     `#/historico[/<alumnoId>]` — el segmento de `alumnoId`, opcional, añadido por R-04 para que la
     ficha de alumno enlace al informe mensual con el alumno ya preseleccionado —, `#/usuarios` desde
-    T-24, `#/cierres` desde R-12, `#/importacion` desde R-08) y `crearRouterProfesor(objetivo)`
+    T-24, `#/cierres` desde R-12, `#/importacion` desde R-08, `#/panel` desde R-11) y
+    `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>[/<fecha>]]` — el segmento de
     `slotId` es opcional, para el enlace profundo de "mi horario" a los registros de un slot
     concreto; el de `fecha` (`AAAA-MM-DD`), añadido por R-13, solo tiene sentido junto a `slotId` y
@@ -784,6 +785,36 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     segundo toque explícito y solo entonces escribe. El bloque de horarios resuelve cada email de
     profesor distinto UNA vez (`emailsProfesorUnicosDeCsvHorarios`) antes de analizar las filas.
     Exclusiva de `administrator` (`puedeImportarMasivamente`). Enrutada como `#/importacion`.
+  - `pantallaPanelCentro.ts` (R-11, nuevo) — `mostrarPantallaPanelCentro(contenedor, deps)`: tres
+    bloques calculados sin ninguna tabla nueva, compuestos por `dominio/panelCentro.ts` sobre datos
+    ya existentes de T-15/R-12/R-06/T-18/R-01. (a) sesiones de hoy y su estado (`pasada_lista`/
+    `pendiente`/`sin_pasar_lista`) — SIEMPRE con `deps.reloj.ahora()`, nunca con el rango de fechas
+    elegido: no tiene sentido preguntar "¿qué ha pasado hoy?" sobre un mes ya cerrado; (b) ranking de
+    alumnos con más ausencias sin justificar; (c) ranking de profesores con menor proporción de
+    sesiones registradas frente a las esperadas — por profesor titular del slot, no por slot
+    individual (una sustitución de R-06 cuenta como registrada del titular, mismo `slot_id`). Los
+    rankings muestran solo nombre y cifra, NUNCA avatar (requisito 2: listados transitorios, mismo
+    criterio de diseño que el resto del proyecto). Filtro por centro de referencia y por rango de
+    fechas (por defecto el mes natural en curso, `limitesDelMes` de R-04) — el filtro de fechas solo
+    afecta a los rankings (b)/(c), nunca a las sesiones de hoy. El alcance de alumnos se resuelve UNA
+    vez (`listarAlumnosActivosParaPanel`, nueva en `datos/alumnos.ts`, contra `alumno_ficha` — ver
+    P-22 más abajo) y su resultado, un `Map` por id, es la única fuente de verdad de "quién está en
+    alcance": los registros de asistencia que trae de vuelta `listarHistoricoAsistenciaCompleto` para
+    ese centro (que no filtra por `activo`) se descartan si su alumno no está en ese mapa, antes de
+    cruzarlos, para que las tres secciones cuenten exactamente los mismos alumnos. Exclusiva de
+    `administrator` (`puedeVerPanelCentro`). Enrutada como `#/panel`.
+- **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
+  `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
+  `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca
+  concede a `authenticated` (ni siquiera a `administrator`, que comparte el mismo rol de Postgres que
+  `teacher`) — un "permission denied for column centro_referencia_id" en cualquier entorno real, para
+  cualquier rol. El propio `db/pruebas_rls.sql` ya documentaba este mismo error exacto en un
+  comentario de la sección de T-21/R-04 (`resolverCentroReferenciaIdDeAlumno` ya lo evitaba yendo
+  contra `alumno_ficha`), pero nadie había vuelto a revisar `idsAlumnosDeCentro` a la luz de ese
+  hallazgo. Corregido: consulta ahora `alumno_ficha` (como el resto de resolutores de centro del
+  proyecto) — sigue devolviendo 0 filas a `teacher`, que nunca ejercita este filtro desde la interfaz
+  (`puedeConsultarHistoricoDeCualquiera`, exclusiva de `administrator`). Sin migración: no toca
+  ninguna tabla ni política, solo qué relación consulta el cliente.
 - `db/` — scripts de migración SQL (`NNN_<nombre>.sql`) y `db/MODELO.md` con el modelo de datos en
   español, legible sin saber SQL. El agente los escribe pero **nunca los aplica**: los aplica el
   dueño con `npm run migrate` (T-07). A partir de `001`, los ficheros son DDL plano (sin
