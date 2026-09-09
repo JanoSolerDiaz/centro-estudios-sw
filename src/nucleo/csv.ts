@@ -37,6 +37,26 @@ export function documentoCsv(cabeceras: readonly string[], filas: readonly (read
   return BOM_UTF8 + lineas.join(FIN_DE_LINEA) + FIN_DE_LINEA;
 }
 
+/** Documento CSV con una cabecera de METADATOS (pares campo/valor, una fila cada uno) antes de la
+ * tabla principal — para un informe cuya cabecera de contexto (p. ej. rango de fechas y fecha de
+ * generación, R-15) no comparte el número de columnas de sus filas de datos, a diferencia del
+ * informe de una sola entidad de `generarCsvInformeMensual` (R-04), que sí lo comparte y por eso le
+ * basta `documentoCsv`. Una línea en blanco separa los metadatos de la tabla, para que se distingan
+ * a simple vista al abrir el fichero en una hoja de cálculo. */
+export function documentoCsvConMetadatos(
+  metadatos: readonly (readonly [string, string])[],
+  cabeceras: readonly string[],
+  filas: readonly (readonly string[])[],
+): string {
+  const lineas = [
+    ...metadatos.map(([campo, valor]) => filaCsv([campo, valor])),
+    '',
+    filaCsv(cabeceras),
+    ...filas.map((fila) => filaCsv(fila)),
+  ];
+  return BOM_UTF8 + lineas.join(FIN_DE_LINEA) + FIN_DE_LINEA;
+}
+
 /**
  * Análisis de CSV (R-08, requisito 6: "parseo de CSV con código propio, sin librería de terceros").
  * Complementa a `documentoCsv`/`filaCsv` de arriba (T-23, solo generación): un fichero subido por el

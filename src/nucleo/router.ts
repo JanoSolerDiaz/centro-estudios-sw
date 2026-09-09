@@ -74,7 +74,8 @@ export type Ruta =
   | { readonly nombre: 'usuarios' }
   | { readonly nombre: 'cierres' }
   | { readonly nombre: 'importacion' }
-  | { readonly nombre: 'panel' };
+  | { readonly nombre: 'panel' }
+  | { readonly nombre: 'informe-horas' };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -110,6 +111,9 @@ export function analizarRuta(hash: string): Ruta {
   }
   if (primero === 'panel') {
     return { nombre: 'panel' };
+  }
+  if (primero === 'informe-horas') {
+    return { nombre: 'informe-horas' };
   }
   if (primero === 'alumnos') {
     if (segundo === undefined) {
@@ -147,6 +151,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/importacion';
     case 'panel':
       return '#/panel';
+    case 'informe-horas':
+      return '#/informe-horas';
   }
 }
 

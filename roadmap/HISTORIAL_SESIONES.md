@@ -37,6 +37,55 @@
 
 ---
 
+### Sesión 2026-09-09 (rutina programada de programador) — R-15 completada: informe de horas por profesor
+
+**Tarea(s):** R-15 ("Informe de horas por profesor", oleada v3/F-07) — siguiente tarea de la columna
+vertebral tras R-11 (`COMPLETADA` en la sesión anterior), sin ningún hallazgo `ABIERTO` de severidad
+alta nuevo que atender primero (protocolo §0.3: `#8` sigue esperando al dueño en la pregunta #16 de
+§6; `#12`/`#13` ya resueltos de facto por P-20/P-21, pendientes solo de confirmación del auditor).
+**Estado resultante:** **R-15 pasa de `PENDIENTE` a `COMPLETADA`** en §1.
+**Commits a `develop`:** ver commit(s) de esta sesión.
+**Migraciones aplicadas:** ninguna — R-15 declara `Migración: No` en su propia spec (compone datos ya
+existentes de T-15/R-03/R-06/R-12/T-18/T-24, ninguna tabla ni columna nueva).
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio).
+**Archivos creados/modificados:** `src/dominio/informeHorasProfesor.ts` (nuevo, 13 tests) y su test;
+`src/ui/pantallaInformeHorasProfesor.ts` (nuevo, 10 tests) y su test; `src/datos/slotsHorario.ts`
+(`listarSlotsDeProfesores`, nueva, en lote) y su test; `src/dominio/permisosUi.ts`
+(`puedeVerInformeHorasProfesor`, nueva) y su test; `src/nucleo/csv.ts` (`documentoCsvConMetadatos`,
+nueva) y su test; `src/dominio/panelCentro.ts` (`diaSiguiente` ahora exportada, sin cambio de
+comportamiento); `src/nucleo/router.ts` (ruta `informe-horas` → `#/informe-horas`) y su test;
+`src/ui/aplicacion.ts` (enlace "Horas por profesor" en la navegación de `administrator`, wiring de la
+pantalla nueva). `DEVELOPERS.md` (entrada de `pantallaInformeHorasProfesor.ts`).
+`roadmap/SEGUIMIENTO.md` (§1: R-15 a `COMPLETADA`; nueva entrada de "Última actualización", la
+anterior pasa a "Sesión anterior"), `roadmap/DECISIONES_TECNICAS.md` (seis filas nuevas, ver más
+abajo), `roadmap/HISTORIAL_SESIONES.md` (esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1494/1494, antes 1466) · build ✅.
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`).
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md`, fecha 2026-09-09, tarea R-15:
+(1) pantalla propia en vez de un bloque del panel de R-11 (el filtro de "centro" de ese panel es el
+colegio del alumno, sin sentido para un informe del profesor); (2) separar horas propias de
+sustitución comparando `asistencia.profesor_id` contra `slot_horario.profesor_id` del mismo
+`slot_id`, sin ninguna columna nueva; (3) una fila por cada profesor activo siempre, incluso en
+ceros (a diferencia de los rankings de R-11); (4) sin campo "Centro" en el CSV, pese a que la spec lo
+menciona copiando la plantilla de R-04 — no hay ningún alumno del que resolverlo; (5)
+`documentoCsvConMetadatos` nueva en `nucleo/csv.ts` en vez de forzar la tabla dentro de
+`documentoCsv`; (6) el criterio "un `teacher` recibe `SinPermiso` al intentar generarlo" se satisface
+por inaccesibilidad estructural (la pantalla solo existe dentro del router de `administrator`),
+mismo precedente ya aceptado por R-10 sin hallazgo de auditoría — forzar un `403` real habría exigido
+una RPC nueva, y por tanto una migración, contradiciendo `Migración: No`.
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada del auditor desde la de esta misma
+mañana (commit `c91f4c0`); `#8` sigue `ABIERTO` esperando al dueño (pregunta #16 de §6, sin cambio);
+`#12`/`#13` siguen `ABIERTO` en la tabla del auditor pero ya resueltos de facto por P-20/P-21 de dos
+sesiones atrás, pendientes solo de que el auditor los confirme en su próxima pasada.
+**Hallazgos:** ninguno nuevo descubierto al escribir esta tarea.
+**Tareas autopropuestas (P-XX):** ninguna esta sesión.
+**Próximo paso:** revisar §1 en orden; con R-15 completada, la siguiente `PENDIENTE` que no depende de
+nada sin terminar es **R-16** ("Exportación completa del centro", oleada v3/F-07) — salvo que una
+pasada nueva del auditor, o una respuesta del dueño a la pregunta #16 de §6, cambien la prioridad.
+
+---
+
 ### Sesión 2026-09-09 (rutina programada de programador) — R-11 completada; P-22 urgente: bug propio en el filtro de centro del histórico (T-23)
 
 **Tarea(s):** R-11 ("Panel de centro para el administrador", oleada v2/F-06) — siguiente tarea de la

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
-import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
 import { ErrorDeValidacion } from './erroresDominio.ts';
 import type { SlotHorario } from '../dominio/tipos.ts';
 
@@ -69,6 +69,35 @@ void test('listarSlotsDeAlumnos: con la lista vacía no hace ninguna petición',
   });
 
   const slots = await listarSlotsDeAlumnos(cliente, []);
+
+  assert.deepEqual(slots, []);
+  assert.equal(peticiones.length, 0);
+});
+
+void test('listarSlotsDeProfesores: pide todas las versiones de VARIOS profesores en una única petición (R-15)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [SLOT_VIGENTE] };
+  });
+
+  const slots = await listarSlotsDeProfesores(cliente, ['profesor-1', 'profesor-2']);
+
+  assert.deepEqual(slots, [SLOT_VIGENTE]);
+  assert.equal(peticiones.length, 1);
+  const url = new URL(peticiones[0]?.url ?? '');
+  assert.equal(url.pathname, '/rest/v1/slot_horario');
+  assert.equal(url.searchParams.get('profesor_id'), 'in.(profesor-1,profesor-2)');
+});
+
+void test('listarSlotsDeProfesores: con la lista vacía no hace ninguna petición', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const slots = await listarSlotsDeProfesores(cliente, []);
 
   assert.deepEqual(slots, []);
   assert.equal(peticiones.length, 0);

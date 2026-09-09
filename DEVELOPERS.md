@@ -803,6 +803,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     ese centro (que no filtra por `activo`) se descartan si su alumno no está en ese mapa, antes de
     cruzarlos, para que las tres secciones cuenten exactamente los mismos alumnos. Exclusiva de
     `administrator` (`puedeVerPanelCentro`). Enrutada como `#/panel`.
+  - `pantallaInformeHorasProfesor.ts` (R-15, nuevo) — `mostrarPantallaInformeHorasProfesor(contenedor, deps)`:
+    para un rango de fechas (por defecto el mes en curso), una fila por cada profesor `activo`
+    (SIEMPRE, incluso en ceros — a diferencia de los rankings de `pantallaPanelCentro.ts`, aquí el
+    objetivo es la nómina) con sesiones/horas reales propias, horas teóricas de sus slots vigentes y
+    sesiones/horas reales de SUSTITUCIÓN (R-06) separadas, compuesto por
+    `dominio/informeHorasProfesor.ts` sobre datos ya existentes (T-15/R-03/R-06/R-12/T-18). Pantalla
+    propia, no un bloque de `pantallaPanelCentro.ts`: su filtro de "centro" es el colegio del ALUMNO,
+    sin sentido para un informe del profesor. Botones "Descargar CSV" (con metadatos de rango y fecha
+    de generación, `nucleo/csv.ts#documentoCsvConMetadatos`) e "Imprimir / PDF", los dos sobre las
+    MISMAS filas (`filasTablaInformeHorasProfesor`) que pinta la tabla en pantalla. Exclusiva de
+    `administrator` (`puedeVerInformeHorasProfesor`) — además, solo se monta dentro del router de
+    `administrator`, así que un `teacher` no llega a ella por ningún camino (sin RPC ni `403` real:
+    `Migración: No` en la spec). Enrutada como `#/informe-horas`.
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

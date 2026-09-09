@@ -183,8 +183,10 @@ export interface FilaRankingAsistenciaProfesorPanelCentro {
 /** Día de calendario siguiente a `fecha` (`AAAA-MM-DD`) — aritmética de CALENDARIO pura sobre un
  * `Date` usado como calculadora, nunca como instante real (mismo criterio que `diaAnteriorUtc` de
  * `slotHorario.ts` y `calendarioManana` de `limitesDiaLocal`): sumar milisegundos reales se
- * equivocaría de día en el que sigue a un cambio de hora. */
-function diaSiguiente(fecha: string): string {
+ * equivocaría de día en el que sigue a un cambio de hora. Exportada (no solo de uso interno) porque
+ * `dominio/informeHorasProfesor.ts` (R-15) necesita el mismo recorrido día a día de un rango de
+ * fechas — reutilizada en vez de duplicada. */
+export function diaSiguiente(fecha: string): string {
   const partes = fecha.split('-').map(Number);
   const [anio = 0, mes = 1, dia = 1] = partes;
   const utc = new Date(Date.UTC(anio, mes - 1, dia));

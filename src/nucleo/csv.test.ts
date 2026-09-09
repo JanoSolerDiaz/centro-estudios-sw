@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { filaCsv, documentoCsv, analizarCsv, detectarSeparadorCsv } from './csv.ts';
+import { filaCsv, documentoCsv, documentoCsvConMetadatos, analizarCsv, detectarSeparadorCsv } from './csv.ts';
 
 void test('filaCsv une los valores con punto y coma, no con coma', () => {
   assert.equal(filaCsv(['a', 'b', 'c']), 'a;b;c');
@@ -43,6 +43,28 @@ void test('documentoCsv empieza por el BOM UTF-8, seguido de la cabecera y las f
 void test('documentoCsv sin filas es solo el BOM y la cabecera', () => {
   const documento = documentoCsv(['Alumno'], []);
   assert.equal(documento, '\uFEFFAlumno\r\n');
+});
+
+void test('documentoCsvConMetadatos antepone los metadatos y una l\u00EDnea en blanco antes de la tabla (R-15)', () => {
+  const documento = documentoCsvConMetadatos(
+    [
+      ['Rango', '2026-09-01 \u2013 2026-09-30'],
+      ['Fecha de generaci\u00F3n', '09/09/2026 10:00'],
+    ],
+    ['Profesor', 'Sesiones'],
+    [['Ana L\u00F3pez', '12']],
+  );
+
+  assert.equal(documento.codePointAt(0), 0xfeff);
+  assert.equal(
+    documento.slice(1),
+    'Rango;2026-09-01 \u2013 2026-09-30\r\nFecha de generaci\u00F3n;09/09/2026 10:00\r\n\r\nProfesor;Sesiones\r\nAna L\u00F3pez;12\r\n',
+  );
+});
+
+void test('documentoCsvConMetadatos sin filas es solo los metadatos, la l\u00EDnea en blanco y la cabecera', () => {
+  const documento = documentoCsvConMetadatos([['Rango', 'x']], ['Profesor'], []);
+  assert.equal(documento, '\uFEFFRango;x\r\n\r\nProfesor\r\n');
 });
 
 // --- detectarSeparadorCsv / analizarCsv (R-08, importaci\u00F3n) --------------------------------------

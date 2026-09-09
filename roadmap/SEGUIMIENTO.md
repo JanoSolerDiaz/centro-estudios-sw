@@ -12,12 +12,55 @@
 **Modo de operación:** AUTONOMÍA TOTAL
 **Última actualización:** 2026-09-09 (rutina programada de programador) — revisado primero el
 registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3): sin pasada nueva del auditor desde
-la de esta misma mañana (commit `c91f4c0`). De sus tres `ABIERTO` de severidad alta, **#8** sigue
-esperando al dueño en la pregunta #16 de §6, sin novedad; **#12** y **#13** ya quedaron resueltos de
-facto por **P-20**/**P-21** de la sesión anterior (pendientes solo de que el auditor los confirme en
-su próxima pasada — no le corresponde a esta sesión adelantárselo). Sin ningún hallazgo `ABIERTO` de
-severidad alta nuevo que atender como P-XX urgente, se retomó la cola normal de §1: **R-11** ("Panel
-de centro para el administrador", oleada v2/F-06), que la sesión anterior había dejado como siguiente
+la de esta mañana (commit `c91f4c0`). De sus tres `ABIERTO` de severidad alta, **#8** sigue esperando
+al dueño en la pregunta #16 de §6, sin novedad; **#12** y **#13** siguen `ABIERTO` en la tabla del
+auditor pero ya resueltos de facto por **P-20**/**P-21** de dos sesiones atrás, pendientes solo de que
+el auditor los confirme en su próxima pasada — no le corresponde a esta sesión adelantárselo. Sin
+ningún hallazgo `ABIERTO` de severidad alta nuevo que atender como P-XX urgente, se revisó §1: con
+R-11 ya `COMPLETADA` (sesión anterior), la siguiente tarea `PENDIENTE` que no depende de nada sin
+terminar era **R-15** ("Informe de horas por profesor", oleada v3/F-07, spec en
+`ROADMAP_PRODUCTO.md`, `Migración: No`, depende de R-03 —code-completa, bloqueada solo por
+migración, mismo precedente ya aceptado para R-04/R-11/R-13— y de T-24, `COMPLETADA`).
+
+**R-15 completada.** `dominio/informeHorasProfesor.ts` (nuevo, 13 tests): por cada profesor
+`rol = 'teacher'` y `activo = true` (una fila SIEMPRE, incluso sin ninguna sesión, a diferencia de
+los rankings de R-11 que omiten a quien no aporta nada — aquí el objetivo es la nómina), sesiones y
+horas reales propias (`null`, nunca `0`, sin ninguna salida marcada, mismo criterio que R-04), horas
+teóricas de sus slots vigentes en el rango (reutiliza sin tocarlos `esDiaCerrado` de R-12 y
+`esDiaCanceladoParaSlot` de R-06, y el recorrido día a día de `diaSiguiente`, exportada de
+`panelCentro.ts` para esto) y sesiones/horas reales de SUSTITUCIÓN (R-06) separadas de las propias
+(requisito 2) — sin ninguna columna ni tabla nueva: comparar `asistencia.profesor_id` contra
+`slot_horario.profesor_id` del MISMO `slot_id` ya distingue si la dio el titular o un sustituto,
+decisión ya sentada por R-06 al mantener el mismo `slot_id` para los dos. Ni una anulada ni un día
+cancelado infla nada (requisito 3), verificado también de forma defensiva sobre el propio registro
+real, no solo sobre lo teórico. Pantalla propia `ui/pantallaInformeHorasProfesor.ts` (nueva, 10
+tests), enrutada como `#/informe-horas`, exclusiva de `administrator` — no un bloque del panel de
+R-11 (su filtro de "centro" es el colegio del ALUMNO, sin sentido para un informe del profesor, ver
+`DECISIONES_TECNICAS.md`). CSV con metadatos de rango y fecha de generación (sin campo "Centro": no
+hay ningún alumno del que resolverlo, a diferencia de R-04) vía `nucleo/csv.ts#documentoCsvConMetadatos`
+(nueva: metadatos campo/valor + tabla, para cuando las dos partes no comparten número de columnas) y
+ventana de impresión, las dos sobre las MISMAS filas que la tabla en pantalla. Nuevas
+`datos/slotsHorario.ts#listarSlotsDeProfesores` (en lote, mismo patrón que `listarSlotsDeAlumnos` de
+R-11) y `dominio/permisosUi.ts#puedeVerInformeHorasProfesor`. El criterio de aceptación de la spec
+("un `teacher` recibe `SinPermiso` al intentar generarlo") se satisface por inaccesibilidad
+estructural —la pantalla solo existe dentro del router de `administrator`— mismo precedente ya
+aceptado por R-10 sin hallazgo de auditoría (`Migración: No` descarta forzar un `403` real con una
+RPC nueva). **28 tests nuevos en total** (1494 en total, antes 1466): 13 de
+`dominio/informeHorasProfesor.ts`, 10 de `ui/pantallaInformeHorasProfesor.ts`, 2 de
+`listarSlotsDeProfesores`, 1 de `puedeVerInformeHorasProfesor`, 2 de `documentoCsvConMetadatos` (más
+la ruta `#/informe-horas` en `router.test.ts`, ya contada dentro de los 10 de la pantalla). Sin
+migración. `db/APLICADAS.md` sin cambio. `FEEDBACK.md` sigue con su única fila plantilla vacía: nada
+que convertir.
+
+**Sesión anterior (2026-09-09, rutina programada de programador, "R-11 completada; P-22 urgente:
+bug propio en el filtro de centro del histórico"):** revisado primero el registro de hallazgos de
+`auditoriacontinua.md` (protocolo §0.3): sin pasada nueva del auditor desde la de esta misma mañana
+(commit `c91f4c0`). De sus tres `ABIERTO` de severidad alta, **#8** sigue esperando al dueño en la
+pregunta #16 de §6, sin novedad; **#12** y **#13** ya quedaron resueltos de facto por
+**P-20**/**P-21** de la sesión anterior (pendientes solo de que el auditor los confirme en su próxima
+pasada — no le corresponde a esta sesión adelantárselo). Sin ningún hallazgo `ABIERTO` de severidad
+alta nuevo que atender como P-XX urgente, se retomó la cola normal de §1: **R-11** ("Panel de centro
+para el administrador", oleada v2/F-06), que la sesión anterior había dejado como siguiente
 tarea pendiente.
 
 Al escribir R-11 (que necesita, por primera vez en el proyecto, resolver "todos los alumnos activos
@@ -2067,7 +2110,7 @@ pantallas del requisito 2.
 | R-09 | Aplicación instalable y arranque sin red | COMPLETADA | 2026-09-08 | Oleada v2 / F-04 · solo cliente · `manifest.json` + iconos generados sin dependencias (`herramientas/iconos/`) + `sw.js` (único Service Worker, "red primero, caché de seguridad") + aviso de versión nueva (`nucleo/registroServiceWorker.ts`/`ui/avisoNuevaVersion.ts`). Verificado con Playwright headless: offline tras una visita previa funciona; el disparo real de "versión nueva" en el propio navegador no se pudo reproducir en esta sesión (detalle en `DEVELOPERS.md`), la orquestación sí tiene 7 tests con dobles |
 | R-10 | Expediente completo del alumno (RGPD) | COMPLETADA | 2026-09-08 | Oleada v2 / F-05 · Sin migración: depende solo de T-13/T-23, ambas `COMPLETADA`. `dominio/expedienteAlumno.ts` (nuevo, 19 tests) compone ficha + personas de referencia + histórico ÍNTEGRO (incluye anuladas/retroactivas) en un único documento; bloque quinto en `pantallaFichaAlumno.ts` con descarga de JSON legible e impresión (mismo mecanismo que el informe mensual de R-04), reservado a `administrator` (`puedeExportarExpedienteCompleto`, nueva en `permisosUi.ts`). 23 tests nuevos en total (1418 en total, antes 1376) |
 | R-11 | Panel de centro para el administrador | COMPLETADA | 2026-09-09 | Oleada v2 / F-06 · Sin migración: depende solo de T-16, T-21 (ambas `COMPLETADA`) y R-01 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-13). `dominio/panelCentro.ts` (nuevo, 23 tests): sesiones de hoy y su estado, ranking de ausencias sin justificar, ranking de profesores por proporción de sesiones registradas. Nuevas `datos/alumnos.ts#listarAlumnosActivosParaPanel`/`datos/slotsHorario.ts#listarSlotsDeAlumnos` y pantalla `ui/pantallaPanelCentro.ts` (`#/panel`, 12 tests). 42 tests nuevos en total (1466 en total, antes 1424). En el camino, corregido un bug real preexistente de T-23 (P-22: `idsAlumnosDeCentro` leía una columna sin `GRANT`, ver §5) |
-| R-15 | Informe de horas por profesor | PENDIENTE | — | Oleada v3 / F-07 · nueva este ciclo (decimoquinto del PM) |
+| R-15 | Informe de horas por profesor | COMPLETADA | 2026-09-09 | Oleada v3 / F-07 · Sin migración: depende de R-03 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-11/R-13) y T-24 (`COMPLETADA`). `dominio/informeHorasProfesor.ts` (nuevo, 13 tests): por cada profesor activo, sesiones/horas reales propias, horas teóricas y sesiones/horas reales de sustitución (R-06), separadas sin ninguna columna nueva. Pantalla propia `ui/pantallaInformeHorasProfesor.ts` (`#/informe-horas`, 10 tests), exclusiva de `administrator`. CSV con metadatos (`nucleo/csv.ts#documentoCsvConMetadatos`, nueva) y ventana de impresión, mismas cifras que la tabla. Nuevas `datos/slotsHorario.ts#listarSlotsDeProfesores` y `dominio/permisosUi.ts#puedeVerInformeHorasProfesor`. 28 tests nuevos en total (1494 en total, antes 1466) |
 | R-16 | Exportación completa del centro (copia de seguridad y portabilidad) | PENDIENTE | — | Oleada v3 / F-07 · nueva este ciclo (decimoquinto del PM) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
@@ -2209,3 +2252,5 @@ pantallas del requisito 2.
 | 2026-09-05 | R-02 | **Alcance de datos personales ampliado sin decisión expresa del dueño: `motivo_justificacion` de R-02 incluye valores de dato de salud (artículo 9 RGPD).** `db/011_justificacion_ausencia.sql` (escrita y empujada, todavía sin aplicar) añade un `CHECK` de lista cerrada que incluye `enfermedad` y `cita_medica` — información que revela el estado de salud por definición (art. 4.15 RGPD), pese a que `HOJA_DE_RUTA.md` §0.2 prohíbe expresamente "cualquier categoría especial del artículo 9 del RGPD" sin decisión del dueño; la spec de R-02 fijó "Bloqueo humano: ninguno" sin que se activara ninguna pregunta al respecto | Hallazgo #8 de `auditoriacontinua.md` (severidad alta, `ABIERTO` desde 2026-09-05), escalado por el duodécimo ciclo del PM a la pregunta #16 de §6; la migración `011` no debe aplicarse hasta que el dueño responda (fila 14 de §3). Registrado también como P-17 en §5 |
 | 2026-09-07 | R-05 | **Alcance de rol pedido por la spec y no concedido sin decisión expresa del dueño (a la inversa del patrón de la fila anterior): el requisito 4 de R-05 pedía que el `teacher` accediera a las personas de referencia del alumno por el botón «avisar», "mismo alcance que T-13".** Concederlo habría contradicho §0.2 de `HOJA_DE_RUTA.md` ("el `teacher`... no ve datos de contacto ni personas de referencia") y habría exigido además una política RLS nueva que la propia spec no podía traer (`Migración: No`) | R-05 se entregó solo para `administrator` (funcional y completo); se abrió la pregunta #17 de §6 con tres opciones para el dueño, sin bloquear la tarea (valor por defecto conservador: sin acceso para `teacher`). Origen: hallazgo #11 de `auditoriacontinua.md` (severidad baja, la propia ausencia de esta fila — mismo patrón que el hallazgo #9 ya resuelto), registrado como P-19 en §5 |
 | 2026-09-08 | R-08 | **R-08 pasa a necesitar migración, y su spec dice `Migración: No`** (mismo patrón que T-09 y T-20, filas de 2026-08-27 y 2026-09-01 de este §7). El requisito 3 ("horario... profesor por email de una cuenta que ya existe") exige resolver un email contra `auth.users`, dato que `perfil` no guarda y que ninguna vista ni columna concede a `authenticated` — no hay forma de cumplirlo sin una RPC `SECURITY DEFINER` nueva | Descubierto al escribir el código, no al leer la spec: `db/016_resolver_profesor_por_email.sql` (fila 19 de §3), sin tocar ninguna tabla ni columna. Documentado también en `DECISIONES_TECNICAS.md` y en la cabecera de la propia migración, para que ninguna sesión futura repita la comprobación |
+| 2026-09-09 | R-15 | **Requisito 4 no cumplido literalmente: el CSV no incluye ningún campo "Centro" en su cabecera de metadatos**, pese a que la spec dice literalmente "cabecera de centro, rango de fechas y fecha de generación" (mismo texto que el requisito de R-04, del que se copió). R-15 no tiene ningún alumno concreto del que resolver un `centro_referencia_id` — es un informe sobre el conjunto de profesores de la academia, no sobre un alumno — así que no existe ningún valor único y correcto que poner ahí | Interpretado como una frase de la spec no adaptada al nuevo sujeto del informe (copiada de R-04 sin ajustar), no como un requisito literal a cumplir a cualquier precio. Documentado en `DECISIONES_TECNICAS.md`; sin pregunta a §6 porque no hay ninguna decisión de negocio pendiente, solo un dato que no existe para este informe |
+| 2026-09-09 | R-15 | **Criterio de aceptación interpretado, no cumplido con un mecanismo literal: "un `teacher` recibe `SinPermiso` al intentar generarlo" se satisface por inaccesibilidad estructural (la pantalla solo existe dentro del router de `administrator`), sin ninguna llamada al servidor que devuelva un `403` real.** Mismo texto exacto que ya usó R-10 (`ROADMAP_PRODUCTO.md:684`), resuelto de la misma forma sin que quedara fila en este §7 — se añade ahora para las dos, dado el patrón ya señalado por el auditor (hallazgos #9/#11, `RESUELTO`) de que esta sección debe ganar su fila sin que haga falta que lo señale una pasada de auditoría | `Migración: No` en ambas specs descarta forzar un `403` real con una RPC `SECURITY DEFINER` nueva (que exigiría migración); la pantalla completa vive detrás del router de `administrator`, del que un `teacher` no puede formar parte, así que la pregunta de qué le devolvería el servidor no llega a plantearse. Documentado en `DECISIONES_TECNICAS.md` |

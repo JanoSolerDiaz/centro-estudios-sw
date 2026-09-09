@@ -19,6 +19,7 @@ import {
   puedeVerHistorico,
   puedeVerMiHorario,
   puedeVerPanelCentro,
+  puedeVerInformeHorasProfesor,
   puedeVerPersonasReferencia,
 } from './permisosUi.ts';
 
@@ -116,4 +117,10 @@ void test('puedeVerPanelCentro: exclusivamente administrator, ni siquiera teache
   assert.equal(puedeVerPanelCentro('administrator'), true);
   assert.equal(puedeVerPanelCentro('teacher'), false);
   assert.equal(puedeVerPanelCentro('student'), false);
+});
+
+void test('puedeVerInformeHorasProfesor: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeVerInformeHorasProfesor('administrator'), true);
+  assert.equal(puedeVerInformeHorasProfesor('teacher'), false);
+  assert.equal(puedeVerInformeHorasProfesor('student'), false);
 });

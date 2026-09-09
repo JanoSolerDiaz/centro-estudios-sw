@@ -113,6 +113,18 @@ export async function listarSlotsDeAlumnos(cliente: ClientePostgrest, alumnoIds:
   return cliente.desde<SlotHorario>(TABLA).in('alumno_id', alumnoIds).seleccionar();
 }
 
+/** Todas las versiones (pasadas y vigente) de los slots de VARIOS profesores a la vez, en una única
+ * petición (R-15, informe de horas: cruza el horario de todos los profesores activos con el rango
+ * elegido, nunca una petición por profesor) — misma forma exacta que `listarSlotsDeAlumnos` (R-11),
+ * solo que filtrando por `profesor_id` en vez de `alumno_id`. Con `profesorIds` vacío no hace
+ * ninguna petición. */
+export async function listarSlotsDeProfesores(cliente: ClientePostgrest, profesorIds: readonly string[]): Promise<readonly SlotHorario[]> {
+  if (profesorIds.length === 0) {
+    return [];
+  }
+  return cliente.desde<SlotHorario>(TABLA).in('profesor_id', profesorIds).seleccionar();
+}
+
 /** Todos los slots de un profesor (cualquier vigencia, pasada o presente) con su alumno embebido,
  * en una única petición a PostgREST (requisito 5 de T-17: "la pantalla abra rápido con la conexión
  * de un aula"). El motor de propuesta (`dominio/slots.ts`, `alumnosPropuestos`) filtra por vigencia

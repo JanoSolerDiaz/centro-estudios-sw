@@ -151,3 +151,10 @@ export function puedeExportarExpedienteCompleto(rol: Rol): boolean {
 export function puedeVerPanelCentro(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Informe de horas por profesor (R-15): sesiones y horas reales/teóricas de cada profesor activo,
+ * propias y de sustitución por separado. Exclusivamente `administrator` (requisito 5) — "ningún
+ * profesor ve el informe de otro ni el suyo propio por esta vía". */
+export function puedeVerInformeHorasProfesor(rol: Rol): boolean {
+  return rol === 'administrator';
+}
