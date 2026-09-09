@@ -37,6 +37,48 @@
 
 ---
 
+### Sesión 2026-09-09 (rutina programada de programador) — R-16 completada: exportación completa del centro
+
+**Tarea(s):** R-16 ("Exportación completa del centro", oleada v3/F-07) — siguiente tarea de la columna
+vertebral tras R-15 (`COMPLETADA` en la sesión anterior), sin ningún hallazgo `ABIERTO` de severidad
+alta nuevo que atender primero (protocolo §0.3: sin pasada nueva del auditor desde `c91f4c0`; `#8`
+sigue esperando al dueño en la pregunta #16 de §6; `#12`/`#13` ya resueltos de facto por P-20/P-21,
+pendientes solo de confirmación del auditor).
+**Estado resultante:** **R-16 pasa de `PENDIENTE` a `COMPLETADA`** en §1.
+**Commits a `develop`:** ver commit(s) de esta sesión.
+**Migraciones aplicadas:** ninguna — R-16 declara `Migración: No` en su propia spec (compone datos ya
+existentes de T-11/T-12/T-13/T-15/T-23, ninguna tabla ni columna nueva).
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue con su única fila, la 12, sin cambio).
+**Archivos creados/modificados:** `src/dominio/exportacionCentro.ts` (nuevo, 13 tests) y su test;
+`src/datos/alumnos.ts` (`listarTodosLosAlumnosParaExportacion`, nueva) y su test; `src/datos/personasReferencia.ts`
+(`listarPersonasReferenciaDeAlumnos`, nueva, en lote) y su test; `src/ui/pantallaPanelCentro.ts` (bloque
+4, botón «Exportar todo el centro», nuevas dependencias) y su test; `src/ui/aplicacion.ts` (wiring de
+las tres dependencias nuevas del bloque de exportación). `roadmap/SEGUIMIENTO.md` (§1: R-16 a
+`COMPLETADA`; nueva entrada de "Última actualización", la anterior pasa a "Sesión anterior"),
+`roadmap/DECISIONES_TECNICAS.md` (seis filas nuevas, ver más abajo), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada).
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1517/1517, antes 1494) · build ✅.
+**Health check post-deploy:** no aplica (el agente no despliega; CI de GitHub Actions corre
+typecheck/lint/test/build en cada push a `develop`).
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-09, R-16): el botón vive
+como cuarto bloque del panel de centro existente (R-11), sin pantalla ni ruta propia; sin una función
+nueva en `permisosUi.ts` (inaccesibilidad estructural, mismo criterio que R-15); el volcado incluye
+alumnos activos E inactivos, a diferencia del resto del panel; `listarTodosLosAlumnosParaExportacion`
+es una función nueva e independiente de `listarAlumnos`/P-02 (necesita `avatar_ruta` para resolver
+`tieneAvatar`, nunca la reexpone); `listarPersonasReferenciaDeAlumnos` agrupa en el cliente sobre una
+única petición en lote; el histórico se reordena cronológicamente, mismo criterio que R-10.
+**Hallazgos del auditor atendidos:** ninguno nuevo esta sesión (sin pasada nueva del auditor desde
+`c91f4c0`; `#12`/`#13` quedan para que el auditor los confirme en su próxima pasada, no le corresponde
+a esta sesión adelantárselo).
+**Hallazgos:** ninguno nuevo.
+**Tareas autopropuestas (P-XX):** ninguna.
+**Próximo paso:** revisar §1 para la siguiente tarea `PENDIENTE` sin dependencias sin terminar (a fecha
+de esta sesión, ninguna otra queda `PENDIENTE` en oleadas v1-v3 código-completas — la mayoría de v1
+sigue `BLOQUEADA` solo por migración sin aplicar; sesiones futuras deben revisar si el dueño ha añadido
+alguna R-XX nueva o respondido las preguntas abiertas de §6, en particular la #16 sobre `motivo_justificacion`).
+
+---
+
 ### Sesión 2026-09-09 (rutina programada de programador) — R-15 completada: informe de horas por profesor
 
 **Tarea(s):** R-15 ("Informe de horas por profesor", oleada v3/F-07) — siguiente tarea de la columna

@@ -2,7 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
-import { crearPersonaReferencia, editarPersonaReferencia, eliminarPersonaReferencia, listarPersonasReferencia } from './personasReferencia.ts';
+import {
+  crearPersonaReferencia,
+  editarPersonaReferencia,
+  eliminarPersonaReferencia,
+  listarPersonasReferencia,
+  listarPersonasReferenciaDeAlumnos,
+} from './personasReferencia.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { PersonaReferencia } from '../dominio/tipos.ts';
 
@@ -211,4 +217,46 @@ void test('listarPersonasReferencia: un teacher (0 filas por RLS, no un error) r
   const personas = await listarPersonasReferencia(cliente, 'a1');
 
   assert.deepEqual(personas, []);
+});
+
+void test('listarPersonasReferenciaDeAlumnos: una única petición con "in", agrupada por alumno_id (R-16)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const MARIA: PersonaReferencia = { ...JUAN, id: 'pr2', alumno_id: 'a2', nombre: 'María' };
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [JUAN, MARIA] };
+  });
+
+  const mapa = await listarPersonasReferenciaDeAlumnos(cliente, ['a1', 'a2']);
+
+  assert.equal(peticiones.length, 1);
+  const peticion = peticiones[0];
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.searchParams.get('alumno_id'), 'in.(a1,a2)');
+  assert.deepEqual(mapa.get('a1'), [JUAN]);
+  assert.deepEqual(mapa.get('a2'), [MARIA]);
+  assert.equal(mapa.get('a3'), undefined);
+});
+
+void test('listarPersonasReferenciaDeAlumnos: agrupa varias personas del mismo alumno en un único array', async () => {
+  const SEGUNDA: PersonaReferencia = { ...JUAN, id: 'pr2', nombre: 'María' };
+  const cliente = crearCliente(() => ({ estado: 200, cuerpo: [JUAN, SEGUNDA] }));
+
+  const mapa = await listarPersonasReferenciaDeAlumnos(cliente, ['a1']);
+
+  assert.deepEqual(mapa.get('a1'), [JUAN, SEGUNDA]);
+});
+
+void test('listarPersonasReferenciaDeAlumnos: con alumnoIds vacío no hace ninguna petición', async () => {
+  let llamadas = 0;
+  const cliente = crearCliente(() => {
+    llamadas += 1;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const mapa = await listarPersonasReferenciaDeAlumnos(cliente, []);
+
+  assert.equal(llamadas, 0);
+  assert.equal(mapa.size, 0);
 });

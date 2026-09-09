@@ -17,9 +17,19 @@
  * Las sesiones de hoy (bloque 1a) usan siempre `deps.reloj.ahora()`, nunca el rango de fechas
  * elegido (requisito 3, el filtro es para los dos rankings): no tendría sentido preguntar "¿qué ha
  * pasado hoy?" sobre un mes ya cerrado.
+ *
+ * Bloque 4, exportación completa del centro (R-16, copia de seguridad y portabilidad): un botón
+ * «Exportar todo el centro» que descarga un único JSON con el catálogo de centros, todos los
+ * alumnos (activos e inactivos) con sus personas de referencia, todos los slots (cualquier
+ * vigencia) y el histórico completo de asistencia — sin filtro de centro ni de rango, a diferencia
+ * de los tres bloques de arriba: es un volcado de TODO lo que el centro tiene guardado, no una
+ * vista acotada al alcance elegido en los filtros de este panel. Reservado a `administrator` por la
+ * misma guarda de la pantalla completa (`puedeVerPanelCentro`) — no hace falta una segunda función
+ * de `permisosUi.ts`, mismo criterio que R-15 (requisito 5 de R-16 ya lo cubre la inaccesibilidad
+ * estructural de todo el panel).
  */
 
-import type { Rol, CierreCentro, ExcepcionSlot, SlotHorario } from '../dominio/tipos.ts';
+import type { Rol, CentroEstudios, CierreCentro, ExcepcionSlot, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
 import { puedeVerPanelCentro } from '../dominio/permisosUi.ts';
 import {
   sesionesDeHoyPanelCentro,
@@ -30,18 +40,45 @@ import {
   type FilaRankingAusenciasPanelCentro,
   type FilaRankingAsistenciaProfesorPanelCentro,
 } from '../dominio/panelCentro.ts';
-import { fechaLocalISO, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
+import {
+  construirDatosExportacionCentro,
+  generarJsonExportacionCentro,
+  type AlumnoParaExportacionCentro,
+} from '../dominio/exportacionCentro.ts';
+import { fechaLocalISO, fechaHoraLocalLegible, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
 import { limitesDelMes } from '../dominio/informeMensualAlumno.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { FiltroHistorico } from '../datos/asistencia.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
-import { crearElemento } from './dom.ts';
-import { crearZonaMensaje } from './formularios.ts';
+import { crearElemento, type Descargador } from './dom.ts';
+import { crearBoton, crearZonaMensaje } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
 export interface CentroParaFiltroPanel {
   readonly id: string;
   readonly nombre: string;
+}
+
+/** Lo mínimo que necesita este módulo de un alumno para la exportación (R-16) — estructuralmente
+ * compatible con `datos/alumnos.ts#AlumnoConCentro`, sin importarla (esta pantalla ya evita ese
+ * acoplamiento para el resto de sus dependencias). */
+export interface AlumnoParaExportacionPanel {
+  readonly id: string;
+  readonly nombre: string;
+  readonly primer_apellido: string;
+  readonly segundo_apellido: string | null;
+  readonly centro_referencia_id: string;
+  readonly avatar_ruta: string | null;
+  readonly email_alumno: string | null;
+  readonly telefono_alumno: string | null;
+  readonly activo: boolean;
+  readonly alta_en: string;
+  readonly baja_en: string | null;
+  readonly motivo_baja: string | null;
+  readonly usuario_id: string | null;
+  readonly creado_en: string;
+  readonly actualizado_en: string;
+  readonly centro: Pick<CentroEstudios, 'nombre'>;
 }
 
 const ETIQUETA_ESTADO_SESION: Readonly<Record<SesionHoyPanelCentro['estado'], string>> = {
@@ -61,6 +98,13 @@ export interface DependenciasPantallaPanelCentro {
   listarExcepcionesEnRango(desde: string, hasta: string): Promise<readonly ExcepcionSlot[]>;
   listarHistoricoCompleto(filtro: Omit<FiltroHistorico, 'pagina' | 'porPagina'>): Promise<readonly Asistencia[]>;
   resolverNombresProfesores(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
+  /** Solo para el bloque de exportación completa (R-16) — el resto de la pantalla nunca necesita el
+   * catálogo entero, activos e inactivos, de centros. */
+  readonly nombreUsuarioActual: string;
+  readonly descargador: Descargador;
+  listarTodosLosCentros(): Promise<readonly CentroEstudios[]>;
+  listarTodosLosAlumnos(): Promise<readonly AlumnoParaExportacionPanel[]>;
+  listarPersonasReferenciaDeAlumnos(alumnoIds: readonly string[]): Promise<ReadonlyMap<string, readonly PersonaReferencia[]>>;
 }
 
 export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: DependenciasPantallaPanelCentro): void {
@@ -295,6 +339,67 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
     );
   }
 
+  // --- Bloque 4: exportación completa del centro (R-16) ---
+  const seccionExportacion = documento.createElement('section');
+  const zonaMensajeExportacion = crearZonaMensaje(documento, 'alert');
+  const botonExportar = crearBoton(documento, 'Exportar todo el centro', 'button');
+  let exportando = false;
+
+  botonExportar.addEventListener('click', () => {
+    if (exportando) {
+      return;
+    }
+    void (async () => {
+      exportando = true;
+      zonaMensajeExportacion.textContent = '';
+      try {
+        const [centros, alumnosBase] = await Promise.all([deps.listarTodosLosCentros(), deps.listarTodosLosAlumnos()]);
+        const alumnoIds = alumnosBase.map((alumno) => alumno.id);
+        const [personasPorAlumno, slotsExportacion, historicoExportacion] = await Promise.all([
+          deps.listarPersonasReferenciaDeAlumnos(alumnoIds),
+          deps.listarSlotsDeAlumnos(alumnoIds),
+          deps.listarHistoricoCompleto({}),
+        ]);
+        const alumnosExportacion: readonly AlumnoParaExportacionCentro[] = alumnosBase.map((alumno) => ({
+          ...alumno,
+          personasReferencia: personasPorAlumno.get(alumno.id) ?? [],
+        }));
+        const idsProfesores = [
+          ...new Set([...slotsExportacion.map((slot) => slot.profesor_id), ...historicoExportacion.map((registro) => registro.profesor_id)]),
+        ];
+        const nombresProfesoresExportacion = await deps.resolverNombresProfesores(idsProfesores);
+        const datosExportacion = construirDatosExportacionCentro({
+          centros,
+          alumnos: alumnosExportacion,
+          slots: slotsExportacion,
+          historico: historicoExportacion,
+          nombresProfesores: nombresProfesoresExportacion,
+          generadoEnLegible: fechaHoraLocalLegible(deps.reloj.ahora(), zonaHoraria),
+          generadoPor: deps.nombreUsuarioActual,
+          zonaHoraria,
+        });
+        deps.descargador.descargar(
+          generarJsonExportacionCentro(datosExportacion),
+          `exportacion-centro-${fechaLocalISO(deps.reloj.ahora(), zonaHoraria)}.json`,
+          'application/json;charset=utf-8',
+        );
+      } catch (error) {
+        zonaMensajeExportacion.textContent = mensajeAmigable(error);
+      } finally {
+        exportando = false;
+      }
+    })();
+  });
+
+  seccionExportacion.append(
+    crearElemento(documento, 'h2', { texto: 'Copia de seguridad y portabilidad' }),
+    crearElemento(documento, 'p', {
+      texto: 'Descarga un único documento JSON con todo lo que el centro tiene guardado: centros, alumnos, personas de referencia, horarios e histórico completo de asistencia.',
+    }),
+    botonExportar,
+    zonaMensajeExportacion,
+  );
+
   contenedor.append(
     titulo,
     zonaError,
@@ -307,6 +412,7 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
     seccionSesionesHoy,
     seccionRankingAusencias,
     seccionRankingProfesores,
+    seccionExportacion,
   );
 
   async function iniciar(): Promise<void> {

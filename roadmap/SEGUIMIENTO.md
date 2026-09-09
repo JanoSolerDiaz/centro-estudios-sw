@@ -12,13 +12,54 @@
 **Modo de operación:** AUTONOMÍA TOTAL
 **Última actualización:** 2026-09-09 (rutina programada de programador) — revisado primero el
 registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3): sin pasada nueva del auditor desde
-la de esta mañana (commit `c91f4c0`). De sus tres `ABIERTO` de severidad alta, **#8** sigue esperando
-al dueño en la pregunta #16 de §6, sin novedad; **#12** y **#13** siguen `ABIERTO` en la tabla del
-auditor pero ya resueltos de facto por **P-20**/**P-21** de dos sesiones atrás, pendientes solo de que
-el auditor los confirme en su próxima pasada — no le corresponde a esta sesión adelantárselo. Sin
-ningún hallazgo `ABIERTO` de severidad alta nuevo que atender como P-XX urgente, se revisó §1: con
-R-11 ya `COMPLETADA` (sesión anterior), la siguiente tarea `PENDIENTE` que no depende de nada sin
-terminar era **R-15** ("Informe de horas por profesor", oleada v3/F-07, spec en
+la de esta mañana (commit `c91f4c0`), confirmado con `git log` (ningún commit de `auditoriacontinua.md`
+desde `698b150`, el commit de R-15). De sus tres `ABIERTO` de severidad alta, **#8** sigue esperando al
+dueño en la pregunta #16 de §6, sin novedad; **#12** y **#13** siguen `ABIERTO` en la tabla del auditor
+pero ya resueltos de facto por **P-20**/**P-21** de tres sesiones atrás, pendientes solo de que el
+auditor los confirme en su próxima pasada — no le corresponde a esta sesión adelantárselo. Sin ningún
+hallazgo `ABIERTO` de severidad alta nuevo que atender como P-XX urgente, se revisó §1: con R-15 ya
+`COMPLETADA` (sesión anterior), la siguiente tarea `PENDIENTE` que no depende de nada sin terminar era
+**R-16** ("Exportación completa del centro", oleada v3/F-07, spec en `ROADMAP_PRODUCTO.md`,
+`Migración: No`, depende de T-11/T-12/T-13/T-15/T-23, las cinco `COMPLETADA`).
+
+**R-16 completada.** `dominio/exportacionCentro.ts` (nuevo, 13 tests): compone, sin ninguna tabla ni
+RPC nueva (requisito propio de la spec, "Migración: No"), el catálogo completo de centros, TODOS los
+alumnos —activos e inactivos, a diferencia del panel de R-11, que solo cuenta los activos: un volcado
+de respaldo que omitiera a quien causó baja no sería un volcado completo (requisito 1: "todo lo que el
+centro tiene guardado")— con sus personas de referencia embebidas, todos los slots de horario
+(cualquier vigencia, con su versionado íntegro de T-15) y el histórico completo de asistencia de TODOS
+los alumnos (T-23 sin ningún filtro, que ya de por sí incluye anuladas y retroactivas — mismo criterio
+de integridad que R-10: "un volcado que oculta lo anulado no es un volcado completo"). Reutiliza sin
+duplicar las mismas etiquetas y cálculos que ya usa `expedienteAlumno.ts` (R-10) para que un centro
+completo cuente exactamente lo mismo que la suma de sus expedientes individuales. `tieneAvatar:
+booleano` por alumno, nunca `avatar_ruta` ni una URL firmada (requisito 2, mismo criterio exacto que
+R-10) — verificado también con un test que comprueba que el JSON descargado no contiene la cadena
+`avatar_ruta` en ninguna forma. Nuevas `datos/alumnos.ts#listarTodosLosAlumnosParaExportacion` (ficha
+completa CON `avatar_ruta`, a diferencia de `listarAlumnos`/P-02: aquí hace falta para resolver
+`tieneAvatar`, que el dominio nunca vuelve a exponer — recorre `alumno_ficha` página a página con lotes
+de 500, mismo patrón que `listarHistoricoAsistenciaCompleto` de T-23) y
+`datos/personasReferencia.ts#listarPersonasReferenciaDeAlumnos` (en lote, agrupadas por `alumno_id` del
+lado del cliente, nunca una petición por alumno). El botón «Exportar todo el centro» se añade como
+CUARTO bloque de `ui/pantallaPanelCentro.ts` (R-11), no como pantalla ni ruta propia (la propia spec,
+requisito 1, dice literalmente "desde el panel de administrator") — sin filtro de centro ni de rango,
+a diferencia de los otros tres bloques: es un volcado de TODO, no una vista acotada. Sin una segunda
+función en `permisosUi.ts`: el criterio de aceptación ("un `teacher` recibe `SinPermiso` al
+intentarlo") se satisface por la misma inaccesibilidad estructural que ya protege el resto del panel
+(`puedeVerPanelCentro`), mismo precedente que R-10/R-15. **23 tests nuevos en total** (1517 en total,
+antes 1494): 13 de `dominio/exportacionCentro.ts`, 4 del bloque nuevo de `pantallaPanelCentro.test.ts`,
+3 de `listarTodosLosAlumnosParaExportacion` y 3 de `listarPersonasReferenciaDeAlumnos`. Sin migración.
+`db/APLICADAS.md` sin cambio. `FEEDBACK.md` sigue con su única fila plantilla vacía: nada que
+convertir.
+
+**Sesión anterior (2026-09-09, rutina programada de programador, "R-15 completada"):** revisado
+primero el registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3): sin pasada nueva del
+auditor desde la de esta mañana (commit `c91f4c0`). De sus tres `ABIERTO` de severidad alta, **#8**
+sigue esperando al dueño en la pregunta #16 de §6, sin novedad; **#12** y **#13** siguen `ABIERTO` en
+la tabla del auditor pero ya resueltos de facto por **P-20**/**P-21** de dos sesiones atrás, pendientes
+solo de que el auditor los confirme en su próxima pasada — no le corresponde a esta sesión
+adelantárselo. Sin ningún hallazgo `ABIERTO` de severidad alta nuevo que atender como P-XX urgente, se
+revisó §1: con R-11 ya `COMPLETADA` (sesión anterior), la siguiente tarea `PENDIENTE` que no depende de
+nada sin terminar era **R-15** ("Informe de horas por profesor", oleada v3/F-07, spec en
 `ROADMAP_PRODUCTO.md`, `Migración: No`, depende de R-03 —code-completa, bloqueada solo por
 migración, mismo precedente ya aceptado para R-04/R-11/R-13— y de T-24, `COMPLETADA`).
 
@@ -2111,7 +2152,7 @@ pantallas del requisito 2.
 | R-10 | Expediente completo del alumno (RGPD) | COMPLETADA | 2026-09-08 | Oleada v2 / F-05 · Sin migración: depende solo de T-13/T-23, ambas `COMPLETADA`. `dominio/expedienteAlumno.ts` (nuevo, 19 tests) compone ficha + personas de referencia + histórico ÍNTEGRO (incluye anuladas/retroactivas) en un único documento; bloque quinto en `pantallaFichaAlumno.ts` con descarga de JSON legible e impresión (mismo mecanismo que el informe mensual de R-04), reservado a `administrator` (`puedeExportarExpedienteCompleto`, nueva en `permisosUi.ts`). 23 tests nuevos en total (1418 en total, antes 1376) |
 | R-11 | Panel de centro para el administrador | COMPLETADA | 2026-09-09 | Oleada v2 / F-06 · Sin migración: depende solo de T-16, T-21 (ambas `COMPLETADA`) y R-01 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-13). `dominio/panelCentro.ts` (nuevo, 23 tests): sesiones de hoy y su estado, ranking de ausencias sin justificar, ranking de profesores por proporción de sesiones registradas. Nuevas `datos/alumnos.ts#listarAlumnosActivosParaPanel`/`datos/slotsHorario.ts#listarSlotsDeAlumnos` y pantalla `ui/pantallaPanelCentro.ts` (`#/panel`, 12 tests). 42 tests nuevos en total (1466 en total, antes 1424). En el camino, corregido un bug real preexistente de T-23 (P-22: `idsAlumnosDeCentro` leía una columna sin `GRANT`, ver §5) |
 | R-15 | Informe de horas por profesor | COMPLETADA | 2026-09-09 | Oleada v3 / F-07 · Sin migración: depende de R-03 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-11/R-13) y T-24 (`COMPLETADA`). `dominio/informeHorasProfesor.ts` (nuevo, 13 tests): por cada profesor activo, sesiones/horas reales propias, horas teóricas y sesiones/horas reales de sustitución (R-06), separadas sin ninguna columna nueva. Pantalla propia `ui/pantallaInformeHorasProfesor.ts` (`#/informe-horas`, 10 tests), exclusiva de `administrator`. CSV con metadatos (`nucleo/csv.ts#documentoCsvConMetadatos`, nueva) y ventana de impresión, mismas cifras que la tabla. Nuevas `datos/slotsHorario.ts#listarSlotsDeProfesores` y `dominio/permisosUi.ts#puedeVerInformeHorasProfesor`. 28 tests nuevos en total (1494 en total, antes 1466) |
-| R-16 | Exportación completa del centro (copia de seguridad y portabilidad) | PENDIENTE | — | Oleada v3 / F-07 · nueva este ciclo (decimoquinto del PM) |
+| R-16 | Exportación completa del centro (copia de seguridad y portabilidad) | COMPLETADA | 2026-09-09 | Oleada v3 / F-07 · Sin migración: depende de T-11/T-12/T-13/T-15/T-23, las cinco `COMPLETADA`. `dominio/exportacionCentro.ts` (nuevo, 13 tests): catálogo de centros, TODOS los alumnos (activos e inactivos) con personas de referencia, todos los slots (cualquier vigencia) e histórico completo de asistencia. Botón «Exportar todo el centro» como cuarto bloque de `ui/pantallaPanelCentro.ts` (R-11), no una pantalla propia. 23 tests nuevos en total (1517 en total, antes 1494) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

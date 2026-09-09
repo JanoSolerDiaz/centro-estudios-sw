@@ -1,11 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { mostrarPantallaPanelCentro, type DependenciasPantallaPanelCentro, type CentroParaFiltroPanel } from './pantallaPanelCentro.ts';
+import {
+  mostrarPantallaPanelCentro,
+  type DependenciasPantallaPanelCentro,
+  type CentroParaFiltroPanel,
+  type AlumnoParaExportacionPanel,
+} from './pantallaPanelCentro.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { SinPermiso } from '../datos/erroresDominio.ts';
 import type { AlumnoParaPanelCentro } from '../dominio/panelCentro.ts';
-import type { Asistencia, SlotHorario } from '../dominio/tipos.ts';
+import type { Asistencia, CentroEstudios, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
+import type { Descargador } from './dom.ts';
 
 function crearContenedorDePruebas(): HTMLElement {
   const dom = new JSDOM('<!doctype html><body><div id="app"></div></body>');
@@ -65,6 +71,38 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
 // Lunes 2026-09-07, 20:00 Europe/Madrid (18:00 UTC): el slot de 17:00-18:00 de hoy ya ha terminado.
 const RELOJ_HOY = crearRelojFijo(new Date('2026-09-07T18:00:00.000Z'));
 
+function crearDescargadorDeMentira(): Descargador & { llamadas: { contenido: string; nombre: string; tipo: string }[] } {
+  const llamadas: { contenido: string; nombre: string; tipo: string }[] = [];
+  return {
+    llamadas,
+    descargar(contenido, nombreFichero, tipoMime) {
+      llamadas.push({ contenido, nombre: nombreFichero, tipo: tipoMime });
+    },
+  };
+}
+
+function crearAlumnoParaExportacion(sobrescribir: Partial<AlumnoParaExportacionPanel> = {}): AlumnoParaExportacionPanel {
+  return {
+    id: 'alumno-1',
+    nombre: 'Ana',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    centro_referencia_id: 'centro-1',
+    avatar_ruta: null,
+    email_alumno: 'ana@ejemplo.com',
+    telefono_alumno: '611223344',
+    activo: true,
+    alta_en: '2026-01-01T00:00:00.000Z',
+    baja_en: null,
+    motivo_baja: null,
+    usuario_id: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    centro: { nombre: 'Colegio Ejemplo' },
+    ...sobrescribir,
+  };
+}
+
 function crearDepsFalsas(overrides: Partial<DependenciasPantallaPanelCentro> = {}): DependenciasPantallaPanelCentro {
   return {
     rol: 'administrator',
@@ -76,8 +114,19 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPanelCentro> = {
     listarExcepcionesEnRango: () => Promise.resolve([]),
     listarHistoricoCompleto: () => Promise.resolve([]),
     resolverNombresProfesores: () => Promise.resolve(new Map()),
+    nombreUsuarioActual: 'Ana Admin',
+    descargador: crearDescargadorDeMentira(),
+    listarTodosLosCentros: () => Promise.resolve([]),
+    listarTodosLosAlumnos: () => Promise.resolve([]),
+    listarPersonasReferenciaDeAlumnos: () => Promise.resolve(new Map()),
     ...overrides,
   };
+}
+
+function boton(contenedor: HTMLElement, texto: string): HTMLButtonElement {
+  const encontrado = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === texto);
+  assert.ok(encontrado, `no se encontró un botón con el texto exacto "${texto}"`);
+  return encontrado;
 }
 
 async function esperarMicrotareas(veces = 5): Promise<void> {
@@ -243,4 +292,140 @@ void test('elegir un centro en el filtro relanza la carga con ese centroId', asy
   select.dispatchEvent(new (contenedor.ownerDocument.defaultView as unknown as { Event: typeof Event }).Event('change'));
   await esperarMicrotareas();
   assert.deepEqual(centroIdsRecibidos, [undefined, 'centro-1']);
+});
+
+// --- Bloque de exportación completa del centro (R-16) -------------------------------------------
+
+const CENTRO: CentroEstudios = {
+  id: 'centro-1',
+  nombre: 'Colegio Ejemplo',
+  activo: true,
+  creado_en: '2026-01-01T00:00:00.000Z',
+  actualizado_en: '2026-01-01T00:00:00.000Z',
+};
+
+const PERSONA: PersonaReferencia = {
+  id: 'persona-1',
+  alumno_id: 'alumno-1',
+  nombre: 'Marta',
+  primer_apellido: 'López',
+  segundo_apellido: null,
+  email_referencia: null,
+  telefono_referencia: '622334455',
+  creado_en: '2026-01-01T00:00:00.000Z',
+  actualizado_en: '2026-01-01T00:00:00.000Z',
+};
+
+void test('exportación: descarga un único JSON con centros, alumnos, personas de referencia, slots e histórico', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      descargador,
+      listarTodosLosCentros: () => Promise.resolve([CENTRO]),
+      listarTodosLosAlumnos: () => Promise.resolve([crearAlumnoParaExportacion()]),
+      listarPersonasReferenciaDeAlumnos: () => Promise.resolve(new Map([['alumno-1', [PERSONA]]])),
+      listarSlotsDeAlumnos: () => Promise.resolve([crearSlot()]),
+      listarHistoricoCompleto: () => Promise.resolve([crearAsistencia()]),
+      resolverNombresProfesores: () => Promise.resolve(new Map([['profesor-1', 'Pedro Pérez']])),
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Exportar todo el centro').click();
+  await esperarMicrotareas();
+
+  assert.equal(descargador.llamadas.length, 1);
+  const llamada = descargador.llamadas[0];
+  assert.ok(llamada);
+  assert.match(llamada.nombre, /^exportacion-centro-\d{4}-\d{2}-\d{2}\.json$/);
+  assert.equal(llamada.tipo, 'application/json;charset=utf-8');
+  const datos = JSON.parse(llamada.contenido) as {
+    centros: unknown[];
+    alumnos: { nombreCompleto: string; personasReferencia: unknown[] }[];
+    slots: unknown[];
+    historicoAsistencia: { profesor: string }[];
+    generadoPor: string;
+  };
+  assert.equal(datos.centros.length, 1);
+  assert.equal(datos.alumnos.length, 1);
+  const alumno = datos.alumnos[0];
+  assert.ok(alumno);
+  assert.equal(alumno.nombreCompleto, 'Ana García');
+  assert.equal(alumno.personasReferencia.length, 1);
+  assert.equal(datos.slots.length, 1);
+  assert.equal(datos.historicoAsistencia.length, 1);
+  assert.equal(datos.historicoAsistencia[0]?.profesor, 'Pedro Pérez');
+  assert.equal(datos.generadoPor, 'Ana Admin');
+});
+
+void test('exportación: nunca incluye avatar_ruta ni ninguna otra pista de la foto en el JSON descargado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      descargador,
+      listarTodosLosAlumnos: () => Promise.resolve([crearAlumnoParaExportacion({ avatar_ruta: 'alumnos/alumno-1/avatar.webp' })]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Exportar todo el centro').click();
+  await esperarMicrotareas();
+
+  const llamada = descargador.llamadas[0];
+  assert.ok(llamada);
+  assert.equal(llamada.contenido.includes('avatar.webp'), false);
+  assert.equal(llamada.contenido.includes('avatar_ruta'), false);
+  const datos = JSON.parse(llamada.contenido) as { alumnos: { tieneAvatar: boolean }[] };
+  assert.equal(datos.alumnos[0]?.tieneAvatar, true);
+});
+
+void test('exportación: un fallo se muestra en su propia zona de mensaje, sin tirar el resto del panel', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarTodosLosAlumnos: () => Promise.reject(new SinPermiso()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Exportar todo el centro').click();
+  await esperarMicrotareas();
+
+  const zonas = contenedor.querySelectorAll('[role="alert"]');
+  const mensajes = Array.from(zonas).map((zona) => zona.textContent);
+  assert.ok(mensajes.some((texto) => texto.includes('No tienes permiso')));
+  assert.match(contenedor.textContent, /Sesiones de hoy/);
+});
+
+void test('exportación: un segundo clic mientras la primera exportación está en curso no dispara una segunda descarga', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const descargador = crearDescargadorDeMentira();
+  let resolver: (() => void) | undefined;
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      descargador,
+      listarTodosLosAlumnos: () =>
+        new Promise((resolve) => {
+          resolver = () => {
+            resolve([]);
+          };
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botonExportar = boton(contenedor, 'Exportar todo el centro');
+  botonExportar.click();
+  botonExportar.click();
+  await esperarMicrotareas();
+  resolver?.();
+  await esperarMicrotareas();
+
+  assert.equal(descargador.llamadas.length, 1);
 });

@@ -57,6 +57,7 @@ import {
   resolverContactoAlumnos,
   resolverCentroReferenciaIdDeAlumno,
   listarAlumnosActivosParaPanel,
+  listarTodosLosAlumnosParaExportacion,
 } from '../datos/alumnos.ts';
 import { crearRebote } from '../nucleo/rebote.ts';
 import { crearAlmacenColaAsistenciaIndexedDB } from '../nucleo/colaAsistenciaOffline.ts';
@@ -66,6 +67,7 @@ import {
   editarPersonaReferencia,
   eliminarPersonaReferencia,
   listarPersonasReferencia,
+  listarPersonasReferenciaDeAlumnos,
 } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
 import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
@@ -257,6 +259,11 @@ function mostrarAppAdministrador(
         listarExcepcionesEnRango: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
         listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
         resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
+        nombreUsuarioActual: perfil.nombre,
+        descargador: crearDescargadorNavegador(documento),
+        listarTodosLosCentros: () => listarCentros(app.postgrest, { estado: 'todos' }),
+        listarTodosLosAlumnos: () => listarTodosLosAlumnosParaExportacion(app.postgrest),
+        listarPersonasReferenciaDeAlumnos: (alumnoIds) => listarPersonasReferenciaDeAlumnos(app.postgrest, alumnoIds),
       });
       return;
     }

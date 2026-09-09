@@ -135,3 +135,29 @@ export async function eliminarPersonaReferencia(cliente: ClientePostgrest, id: s
 export async function listarPersonasReferencia(cliente: ClientePostgrest, alumnoId: string): Promise<readonly PersonaReferencia[]> {
   return cliente.desde<PersonaReferencia>(TABLA).eq('alumno_id', alumnoId).order('creado_en').seleccionar('*');
 }
+
+/** Personas de referencia de VARIOS alumnos a la vez, en una única petición (R-16, exportación
+ * completa del centro: nunca una petición por alumno, mismo criterio que `listarSlotsDeAlumnos` de
+ * R-11). PostgREST no agrupa el resultado por `alumno_id` por sí solo — este módulo lo hace del
+ * lado del cliente, una sola pasada sobre las filas ya traídas. Reservada de facto a
+ * `administrator` por RLS (`persona_referencia_admin_todo`): un `teacher` recibiría un mapa vacío,
+ * nunca un error. Con `alumnoIds` vacío no hace ninguna petición. */
+export async function listarPersonasReferenciaDeAlumnos(
+  cliente: ClientePostgrest,
+  alumnoIds: readonly string[],
+): Promise<ReadonlyMap<string, readonly PersonaReferencia[]>> {
+  if (alumnoIds.length === 0) {
+    return new Map();
+  }
+  const filas = await cliente.desde<PersonaReferencia>(TABLA).in('alumno_id', alumnoIds).order('creado_en').seleccionar('*');
+  const mapa = new Map<string, PersonaReferencia[]>();
+  for (const fila of filas) {
+    const lista = mapa.get(fila.alumno_id);
+    if (lista) {
+      lista.push(fila);
+    } else {
+      mapa.set(fila.alumno_id, [fila]);
+    }
+  }
+  return mapa;
+}

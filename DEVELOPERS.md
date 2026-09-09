@@ -816,6 +816,23 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `administrator` (`puedeVerInformeHorasProfesor`) — además, solo se monta dentro del router de
     `administrator`, así que un `teacher` no llega a ella por ningún camino (sin RPC ni `403` real:
     `Migración: No` en la spec). Enrutada como `#/informe-horas`.
+  - **R-16 (exportación completa del centro):** no es una pantalla propia — un CUARTO bloque dentro
+    de `pantallaPanelCentro.ts` (botón «Exportar todo el centro», requisito 1 de la spec: "desde el
+    panel de administrator"). Compuesto por `dominio/exportacionCentro.ts` (nuevo,
+    `construirDatosExportacionCentro`/`generarJsonExportacionCentro`): catálogo completo de centros,
+    TODOS los alumnos —activos e inactivos, a diferencia de los otros tres bloques del panel, que
+    solo cuentan los activos— con sus personas de referencia embebidas, todos los slots de horario
+    (cualquier vigencia, versionado íntegro) y el histórico completo de asistencia de todos los
+    alumnos (incluidas anuladas y retroactivas). `tieneAvatar: booleano` por alumno, nunca
+    `avatar_ruta` ni una URL firmada (mismo criterio exacto que el expediente de R-10). Nuevas
+    `datos/alumnos.ts#listarTodosLosAlumnosParaExportacion` (ficha completa CON `avatar_ruta` —
+    a diferencia de `listarAlumnos`/P-02: aquí hace falta para resolver `tieneAvatar`, que el dominio
+    nunca vuelve a exponer — recorre `alumno_ficha` en lotes de 500) y
+    `datos/personasReferencia.ts#listarPersonasReferenciaDeAlumnos` (en lote, agrupadas por
+    `alumno_id` del lado del cliente). Sin una función nueva en `permisosUi.ts`: el criterio de
+    aceptación ("un `teacher` recibe `SinPermiso`") se satisface por la misma inaccesibilidad
+    estructural que ya protege el resto del panel (`puedeVerPanelCentro`). Sin migración
+    (`Migración: No` en la spec).
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

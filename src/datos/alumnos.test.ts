@@ -17,6 +17,7 @@ import {
   resolverContactoAlumnos,
   resolverCentroReferenciaIdDeAlumno,
   listarAlumnosActivosParaPanel,
+  listarTodosLosAlumnosParaExportacion,
 } from './alumnos.ts';
 import { ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { AlumnoConCentro, AlumnoConCentroYPersonas } from './alumnos.ts';
@@ -625,4 +626,57 @@ void test('listarAlumnosActivosParaPanel: un teacher recibe lista vacía de alum
   const alumnos = await listarAlumnosActivosParaPanel(cliente, 'centro1');
 
   assert.deepEqual(alumnos, []);
+});
+
+// --- listarTodosLosAlumnosParaExportacion (R-16, exportación completa del centro) ---------------
+
+void test('listarTodosLosAlumnosParaExportacion: una única petición cuando el lote no se agota, ficha completa (con avatar_ruta) y centro embebido', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [GARCIA] };
+  });
+
+  const alumnos = await listarTodosLosAlumnosParaExportacion(cliente);
+
+  assert.equal(peticiones.length, 1);
+  const url = new URL(peticiones[0]?.url ?? '');
+  assert.equal(url.pathname, '/rest/v1/alumno_ficha');
+  assert.equal(url.searchParams.get('select'), '*,centro:centro_estudios(id,nombre)');
+  assert.deepEqual(alumnos, [GARCIA]);
+});
+
+void test('listarTodosLosAlumnosParaExportacion: no filtra por activo — incluye alumnos de baja (requisito: volcado completo)', async () => {
+  const cliente = crearCliente((peticion) => {
+    assert.equal(new URL(peticion.url).searchParams.get('activo'), null);
+    return { estado: 200, cuerpo: [{ ...GARCIA, activo: false }] };
+  });
+
+  const alumnos = await listarTodosLosAlumnosParaExportacion(cliente);
+
+  assert.equal(alumnos.length, 1);
+  assert.equal(alumnos[0]?.activo, false);
+});
+
+void test('listarTodosLosAlumnosParaExportacion: recorre página a página hasta que una página viene incompleta', async () => {
+  const TAMANIO_LOTE = 500;
+  const paginaCompleta = Array.from({ length: TAMANIO_LOTE }, (_valor, indice) => ({ ...GARCIA, id: `a${String(indice)}` }));
+  const peticiones: PeticionSimulada[] = [];
+  let llamada = 0;
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    llamada += 1;
+    if (llamada === 1) {
+      return { estado: 200, cuerpo: paginaCompleta };
+    }
+    return { estado: 200, cuerpo: [{ ...GARCIA, id: 'a-ultimo' }] };
+  });
+
+  const alumnos = await listarTodosLosAlumnosParaExportacion(cliente);
+
+  assert.equal(peticiones.length, 2);
+  assert.equal(peticiones[0]?.cabeceras.range, '0-499');
+  assert.equal(peticiones[1]?.cabeceras.range, '500-999');
+  assert.equal(alumnos.length, TAMANIO_LOTE + 1);
+  assert.equal(alumnos[alumnos.length - 1]?.id, 'a-ultimo');
 });

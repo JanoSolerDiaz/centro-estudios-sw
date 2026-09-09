@@ -390,3 +390,35 @@ export async function listarAlumnosActivosParaPanel(cliente: ClientePostgrest, c
   }
   return consulta.seleccionar('id,nombre,primer_apellido,segundo_apellido');
 }
+
+/** Tamaño de lote al traer TODOS los alumnos para la exportación completa del centro (R-16,
+ * requisito 4: "la sesión que lo implemente decide cómo paginar... para no disparar más peticiones
+ * de las necesarias"), mismo criterio y mismo valor que `TAMANIO_LOTE_EXPORTACION` de
+ * `datos/asistencia.ts` (T-23). */
+const TAMANIO_LOTE_EXPORTACION_ALUMNOS = 500;
+
+/** TODOS los alumnos del centro —activos E inactivos, a diferencia de `listarAlumnosActivosParaPanel`
+ * (R-11): un volcado de respaldo (R-16) que omitiera a quien causó baja no sería un volcado
+ * completo— con su ficha entera (incluida `avatar_ruta`, a diferencia de `listarAlumnos`/P-02: aquí
+ * hace falta para resolver `tieneAvatar` en `dominio/exportacionCentro.ts`, que nunca vuelve a
+ * exponer la ruta en el documento final) y el centro embebido. Recorre `alumno_ficha` página a
+ * página con un lote grande, mismo patrón que `listarHistoricoAsistenciaCompleto` (T-23): sin
+ * paginar para quien llama, porque la exportación necesita el conjunto completo, no una página. */
+export async function listarTodosLosAlumnosParaExportacion(cliente: ClientePostgrest): Promise<readonly AlumnoConCentro[]> {
+  const alumnos: AlumnoConCentro[] = [];
+  let pagina = 0;
+  for (;;) {
+    const desde = pagina * TAMANIO_LOTE_EXPORTACION_ALUMNOS;
+    const { filas } = await cliente
+      .desde<AlumnoConCentro>(VISTA_FICHA)
+      .order('id')
+      .range(desde, desde + TAMANIO_LOTE_EXPORTACION_ALUMNOS - 1)
+      .seleccionarConTotal('*,centro:centro_estudios(id,nombre)');
+    alumnos.push(...filas);
+    if (filas.length < TAMANIO_LOTE_EXPORTACION_ALUMNOS) {
+      break;
+    }
+    pagina += 1;
+  }
+  return alumnos;
+}
