@@ -21,6 +21,7 @@ import {
   puedeVerPanelCentro,
   puedeVerInformeHorasProfesor,
   puedeVerPersonasReferencia,
+  puedeVerAsistentePrimerosPasos,
 } from './permisosUi.ts';
 
 const ROLES: readonly Rol[] = ['administrator', 'teacher', 'student'];
@@ -123,4 +124,10 @@ void test('puedeVerInformeHorasProfesor: exclusivamente administrator, ni siquie
   assert.equal(puedeVerInformeHorasProfesor('administrator'), true);
   assert.equal(puedeVerInformeHorasProfesor('teacher'), false);
   assert.equal(puedeVerInformeHorasProfesor('student'), false);
+});
+
+void test('puedeVerAsistentePrimerosPasos: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeVerAsistentePrimerosPasos('administrator'), true);
+  assert.equal(puedeVerAsistentePrimerosPasos('teacher'), false);
+  assert.equal(puedeVerAsistentePrimerosPasos('student'), false);
 });

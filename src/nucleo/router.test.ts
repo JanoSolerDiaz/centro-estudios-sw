@@ -76,6 +76,10 @@ void test('analizarRuta: "#/informe-horas" es el informe de horas por profesor (
   assert.deepEqual(analizarRuta('#/informe-horas'), { nombre: 'informe-horas' });
 });
 
+void test('analizarRuta: "#/primeros-pasos" es el asistente de primeros pasos (R-18)', () => {
+  assert.deepEqual(analizarRuta('#/primeros-pasos'), { nombre: 'primeros-pasos' });
+});
+
 void test('analizarRuta: funciona igual sin el "#" inicial', () => {
   assert.deepEqual(analizarRuta('/centros'), { nombre: 'centros' });
 });
@@ -94,6 +98,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'importacion' },
     { nombre: 'panel' },
     { nombre: 'informe-horas' },
+    { nombre: 'primeros-pasos' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);

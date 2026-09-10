@@ -158,3 +158,11 @@ export function puedeVerPanelCentro(rol: Rol): boolean {
 export function puedeVerInformeHorasProfesor(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Asistente de primeros pasos (R-18): lista de comprobación de arranque del centro (centro,
+ * alumno, horario, profesor). Exclusivamente `administrator` (requisito 5: "un teacher no ve este
+ * asistente") — un `teacher` no gestiona ninguno de los cuatro pasos, así que tampoco tiene sentido
+ * que vea su progreso. */
+export function puedeVerAsistentePrimerosPasos(rol: Rol): boolean {
+  return rol === 'administrator';
+}

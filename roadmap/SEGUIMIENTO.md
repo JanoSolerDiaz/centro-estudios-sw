@@ -10,18 +10,59 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-10 (rutina programada de programador) — revisado primero el
-registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3): pasada nueva del auditor desde la
-sesión anterior (commit `8f775de`, 2026-09-10), con un hallazgo `ABIERTO` de severidad alta NUEVO:
-**#18** (`datos/centrosEstudios.ts#contarAlumnosActivosDeCentro`, T-11, leía `centro_referencia_id`
-de la tabla base `alumno` en vez de la vista `alumno_ficha` — mismo defecto exacto que **P-22**,
-"permission denied for column" contra Postgres real para cualquier rol). Atendido de inmediato como
-**P-27** urgente (§0.3), antes de la cola normal: la función consulta ahora `alumno_ficha`, mismo
-patrón que `idsAlumnosDeCentro` (P-22) y `resolverCentroReferenciaIdDeAlumno` (R-04); test de
-`centrosEstudios.test.ts` actualizado para exigir `/rest/v1/alumno_ficha`. Los otros hallazgos
-`ABIERTO` no cambiaron: **#8** sigue esperando al dueño en la pregunta #16 de §6; **#15** (P-25) y
-**#17** (P-26) siguen en backlog, no urgentes; **#19** es de gobernanza documental, baja, sin código
-que tocar. Resuelto lo urgente, se revisó §1: con **R-16** ya `COMPLETADA` (sesión anterior) la
+**Última actualización:** 2026-09-10 (rutina programada de programador, "R-18 completada") — revisado
+primero el registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3): sin pasada nueva del
+auditor desde la de esta misma tarde (commit `8f775de`, 2026-09-10, ya visto por la sesión anterior),
+confirmado con `git log -- auditoriacontinua.md`. De los cuatro hallazgos `ABIERTO`, **#8** sigue
+esperando al dueño en la pregunta #16 de §6, sin novedad; **#15** (P-25) y **#17** (P-26) siguen en
+backlog, no urgentes; **#19** es de gobernanza documental, baja, sin código que tocar. Sin ningún
+hallazgo `ABIERTO` de severidad alta nuevo que atender como P-XX urgente, se revisó §1: con **R-17**
+ya `COMPLETADA` (sesión anterior) la siguiente tarea `PENDIENTE` que no depende de nada sin terminar
+era **R-18** ("Asistente de primeros pasos para el administrador", oleada v4/F-09, spec en
+`ROADMAP_PRODUCTO.md`, `Migración: No`, depende de T-11/T-12/T-15/T-24, las cuatro `COMPLETADA`).
+
+**R-18 completada.** Cuatro condiciones mínimas para que un centro recién creado esté operativo: al
+menos un centro de estudios de referencia (T-11), un alumno activo (T-12), un slot de horario vigente
+(T-15) y un profesor con cuenta activa además del propio administrador (T-24) — cada una calculada en
+tiempo real contando filas ya existentes (requisito 2 de la spec: "sin campo, columna ni tabla
+nueva"), nunca marcada a mano. Nueva `dominio/asistentePrimerosPasos.ts` (pura, 5 tests): recibe los
+cuatro booleanos ya resueltos por quien llama y decide la lista de pasos, en el orden fijo de la spec,
+y si el asistente está completo. Pantalla propia `ui/pantallaAsistentePrimerosPasos.ts` (`#/primeros-pasos`,
+10 tests), exclusiva de `administrator` (`dominio/permisosUi.ts#puedeVerAsistentePrimerosPasos`, nueva):
+cada paso pendiente trae un botón "Ir" que enlaza a la pantalla donde completarlo — centros (T-11),
+alta manual de alumno (T-12; la spec también admite enlazar a la importación masiva de R-08, "según
+convenga a la sesión que lo implemente" — se eligió el alta manual por ser el camino directo de un
+único alumno), listado de alumnos (el horario se asigna dentro de la ficha, T-15/T-16, sin pantalla
+propia) y usuarios (dar de alta el rol `teacher` de una cuenta ya existente, T-24). Nueva
+`datos/slotsHorario.ts#listarTodosLosSlots` (todo el centro, sin filtrar por alumno ni profesor — la
+única consulta de vigencia de este tipo del proyecto; el resto siempre parte de un alumno o profesor
+concreto). `ui/aplicacion.ts`: botón fijo "Primeros pasos" en la barra de navegación, siempre presente
+(requisito 1: "accesible en cualquier momento", requisito 4: "sigue accesible bajo demanda"); además,
+al entrar en la aplicación sin ningún hash en la URL (arranque real de sesión), una comprobación en
+segundo plano navega sola al asistente si queda algún paso pendiente (requisito 1: "mostrado por
+defecto") — la pantalla por defecto (listado de alumnos) ya se pinta antes de empezar esa comprobación,
+así que nunca bloquea la interfaz (requisito 4), y se reconfirma que el hash sigue vacío justo antes de
+navegar para no interrumpir una navegación explícita ya en marcha entre medias; sin `try`/`catch`
+propio — un fallo de red aquí se deja propagar a la captura global de errores de T-05, y simplemente no
+se redirige. **22 tests nuevos en total** (1570 en total, antes 1548): 5 de `asistentePrimerosPasos.ts`,
+10 de `pantallaAsistentePrimerosPasos.ts`, 1 de `listarTodosLosSlots`, 1 de `puedeVerAsistentePrimerosPasos`,
+1 de `analizarRuta`/`hashDeRuta` y 4 de `aplicacion.test.ts` (nav, redirección con pasos pendientes, sin
+redirección con los cuatro completos, sin redirección con un hash explícito). Sin migración:
+`db/APLICADAS.md` sin cambio. `FEEDBACK.md` sigue con su única fila plantilla vacía: nada que
+convertir.
+
+**Sesión anterior (2026-09-10, rutina programada de programador, "P-27 urgente (hallazgo #18) y R-17
+completada"):** revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3):
+pasada nueva del auditor desde la sesión anterior (commit `8f775de`, 2026-09-10), con un hallazgo
+`ABIERTO` de severidad alta NUEVO: **#18** (`datos/centrosEstudios.ts#contarAlumnosActivosDeCentro`,
+T-11, leía `centro_referencia_id` de la tabla base `alumno` en vez de la vista `alumno_ficha` — mismo
+defecto exacto que **P-22**, "permission denied for column" contra Postgres real para cualquier rol).
+Atendido de inmediato como **P-27** urgente (§0.3), antes de la cola normal: la función consulta ahora
+`alumno_ficha`, mismo patrón que `idsAlumnosDeCentro` (P-22) y `resolverCentroReferenciaIdDeAlumno`
+(R-04); test de `centrosEstudios.test.ts` actualizado para exigir `/rest/v1/alumno_ficha`. Los otros
+hallazgos `ABIERTO` no cambiaron: **#8** sigue esperando al dueño en la pregunta #16 de §6; **#15**
+(P-25) y **#17** (P-26) siguen en backlog, no urgentes; **#19** es de gobernanza documental, baja, sin
+código que tocar. Resuelto lo urgente, se revisó §1: con **R-16** ya `COMPLETADA` (sesión anterior) la
 siguiente tarea `PENDIENTE` que no depende de nada sin terminar era **R-17** ("Cierre de slot en un
 toque: marcar pendientes como ausentes en bloque", oleada v4/F-08, spec en `ROADMAP_PRODUCTO.md`,
 `Migración: No`, depende de R-01 —código-completa, bloqueada solo por migración, mismo precedente que
@@ -2253,7 +2294,7 @@ pantallas del requisito 2.
 | R-15 | Informe de horas por profesor | COMPLETADA | 2026-09-09 | Oleada v3 / F-07 · Sin migración: depende de R-03 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-11/R-13) y T-24 (`COMPLETADA`). `dominio/informeHorasProfesor.ts` (nuevo, 13 tests): por cada profesor activo, sesiones/horas reales propias, horas teóricas y sesiones/horas reales de sustitución (R-06), separadas sin ninguna columna nueva. Pantalla propia `ui/pantallaInformeHorasProfesor.ts` (`#/informe-horas`, 10 tests), exclusiva de `administrator`. CSV con metadatos (`nucleo/csv.ts#documentoCsvConMetadatos`, nueva) y ventana de impresión, mismas cifras que la tabla. Nuevas `datos/slotsHorario.ts#listarSlotsDeProfesores` y `dominio/permisosUi.ts#puedeVerInformeHorasProfesor`. 28 tests nuevos en total (1494 en total, antes 1466) |
 | R-16 | Exportación completa del centro (copia de seguridad y portabilidad) | COMPLETADA | 2026-09-09 | Oleada v3 / F-07 · Sin migración: depende de T-11/T-12/T-13/T-15/T-23, las cinco `COMPLETADA`. `dominio/exportacionCentro.ts` (nuevo, 13 tests): catálogo de centros, TODOS los alumnos (activos e inactivos) con personas de referencia, todos los slots (cualquier vigencia) e histórico completo de asistencia. Botón «Exportar todo el centro» como cuarto bloque de `ui/pantallaPanelCentro.ts` (R-11), no una pantalla propia. 23 tests nuevos en total (1517 en total, antes 1494) |
 | R-17 | Cierre de slot en un toque: marcar pendientes como ausentes en bloque | COMPLETADA | 2026-09-10 | Oleada v4 / F-08 · Sin migración: depende de R-01 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-11/R-13/R-15), T-19 y T-21 (ambas `COMPLETADA`). Nueva `dominio/asistencia.ts#slotsDeLaMismaSesion` (9 tests): en este modelo `slot_horario` es por alumno, así que "un slot con ocho alumnos" son ocho filas que comparten profesor/día/horario/asignatura. Nueva `datos/asistencia.ts#listarRegistrosDeSlotsYFecha` (3 tests, una sola petición para el grupo). `pantallaPasarLista.ts` (T-19): botón "Marcar el resto como ausente" sobre el slot EN CURSO, reutilizando `manejarAusente` tal cual por cada pendiente (8 tests nuevos). `pantallaRegistrosSlot.ts` (T-21): mismo control sobre la sesión del slot elegido, con confirmación y reintento locales sin round-trip tras cada intento (8 tests nuevos). 26 tests nuevos en total (1548 en total, antes 1522) |
-| R-18 | Asistente de primeros pasos para el administrador | PENDIENTE | 2026-09-09 | Oleada v4 / F-09 · Especificada en el decimosexto ciclo del PM. Sin código todavía |
+| R-18 | Asistente de primeros pasos para el administrador | COMPLETADA | 2026-09-10 | Oleada v4 / F-09 · Sin migración: depende de T-11/T-12/T-15/T-24, las cuatro `COMPLETADA`. `dominio/asistentePrimerosPasos.ts` (nuevo, puro): los cuatro pasos (centro, alumno, horario, profesor), calculados sobre booleanos ya resueltos. Pantalla propia `ui/pantallaAsistentePrimerosPasos.ts` (`#/primeros-pasos`, exclusiva de `administrator`), con enlace por paso a la pantalla donde completarlo. Nueva `datos/slotsHorario.ts#listarTodosLosSlots` (todo el centro, sin filtrar por alumno/profesor) y `dominio/permisosUi.ts#puedeVerAsistentePrimerosPasos`. `ui/aplicacion.ts`: botón fijo "Primeros pasos" en la barra de navegación (siempre accesible) y, al entrar sin ningún hash en la URL, comprobación en segundo plano que navega sola al asistente si queda algún paso pendiente — nunca si ya se navegó a una ruta explícita, y sin bloquear el primer pintado (la pantalla por defecto ya está en pantalla mientras se decide). 22 tests nuevos en total (1570 en total, antes 1548) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

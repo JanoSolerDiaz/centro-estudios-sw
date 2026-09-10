@@ -70,7 +70,9 @@ import {
   listarPersonasReferenciaDeAlumnos,
 } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
-import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, listarTodosLosSlots, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
+import { slotsVigentesEn } from '../dominio/slotHorario.ts';
+import { calcularPasosAsistentePrimerosPasos, asistentePrimerosPasosCompleto } from '../dominio/asistentePrimerosPasos.ts';
 import { listarProfesoresActivos, resolverNombresProfesores, resolverProfesorPorEmail } from '../datos/profesores.ts';
 import { listarUsuarios, actualizarUsuario } from '../datos/usuarios.ts';
 import { listarAlumnosParaImportacion, importarAlumnosValidados, importarHorariosValidados } from '../datos/importacionMasiva.ts';
@@ -104,6 +106,7 @@ import { mostrarPantallaCierresCentro } from './pantallaCierresCentro.ts';
 import { mostrarPantallaImportacionMasiva } from './pantallaImportacionMasiva.ts';
 import { mostrarPantallaPanelCentro } from './pantallaPanelCentro.ts';
 import { mostrarPantallaInformeHorasProfesor } from './pantallaInformeHorasProfesor.ts';
+import { mostrarPantallaAsistentePrimerosPasos } from './pantallaAsistentePrimerosPasos.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -190,6 +193,10 @@ function mostrarAppAdministrador(
   saludo.textContent = `Sesión iniciada como ${perfil.nombre}.`;
 
   const nav = documento.createElement('nav');
+  const enlacePrimerosPasos = crearBoton(documento, 'Primeros pasos', 'button');
+  enlacePrimerosPasos.addEventListener('click', () => {
+    router.navegar({ nombre: 'primeros-pasos' });
+  });
   const enlacePanel = crearBoton(documento, 'Panel', 'button');
   enlacePanel.addEventListener('click', () => {
     router.navegar({ nombre: 'panel' });
@@ -231,6 +238,7 @@ function mostrarAppAdministrador(
     void cerrarSesion();
   });
   nav.append(
+    enlacePrimerosPasos,
     enlacePanel,
     enlaceCentros,
     enlaceAlumnos,
@@ -395,6 +403,30 @@ function mostrarAppAdministrador(
       return;
     }
 
+    if (ruta.nombre === 'primeros-pasos') {
+      mostrarPantallaAsistentePrimerosPasos(areaPantalla, {
+        rol: perfil.rol,
+        reloj: app.reloj,
+        listarCentrosActivos: () => listarCentros(app.postgrest, { estado: 'activos' }),
+        listarAlumnosActivos: () => listarAlumnosActivosParaPanel(app.postgrest),
+        listarSlots: () => listarTodosLosSlots(app.postgrest),
+        listarProfesoresActivos: () => listarProfesoresActivos(app.postgrest),
+        irACentros: () => {
+          router.navegar({ nombre: 'centros' });
+        },
+        irAAlumnoNuevo: () => {
+          router.navegar({ nombre: 'alumno-nuevo' });
+        },
+        irAAlumnos: () => {
+          router.navegar({ nombre: 'alumnos' });
+        },
+        irAUsuarios: () => {
+          router.navegar({ nombre: 'usuarios' });
+        },
+      });
+      return;
+    }
+
     const alumnoId = ruta.nombre === 'alumno-detalle' ? ruta.alumnoId : null;
     mostrarPantallaFichaAlumno(areaPantalla, {
       rol: perfil.rol,
@@ -454,6 +486,36 @@ function mostrarAppAdministrador(
 
   router.suscribir(pintarRuta);
   pintarRuta(router.obtenerRuta());
+
+  // R-18, requisito 1 ("mostrado por defecto mientras queden pasos pendientes"): solo al entrar SIN
+  // ningún hash en la URL (arranque real de sesión, nunca tras pulsar un enlace ni al recargar sobre
+  // una ruta explícita) se comprueba en segundo plano si el asistente sigue incompleto y, si es así,
+  // se navega a él — la pantalla por defecto (`alumnos`) ya se ha pintado antes de empezar esta
+  // comprobación, así que nunca se bloquea la interfaz mientras se resuelve (requisito 4). Se
+  // reconfirma que el hash SIGUE vacío justo antes de navegar: si quien usa la aplicación ya navegó
+  // a otro sitio mientras la comprobación estaba en vuelo, esa navegación explícita se respeta y no
+  // se le interrumpe. Sin `try`/`catch`: un fallo de red aquí se deja propagar a la captura global de
+  // errores de T-05, y simplemente no se redirige — la pantalla por defecto ya visible sigue siendo
+  // válida.
+  if (app.objetivoRouter.location.hash.trim().length === 0) {
+    void (async () => {
+      const [centros, alumnos, slots, profesores] = await Promise.all([
+        listarCentros(app.postgrest, { estado: 'activos' }),
+        listarAlumnosActivosParaPanel(app.postgrest),
+        listarTodosLosSlots(app.postgrest),
+        listarProfesoresActivos(app.postgrest),
+      ]);
+      const pasos = calcularPasosAsistentePrimerosPasos({
+        hayCentroDeReferencia: centros.length > 0,
+        hayAlumnoActivo: alumnos.length > 0,
+        haySlotVigente: slotsVigentesEn(slots, app.reloj.ahora()).length > 0,
+        hayProfesorActivo: profesores.length > 0,
+      });
+      if (!asistentePrimerosPasosCompleto(pasos) && app.objetivoRouter.location.hash.trim().length === 0) {
+        router.navegar({ nombre: 'primeros-pasos' });
+      }
+    })();
+  }
 
   contenedor.append(cabecera, areaPantalla);
 }

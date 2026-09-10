@@ -37,6 +37,45 @@
 
 ---
 
+### Sesión 2026-09-10 (rutina programada de programador) — R-18 completada
+
+**Tarea(s):** R-18
+**Estado resultante:** R-18 COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión
+**Migraciones aplicadas:** ninguna (R-18 declara "Migración: No" en su propia spec — los cuatro pasos
+se calculan contando filas ya existentes, sin campo, columna ni tabla nueva)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/dominio/asistentePrimerosPasos.ts` (nuevo) y su test;
+`src/ui/pantallaAsistentePrimerosPasos.ts` (nuevo) y su test; `src/dominio/permisosUi.ts`
+(`puedeVerAsistentePrimerosPasos`) y su test; `src/datos/slotsHorario.ts` (`listarTodosLosSlots`) y su
+test; `src/nucleo/router.ts` (ruta `primeros-pasos`) y su test; `src/ui/aplicacion.ts` (botón de
+navegación, rama de enrutado y comprobación de arranque en segundo plano) y su test;
+`roadmap/SEGUIMIENTO.md` (§1 R-18 → `COMPLETADA`, cabecera), `roadmap/DECISIONES_TECNICAS.md` (seis
+filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1570/1570, antes 1548) · build ✅
+**Health check post-deploy:** N/A (sin migración ni cambio de esquema)
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-10): el paso (b) enlaza
+al alta manual, no a la importación masiva; el paso (c) enlaza al listado de alumnos, no a una
+pantalla de horario propia (no existe); `listarTodosLosSlots` sin filtrar por alumno/profesor, a
+diferencia del resto del módulo; la redirección de arranque solo se decide una vez, con el hash bruto
+vacío como única condición, sin tocar la pureza del router ni recalcular en cada navegación; sin
+`try`/`catch` propio en la comprobación de arranque, dejando que un fallo se propague a la captura
+global de T-05
+**Hallazgos del auditor atendidos:** ninguno nuevo desde la pasada de esta misma tarde (commit
+`8f775de`, ya atendida por la sesión anterior como P-27); revisados de nuevo sin cambio: **#8** (dato
+de salud, R-02, sigue esperando al dueño en la pregunta #16 de §6), **#15**/**#17** (P-25/P-26,
+backlog no urgente) y **#19** (gobernanza documental, baja, sin código que tocar)
+**Hallazgos:** ninguno nuevo, propio de esta sesión
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** siguiente sesión revisa §1 de nuevo — con R-18 ya `COMPLETADA`, no queda ninguna
+T-XX/R-XX `PENDIENTE` sin depender de una migración sin aplicar (T-25, R-01, R-02, R-03, R-06, R-08,
+R-12, R-14 siguen `BLOQUEADA` a la espera del dueño en §3); con la columna vertebral agotada, la
+siguiente sesión debería revisar primero el registro de hallazgos del auditor y, si sigue sin nada
+urgente ni backlog pendiente, aplicar §0.3 ("las P-XX se ejecutan cuando la tarea en curso está
+terminada o bloqueada")
+
+---
+
 ### Sesión 2026-09-10 (rutina programada de programador) — P-27 urgente (hallazgo #18) y R-17 completada
 
 **Tarea(s):** P-27 (urgente, backlog del auditor) / R-17

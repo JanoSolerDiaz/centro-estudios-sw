@@ -136,6 +136,17 @@ export async function listarSlotsDeProfesorConAlumno(
   return cliente.desde<SlotConAlumno>(TABLA).eq('profesor_id', profesorId).seleccionar(SELECT_CON_ALUMNO);
 }
 
+/** TODOS los slots del centro (cualquier vigencia, pasada o presente), sin filtrar por alumno ni
+ * profesor — R-18, asistente de primeros pasos: "¿hay al menos un slot vigente en todo el centro?"
+ * no parte de ningún alumno o profesor concreto, a diferencia del resto de funciones de este módulo.
+ * `administrator` lee cualquier fila por la política `slot_horario_admin_leer_todos`
+ * (`003_politicas_rls.sql`), así que esta consulta no necesita ningún filtro adicional. La vigencia
+ * en una fecha concreta se resuelve, como siempre, con `slotsVigentesEn` de `dominio/slotHorario.ts`
+ * sobre el resultado — esta función no filtra nada por sí misma. */
+export async function listarTodosLosSlots(cliente: ClientePostgrest): Promise<readonly SlotHorario[]> {
+  return cliente.desde<SlotHorario>(TABLA).seleccionar();
+}
+
 async function slotsAbiertosDe(cliente: ClientePostgrest, columna: 'alumno_id' | 'profesor_id', id: string) {
   return cliente.desde<SlotHorario>(TABLA).eq(columna, id).eq('vigente_hasta', null).seleccionar();
 }

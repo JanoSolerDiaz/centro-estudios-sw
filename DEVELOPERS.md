@@ -434,7 +434,8 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `administrator` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`,
     `#/historico[/<alumnoId>]` — el segmento de `alumnoId`, opcional, añadido por R-04 para que la
     ficha de alumno enlace al informe mensual con el alumno ya preseleccionado —, `#/usuarios` desde
-    T-24, `#/cierres` desde R-12, `#/importacion` desde R-08, `#/panel` desde R-11) y
+    T-24, `#/cierres` desde R-12, `#/importacion` desde R-08, `#/panel` desde R-11, `#/informe-horas`
+    desde R-15, `#/primeros-pasos` desde R-18) y
     `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>[/<fecha>]]` — el segmento de
     `slotId` es opcional, para el enlace profundo de "mi horario" a los registros de un slot
@@ -857,6 +858,20 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     aceptación ("un `teacher` recibe `SinPermiso`") se satisface por la misma inaccesibilidad
     estructural que ya protege el resto del panel (`puedeVerPanelCentro`). Sin migración
     (`Migración: No` en la spec).
+  - `pantallaAsistentePrimerosPasos.ts` (R-18, nuevo) — `mostrarPantallaAsistentePrimerosPasos(contenedor, deps)`:
+    lista de comprobación de arranque del centro, compuesta por `dominio/asistentePrimerosPasos.ts`
+    (nuevo, puro) sobre cuatro booleanos ya resueltos por la pantalla — al menos un centro de
+    referencia activo (T-11), un alumno activo (T-12), un slot de horario vigente (`listarTodosLosSlots`,
+    nueva en `datos/slotsHorario.ts`, filtrada por `slotsVigentesEn` de `dominio/slotHorario.ts`) y un
+    profesor activo (T-24) — cada uno calculado en tiempo real, nunca marcado a mano. Cada paso
+    pendiente trae un botón "Ir" a la pantalla donde completarlo (centros, alta manual de alumno,
+    listado de alumnos para el horario, usuarios para el profesor). Exclusiva de `administrator`
+    (`puedeVerAsistentePrimerosPasos`). Enrutada como `#/primeros-pasos`, con un botón fijo en la
+    barra de navegación (siempre accesible); además, `ui/aplicacion.ts` navega sola a esta pantalla al
+    entrar en la aplicación SIN ningún hash en la URL mientras quede algún paso pendiente — la
+    pantalla por defecto (`alumnos`) ya está pintada antes de decidirlo, así que nunca bloquea la
+    interfaz, y una navegación explícita mientras tanto (el usuario pulsa un enlace antes de que la
+    comprobación termine) nunca se interrumpe. Sin migración (`Migración: No` en la spec).
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

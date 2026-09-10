@@ -298,6 +298,87 @@ void test('administrator con appAdministrador: ruta por defecto es el listado de
   assert.ok(botones.some((texto) => texto === 'Cerrar sesión'));
 });
 
+void test('administrator con appAdministrador: sin ningún hash y el asistente incompleto, se abre "Primeros pasos" (R-18, requisito 1)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  // Manejador trivial (cuerpo vacío para todo): ninguno de los cuatro pasos está hecho.
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }), '');
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Primeros pasos/);
+  assert.match(contenedor.textContent, /Pendiente: Da de alta al menos un centro de estudios/);
+});
+
+void test('administrator con appAdministrador: sin ningún hash pero con los cuatro pasos ya completos, se queda en el listado de alumnos', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const manejador = (peticion: PeticionSimulada): { estado: number; cuerpo: unknown } => {
+    const pathname = new URL(peticion.url).pathname;
+    if (pathname === '/rest/v1/slot_horario') {
+      return { estado: 200, cuerpo: [{ id: 'slot-x', vigente_desde: '2020-01-01', vigente_hasta: null }] };
+    }
+    if (pathname === '/rest/v1/centro_estudios') {
+      return { estado: 200, cuerpo: [{ id: 'centro-x', nombre: 'Un centro', activo: true }] };
+    }
+    if (pathname === '/rest/v1/alumno_ficha') {
+      return {
+        estado: 200,
+        cuerpo: [
+          {
+            id: 'alumno-x',
+            nombre: 'Un Alumno',
+            primer_apellido: 'Test',
+            segundo_apellido: null,
+            activo: true,
+            centro: { nombre: 'Un centro' },
+          },
+        ],
+      };
+    }
+    if (pathname === '/rest/v1/perfil') {
+      return { estado: 200, cuerpo: [{ id: 'profesor-x', nombre: 'Un Profesor' }] };
+    }
+    return { estado: 200, cuerpo: [] };
+  };
+  const { app } = crearAppAdministradorFalso(manejador, '');
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Alumnos/);
+  assert.doesNotMatch(contenedor.textContent, /Pendiente: Da de alta al menos un centro de estudios/);
+});
+
+void test('administrator con appAdministrador: con un hash explícito ("#/centros"), nunca se redirige a "Primeros pasos"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }), '#/centros');
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Centros de estudios/);
+  assert.doesNotMatch(contenedor.textContent, /Pendiente: Da de alta al menos un centro de estudios/);
+});
+
+void test('administrator con appAdministrador: pulsar "Primeros pasos" navega al asistente', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const boton = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Primeros pasos');
+  assert.ok(boton);
+  boton.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Pendiente: Da de alta al menos un centro de estudios/);
+});
+
 void test('administrator con appAdministrador: hashUrl inicial "#/centros" abre directamente el catálogo de centros', async () => {
   const contenedor = crearContenedorDePruebas();
   const { app, peticiones } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }), '#/centros');
