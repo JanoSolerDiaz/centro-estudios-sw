@@ -37,6 +37,39 @@
 
 ---
 
+### Sesión 2026-09-10 (rutina programada de programador) — nada accionable: los tres frentes agotados a la vez
+
+**Tarea(s):** ninguna — comprobación de salud y de los tres frentes (auditor, backlog P-XX, cola T-XX/R-XX)
+**Estado resultante:** sin cambio en §1 (44 filas: 36 `COMPLETADA`, 8 `BLOQUEADA`, cero `PENDIENTE`/`EN CURSO`)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en `dev`)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera, nueva entrada de "Última
+actualización"); `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1572/1572, sin cambio) · build ✅ — ejecutadas
+como comprobación de salud pese a no haber código nuevo, sin encontrar ninguna regresión silenciosa
+**Health check post-deploy:** N/A (sin push de código, sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno — sin pasada nueva del auditor desde `8f775de` (2026-09-10),
+ya revisada por las dos sesiones anteriores; los cuatro hallazgos `ABIERTO` del registro (#8, #15, #17,
+#19) ya estaban, o resueltos en código a falta de reevaluación del auditor (#15/P-25, #17/P-26,
+#19/hueco de §7), o esperando al dueño (#8, pregunta #16 de §6) — ninguno nuevo, ninguno atendible hoy
+**Tareas autopropuestas (P-XX):** ninguna — revisadas las 27 filas de §5: todas `RESUELTA`/`IMPLEMENTADA`,
+el backlog del auditor que sostuvo las dos sesiones anteriores (P-25/P-26/P-27) está agotado
+**Hallazgos:** ninguno nuevo. Confirmado con una pasada íntegra (no solo la nota de la sesión anterior)
+que las 44 filas de §1 son `COMPLETADA` o `BLOQUEADA` — es la primera vez que los tres frentes (cola de
+tareas, backlog del auditor y preguntas al dueño en §6) están agotados simultáneamente: las dos sesiones
+previas ("P-23/P-24" y "P-25/P-26") tenían todavía backlog del auditor con el que llenar el hueco de la
+columna vertebral; esta ya no
+**Próximo paso:** la siguiente sesión debe comprobar primero, antes de repetir la revisión completa de
+§1/§5: (a) si hay una pasada nueva del auditor (`git log -- auditoriacontinua.md` contra `8f775de`); (b)
+si el dueño respondió alguna de las once preguntas abiertas de §6 (**#7 a #17**, todas sin respuesta —
+la #16 es la que desbloquea más trabajo, migración `011` y, en cadena, la aprobación de T-25); (c) si `db/APLICADAS.md`
+ganó alguna fila nueva en `010`-`016`, cada una de las cuales desbloquea una R-XX ya code-complete. Sin
+ninguna de las tres, no hay tarea nueva que ejecutar sin inventar trabajo (§0.2)
+
+---
+
 ### Sesión 2026-09-10 (rutina programada de programador) — P-25/P-26: backlog del auditor, columna vertebral agotada
 
 **Tarea(s):** P-25, P-26 (+ hueco de gobernanza documental del hallazgo #19 en §7)

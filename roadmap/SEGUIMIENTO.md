@@ -10,8 +10,39 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-10 (rutina programada de programador, "P-25/P-26: backlog del
-auditor, columna vertebral agotada") — revisado primero el registro de hallazgos de
+**Última actualización:** 2026-09-10 (rutina programada de programador, "nada accionable: los tres
+frentes — auditor, backlog P-XX y cola T-XX/R-XX — están agotados a la vez por primera vez") —
+revisado primero el registro de hallazgos de `auditoriacontinua.md` (protocolo §0.3): **sin pasada
+nueva del auditor** desde la de esta misma tarde (commit `8f775de`, 2026-09-10, ya vista por las dos
+sesiones anteriores), confirmado con `git log -- auditoriacontinua.md`. De los cuatro hallazgos
+`ABIERTO` en el registro, los tres que tenían dirección de arreglo backlog (**#15**/P-25,
+**#17**/P-26, **#19**/hueco de §7) ya quedaron implementados por la sesión inmediatamente anterior
+("P-25/P-26... columna vertebral agotada") y el de severidad alta ya corregido por P-27 en la sesión
+previa a esa (**#18**) — los cuatro pendientes solo de que el auditor los reevalúe en su próxima
+pasada, que esta sesión no puede forzar. Solo queda **#8** `ABIERTO` de verdad, esperando al dueño en
+la pregunta #16 de §6, sin novedad. Revisado §1 completo (T-00 a R-18, 44 filas): **36 `COMPLETADA`,
+8 `BLOQUEADA`, cero `PENDIENTE`/`EN CURSO`** — confirmado con una pasada íntegra de la tabla, no
+solo con la nota de la sesión anterior. Revisada además §5 (registro de P-XX) de punta a punta:
+**las 27 filas están `RESUELTA`/`IMPLEMENTADA`, ninguna `PENDIENTE`** — el backlog del auditor que
+sostuvo las dos últimas sesiones también se agotó. Revisadas las respuestas del dueño en §6: sin
+cambio en ninguna de las once preguntas sin respuesta (**#7 a #17**, la columna "Respuesta" sigue
+vacía en las once — incluida **#16**, la única que desbloquearía trabajo nuevo real, migración `011`
+y en cadena la aprobación de los textos legales de T-25). Revisado `db/APLICADAS.md`: `009` sigue
+siendo la última migración
+aplicada en `dev`, `010` a `016` siguen en "Pendiente de aplicar" — el dueño no ha aplicado ninguna
+desde la sesión anterior. Con los tres frentes agotados a la vez (cola de tareas, backlog del
+auditor y decisiones del dueño), y sin ninguna vía autónoma nueva que abrir sin inventar trabajo
+(§0.2 prohíbe expresamente añadir algo "porque sería útil"), esta sesión no ejecutó ninguna T-XX,
+R-XX ni P-XX — **no hay ningún commit de código**. Se ejecutó de todos modos la verificación
+pre-push completa como comprobación de salud, sin encontrar ninguna regresión silenciosa: `npm run
+typecheck`, `npm run lint`, **`npm test` 1572/1572** (sin cambio, ningún test nuevo), `npm run
+build`, los cuatro en verde. Esta entrada deja constancia del chequeo para que la sesión siguiente no
+repita la misma investigación completa si nada ha cambiado todavía — revisar primero si hay pasada
+nueva del auditor, respuesta nueva del dueño en §6 o migración nueva en `APLICADAS.md` antes de
+volver a recorrer §1/§5 enteros.
+
+**Sesión anterior (2026-09-10, rutina programada de programador, "P-25/P-26: backlog del
+auditor, columna vertebral agotada"):** revisado primero el registro de hallazgos de
 `auditoriacontinua.md` (protocolo §0.3): sin pasada nueva del auditor desde la de esta misma tarde
 (commit `8f775de`, 2026-09-10, ya visto por la sesión anterior), confirmado con
 `git log -- auditoriacontinua.md`. De los cuatro hallazgos `ABIERTO`, **#8** sigue esperando al dueño
