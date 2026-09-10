@@ -10,7 +10,32 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-10 (rutina programada de programador, segunda pasada seguida sin
+**Última actualización:** 2026-09-10 (rutina programada de producto, "decimoséptimo ciclo del PM —
+una R-XX nueva, R-19, abriendo la Oleada v5"): revisado primero el registro de hallazgos de
+`auditoriacontinua.md` (protocolo, paso previo a cualquier cambio de roadmap): sin ninguna pasada
+nueva desde `8f775de` (2026-09-10), ya vista por las dos sesiones de programador siguientes. De los
+cuatro `ABIERTO` de aquella pasada, **#15**/**#17** (P-25/P-26) y **#19** (hueco de §7 para la fila de
+R-16) ya quedaron implementados/cerrados por esas mismas sesiones de programador, confirmado leyendo
+§5 (P-25/P-26 `IMPLEMENTADA Y VERIFICADA`) y §7 (fila de R-16 ya presente) — ninguno pide trabajo
+nuevo de este ciclo. Solo **#8** (RGPD/dato de salud en R-02) sigue `ABIERTO` de verdad, esperando al
+dueño en la pregunta #16 de §6, sin novedad. `FEEDBACK.md` sigue con su única fila plantilla vacía:
+nada que convertir.
+
+Revisada §1 completa (44 filas): **36 `COMPLETADA`, 8 `BLOQUEADA` (solo por migración sin aplicar o
+por la pregunta #16), cero `PENDIENTE`/`EN CURSO`** — confirmado por las dos sesiones de programador
+anteriores y revisado de nuevo aquí. Con la columna vertebral de código (v1 a v4) agotada por
+completo, este ciclo mira más allá y abre la **Oleada v5** en `ROADMAP_PRODUCTO.md`, con una R-XX
+nueva: **R-19** ("Informe de horas propias para el profesor", F-10) — no es un hueco inventado, lo
+dejó autoseñalado la propia spec de R-15 (requisito 5: "si en el futuro interesa que un `teacher` vea
+sus propias horas, es una ampliación de alcance nueva"). Hoy un profesor tiene que pedirle al
+administrador sus propias horas dadas; R-19 reutiliza el cálculo ya completo de R-15, acotado a sí
+mismo, sin selector de otro profesor ni ranking. No añade datos personales, no toca al rol `student`,
+no necesita migración, y no depende de ninguna decisión reservada al dueño. Fila nueva en §1
+(`PENDIENTE`, detrás de R-18 en el orden de "siguiente tarea"). Sin ningún otro hueco real que añadir
+este ciclo — dieciséis ciclos consecutivos de PM ya habían traducido a tareas concretas el hueco real
+entre el MVP y el objetivo de producto.
+
+**Sesión anterior (2026-09-10, rutina programada de programador, segunda pasada seguida sin
 trabajo accionable) — siguiendo la propia recomendación de la sesión anterior, se comprobaron solo
 los tres indicadores antes de repetir la revisión completa de §1/§5: **(a)** `git log -- auditoriacontinua.md`
 sigue en `8f775de` (2026-09-10), sin pasada nueva del auditor; **(b)** las once preguntas de §6
@@ -2381,6 +2406,7 @@ pantallas del requisito 2.
 | R-16 | Exportación completa del centro (copia de seguridad y portabilidad) | COMPLETADA | 2026-09-09 | Oleada v3 / F-07 · Sin migración: depende de T-11/T-12/T-13/T-15/T-23, las cinco `COMPLETADA`. `dominio/exportacionCentro.ts` (nuevo, 13 tests): catálogo de centros, TODOS los alumnos (activos e inactivos) con personas de referencia, todos los slots (cualquier vigencia) e histórico completo de asistencia. Botón «Exportar todo el centro» como cuarto bloque de `ui/pantallaPanelCentro.ts` (R-11), no una pantalla propia. 23 tests nuevos en total (1517 en total, antes 1494) |
 | R-17 | Cierre de slot en un toque: marcar pendientes como ausentes en bloque | COMPLETADA | 2026-09-10 | Oleada v4 / F-08 · Sin migración: depende de R-01 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-11/R-13/R-15), T-19 y T-21 (ambas `COMPLETADA`). Nueva `dominio/asistencia.ts#slotsDeLaMismaSesion` (9 tests): en este modelo `slot_horario` es por alumno, así que "un slot con ocho alumnos" son ocho filas que comparten profesor/día/horario/asignatura. Nueva `datos/asistencia.ts#listarRegistrosDeSlotsYFecha` (3 tests, una sola petición para el grupo). `pantallaPasarLista.ts` (T-19): botón "Marcar el resto como ausente" sobre el slot EN CURSO, reutilizando `manejarAusente` tal cual por cada pendiente (8 tests nuevos). `pantallaRegistrosSlot.ts` (T-21): mismo control sobre la sesión del slot elegido, con confirmación y reintento locales sin round-trip tras cada intento (8 tests nuevos). 26 tests nuevos en total (1548 en total, antes 1522) |
 | R-18 | Asistente de primeros pasos para el administrador | COMPLETADA | 2026-09-10 | Oleada v4 / F-09 · Sin migración: depende de T-11/T-12/T-15/T-24, las cuatro `COMPLETADA`. `dominio/asistentePrimerosPasos.ts` (nuevo, puro): los cuatro pasos (centro, alumno, horario, profesor), calculados sobre booleanos ya resueltos. Pantalla propia `ui/pantallaAsistentePrimerosPasos.ts` (`#/primeros-pasos`, exclusiva de `administrator`), con enlace por paso a la pantalla donde completarlo. Nueva `datos/slotsHorario.ts#listarTodosLosSlots` (todo el centro, sin filtrar por alumno/profesor) y `dominio/permisosUi.ts#puedeVerAsistentePrimerosPasos`. `ui/aplicacion.ts`: botón fijo "Primeros pasos" en la barra de navegación (siempre accesible) y, al entrar sin ningún hash en la URL, comprobación en segundo plano que navega sola al asistente si queda algún paso pendiente — nunca si ya se navegó a una ruta explícita, y sin bloquear el primer pintado (la pantalla por defecto ya está en pantalla mientras se decide). 22 tests nuevos en total (1570 en total, antes 1548) |
+| R-19 | Informe de horas propias para el profesor | PENDIENTE | 2026-09-10 | Oleada v5 / F-10 · Sin migración: depende de R-15 (`COMPLETADA`). Recién especificada este ciclo del PM (decimoséptimo), autoseñalada por el requisito 5 de la propia spec de R-15 ("si en el futuro interesa que un teacher vea sus propias horas, es una ampliación de alcance nueva"). Ninguna sesión de programador la ha empezado todavía |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

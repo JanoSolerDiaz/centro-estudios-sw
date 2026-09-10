@@ -8,61 +8,45 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-09 — decimosexto ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` tiene su pasada del
-2026-09-09 (commit visible en `git log`, tras el lote de R-07/R-08/R-09/R-10/R-15/R-16): seis
-`ABIERTO` en su tabla. **#8** (dato de salud del artículo 9 del RGPD en R-02) sigue formalizado como
-pregunta **#16** de §6, esperando al dueño, sin novedad — no requiere ninguna acción nueva de este
-ciclo. **#12/#13** (cola offline de R-07, severidad alta) y **#14** (Service Worker, severidad media)
-ya están `IMPLEMENTADA` de facto por **P-20/P-21/P-23**, pendientes solo de que el auditor las
-reevalúe en su próxima pasada — tampoco piden nada nuevo aquí. **#16** (inyección de fórmula CSV) ya
-resuelto por **P-24**. Quedan **dos hallazgos de calidad/deuda técnica sin ningún P-XX que los
-recoja todavía** — ninguno de seguridad ni de producto, así que no le tocan al programador como
-urgente ni al roadmap de producto como R-XX: **#15** (la importación masiva de R-08 no es idempotente
-ante un reintento de red) y **#17** (dos defectos menores de `sw.js`, sin impacto práctico hoy). Se
-registran en esta sesión como backlog técnico, **P-25** y **P-26**, en §5 de `SEGUIMIENTO.md`
-(`PENDIENTE`, con `origen: auditoría #15`/`#17`), para que no se pierdan — mismo procedimiento ya
-usado con P-02/P-03 (quinto ciclo) y P-06/P-13/P-14/P-15 (ciclos posteriores).
+**Última actualización:** 2026-09-10 — decimoséptimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sin pasada nueva
+desde la del 2026-09-10 (commit `8f775de`, la misma que ya vieron y trabajaron las sesiones de
+programador de esa tarde): de sus cuatro hallazgos `ABIERTO` en aquella pasada, **#15** (importación
+masiva no idempotente) y **#17** (dos defectos menores de `sw.js`) ya quedaron `IMPLEMENTADA` por
+**P-25**/**P-26**, y **#19** (hueco de gobernanza documental en §7, fila de R-16 sin añadir) ya quedó
+cerrado añadiendo esa fila — los tres confirmados leyendo §5 y §7, sin que este ciclo tenga que
+repetir el trabajo. Solo sigue **ABIERTO** de verdad **#8** (dato de salud del artículo 9 del RGPD en
+R-02), formalizado como pregunta **#16** de §6, esperando al dueño sin novedad — no requiere ninguna
+acción nueva de este ciclo.
 
-**Oleada v1, v2 y v3 con TODO su código completo; sigue sin haber ningún despliegue en producción.**
-Desde el ciclo anterior, las sesiones de programador completaron **R-11** (panel de centro),
-**R-15** (informe de horas por profesor) y **R-16** (exportación completa del centro), las tres
-`COMPLETADA` — el detalle completo, sesión a sesión, está en §1/§2 de `SEGUIMIENTO.md`, no se repite
-aquí. Con esto, **no queda ninguna R-01 a R-16 en estado `PENDIENTE` sin código**: lo que sigue
-`BLOQUEADA` lo está solo por una migración sin aplicar (R-01, R-02, R-03, R-06, R-12, R-14) o
-esperando además una decisión del dueño (R-02, pregunta #16) — nunca por falta de trabajo del
-programador. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción),
-así que ninguna oleada puede darse por arrancada de verdad **en el sentido formal** de este documento
-— aunque en la práctica todo el código de v1, v2 y v3 ya existe. Nada que mover a
-`ROADMAP_HISTORICO.md` esta vez (no existe todavía: ninguna oleada ha llegado a desplegarse).
+**Columna vertebral de código (v1 a v4) agotada por completo: confirmado por dos sesiones de
+programador consecutivas** ("los tres frentes — auditor, backlog P-XX y cola T-XX/R-XX — están
+agotados a la vez por primera vez"), con §1 revisada de punta a punta (44 filas: 36 `COMPLETADA`,
+8 `BLOQUEADA` solo por migración sin aplicar o por la pregunta #16, **cero `PENDIENTE`/`EN CURSO`**).
+Con **R-17** y **R-18** también `COMPLETADA` desde la sesión de hoy, la propia Oleada v4 queda con
+todo su código escrito. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
+producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez — pero, con la cola de trabajo formalmente vacía, toca otra vez mirar
+más allá de la última oleada, mismo gesto que el noveno ciclo (definió v2 completa con v1 en curso),
+el decimoquinto (v3 con v1/v2 sin desplegar) y el decimosexto (v4 con v1 a v3 sin desplegar).
 
-**Dos R-XX nuevas este ciclo, abriendo la Oleada v4: R-17 (cierre de slot en un toque) y R-18
-(asistente de primeros pasos).** Con la columna vertebral completa de código (v1 a v3) agotada —
-confirmado en `HISTORIAL_SESIONES.md`, sesión de hoy del programador: "no queda ninguna T-XX/R-XX
-`PENDIENTE`/`EN CURSO` sin depender de una migración sin aplicar" — y sin ningún hallazgo de
-producto/arquitectura que traducir este ciclo, toca mirar más allá de v3, mismo gesto que el noveno
-ciclo (definió v2 completa mientras v1 seguía en curso) y el decimoquinto (definió v3 mientras v1/v2
-seguían sin desplegar). Dos huecos reales, ninguno hipotético, los dos centrados en el usuario de
-mayor frecuencia (el profesor que pasa lista) y en la primera impresión de una academia nueva: (1)
-**R-01 ya deja marcar ausente a un alumno sin registro, pero solo de uno en uno** — cerrar una clase
-donde faltaron varios alumnos sigue costando tantos toques como alumnos faltaron, justo cuando el
-profesor está saliendo de clase; una acción explícita de cierre que marque a todos los pendientes de
-una vez, con confirmación nominal antes de ejecutar, reduce esa cola de toques a uno solo sin tocar la
-regla de R-01 de que el sistema nunca infiere una ausencia por sí solo (sigue siendo un toque
-explícito del profesor, solo que aplicado a varios alumnos a la vez, no un cierre automático). (2)
-**Ninguna pantalla guía hoy a un administrador que entra por primera vez a un centro recién creado** —
-R-08 (importación masiva) y R-09 (aplicación instalable) ya atacan el coste de teclear datos y de
-abrir la aplicación, pero nada dice **qué falta hacer primero** entre dar de alta un centro de
-referencia, un alumno, un horario y un profesor; una lista de comprobación de arranque, calculada
-sobre datos ya existentes y con enlaces directos a cada pantalla, es la primera impresión que decide
-si una academia sigue explorando el producto o lo abandona — el argumento de adopción que el propio
-protocolo de este ciclo pide tener en cuenta. Ninguna de las dos añade datos personales nuevos,
-ninguna toca al rol `student`, ninguna necesita migración, y ninguna depende de una decisión reservada
-al dueño. **Revisado el resto del roadmap contra el estado actual y la visión de producto: sin ningún
-otro cambio.** Quince ciclos consecutivos de PM ya habían traducido a tareas concretas el hueco real
-entre el MVP y el objetivo de producto; este decimosexto no encuentra ningún otro hueco real más allá
-de R-17/R-18 — inventar una tarea sin una necesidad real detrás sería exactamente el vicio que este
-protocolo existe para evitar.
+**Una R-XX nueva este ciclo, abriendo la Oleada v5: R-19 (informe de horas propias para el
+profesor).** No es un hueco inventado por este ciclo: lo dejó autoseñalado la propia spec de R-15
+(requisito 5, "si en el futuro interesa que un `teacher` vea sus propias horas, es una ampliación de
+alcance nueva, no algo que esta tarea deba resolver de más") — la misma clase de autoseñalización que
+ya dio R-13 (a partir de R-06) y R-14 (a partir de R-06, requisito 7). Hoy un profesor que quiere
+comprobar cuántas horas ha dado este mes antes de que le paguen tiene que pedírselo al administrador y
+esperar: la misma fricción que R-15 ya evitó para el centro completo (antes había que reconstruirla a
+mano sumando R-04 de cada alumno de cada profesor), sin resolver todavía para el propio profesor, el
+usuario de mayor frecuencia de todo el producto. No es ninguna de las decisiones reservadas al dueño
+del encargo de este ciclo (no es precio, plan, cuenta de pago, texto legal, comunicación a usuarios
+reales, operación destructiva ni DDL de producción): es una ampliación de alcance dentro de un rol ya
+existente, sobre un cálculo que R-15 ya tiene completo, sin ningún dato personal nuevo y sin tocar al
+rol `student`. **Revisado el resto del roadmap contra el estado actual y la visión de producto: sin
+ningún otro hueco real que añadir este ciclo** — dieciséis ciclos consecutivos de PM ya habían
+traducido a tareas concretas el hueco real entre el MVP y el objetivo de producto; inventar una
+segunda tarea sin necesidad real detrás sería exactamente el vicio que este protocolo existe para
+evitar.
 
 ---
 
@@ -200,6 +184,27 @@ datos y el de abrir la aplicación. Ninguna de las dos añade datos personales n
 
 - **F-08 — Cierre de sesión sin fricción.** R-17.
 - **F-09 — Primera impresión y adopción.** R-18.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v5 — Autoservicio del profesor: sus propias horas, sin pedírselas a nadie
+
+**Arranca cuando la oleada v4 (R-17 a R-18) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado
+real de esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta
+oleada queda especificada y en cola, detrás de la oleada v4, en el orden de §1.
+
+Por qué esta oleada: v1 a v4 dejan resuelto el ciclo diario de una clase, la adopción inicial de una
+academia, la rendición de cuentas del centro y la fricción de cierre de sesión y primer arranque, pero
+todas miran los datos del profesor desde fuera — el administrador ve sus horas (R-15) y su aviso de
+sesión sin pasar lista (R-13, que sí es del propio profesor pero solo dentro de su semana) —, nunca le
+dan al profesor una cifra que hoy solo calcula el administrador para él. La propia spec de R-15 dejó
+dicho, en su propio requisito 5, que esto era una ampliación de alcance futura y no algo que debiera
+resolver de más: con la columna vertebral de código agotada (v1 a v4), toca abrirla. Nada de esto
+añade datos personales nuevos ni toca al rol `student`.
+
+- **F-10 — Transparencia de horas propias.** R-19.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -910,3 +915,44 @@ ni segundo profesor) muestra los cuatro pasos pendientes con sus enlaces; dar de
 alumno marca el paso (b) como hecho sin ninguna acción manual adicional; con los cuatro pasos
 completos, el asistente deja de aparecer por defecto pero sigue accesible; un `teacher` no ve este
 asistente.
+
+---
+
+### R-19 — Informe de horas propias para el profesor
+**Oleada / Fase:** v5 / F-10 · **Migración:** No · **Depende de:** R-15
+**Origen:** roadmap (autoseñalada por el requisito 5 de la propia spec de R-15)
+
+**Objetivo:** R-15 ya calcula, para cada profesor activo, sus sesiones y horas reales/teóricas — pero
+solo `administrator` lo ve. Un profesor que quiere comprobar cuántas horas ha dado este mes antes de
+que le paguen tiene que pedírselo al administrador y esperar: la misma fricción que R-15 ya evitó para
+el centro completo (antes había que reconstruirla a mano sumando el informe mensual, R-04, de cada
+alumno suyo), sin resolver todavía para sí mismo. La propia spec de R-15 (requisito 5) dejó dicho que
+esto era "una ampliación de alcance nueva", no algo que debiera resolver de más.
+
+**Requisitos:**
+1. Un profesor autenticado puede consultar, en un bloque o pantalla propia (dentro de «Mi horario»,
+   T-22, o en pantalla aparte — decisión de la sesión que lo implemente, sin condicionar esta spec),
+   el mismo cálculo de R-15 —sesiones con al menos una entrada registrada, horas reales acumuladas
+   (`null`, nunca `0`, si ninguna tiene salida marcada), horas teóricas de sus slots vigentes, y sus
+   sesiones de sustitución (R-06) separadas de las propias— acotado exclusivamente a sí mismo.
+2. Sin selector de otro profesor, sin ranking, sin ningún dato de un compañero: es una vista de "lo
+   mío", no una versión reducida del panel de R-15. Un profesor no ve las cifras de otro por esta vía,
+   ni siquiera agregadas.
+3. Mismo rango de fechas por defecto (mes en curso, elegible) y mismo criterio de exclusión que R-15:
+   ninguna sesión anulada (`asistencia.estado = 'anulada'`) ni ninguna cancelación de slot (R-06)
+   cuenta como hora impartida.
+4. Exportable a CSV con el mismo formato de metadatos que R-15 (`documentoCsvConMetadatos`), para que
+   el profesor pueda guardárselo o imprimirlo sin depender de que se lo envíe el administrador.
+5. Reutiliza el dominio de R-15 (`informeHorasProfesor.ts`) tal cual — la pieza nueva es la
+   restricción de alcance al propio profesor y el punto de montaje en la interfaz de `teacher` —, sin
+   duplicar ningún cálculo.
+6. Ningún dato ni tabla nuevos; ninguna comunicación externa; `administrator` sigue accediendo a R-15
+   (todos los profesores) sin ningún cambio.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un profesor con sesiones propias y una sustitución ese mes ve sus horas
+propias y de sustitución separadas, coincidentes con lo que R-15 calcularía para él desde el panel de
+`administrator`; no ve ningún control para elegir otro profesor ni ninguna cifra ajena; el CSV
+exportado coincide con lo mostrado en pantalla; `administrator` sigue viendo el informe completo de
+R-15 sin cambios.

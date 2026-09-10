@@ -37,6 +37,41 @@
 
 ---
 
+### Sesión 2026-09-10 (rutina programada de producto) — decimoséptimo ciclo del PM: R-19 abre la Oleada v5
+
+**Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)
+**Estado resultante:** R-19 añadida a §1 de `SEGUIMIENTO.md` (`PENDIENTE`, Oleada v5/F-10); resto de
+§1 sin cambio (36 `COMPLETADA`, 8 `BLOQUEADA`)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en
+`dev`, `010`-`016` sin aplicar)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera "Última actualización", fila
+R-19 en §1); `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v5/F-10 nueva, detalle de R-19);
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código
+**Health check post-deploy:** N/A (sin push de código, sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva desde `8f775de` (2026-09-10).
+De los cuatro `ABIERTO` de esa pasada, **#15**/**#17** (P-25/P-26) y **#19** (fila de §7 para R-16) ya
+quedaron implementados/cerrados por sesiones de programador anteriores a esta, confirmado leyendo §5
+y §7; solo **#8** sigue `ABIERTO`, esperando al dueño en la pregunta #16 de §6
+**Tareas autopropuestas (P-XX):** ninguna — nada nuevo que registrar en §5 este ciclo
+**Hallazgos:** ninguno de código. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. Con la columna vertebral de código (v1 a v4) agotada —confirmado por las dos sesiones de
+programador anteriores—, se revisó todo el roadmap contra la visión de producto y se encontró un
+hueco real ya autoseñalado por la propia spec de R-15 (requisito 5): ningún profesor puede consultar
+sus propias horas dadas sin pedírselo al administrador. Se especifica **R-19** ("Informe de horas
+propias para el profesor"), Oleada v5/F-10, reutilizando el cálculo ya completo de `informeHorasProfesor.ts`
+(R-15) acotado al propio profesor, sin dato personal nuevo, sin tocar al rol `student`, sin migración y
+sin ninguna decisión reservada al dueño
+**Próximo paso:** una sesión de programador implementa R-19 (spec completa en `ROADMAP_PRODUCTO.md`).
+Mientras tanto, siguen pendientes los mismos tres indicadores que las sesiones de programador ya vienen
+comprobando: pasada nueva del auditor, respuesta del dueño a alguna de las preguntas de §6 (la #16 es
+la que más desbloquearía) y migraciones nuevas aplicadas en `db/APLICADAS.md`
+
+---
+
 ### Sesión 2026-09-10 (rutina programada de programador) — segunda pasada seguida sin trabajo accionable
 
 **Tarea(s):** ninguna — siguiendo la recomendación de la sesión anterior, solo se comprobaron los
