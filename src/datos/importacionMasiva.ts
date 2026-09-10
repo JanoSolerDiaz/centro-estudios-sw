@@ -3,12 +3,23 @@
  * necesitan `dominio/importacionAlumnos.ts` (duplicados) y `dominio/importacionHorarios.ts`
  * (emparejar por nombre), y confirmar las filas ya validadas por esas dos funciones puras.
  *
- * **Alumnos: una única petición `INSERT` con todas las filas nuevas** (mismo patrón de generación de
- * `id` en el cliente que `datos/alumnos.ts#crearAlumno`, con `Prefer: return=minimal` por el mismo
- * motivo — `email_alumno`/`telefono_alumno` no se pueden `RETURNING` desde la tabla base) en vez de
- * una llamada por fila: `alumno` no tiene ninguna restricción que dependa de las demás filas del lote
- * (a diferencia de `slot_horario`, que sí valida solape contra lo ya existente), así que un único
+ * **Alumnos: una única petición `INSERT` con todas las filas nuevas**, con `Prefer: return=minimal`
+ * (`email_alumno`/`telefono_alumno` no se pueden `RETURNING` desde la tabla base) en vez de una
+ * llamada por fila: `alumno` no tiene ninguna restricción que dependa de las demás filas del lote (a
+ * diferencia de `slot_horario`, que sí valida solape contra lo ya existente), así que un único
  * `INSERT` con un array es correcto y evita 50 peticiones HTTP para un alta de 50 alumnos.
+ *
+ * **P-25 (hallazgo #15 de `auditoriacontinua.md`): el `id` de cada fila lo genera y mantiene quien
+ * llama, nunca esta función.** Antes, `importarAlumnosValidados` generaba un `id` nuevo con
+ * `crypto.randomUUID()` en cada invocación — un corte de red justo después de que el `INSERT` llegara
+ * al servidor pero antes de que la respuesta llegara al navegador dejaba la pantalla en estado de
+ * error con el mismo lote listo para reenviar, y un reintento generaba 48 `id` distintos de los ya
+ * creados, duplicando el alta entera. Con el `id` fijado por quien llama (`ui/pantallaImportacionMasiva.ts`,
+ * una vez por fila analizada, nunca recalculado en un reintento) un reintento reenvía el MISMO `id`
+ * por fila: si el primer intento sí llegó a escribir, el reintento choca con la clave primaria de
+ * `alumno` y PostgREST responde `409` (`Conflicto`, mapeado en `erroresDominio.ts`) en vez de crear
+ * una segunda fila — la restricción de unicidad ya existente de la clave primaria hace de clave de
+ * idempotencia, sin ninguna migración nueva.
  *
  * **Horarios: una llamada a `crearSlot` por fila, sin abortar en la primera que falle** (criterio de
  * aceptación de R-08: "un CSV de horarios que referencia un profesor sin cuenta... deja esa fila en
@@ -55,15 +66,23 @@ export async function listarAlumnosParaImportacion(
   }));
 }
 
+/** Una fila ya validada como `'nueva'`, con el `id` que le asignó quien llama (ver la nota de P-25 en
+ * la cabecera del módulo: ese `id` debe mantenerse estable entre el primer intento y cualquier
+ * reintento del mismo lote, nunca regenerarse aquí). */
+export interface FilaAlumnoParaConfirmar {
+  readonly id: string;
+  readonly datos: DatosAlumnoImportado;
+}
+
 /** Inserta de una vez todas las filas ya validadas como `'nueva'` por `analizarCsvAlumnos`. Con
  * `filas` vacío no hace ninguna petición. Devuelve cuántas se crearon — no hace falta releer cada
  * ficha completa: la pantalla solo necesita confirmar un recuento (requisito 2: "permite confirmar
  * las 48 correctas"), no volver a mostrarlas una a una. */
-export async function importarAlumnosValidados(cliente: ClientePostgrest, filas: readonly DatosAlumnoImportado[]): Promise<number> {
+export async function importarAlumnosValidados(cliente: ClientePostgrest, filas: readonly FilaAlumnoParaConfirmar[]): Promise<number> {
   if (filas.length === 0) {
     return 0;
   }
-  const conId = filas.map((datos) => ({ id: crypto.randomUUID(), ...datos }));
+  const conId = filas.map((fila) => ({ id: fila.id, ...fila.datos }));
   await cliente.desde(TABLA_ALUMNO).insertar(conId, { representar: false });
   return conId.length;
 }

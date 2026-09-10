@@ -26,6 +26,17 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaImportacionMasiv
     resolverProfesorPorEmail: overrides.resolverProfesorPorEmail ?? noImplementado('resolverProfesorPorEmail'),
     importarAlumnos: overrides.importarAlumnos ?? noImplementado('importarAlumnos'),
     importarHorarios: overrides.importarHorarios ?? noImplementado('importarHorarios'),
+    generarId: overrides.generarId ?? contadorDeIdsDeterminista(),
+  };
+}
+
+/** Generador determinista para tests: `id-1`, `id-2`... — nunca `crypto.randomUUID()`, para que un
+ * test pueda comprobar exactamente qué id se envió sin depender de un valor aleatorio. */
+function contadorDeIdsDeterminista(): () => string {
+  let contador = 0;
+  return () => {
+    contador += 1;
+    return `id-${String(contador)}`;
   };
 }
 
@@ -125,7 +136,44 @@ void test('alumnos: confirmar llama a importarAlumnos solo con las filas nuevas 
   botonConfirmar.click();
   await esperarMicrotareas();
 
-  assert.deepEqual((recibido as { nombre: string }[]).map((f) => f.nombre), ['Juan']);
+  const filas = recibido as { readonly id: string; readonly datos: { readonly nombre: string } }[];
+  assert.deepEqual(filas.map((f) => f.datos.nombre), ['Juan']);
+  assert.ok(filas[0]?.id);
+  assert.match(contenedor.textContent, /Se han creado 1 alumnos\./);
+});
+
+void test('alumnos: un reintento tras un error de red reenvía el mismo id que el primer intento (P-25)', async () => {
+  const { contenedor, documento } = crearContenedorDePruebas();
+  const recibidos: (readonly { readonly id: string; readonly datos: { readonly nombre: string } }[])[] = [];
+  let intento = 0;
+  const deps = crearDepsFalsas({
+    importarAlumnos: (filas) => {
+      recibidos.push(filas);
+      intento += 1;
+      if (intento === 1) {
+        return Promise.reject(new Error('corte de red simulado'));
+      }
+      return Promise.resolve(filas.length);
+    },
+  });
+  mostrarPantallaImportacionMasiva(contenedor, deps);
+  const input = contenedor.querySelectorAll('input[type="file"]')[0] as HTMLInputElement;
+
+  seleccionarFichero(documento, input, `${CABECERA_ALUMNOS}\r\nJuan;Pérez;;San José;;\r\n`);
+  await esperarMicrotareas();
+
+  const botonConfirmar = [...contenedor.querySelectorAll('button')].find((b) => b.textContent === 'Confirmar importación');
+  assert.ok(botonConfirmar);
+
+  botonConfirmar.click();
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /No se ha podido completar la acción/);
+
+  botonConfirmar.click();
+  await esperarMicrotareas();
+
+  assert.equal(recibidos.length, 2);
+  assert.equal(recibidos[0]?.[0]?.id, recibidos[1]?.[0]?.id);
   assert.match(contenedor.textContent, /Se han creado 1 alumnos\./);
 });
 

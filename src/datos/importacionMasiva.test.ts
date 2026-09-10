@@ -75,8 +75,8 @@ void test('importarAlumnosValidados: una única petición INSERT con todas las f
   });
 
   const filas = [
-    { nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, centro_referencia_id: 'c1', telefono_alumno: null, email_alumno: null },
-    { nombre: 'Luis', primer_apellido: 'Gómez', segundo_apellido: null, centro_referencia_id: 'c1', telefono_alumno: null, email_alumno: null },
+    { id: 'id-1', datos: { nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, centro_referencia_id: 'c1', telefono_alumno: null, email_alumno: null } },
+    { id: 'id-2', datos: { nombre: 'Luis', primer_apellido: 'Gómez', segundo_apellido: null, centro_referencia_id: 'c1', telefono_alumno: null, email_alumno: null } },
   ];
 
   const creados = await importarAlumnosValidados(cliente, filas);
@@ -88,11 +88,29 @@ void test('importarAlumnosValidados: una única petición INSERT con todas las f
   assert.equal(peticion.cabeceras.prefer, 'return=minimal');
   const cuerpo = peticion.cuerpo as { readonly id: string; readonly nombre: string }[];
   assert.equal(cuerpo.length, 2);
-  assert.ok(cuerpo[0]?.id);
-  assert.ok(cuerpo[1]?.id);
-  assert.notEqual(cuerpo[0].id, cuerpo[1].id);
+  assert.equal(cuerpo[0]?.id, 'id-1');
+  assert.equal(cuerpo[1]?.id, 'id-2');
   assert.equal(cuerpo[0].nombre, 'Ana');
   assert.equal(cuerpo[1].nombre, 'Luis');
+});
+
+void test('importarAlumnosValidados: no genera ningún id — usa siempre el que trae la fila (P-25, idempotencia ante reintento)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((p) => {
+    peticiones.push(p);
+    return { estado: 200, cuerpo: undefined };
+  });
+
+  const filas = [
+    { id: 'id-estable', datos: { nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, centro_referencia_id: 'c1', telefono_alumno: null, email_alumno: null } },
+  ];
+
+  await importarAlumnosValidados(cliente, filas);
+  await importarAlumnosValidados(cliente, filas); // simula el reintento de un mismo lote tras un corte de red
+
+  assert.equal(peticiones.length, 2);
+  const idsEnviados = peticiones.map((p) => (p.cuerpo as { readonly id: string }[])[0]?.id);
+  assert.deepEqual(idsEnviados, ['id-estable', 'id-estable']);
 });
 
 // --- importarHorariosValidados ----------------------------------------------------------------

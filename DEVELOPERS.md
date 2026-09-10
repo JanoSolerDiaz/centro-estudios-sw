@@ -347,8 +347,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `importacionMasiva.ts` (R-08, nuevo) — `listarAlumnosParaImportacion(cliente)`: catálogo
     completo de alumnos (id + columnas de emparejamiento), una única petición sin paginar, para las
     dos funciones puras de `dominio/importacionAlumnos.ts`/`importacionHorarios.ts`.
-    `importarAlumnosValidados(cliente, filas)`: un ÚNICO `INSERT` con todas las filas nuevas (genera
-    el `id` en el cliente, `Prefer: return=minimal`, mismo patrón que `crearAlumno`).
+    `importarAlumnosValidados(cliente, filas: FilaAlumnoParaConfirmar[])`: un ÚNICO `INSERT` con
+    todas las filas nuevas, `Prefer: return=minimal`. **Desde P-25** (2026-09-10, hallazgo #15 de
+    auditoría): el `id` de cada fila lo trae ya puesto quien llama — esta función NUNCA genera un
+    `id` — porque `ui/pantallaImportacionMasiva.ts` lo fija una única vez al analizar el fichero
+    (`deps.generarId`) y lo reutiliza en cualquier reintento del mismo lote; así, un reintento tras
+    un alta que sí llegó a escribir choca con la clave primaria de `alumno` (`409`/`Conflicto`) en
+    vez de duplicar la fila.
     `importarHorariosValidados(cliente, reloj, filas)`: una llamada a `crearSlot` (T-15) POR FILA,
     sin abortar en la primera que falle — un solape con un horario ya existente (incluida la
     reimportación del mismo fichero sin cambios) queda recogido en `errores`, con el motivo real de

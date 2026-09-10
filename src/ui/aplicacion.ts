@@ -384,6 +384,7 @@ function mostrarAppAdministrador(
         resolverProfesorPorEmail: (email) => resolverProfesorPorEmail(app.postgrest, email),
         importarAlumnos: (filas) => importarAlumnosValidados(app.postgrest, filas),
         importarHorarios: (filas) => importarHorariosValidados(app.postgrest, app.reloj, filas),
+        generarId: () => crypto.randomUUID(),
       });
       return;
     }

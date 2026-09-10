@@ -12,6 +12,11 @@
  * El bloque de horarios resuelve cada email de profesor distinto UNA vez (`emailsProfesorUnicosDeCsvHorarios`,
  * `dominio/importacionHorarios.ts`) antes de analizar las filas — nunca una petición de red por fila,
  * ni siquiera cuando varias filas comparten el mismo profesor.
+ *
+ * **P-25:** el bloque de alumnos genera el `id` de cada fila `'nueva'` una única vez, al analizar el
+ * fichero (`deps.generarId`, nunca en el click de confirmar), y lo guarda en el estado del bloque
+ * (`idsPorFila`) para reutilizarlo tal cual en cualquier reintento del mismo lote — ver la cabecera de
+ * `datos/importacionMasiva.ts` para el porqué.
  */
 
 import type { Rol } from '../dominio/tipos.ts';
@@ -20,7 +25,6 @@ import { analizarCsv } from '../nucleo/csv.ts';
 import {
   analizarCsvAlumnos,
   CABECERA_ALUMNOS_CSV,
-  type DatosAlumnoImportado,
   type FilaAlumnoCsv,
   type AlumnoExistenteParaImportacion,
   type ResultadoAnalisisAlumnosCsv,
@@ -41,7 +45,7 @@ import { crearElemento } from './dom.ts';
 import { crearZonaMensaje, crearBoton } from './formularios.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
-import type { ResultadoImportacionHorarios } from '../datos/importacionMasiva.ts';
+import type { ResultadoImportacionHorarios, FilaAlumnoParaConfirmar } from '../datos/importacionMasiva.ts';
 
 type AlumnoParaAnalisis = AlumnoExistenteParaImportacion & AlumnoParaEmparejarHorario;
 
@@ -51,20 +55,35 @@ export interface DependenciasPantallaImportacionMasiva {
   listarCentrosParaImportacion(): Promise<readonly CentroEstudios[]>;
   listarAlumnosParaImportacion(): Promise<readonly AlumnoParaAnalisis[]>;
   resolverProfesorPorEmail(email: string): Promise<ProfesorResuelto | null>;
-  importarAlumnos(filas: readonly DatosAlumnoImportado[]): Promise<number>;
+  importarAlumnos(filas: readonly FilaAlumnoParaConfirmar[]): Promise<number>;
   importarHorarios(
     filas: readonly { readonly descripcion: string; readonly datos: DatosHorarioImportado }[],
   ): Promise<ResultadoImportacionHorarios>;
+  /** Inyectable para tests deterministas; por defecto `crypto.randomUUID()` en el punto de
+   * composición (`aplicacion.ts`), nunca aquí (mismo criterio que `avatarAlumno.ts`/`pantallaPasarLista.ts`).
+   * Se llama una única vez por fila `'nueva'`, al analizar el fichero — nunca al confirmar, para que
+   * un reintento tras un error de red reenvíe el mismo `id` (P-25, ver `datos/importacionMasiva.ts`). */
+  generarId(): string;
 }
 
 interface EstadoBloqueAlumnos {
   readonly cargando: boolean;
   readonly error: string;
   readonly resultado: ResultadoAnalisisAlumnosCsv | null;
+  /** El `id` que se usará para dar de alta cada fila `'nueva'`, indexado por `numeroFila`. Se genera
+   * una única vez, al analizar el fichero — nunca al confirmar — para que un reintento tras un error
+   * de red reenvíe el MISMO `id` por fila (P-25, ver la cabecera de `datos/importacionMasiva.ts`). */
+  readonly idsPorFila: ReadonlyMap<number, string>;
   readonly mensajeConfirmacion: string;
 }
 
-const ESTADO_INICIAL_ALUMNOS: EstadoBloqueAlumnos = { cargando: false, error: '', resultado: null, mensajeConfirmacion: '' };
+const ESTADO_INICIAL_ALUMNOS: EstadoBloqueAlumnos = {
+  cargando: false,
+  error: '',
+  resultado: null,
+  idsPorFila: new Map(),
+  mensajeConfirmacion: '',
+};
 
 interface EstadoBloqueHorarios {
   readonly cargando: boolean;
@@ -124,7 +143,7 @@ function montarBloqueAlumnos(contenedor: HTMLElement, deps: DependenciasPantalla
   botonConfirmar.disabled = true;
 
   async function analizar(archivo: File): Promise<void> {
-    almacen.actualizar({ cargando: true, error: '', resultado: null, mensajeConfirmacion: '' });
+    almacen.actualizar({ cargando: true, error: '', resultado: null, idsPorFila: new Map(), mensajeConfirmacion: '' });
     try {
       const [texto, centros, alumnosExistentes] = await Promise.all([
         deps.leerFichero.leerTexto(archivo),
@@ -132,7 +151,10 @@ function montarBloqueAlumnos(contenedor: HTMLElement, deps: DependenciasPantalla
         deps.listarAlumnosParaImportacion(),
       ]);
       const resultado = analizarCsvAlumnos(analizarCsv(texto), centros, alumnosExistentes);
-      almacen.actualizar({ cargando: false, resultado });
+      const idsPorFila = new Map(
+        resultado.filas.filter((f) => f.estado === 'nueva').map((f) => [f.numeroFila, deps.generarId()] as const),
+      );
+      almacen.actualizar({ cargando: false, resultado, idsPorFila });
     } catch (error) {
       almacen.actualizar({ cargando: false, error: mensajeAmigable(error) });
     }
@@ -146,11 +168,19 @@ function montarBloqueAlumnos(contenedor: HTMLElement, deps: DependenciasPantalla
   });
 
   botonConfirmar.addEventListener('click', () => {
-    const { resultado } = almacen.obtener();
+    const { resultado, idsPorFila } = almacen.obtener();
     if (!resultado) {
       return;
     }
-    const nuevas = resultado.filas.filter((f) => f.estado === 'nueva').map((f) => f.datos);
+    const nuevas: FilaAlumnoParaConfirmar[] = resultado.filas
+      .filter((f) => f.estado === 'nueva')
+      .map((f) => {
+        const id = idsPorFila.get(f.numeroFila);
+        if (!id) {
+          throw new Error(`Falta el id generado para la fila ${String(f.numeroFila)}.`);
+        }
+        return { id, datos: f.datos };
+      });
     almacen.actualizar({ cargando: true, error: '', mensajeConfirmacion: '' });
     deps
       .importarAlumnos(nuevas)

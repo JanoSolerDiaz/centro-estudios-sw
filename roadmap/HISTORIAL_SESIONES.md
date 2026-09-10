@@ -37,6 +37,44 @@
 
 ---
 
+### Sesión 2026-09-10 (rutina programada de programador) — P-25/P-26: backlog del auditor, columna vertebral agotada
+
+**Tarea(s):** P-25, P-26 (+ hueco de gobernanza documental del hallazgo #19 en §7)
+**Estado resultante:** P-25 IMPLEMENTADA Y VERIFICADA; P-26 IMPLEMENTADA; sin cambio de estado en §1
+(ninguna T-XX/R-XX tocada — todo lo que queda `PENDIENTE`/`EN CURSO` en §1 depende de una migración
+sin aplicar o de la pregunta #16 de §6)
+**Commits a `develop`:** ver commit de esta sesión
+**Migraciones aplicadas:** ninguna — ambas P-XX son solo de cliente
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/datos/importacionMasiva.ts` (`FilaAlumnoParaConfirmar`, ya no
+genera `id`) y su test; `src/ui/pantallaImportacionMasiva.ts` (`idsPorFila`, `deps.generarId`) y su
+test; `src/ui/aplicacion.ts` (`generarId: () => crypto.randomUUID()`); `sw.js`
+(`respuestaSinRedNiCache()`, comparación de origen por `URL`); `eslint.config.js` (global `URL` para
+`sw.js`); `roadmap/SEGUIMIENTO.md` (§5 P-25/P-26 → implementadas, §7 fila nueva para R-16, cabecera);
+`roadmap/DECISIONES_TECNICAS.md` (cuatro filas nuevas); `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1572/1572, antes 1570) · build ✅
+**Health check post-deploy:** N/A (sin migración ni cambio de esquema)
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-10): la clave primaria
+ya única de `alumno` hace de clave de idempotencia, sin migración ni columna nueva; el `id` se genera
+con `deps.generarId()` inyectable (mismo criterio que `generarPeticionId`/`generarUuid`), nunca
+`crypto.randomUUID()` directo en la pantalla; los dos arreglos de `sw.js` sin test propio (JavaScript
+plano fuera de `tsc`, mismo criterio que el resto del fichero)
+**Hallazgos del auditor atendidos:** #15 (P-25) y #17 (P-26) implementados, pendientes de que el
+auditor los reevalúe y cierre en su próxima pasada; #19 (gobernanza documental, fila de §7 que le
+faltaba a R-16) corregido directamente
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** P-25 y P-26 registradas en §5 antes de implementarlas (protocolo
+§0.3), ambas ya IMPLEMENTADAS; no se acumula ninguna P-XX más (límite de 3 entre tareas de la columna
+vertebral, y no hay ninguna abierta)
+**Próximo paso:** con la columna vertebral agotada (todo `PENDIENTE`/`EN CURSO` de §1 depende de una
+migración sin aplicar o de la pregunta #16 de §6) y sin más backlog `ABIERTO` del auditor con dirección
+de arreglo evidente (solo queda #8, que espera al dueño), la siguiente sesión debe: (1) confirmar si
+hay pasada nueva del auditor; (2) si no la hay y §1 sigue agotada, considerar si procede una pasada de
+auditor o de PM (ninguna de las dos es rol de esta sesión de programador) antes de seguir con más
+backlog no urgente
+
+---
+
 ### Sesión 2026-09-10 (rutina programada de programador) — R-18 completada
 
 **Tarea(s):** R-18

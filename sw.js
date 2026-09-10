@@ -37,11 +37,19 @@ const NOMBRE_CACHE = `${PREFIJO_CACHE}v1`;
 
 const CASCARON = ['./', './index.html', './manifest.json', './config.js', './iconos/icono-192.png', './iconos/icono-512.png', './iconos/icono-512-maskable.png', './iconos/icono-apple-touch.png'];
 
-const RESPUESTA_SIN_RED_NI_CACHE = new Response(
-  '<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>GestorAcademia</title></head>' +
-    '<body><p>Sin conexión y sin ninguna versión guardada todavía. Conéctate una vez para poder abrir la aplicación sin red la próxima vez.</p></body></html>',
-  { status: 200, headers: { 'Content-Type': 'text/html; charset=UTF-8' } },
-);
+// P-26 (hallazgo #17 de auditoriacontinua.md): función, no una `Response` compartida a nivel de
+// módulo — el cuerpo de una `Response` es de un solo uso, y este `fallback` puede necesitarse más
+// de una vez en la vida del propio worker (p. ej. si el precache del cascarón falló parcialmente en
+// el `install`, que ya se tolera como "best-effort"). Una constante compartida lanzaría al segundo
+// uso al intentar leer un cuerpo ya consumido, sirviendo el error de red crudo del navegador en vez
+// de este mensaje en español.
+function respuestaSinRedNiCache() {
+  return new Response(
+    '<!doctype html><html lang="es"><head><meta charset="UTF-8"><title>GestorAcademia</title></head>' +
+      '<body><p>Sin conexión y sin ninguna versión guardada todavía. Conéctate una vez para poder abrir la aplicación sin red la próxima vez.</p></body></html>',
+    { status: 200, headers: { 'Content-Type': 'text/html; charset=UTF-8' } },
+  );
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -83,7 +91,7 @@ async function responderRedPrimeroConCache(peticion) {
     }
     if (peticion.mode === 'navigate') {
       const indiceCacheado = await cache.match('./index.html');
-      return indiceCacheado || RESPUESTA_SIN_RED_NI_CACHE;
+      return indiceCacheado || respuestaSinRedNiCache();
     }
     throw error;
   }
@@ -91,7 +99,13 @@ async function responderRedPrimeroConCache(peticion) {
 
 self.addEventListener('fetch', (event) => {
   const peticion = event.request;
-  if (peticion.method !== 'GET' || !peticion.url.startsWith(self.location.origin)) {
+  // P-26 (hallazgo #17): comparación del ORIGIN real, no un prefijo de cadena — `startsWith` también
+  // coincidiría con un dominio que empezara igual que el propio origen seguido de más caracteres
+  // (p. ej. `https://academia.example.com.attacker.net` si el origen fuera
+  // `https://academia.example.com`). Sin impacto práctico hoy (la Content-Security-Policy de
+  // `_headers` ya acota `connect-src`/`img-src` a los orígenes esperados), pero es la comparación
+  // correcta para la única guarda que decide qué intercepta este Service Worker.
+  if (peticion.method !== 'GET' || new URL(peticion.url).origin !== self.location.origin) {
     return; // Otro método, u otro origen (Supabase): sin intervención, siempre red directa.
   }
   event.respondWith(responderRedPrimeroConCache(peticion));
