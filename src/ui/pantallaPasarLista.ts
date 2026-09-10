@@ -211,6 +211,12 @@ interface EstadoPantalla {
    * cambio real — `true` por defecto sin la dependencia inyectada (el indicador no se muestra en
    * ese caso, ver `pintar`). */
   readonly conectado: boolean;
+  /** R-17: "Marcar el resto como ausente". `claves` es la foto fija de las cards `'pendiente'` en
+   * el momento de ABRIR la confirmación (requisito 2: "lista nominalmente... solo al confirmar se
+   * ejecuta la acción") — nunca recalculada al confirmar, aunque el profesor haya tocado alguna
+   * card suelta mientras tanto: `manejarAusente` (reutilizada tal cual, requisito 3) ya es un
+   * no-op seguro sobre una card que mientras tanto dejó de estar `'pendiente'`. */
+  readonly cierreEnBloque: { readonly confirmando: boolean; readonly enviando: boolean; readonly claves: readonly string[] };
 }
 
 function formatearMinutos(minutos: number): string {
@@ -298,6 +304,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     extras: new Map(),
     avatares: new Map(),
     conectado: deps.detectorConexion?.estaConectado() ?? true,
+    cierreEnBloque: { confirmando: false, enviando: false, claves: [] },
   });
 
   const zonaError = crearZonaMensaje(documento, 'alert');
@@ -312,7 +319,9 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   botonActualizar.addEventListener('click', () => {
     void cargar();
   });
-  cabecera.append(horaEl, estadoConexionEl, estadoSlotEl, botonActualizar);
+  // R-17: "Marcar el resto como ausente" y su confirmación — ver `pintarCierreEnBloque`.
+  const zonaCierreEnBloque = documento.createElement('div');
+  cabecera.append(horaEl, estadoConexionEl, estadoSlotEl, botonActualizar, zonaCierreEnBloque);
 
   const mensajeCargando = crearElemento(documento, 'p', { texto: 'Cargando…' });
   const rejilla = documento.createElement('div');
@@ -598,8 +607,10 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     mensajeCargando.hidden = !estado.cargando;
     rejilla.hidden = estado.cargando;
     if (estado.cargando) {
+      zonaCierreEnBloque.textContent = '';
       return;
     }
+    pintarCierreEnBloque(estado);
 
     const foco = elementoConFoco();
     const claveEnfocada = foco?.clave ?? null;
@@ -1077,6 +1088,95 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         mensajeError: mensajeAmigable(error),
       });
     }
+  }
+
+  /** Cards `'pendiente'` del slot en curso (R-17, requisito 1: "el slot en curso tiene al menos un
+   * alumno sin ningún registro ese día") — ni `'error'` (un intento de PRESENCIA fallido no se
+   * reconvierte en ausencia sin que el profesor lo decida cada vez, viendo su nombre en la
+   * confirmación) ni ningún otro estado ya resuelto. Un "alumno extra" (T-20) nunca puede estar en
+   * `'pendiente'` (su tipo lo excluye), así que no hace falta filtrarlos aparte. */
+  function clavesPendientes(estado: EstadoPantalla): readonly string[] {
+    return [...estado.tarjetas].filter(([, tarjeta]) => tarjeta.fase === 'pendiente').map(([clave]) => clave);
+  }
+
+  /** Abre la confirmación de "Marcar el resto como ausente" (R-17, requisito 2): congela AHORA la
+   * lista de pendientes — `ejecutarCierreEnBloque` opera sobre esta foto, nunca sobre una relectura
+   * en el momento de confirmar. */
+  function abrirCierreEnBloque(): void {
+    const claves = clavesPendientes(almacen.obtener());
+    if (claves.length === 0) {
+      return;
+    }
+    almacen.actualizar((actual) => ({ ...actual, cierreEnBloque: { confirmando: true, enviando: false, claves } }));
+  }
+
+  function cancelarCierreEnBloque(): void {
+    almacen.actualizar((actual) => ({ ...actual, cierreEnBloque: { confirmando: false, enviando: false, claves: [] } }));
+  }
+
+  /** Ejecuta el cierre en bloque (R-17, requisito 3): reutiliza `manejarAusente` TAL CUAL, una
+   * llamada por alumno, en vez de reimplementar su manejo de `Conflicto`/`ErrorDeRed`/límite de
+   * tasa — cada card acaba exactamente en el mismo estado que si el profesor la hubiera tocado una
+   * a una ("las que ya se completaron quedan"), incluida la cola offline de R-07 si está inyectada.
+   * Un fallo de una no detiene el resto: `manejarAusente` ya deja su propia card en `'error'` (o
+   * `'pendiente_offline'`) sin lanzar, así que el bucle sigue solo. Quién falló se ve en la propia
+   * rejilla, tarjeta a tarjeta — no hace falta un resumen aparte (requisito 3: "la interfaz dice
+   * exactamente cuáles no se pudieron marcar, para reintentarlas sueltas"). */
+  async function ejecutarCierreEnBloque(): Promise<void> {
+    const claves = almacen.obtener().cierreEnBloque.claves;
+    almacen.actualizar((actual) => ({ ...actual, cierreEnBloque: { ...actual.cierreEnBloque, enviando: true } }));
+    for (const clave of claves) {
+      await manejarAusente(clave);
+    }
+    almacen.actualizar((actual) => ({ ...actual, cierreEnBloque: { confirmando: false, enviando: false, claves: [] } }));
+  }
+
+  const protectorCierreEnBloque = crearProtectorDobleToque(ejecutarCierreEnBloque);
+
+  /** "Marcar el resto como ausente" (R-17): un `<button>` explícito, nunca activo por defecto ni
+   * disparado por el tick del programador o por "Actualizar" (requisito 1) — solo se ofrece con el
+   * slot EN CURSO (mismo criterio que el resto de la cabecera) y al menos un pendiente. La
+   * confirmación lista NOMINALMENTE a quién se va a marcar (requisito 2, "nunca solo una cifra"). */
+  function pintarCierreEnBloque(estado: EstadoPantalla): void {
+    zonaCierreEnBloque.textContent = '';
+    if (estado.propuesta?.tipo !== 'en_curso') {
+      return;
+    }
+
+    if (!estado.cierreEnBloque.confirmando) {
+      if (clavesPendientes(estado).length === 0) {
+        return;
+      }
+      const boton = crearBoton(documento, 'Marcar el resto como ausente', 'button');
+      boton.addEventListener('click', () => {
+        abrirCierreEnBloque();
+      });
+      zonaCierreEnBloque.append(boton);
+      return;
+    }
+
+    const nombres = estado.cierreEnBloque.claves
+      .map((clave) => estado.tarjetas.get(clave)?.alumno)
+      .filter((alumno): alumno is AlumnoParaPropuesta => alumno !== undefined)
+      .map((alumno) => `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`);
+    zonaCierreEnBloque.append(crearElemento(documento, 'p', { texto: '¿Marcar como ausentes a los siguientes alumnos?' }));
+    const lista = documento.createElement('ul');
+    for (const nombre of nombres) {
+      lista.append(crearElemento(documento, 'li', { texto: nombre }));
+    }
+    zonaCierreEnBloque.append(lista);
+
+    const botonConfirmar = crearBoton(documento, 'Confirmar', 'button');
+    botonConfirmar.disabled = estado.cierreEnBloque.enviando;
+    botonConfirmar.addEventListener('click', () => {
+      void protectorCierreEnBloque();
+    });
+    const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelar.disabled = estado.cierreEnBloque.enviando;
+    botonCancelar.addEventListener('click', () => {
+      cancelarCierreEnBloque();
+    });
+    zonaCierreEnBloque.append(botonConfirmar, botonCancelar);
   }
 
   /** Tercer control de R-03: marca la salida de una card ya registrada, con la hora real del

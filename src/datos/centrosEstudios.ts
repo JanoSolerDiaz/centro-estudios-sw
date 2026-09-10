@@ -105,10 +105,16 @@ export async function editarNombreCentro(
 
 /** Cuántos alumnos activos apuntan hoy a `centroId` — para avisar antes de desactivar (requisito 3
  * de T-11), no para impedirlo: un centro con alumnos se puede desactivar igualmente, y esos alumnos
- * siguen siendo válidos y consultables después (la baja de un centro no toca `alumno` en absoluto). */
+ * siguen siendo válidos y consultables después (la baja de un centro no toca `alumno` en absoluto).
+ * Contra `alumno_ficha`, NUNCA la tabla base `alumno` (P-27, mismo defecto que P-22 en
+ * `datos/asistencia.ts#idsAlumnosDeCentro`): `centro_referencia_id` no está concedido a
+ * `authenticated` en el `GRANT` de columna de la tabla base (`003_politicas_rls.sql`), ni siquiera
+ * para `administrator` — filtrar por ella ahí da "permission denied for column
+ * centro_referencia_id" para cualquier rol. `alumno_ficha` sí la expone y solo devuelve fila a
+ * `administrator`, que es quien exclusivamente invoca esta función (pantalla de centros). */
 export async function contarAlumnosActivosDeCentro(cliente: ClientePostgrest, centroId: string): Promise<number> {
   const filas = await cliente
-    .desde<{ readonly id: string }>('alumno')
+    .desde<{ readonly id: string }>('alumno_ficha')
     .eq('centro_referencia_id', centroId)
     .eq('activo', true)
     .seleccionar('id');

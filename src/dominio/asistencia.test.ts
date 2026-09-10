@@ -22,10 +22,33 @@ import {
   duracionRealMinutos,
   duracionTeoricaMinutos,
   puedeAvisarAusencia,
+  slotsDeLaMismaSesion,
   type RegistroAsistencia,
   type UsuarioAutenticado,
 } from './asistencia.ts';
-import type { Asistencia } from './tipos.ts';
+import type { Asistencia, SlotHorario } from './tipos.ts';
+
+interface SlotConAlumnoDePrueba extends SlotHorario {
+  readonly alumno: { readonly activo: boolean };
+}
+
+function crearSlotSesion(sobrescribir: Partial<SlotConAlumnoDePrueba> = {}): SlotConAlumnoDePrueba {
+  return {
+    id: 'slot-1',
+    alumno_id: 'alumno-1',
+    profesor_id: 'profesor-1',
+    dia_semana: 3,
+    hora_inicio: '17:00',
+    hora_fin: '18:00',
+    asignatura_o_grupo: 'Matemáticas 4º ESO',
+    vigente_desde: '2026-01-01',
+    vigente_hasta: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    alumno: { activo: true },
+    ...sobrescribir,
+  };
+}
 
 function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
   return {
@@ -360,4 +383,92 @@ void test('duracionTeoricaMinutos: calcula los minutos entre hora_inicio y hora_
 
 void test('duracionTeoricaMinutos: ignora los segundos del formato HH:MM:SS de PostgREST', () => {
   assert.equal(duracionTeoricaMinutos('09:00:00', '10:30:00'), 90);
+});
+
+const FECHA_DE_PRUEBA = new Date('2026-09-10T12:00:00Z'); // jueves
+
+void test('slotsDeLaMismaSesion: incluye a la propia referencia cuando sigue vigente', () => {
+  const referencia = crearSlotSesion();
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia], FECHA_DE_PRUEBA);
+  assert.deepEqual(resultado, [referencia]);
+});
+
+void test('slotsDeLaMismaSesion: incluye a otro alumno que comparte profesor, día, horario y asignatura', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1', alumno_id: 'alumno-1' });
+  const companero = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2' });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, companero], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1', 'slot-2'],
+  );
+});
+
+void test('slotsDeLaMismaSesion: excluye un slot de otro profesor', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1' });
+  const ajeno = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2', profesor_id: 'profesor-2' });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, ajeno], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1'],
+  );
+});
+
+void test('slotsDeLaMismaSesion: excluye un slot con distinto horario, aunque comparta el resto', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1' });
+  const otraHora = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2', hora_inicio: '18:00', hora_fin: '19:00' });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, otraHora], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1'],
+  );
+});
+
+void test('slotsDeLaMismaSesion: excluye un slot con distinta asignatura_o_grupo', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1' });
+  const otraAsignatura = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2', asignatura_o_grupo: 'Física 4º ESO' });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, otraAsignatura], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1'],
+  );
+});
+
+void test('slotsDeLaMismaSesion: excluye un slot con distinto día de la semana', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1' });
+  const otroDia = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2', dia_semana: 4 });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, otroDia], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1'],
+  );
+});
+
+void test('slotsDeLaMismaSesion: excluye a un alumno dado de baja, aunque comparta sesión', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1' });
+  const inactivo = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2', alumno: { activo: false } });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, inactivo], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1'],
+  );
+});
+
+void test('slotsDeLaMismaSesion: excluye un slot no vigente todavía en esa fecha', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1' });
+  const futuro = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2', vigente_desde: '2026-12-01' });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, futuro], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1'],
+  );
+});
+
+void test('slotsDeLaMismaSesion: excluye un slot ya cesado antes de esa fecha', () => {
+  const referencia = crearSlotSesion({ id: 'slot-1' });
+  const cesado = crearSlotSesion({ id: 'slot-2', alumno_id: 'alumno-2', vigente_hasta: '2026-06-01' });
+  const resultado = slotsDeLaMismaSesion(referencia, [referencia, cesado], FECHA_DE_PRUEBA);
+  assert.deepEqual(
+    resultado.map((s) => s.id),
+    ['slot-1'],
+  );
 });

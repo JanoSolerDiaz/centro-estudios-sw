@@ -37,6 +37,45 @@
 
 ---
 
+### Sesión 2026-09-10 (rutina programada de programador) — P-27 urgente (hallazgo #18) y R-17 completada
+
+**Tarea(s):** P-27 (urgente, backlog del auditor) / R-17
+**Estado resultante:** P-27 IMPLEMENTADA Y VERIFICADA · R-17 COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión
+**Migraciones aplicadas:** ninguna (R-17 declara "Migración: No" en su propia spec; P-27 es un cambio
+de qué relación consulta el cliente, no toca ninguna tabla ni política)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/datos/centrosEstudios.ts` (P-27, `contarAlumnosActivosDeCentro`
+consulta ahora `alumno_ficha`) y su test; `src/dominio/asistencia.ts` (nueva `slotsDeLaMismaSesion`) y
+su test; `src/datos/asistencia.ts` (nueva `listarRegistrosDeSlotsYFecha`) y su test;
+`src/ui/pantallaPasarLista.ts` y su test (botón "Marcar el resto como ausente" sobre el slot en curso);
+`src/ui/pantallaRegistrosSlot.ts` y su test (mismo control sobre la sesión del slot elegido);
+`src/ui/aplicacion.ts` (wiring de `listarRegistrosDelGrupo` en las dos composiciones de Registros);
+`roadmap/SEGUIMIENTO.md` (§1 R-17 → `COMPLETADA`, §5 P-27, cabecera), `roadmap/DECISIONES_TECNICAS.md`
+(cinco filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1548/1548, antes 1522) · build ✅
+**Health check post-deploy:** N/A (sin migración ni cambio de esquema)
+**Decisiones tomadas:** cinco filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-10): el arreglo de
+P-27 (mismo patrón que P-22); `slotsDeLaMismaSesion` como noción de "sesión de grupo" sobre un modelo
+de datos por-alumno, sin migración; reutilizar `manejarAusente` tal cual en el cierre en bloque de
+T-19, sin una función de orquestación paralela; el cierre en bloque de T-21 sin round-trip al
+servidor tras cada intento (patrón local, mismo criterio que `reemplazarRegistro`); una card `'error'`
+nunca entra en "el resto pendiente" de T-19 (para no convertir en silencio una presencia fallida en
+una ausencia)
+**Hallazgos del auditor atendidos:** **#18** (severidad alta, `ABIERTO` desde 2026-09-10,
+`contarAlumnosActivosDeCentro` leía `centro_referencia_id` de la tabla base `alumno`, mismo defecto
+que P-22) — atendido de inmediato como P-27, antes de la cola normal, por ser hallazgo de severidad
+alta (§0.3). Revisados también, sin cambio: **#8** (dato de salud, R-02, sigue esperando al dueño en
+la pregunta #16 de §6), **#15**/**#17** (P-25/P-26, backlog no urgente) y **#19** (gobernanza
+documental, baja, sin código que tocar)
+**Hallazgos:** ninguno nuevo, propio de esta sesión
+**Tareas autopropuestas (P-XX):** **P-27** registrada e implementada en §5 (urgente, hallazgo #18)
+**Próximo paso:** siguiente sesión revisa §1 de nuevo — con R-17 ya `COMPLETADA`, la siguiente tarea
+`PENDIENTE` sin depender de nada sin terminar es **R-18** ("Asistente de primeros pasos para el
+administrador", oleada v4/F-09, depende de T-11/T-12/T-15/T-24, todas `COMPLETADA`)
+
+---
+
 ### Sesión 2026-09-09 (rutina de producto) — decimosexto ciclo del PM: R-17 y R-18, abren la Oleada v4
 
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap

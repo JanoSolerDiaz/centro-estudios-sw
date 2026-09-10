@@ -160,7 +160,7 @@ void test('editarNombreCentro detecta el duplicado con otro centro distinto de s
   assert.equal(resultado.existente.id, 'c2');
 });
 
-void test('contarAlumnosActivosDeCentro consulta alumno filtrado por centro y activo=true', async () => {
+void test('contarAlumnosActivosDeCentro consulta alumno_ficha (nunca la tabla base alumno) filtrado por centro y activo=true', async () => {
   const peticiones: PeticionSimulada[] = [];
   const cliente = crearCliente((peticion) => {
     peticiones.push(peticion);
@@ -171,7 +171,7 @@ void test('contarAlumnosActivosDeCentro consulta alumno filtrado por centro y ac
 
   assert.equal(total, 2);
   const url = new URL(peticiones[0]?.url ?? '');
-  assert.equal(url.pathname, '/rest/v1/alumno');
+  assert.equal(url.pathname, '/rest/v1/alumno_ficha');
   assert.equal(url.searchParams.get('centro_referencia_id'), 'eq.c1');
   assert.equal(url.searchParams.get('activo'), 'eq.true');
 });

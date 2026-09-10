@@ -12,6 +12,7 @@ import {
   actualizarAsistencia,
   marcarSalidaAsistencia,
   listarRegistrosDeSlotYFecha,
+  listarRegistrosDeSlotsYFecha,
   listarHistorialDeAsistencia,
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
@@ -616,6 +617,52 @@ void test('listarRegistrosDeSlotYFecha: admite otra zona horaria explícita', as
   assert.ok(peticion);
   const url = new URL(peticion.url);
   assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-06-10T00:00:00.000Z"', 'lte."2026-06-10T23:59:59.999Z"']);
+});
+
+void test('listarRegistrosDeSlotsYFecha: una sola petición con "in" para varios slots, acotada al día natural (cualquier estado)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [FILA, { ...FILA, id: 'as2', slot_id: 'slot2', estado: 'anulada', motivo_anulacion: 'Registrado por error' }] };
+  });
+
+  const filas = await listarRegistrosDeSlotsYFecha(postgrest, ['slot1', 'slot2'], new Date('2026-08-26T12:00:00.000Z'));
+
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'GET');
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/asistencia');
+  assert.equal(url.searchParams.get('slot_id'), 'in.(slot1,slot2)');
+  assert.equal(url.searchParams.get('estado'), null);
+  assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-08-25T22:00:00.000Z"', 'lte."2026-08-26T21:59:59.999Z"']);
+  assert.equal(filas.length, 2);
+});
+
+void test('listarRegistrosDeSlotsYFecha: admite otra zona horaria explícita', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  await listarRegistrosDeSlotsYFecha(postgrest, ['slot1'], new Date('2026-06-10T12:00:00.000Z'), 'UTC');
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.deepEqual(url.searchParams.getAll('ocurrido_en'), ['gte."2026-06-10T00:00:00.000Z"', 'lte."2026-06-10T23:59:59.999Z"']);
+});
+
+void test('listarRegistrosDeSlotsYFecha: sin slotIds, ninguna petición y lista vacía', async () => {
+  let llamadas = 0;
+  const postgrest = crearCliente(() => {
+    llamadas += 1;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const filas = await listarRegistrosDeSlotsYFecha(postgrest, [], new Date('2026-08-26T12:00:00.000Z'));
+
+  assert.equal(llamadas, 0);
+  assert.deepEqual(filas, []);
 });
 
 // --- listarHistoricoAsistencia / listarHistoricoAsistenciaCompleto (T-23) ----------------------

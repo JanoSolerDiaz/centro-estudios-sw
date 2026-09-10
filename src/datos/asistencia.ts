@@ -179,6 +179,33 @@ export async function listarRegistrosDeSlotYFecha(
     .seleccionar();
 }
 
+/** Registros de VARIOS slots en el mismo día natural que `listarRegistrosDeSlotYFecha`, en una sola
+ * petición — R-17, requisito 5: "el resto pendiente" de una sesión (`dominio/asistencia.ts#slotsDeLaMismaSesion`)
+ * son varias filas de `slot_horario`, y averiguar quién de ellas ya tiene registro exige leerlas
+ * todas de una vez, nunca una petición por alumno (§0.2, "las URL firmadas... se piden siempre en
+ * lote", mismo criterio aplicado aquí a la consulta de registros). Mismo alcance que la función
+ * singular: CUALQUIER estado, incluidos los anulados — quien llama (`registrosDeHoyPorAlumnoSlot`)
+ * ya sabe ignorarlos al construir el mapa de "quién tiene registro activo". Sin petición si
+ * `slotIds` está vacío (grupo de un solo slot que ya se pasó como referencia, por ejemplo). */
+export async function listarRegistrosDeSlotsYFecha(
+  cliente: ClientePostgrest,
+  slotIds: readonly string[],
+  fecha: Date,
+  zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
+): Promise<readonly Asistencia[]> {
+  if (slotIds.length === 0) {
+    return [];
+  }
+  const { inicioUtc, finUtc } = limitesDiaLocal(fecha, zonaHoraria);
+  return cliente
+    .desde<Asistencia>(TABLA)
+    .in('slot_id', slotIds)
+    .gte('ocurrido_en', inicioUtc.toISOString())
+    .lte('ocurrido_en', new Date(finUtc.getTime() - 1).toISOString())
+    .order('ocurrido_en', { descendente: false })
+    .seleccionar();
+}
+
 /** Registros ya válidos de `profesorId` cuyo `ocurrido_en` cae en el día natural (`limitesDiaLocal`,
  * `dominio/slots.ts`) que contiene `instante` — una única petición a PostgREST (T-19, requisito 5:
  * "al abrir, ya se ve quién está registrado hoy en ese slot"; §0.2, "las URL firmadas de una

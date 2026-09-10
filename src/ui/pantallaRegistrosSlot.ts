@@ -59,6 +59,9 @@ import {
   puedeAvisarAusencia,
   duracionRealMinutos,
   duracionTeoricaMinutos,
+  slotsDeLaMismaSesion,
+  registrosDeHoyPorAlumnoSlot,
+  claveRegistroPorSlot,
 } from '../dominio/asistencia.ts';
 import { mensajeAvisoAusencia, notaConAvisoAusencia } from '../dominio/avisoAusencia.ts';
 import { mensajeAvisoCancelacion } from '../dominio/avisoCancelacion.ts';
@@ -110,6 +113,13 @@ export interface DependenciasPantallaRegistrosSlot {
    * tiene sentido cuando ese alumno todavía no tiene ningún registro ese día, igual que "Añadir
    * registro olvidado"; el propio índice único de la base de datos es quien de verdad lo impide. */
   registrarAusencia(entrada: RegistrarAusenciaEntrada): Promise<Asistencia>;
+  /** Registros del resto de slots que comparten sesión con el elegido (R-17, requisito 5: "el
+   * mismo slot" son en realidad varias filas de `slot_horario`, una por alumno, que comparten
+   * profesor/día/horario/asignatura — `dominio/asistencia.ts#slotsDeLaMismaSesion`) — una sola
+   * petición para todo ese resto, nunca una por alumno. Solo se llama cuando ese resto no está
+   * vacío; con un único alumno en la sesión (el caso más común: tutoría individual), no hace falta
+   * ninguna petición extra y esta dependencia no se invoca. */
+  listarRegistrosDelGrupo(slotIds: readonly string[], fecha: Date): Promise<readonly Asistencia[]>;
   generarPeticionId(): string;
   /** «Avisar a la familia» (R-05) — solo se llama, y solo se ofrece en pantalla, cuando
    * `puedeVerPersonasReferencia(rol)` es `administrator`: un `teacher` no ve personas de referencia
@@ -217,6 +227,13 @@ interface EstadoPantalla {
   readonly ausenteConfirmando: boolean;
   readonly ausenteGuardando: boolean;
   readonly ausenteError: string;
+  /** R-17: alumnos de la sesión del slot elegido (`slotsDeLaMismaSesion`) que hoy no tienen ningún
+   * registro ese día — recalculado en cada `cargarRegistros()` contra la verdad del servidor, nunca
+   * mantenido a mano. Vacío ⇒ "Marcar el resto como ausente" no se ofrece (requisito 1). */
+  readonly cierreCandidatos: readonly SlotConAlumno[];
+  readonly cierreConfirmando: boolean;
+  readonly cierreGuardando: boolean;
+  readonly cierreError: string;
   /** R-06: excepciones ACTIVAS del slot elegido (cualquier fecha) — `excepcionDelDia` resuelve, a
    * partir de esta lista y de `fechaIso`, si el día elegido ya tiene una declarada. */
   readonly excepcionesDelSlot: readonly ExcepcionSlot[];
@@ -332,6 +349,10 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     ausenteConfirmando: false,
     ausenteGuardando: false,
     ausenteError: '',
+    cierreCandidatos: [],
+    cierreConfirmando: false,
+    cierreGuardando: false,
+    cierreError: '',
     excepcionesDelSlot: [],
     excepcionFormAbierto: false,
     excepcionTipo: 'sustitucion',
@@ -371,17 +392,26 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
   async function cargarRegistros(): Promise<void> {
     const { slotSeleccionadoId, fechaIso, slots } = almacen.obtener();
     if (!slotSeleccionadoId) {
-      almacen.actualizar({ registros: [], filas: new Map() });
+      almacen.actualizar({ registros: [], filas: new Map(), cierreCandidatos: [], cierreConfirmando: false, cierreError: '' });
       return;
     }
     almacen.actualizar({ cargando: true, error: '' });
     try {
       const fecha = new Date(`${fechaIso}T12:00:00Z`);
-      const [registros, excepcionesDelSlot] = await Promise.all([
+      const slotElegido = slots.find((s) => s.id === slotSeleccionadoId);
+      // R-17: el resto de la sesión del slot elegido, sin contar a este mismo — sus registros ya
+      // llegan por `listarRegistros` de abajo, no hace falta pedirlos dos veces.
+      const grupo = slotElegido ? slotsDeLaMismaSesion(slotElegido, slots, fecha) : [];
+      const otrosDelGrupo = grupo.filter((slot) => slot.id !== slotSeleccionadoId);
+      const [registros, excepcionesDelSlot, registrosOtros] = await Promise.all([
         deps.listarRegistros(slotSeleccionadoId, fecha),
         deps.listarExcepcionesDeSlot ? deps.listarExcepcionesDeSlot(slotSeleccionadoId) : Promise.resolve([]),
+        otrosDelGrupo.length > 0 ? deps.listarRegistrosDelGrupo(otrosDelGrupo.map((slot) => slot.id), fecha) : Promise.resolve([]),
       ]);
-      const slotElegido = slots.find((s) => s.id === slotSeleccionadoId);
+      const registrosDelGrupoMapa = registrosDeHoyPorAlumnoSlot([...registros, ...registrosOtros]);
+      const cierreCandidatos = grupo.filter(
+        (slot) => !registrosDelGrupoMapa.has(claveRegistroPorSlot(slot.alumno_id, slot.id)),
+      );
       const nombresBase = new Map<string, string>();
       if (slotElegido) {
         nombresBase.set(slotElegido.alumno_id, nombreCompletoAlumno(slotElegido.alumno));
@@ -397,6 +427,9 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
         nombresAlumno,
         cargando: false,
         filas: new Map(),
+        cierreCandidatos,
+        cierreConfirmando: false,
+        cierreError: '',
         excepcionesDelSlot,
         excepcionFormAbierto: false,
         excepcionMotivo: '',
@@ -491,8 +524,9 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
   const zonaExcepcion = crearElemento(documento, 'div');
   const zonaOlvidado = crearElemento(documento, 'div');
+  const zonaCierreEnBloque = crearElemento(documento, 'div');
 
-  contenedor.append(cabecera, zonaExcepcion, zonaOlvidado, listaRegistros);
+  contenedor.append(cabecera, zonaExcepcion, zonaOlvidado, zonaCierreEnBloque, listaRegistros);
 
   // --- Panel de edición de una fila ---------------------------------------------------------------
 
@@ -1016,6 +1050,96 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     contenedorAcciones.append(confirmacion, botonConfirmarAusente, botonCancelarAusente);
   }
 
+  /** Ejecuta el cierre en bloque (R-17, requisito 3): una llamada a `registrarAusencia` POR ALUMNO
+   * de `estado.cierreCandidatos`, nunca una operación atómica conjunta — un fallo de una no impide
+   * las demás, ni deshace las que ya se completaron. Cada éxito se retira de `cierreCandidatos` en
+   * el sitio (mismo criterio local que `reemplazarRegistro`, sin volver a pedir nada al servidor);
+   * si el candidato es el propio slot elegido, además actualiza la tabla visible, igual que la
+   * confirmación individual de `pintarAusente`. Si queda algún fallo, la confirmación sigue
+   * abierta sobre los candidatos que de verdad no se pudieron marcar, con el motivo de cada uno —
+   * nunca se pierde de vista a quién no se pudo marcar (requisito 3, "dice exactamente cuáles no
+   * se pudieron marcar, para reintentarlas sueltas"); sin ningún fallo, se cierra sola. */
+  async function ejecutarCierreEnBloque(): Promise<void> {
+    const estado = almacen.obtener();
+    const candidatos = estado.cierreCandidatos;
+    almacen.actualizar({ cierreGuardando: true, cierreError: '' });
+    const restantes: SlotConAlumno[] = [];
+    const fallidos: string[] = [];
+    for (const candidato of candidatos) {
+      try {
+        const fila = await deps.registrarAusencia({
+          alumnoId: candidato.alumno_id,
+          slotId: candidato.id,
+          peticionId: deps.generarPeticionId(),
+          ocurridoEn: instanteDesdeFechaYHora(estado.fechaIso, candidato.hora_inicio),
+        });
+        if (candidato.id === almacen.obtener().slotSeleccionadoId) {
+          reemplazarRegistro(fila);
+          const nombresAlumno = new Map(almacen.obtener().nombresAlumno);
+          nombresAlumno.set(fila.alumno_id, nombreCompletoAlumno(candidato.alumno));
+          almacen.actualizar({ nombresAlumno });
+        }
+      } catch (error) {
+        restantes.push(candidato);
+        fallidos.push(`${nombreCompletoAlumno(candidato.alumno)}: ${mensajeAmigable(error)}`);
+      }
+    }
+    almacen.actualizar({
+      cierreGuardando: false,
+      cierreCandidatos: restantes,
+      cierreConfirmando: restantes.length > 0,
+      cierreError: fallidos.length > 0 ? `No se pudo marcar a: ${fallidos.join('; ')}.` : '',
+    });
+  }
+
+  /** "Marcar el resto como ausente" (R-17): mismo criterio de confirmación explícita que
+   * `pintarAusente` (requisito 8 de T-21), pero LISTANDO NOMINALMENTE a quién se va a marcar
+   * (requisito 2 de R-17: "nunca solo una cifra") — sobre `estado.cierreCandidatos`, ya acotado a
+   * quienes de verdad no tienen ningún registro ese día. Sin candidatos, no se ofrece ningún
+   * control (requisito 1: "nunca activo por defecto"). */
+  function pintarCierreEnBloque(): void {
+    zonaCierreEnBloque.textContent = '';
+    const estado = almacen.obtener();
+    if (estado.cierreCandidatos.length === 0) {
+      return;
+    }
+
+    if (!estado.cierreConfirmando) {
+      const boton = crearBoton(documento, 'Marcar el resto como ausente', 'button');
+      boton.addEventListener('click', () => {
+        almacen.actualizar({ cierreConfirmando: true, cierreError: '' });
+      });
+      zonaCierreEnBloque.append(boton);
+      return;
+    }
+
+    if (estado.cierreError) {
+      const mensaje = crearZonaMensaje(documento, 'alert');
+      mensaje.textContent = estado.cierreError;
+      zonaCierreEnBloque.append(mensaje);
+    }
+    zonaCierreEnBloque.append(
+      crearElemento(documento, 'p', { texto: `¿Marcar como ausentes a los siguientes alumnos el ${estado.fechaIso}?` }),
+    );
+    const lista = documento.createElement('ul');
+    for (const candidato of estado.cierreCandidatos) {
+      lista.append(crearElemento(documento, 'li', { texto: nombreCompletoAlumno(candidato.alumno) }));
+    }
+    zonaCierreEnBloque.append(lista);
+
+    const botonConfirmar = crearBoton(documento, 'Confirmar', 'button');
+    botonConfirmar.disabled = estado.cierreGuardando;
+    botonConfirmar.addEventListener('click', () => {
+      void ejecutarCierreEnBloque();
+    });
+    const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelar.disabled = estado.cierreGuardando;
+    botonCancelar.addEventListener('click', () => {
+      almacen.actualizar({ cierreConfirmando: false, cierreError: '' });
+    });
+    zonaCierreEnBloque.append(botonConfirmar, botonCancelar);
+  }
+
   function pintarOlvidado(): void {
     const estado = almacen.obtener();
     zonaOlvidado.textContent = '';
@@ -1453,11 +1577,13 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     pintarCabecera();
     pintarExcepcion();
     pintarOlvidado();
+    pintarCierreEnBloque();
     pintarLista();
   });
   pintarCabecera();
   pintarExcepcion();
   pintarOlvidado();
+  pintarCierreEnBloque();
   pintarLista();
 
   if (puedeElegirProfesor) {

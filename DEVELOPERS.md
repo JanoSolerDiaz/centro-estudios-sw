@@ -227,6 +227,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     y la edición de nombre comprueban antes el duplicado acento-insensible
     (`src/dominio/centrosEstudios.ts`) y, si lo hay, devuelven `{ tipo: 'duplicado', existente }` en
     vez de intentar la escritura. Sin `DELETE`: la baja es siempre `activo = false`.
+    `contarAlumnosActivosDeCentro` consulta la vista `alumno_ficha` (P-27, 2026-09-10), nunca la
+    tabla base `alumno`: `centro_referencia_id` no está en el `GRANT` de columna de `authenticated`
+    sobre la tabla base, mismo defecto exacto que P-22 corrigió antes en `idsAlumnosDeCentro`.
   - `cierresCentro.ts` (R-12, nuevo) — `listarCierres`/`crearCierre`/`editarCierre`/
     `desactivarCierre`/`reactivarCierre` sobre `postgrest.ts`, tabla `cierre_centro`
     (`db/014_calendario_cierres.sql`). El alta, la edición y la reactivación comprueban antes el
@@ -309,6 +312,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     anotación a lo que ya hubiera, nunca sustituyéndolo.
     `listarRegistrosDeSlotYFecha(cliente, slotId, fecha, zona?)` — registros de un slot en CUALQUIER
     fecha, cualquier estado (a diferencia de `listarAsistenciaDeHoy`, siempre "hoy" y solo válidos).
+    Desde R-17: `listarRegistrosDeSlotsYFecha(cliente, slotIds, fecha, zona?)` — la misma consulta
+    para VARIOS slots a la vez (`in.(...)`), una sola petición para "el resto de la sesión" en vez de
+    una por alumno; sin petición si `slotIds` está vacío.
     `listarHistorialDeAsistencia(cliente, asistenciaId)` — lee `asistencia_historial`, solo tiene
     sentido para `administrator` (única política de lectura sobre esa tabla). Desde T-23:
     `listarHistoricoAsistencia(cliente, filtro, zona?, logger?)` — consulta transversal paginada por
@@ -631,6 +637,14 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     tuviera guardado —de una pestaña cerrada y reabierta— y repinta esas cards antes de intentar
     vaciar la cola si ya hay conexión. El indicador de conectividad y de cuántos registros quedan por
     enviar vive en la cabecera, junto a la hora.
+    Desde R-17: botón "Marcar el resto como ausente" en la cabecera, ofrecido solo con el slot en
+    curso (`propuesta.tipo === 'en_curso'`) y al menos una card `'pendiente'`. Un toque abre una
+    confirmación que congela AHORA la lista de pendientes y los lista nominalmente; al confirmar,
+    reutiliza `manejarAusente` TAL CUAL una vez por alumno (nunca una función de orquestación
+    paralela) — cada card acaba en el mismo estado que si se hubiera tocado una a una, con la misma
+    reconciliación de `Conflicto` y la misma cola offline de R-07 si está inyectada. Una card
+    `'error'` (intento de PRESENCIA fallido) nunca entra en el cierre en bloque, para no convertir en
+    silencio un "vino" en un "faltó" sin que el profesor lo decida para ese alumno en concreto.
   - `comboboxAlumnoExtra.ts` (T-20) — `montarComboboxAlumnoExtra(contenedor, deps)`: combobox
     accesible escrito a mano (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`,
     flechas/Enter/Escape, región `role="status"` que hace de anuncio `aria-live`). Rebote de 250 ms
@@ -725,6 +739,16 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     (`excepcion_slot.aviso_familias_quien`/`aviso_familias_en`, R-14 declara `Migración: Sí`), sin
     necesidad de componer ningún texto que se sume a una nota previa. En cuanto la excepción ya tiene
     aviso registrado, el bloque muestra quién y cuándo en vez del formulario.
+    Desde R-17: bloque "Marcar el resto como ausente", junto a "Marcar ausente"/"Añadir registro
+    olvidado" — sobre `estado.cierreCandidatos`, la sesión del slot elegido
+    (`dominio/asistencia.ts#slotsDeLaMismaSesion`: mismo profesor/día/horario/asignatura, vigente esa
+    fecha) que todavía no tiene ningún registro, recalculada en cada `cargarRegistros()`. Una sola
+    petición extra (`deps.listarRegistrosDelGrupo`) solo cuando hay compañeros de sesión además del
+    slot elegido — con un único alumno en la sesión (el caso más común), no se llama. Al confirmar, el
+    bucle vive en la propia pantalla: cada éxito se retira de `cierreCandidatos` en el sitio (mismo
+    patrón local que `reemplazarRegistro`, sin volver a pedir nada al servidor) y, si es el propio
+    slot elegido, además actualiza la tabla visible; cada fallo queda con su motivo y la confirmación
+    se reabre solo sobre quien de verdad sigue pendiente.
   - `pantallaHistorico.ts` (T-23) — `mostrarPantallaHistorico(contenedor, deps)`: consulta
     transversal del histórico completo (no de un solo slot, a diferencia de
     `pantallaRegistrosSlot.ts`), para `administrator` (todo el centro) y `teacher` (solo lo suyo, por

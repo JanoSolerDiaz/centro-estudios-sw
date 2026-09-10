@@ -17,8 +17,8 @@
  */
 
 import type { Reloj } from '../nucleo/reloj.ts';
-import type { Asistencia, MotivoJustificacionAusencia, OrigenAsistencia, Rol } from './tipos.ts';
-import { minutosDesdeMedianoche } from './slotHorario.ts';
+import type { Asistencia, MotivoJustificacionAusencia, OrigenAsistencia, Rol, SlotHorario } from './tipos.ts';
+import { minutosDesdeMedianoche, slotVigenteEn } from './slotHorario.ts';
 
 /** Margen entre `ocurrido_en` y `registrado_en` por debajo del cual un registro se considera "en
  * vivo" y no retroactivo. Debe coincidir EXACTAMENTE con el `CHECK asistencia_retroactivo_coherente`
@@ -234,6 +234,31 @@ export function duracionRealMinutos(ocurridoEnEntrada: Date, ocurridoEnSalida: D
  * `slotHorario.ts` en vez de duplicar el análisis de `HH:MM`. */
 export function duracionTeoricaMinutos(slotHoraInicio: string, slotHoraFin: string): number {
   return minutosDesdeMedianoche(slotHoraFin) - minutosDesdeMedianoche(slotHoraInicio);
+}
+
+/** Slots que forman, junto con `referencia`, "la misma sesión" (R-17, requisito 1: "el slot en
+ * curso tiene al menos un alumno..." — en este modelo de datos `slot_horario` es siempre POR
+ * ALUMNO, así que una clase con varios alumnos son varias filas que comparten profesor, día de la
+ * semana, horario y asignatura/grupo, nunca una sola fila con una lista de alumnos). Incluye a
+ * `referencia` misma si sigue cumpliendo los criterios. Vigente en `fecha` (`slotVigenteEn`, T-15)
+ * y con el alumno activo — mismos dos filtros que `alumnosPropuestos` (`dominio/slots.ts`) aplica
+ * para "quién toca ahora", aquí para una fecha cualquiera en vez de un instante. Pura: quien llama
+ * decide qué de esa lista ya tiene registro ese día (`registrosDeHoyPorAlumnoSlot`). */
+export function slotsDeLaMismaSesion<T extends SlotHorario & { readonly alumno: { readonly activo: boolean } }>(
+  referencia: SlotHorario,
+  slots: readonly T[],
+  fecha: Date,
+): readonly T[] {
+  return slots.filter(
+    (slot) =>
+      slot.profesor_id === referencia.profesor_id &&
+      slot.dia_semana === referencia.dia_semana &&
+      slot.hora_inicio === referencia.hora_inicio &&
+      slot.hora_fin === referencia.hora_fin &&
+      slot.asignatura_o_grupo === referencia.asignatura_o_grupo &&
+      slot.alumno.activo &&
+      slotVigenteEn(slot, fecha),
+  );
 }
 
 /** Indexa `asistencias` (ya acotadas a "hoy" por quien llama) por `claveRegistroPorSlot`, para que
