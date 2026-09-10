@@ -37,6 +37,34 @@
 
 ---
 
+### Sesión 2026-09-10 (rutina programada de programador) — segunda pasada seguida sin trabajo accionable
+
+**Tarea(s):** ninguna — siguiendo la recomendación de la sesión anterior, solo se comprobaron los
+tres indicadores que podían desbloquear trabajo nuevo, sin repetir la revisión completa de §1/§5
+**Estado resultante:** sin cambio en §1 (44 filas: 36 `COMPLETADA`, 8 `BLOQUEADA`, cero
+`PENDIENTE`/`EN CURSO`)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en
+`dev`, `010`-`016` sin aplicar)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera, nueva entrada de "Última
+actualización"); `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1572/1572, sin cambio) · build ✅ —
+el contenedor de esta sesión arrancó sin `node_modules`; `npm install` recuperó las dependencias
+declaradas antes de poder ejecutar la verificación
+**Health check post-deploy:** N/A (sin push de código, sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno — sin pasada nueva del auditor desde `8f775de`
+(2026-09-10, confirmado con `git log -- auditoriacontinua.md`)
+**Tareas autopropuestas (P-XX):** ninguna — sin pasada nueva del auditor no hay hallazgo nuevo que
+convertir en P-XX
+**Hallazgos:** ninguno nuevo. Los tres indicadores que la sesión anterior dejó como atajo (pasada del
+auditor, respuestas del dueño en §6, filas nuevas en `db/APLICADAS.md`) están exactamente igual que
+en la sesión anterior
+**Próximo paso:** repetir estos mismos tres chequeos antes de volver a recorrer §1/§5 enteros; la
+pregunta #16 de §6 sigue siendo la que más trabajo desbloquearía si el dueño responde (migración
+`011` y, en cadena, la aprobación de los textos legales de T-25)
+
 ### Sesión 2026-09-10 (rutina programada de programador) — nada accionable: los tres frentes agotados a la vez
 
 **Tarea(s):** ninguna — comprobación de salud y de los tres frentes (auditor, backlog P-XX, cola T-XX/R-XX)
