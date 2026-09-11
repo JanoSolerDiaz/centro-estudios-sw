@@ -37,6 +37,37 @@
 
 ---
 
+### Sesión 2026-09-11 (rutina programada de programador, cuarta pasada del día) — tercera pasada seguida sin trabajo accionable tras R-19
+
+**Tarea(s):** ninguna T-XX/R-XX/P-XX — mismo chequeo de los tres indicadores que las dos sesiones
+anteriores; sin repetir el detalle completo, como recomendaba el "próximo paso" de la sesión anterior
+**Estado resultante:** sin cambio (§1: 37 `COMPLETADA`, 8 `BLOQUEADA`, cero `PENDIENTE`/`EN CURSO`; §5:
+27 filas `RESUELTA`/`IMPLEMENTADA`; §6: las once preguntas #7-#17 siguen sin respuesta)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en `dev`)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera "Última actualización");
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (**1586/1586**) · build ✅ — esta vez el
+contenedor traía `node_modules` en disco pero incompleto (`@types/node` ausente, `typecheck` fallaba
+con `TS2591` en todo `*.test.ts`); `rm -rf node_modules && npm ci` lo dejó en verde, 130 dependencias,
+0 vulnerabilidades
+**Health check post-deploy:** N/A (sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva desde `f09ad7f` (2026-09-11), la
+misma que ya vieron las tres sesiones anteriores. Solo **#8** sigue `ABIERTO`, esperando al dueño en la
+pregunta #16 de §6
+**Tareas autopropuestas (P-XX):** ninguna
+**Hallazgos:** ninguno de producto. El único hecho reseñable de esta sesión es de infraestructura del
+propio contenedor (`node_modules` presente pero corrupto/incompleto), no del repositorio — no genera
+ninguna P-XX porque no es un defecto del código
+**Próximo paso:** igual que el de la sesión anterior — repetir el chequeo de los tres indicadores
+(pasada del auditor, respuesta del dueño en §6, migración nueva en `db/APLICADAS.md`) antes de volver a
+recorrer §1/§5/§6 enteros; mientras sigan iguales, no hace falta una entrada con este mismo nivel de
+detalle
+
+---
+
 ### Sesión 2026-09-11 (rutina programada de programador, tercera pasada del día) — segunda pasada seguida sin trabajo accionable tras R-19
 
 **Tarea(s):** ninguna T-XX/R-XX/P-XX — mismo chequeo de los tres indicadores que la sesión anterior
