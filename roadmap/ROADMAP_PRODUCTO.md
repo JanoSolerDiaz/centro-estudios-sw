@@ -8,45 +8,45 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-10 — decimoséptimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` sin pasada nueva
-desde la del 2026-09-10 (commit `8f775de`, la misma que ya vieron y trabajaron las sesiones de
-programador de esa tarde): de sus cuatro hallazgos `ABIERTO` en aquella pasada, **#15** (importación
-masiva no idempotente) y **#17** (dos defectos menores de `sw.js`) ya quedaron `IMPLEMENTADA` por
-**P-25**/**P-26**, y **#19** (hueco de gobernanza documental en §7, fila de R-16 sin añadir) ya quedó
-cerrado añadiendo esa fila — los tres confirmados leyendo §5 y §7, sin que este ciclo tenga que
-repetir el trabajo. Solo sigue **ABIERTO** de verdad **#8** (dato de salud del artículo 9 del RGPD en
+**Última actualización:** 2026-09-11 — decimoctavo ciclo del PM. `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` con una pasada
+nueva desde el ciclo anterior (2026-09-11, commit `f09ad7f`): cierra los cuatro hallazgos que seguían
+`ABIERTO` (**#15**, **#17**, **#18**, **#19**, ya resueltos por P-25/P-26/P-27 y por la fila de §7 de
+R-16) y no abre ninguno nuevo. Sigue **ABIERTO** solo **#8** (dato de salud del artículo 9 del RGPD en
 R-02), formalizado como pregunta **#16** de §6, esperando al dueño sin novedad — no requiere ninguna
-acción nueva de este ciclo.
+acción nueva de este ciclo, igual que en el anterior.
 
-**Columna vertebral de código (v1 a v4) agotada por completo: confirmado por dos sesiones de
-programador consecutivas** ("los tres frentes — auditor, backlog P-XX y cola T-XX/R-XX — están
-agotados a la vez por primera vez"), con §1 revisada de punta a punta (44 filas: 36 `COMPLETADA`,
-8 `BLOQUEADA` solo por migración sin aplicar o por la pregunta #16, **cero `PENDIENTE`/`EN CURSO`**).
-Con **R-17** y **R-18** también `COMPLETADA` desde la sesión de hoy, la propia Oleada v4 queda con
-todo su código escrito. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
-producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a
-`ROADMAP_HISTORICO.md` esta vez — pero, con la cola de trabajo formalmente vacía, toca otra vez mirar
-más allá de la última oleada, mismo gesto que el noveno ciclo (definió v2 completa con v1 en curso),
-el decimoquinto (v3 con v1/v2 sin desplegar) y el decimosexto (v4 con v1 a v3 sin desplegar).
+**Columna vertebral de código (v1 a v5) agotada por completo: confirmado por cuatro sesiones de
+programador consecutivas** tras completarse R-19 (§1: 37 `COMPLETADA`, 8 `BLOQUEADA` solo por
+migración sin aplicar o por la pregunta #16, **cero `PENDIENTE`/`EN CURSO`**). El MVP (T-00 a T-25)
+sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada ha llegado a
+desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez — pero, con la cola de
+trabajo formalmente vacía otra vez, toca volver a mirar más allá de la última oleada, mismo gesto que
+el noveno ciclo (definió v2 completa con v1 en curso), el decimoquinto (v3), el decimosexto (v4) y el
+decimoséptimo (v5).
 
-**Una R-XX nueva este ciclo, abriendo la Oleada v5: R-19 (informe de horas propias para el
-profesor).** No es un hueco inventado por este ciclo: lo dejó autoseñalado la propia spec de R-15
-(requisito 5, "si en el futuro interesa que un `teacher` vea sus propias horas, es una ampliación de
-alcance nueva, no algo que esta tarea deba resolver de más") — la misma clase de autoseñalización que
-ya dio R-13 (a partir de R-06) y R-14 (a partir de R-06, requisito 7). Hoy un profesor que quiere
-comprobar cuántas horas ha dado este mes antes de que le paguen tiene que pedírselo al administrador y
-esperar: la misma fricción que R-15 ya evitó para el centro completo (antes había que reconstruirla a
-mano sumando R-04 de cada alumno de cada profesor), sin resolver todavía para el propio profesor, el
-usuario de mayor frecuencia de todo el producto. No es ninguna de las decisiones reservadas al dueño
-del encargo de este ciclo (no es precio, plan, cuenta de pago, texto legal, comunicación a usuarios
-reales, operación destructiva ni DDL de producción): es una ampliación de alcance dentro de un rol ya
-existente, sobre un cálculo que R-15 ya tiene completo, sin ningún dato personal nuevo y sin tocar al
-rol `student`. **Revisado el resto del roadmap contra el estado actual y la visión de producto: sin
-ningún otro hueco real que añadir este ciclo** — dieciséis ciclos consecutivos de PM ya habían
-traducido a tareas concretas el hueco real entre el MVP y el objetivo de producto; inventar una
-segunda tarea sin necesidad real detrás sería exactamente el vicio que este protocolo existe para
-evitar.
+**Revisadas primero las mismas fuentes que agotaron los ciclos anteriores, sin ningún hueco nuevo que
+extraer de ellas:** ninguna spec de R-01 a R-19 deja ya una ampliación futura autoseñalada sin
+convertir (R-06→R-14 y R-15→R-19 ya se cerraron en ciclos anteriores; una relectura completa de las
+diecinueve specs no encuentra una tercera). Tampoco hay ninguna pregunta de §6 cuya respuesta por
+defecto sugiera trabajo nuevo más allá de lo ya especificado.
+
+**Una R-XX nueva este ciclo, abriendo la Oleada v6: R-20 (registro de auditoría de cambios para el
+administrador).** No sale de una spec que la autoseñale, sino de una capacidad que el propio producto
+ya tiene construida desde T-07/T-18 sin exponerla nunca a nivel de centro: `asistencia_historial`
+existe precisamente, dice la norma permanente de §0.2 de `HOJA_DE_RUTA.md`, para "responder quién
+cambió qué" — y hoy esa respuesta solo se puede obtener registro a registro, abriendo «Registros»
+(T-21) de un slot y una fecha concretos. Un centro con varios profesores no tiene ninguna forma de
+comprobar de un vistazo que la disciplina del principio 2 ("quien se equivoca, lo arregla — y queda
+constancia") se cumple, más allá de ir caso por caso; y es exactamente el argumento de fiabilidad
+legal que distingue este producto de una hoja de cálculo, donde una celda editada no deja rastro de
+quién ni cuándo. No es ninguna de las decisiones reservadas al dueño (no es precio, plan, cuenta de
+pago, texto legal, comunicación a usuarios reales, operación destructiva ni DDL de producción): es una
+vista nueva sobre un dato que ya existe, sin migración, sin dato personal nuevo y sin tocar al rol
+`student`. **Revisado el resto del roadmap contra el estado actual y la visión de producto: sin ningún
+otro hueco real que añadir este ciclo** — diecisiete ciclos consecutivos de PM ya habían traducido a
+tareas concretas el hueco real entre el MVP y el objetivo de producto; inventar una segunda tarea sin
+necesidad real detrás sería exactamente el vicio que este protocolo existe para evitar.
 
 ---
 
@@ -205,6 +205,28 @@ resolver de más: con la columna vertebral de código agotada (v1 a v4), toca ab
 añade datos personales nuevos ni toca al rol `student`.
 
 - **F-10 — Transparencia de horas propias.** R-19.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v6 — Confianza y trazabilidad de centro: quién cambió qué, de un vistazo
+
+**Arranca cuando la oleada v5 (R-19) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta oleada
+queda especificada y en cola, detrás de la oleada v5, en el orden de §1.
+
+Por qué esta oleada: v1 a v5 dejan resuelto el ciclo diario de una clase, la adopción inicial, la
+rendición de cuentas del centro, la fricción de cierre de sesión y arranque, y el autoservicio del
+profesor sobre sus propias horas — pero todas construyen sobre un dato que el producto ya guarda
+desde T-07/T-18 (`asistencia_historial`, quién corrigió cada registro y cuándo) sin exponerlo nunca
+como una vista propia: hoy solo se comprueba registro a registro, dentro de «Registros» (T-21) de un
+slot y una fecha concretos. Es precisamente el argumento de fiabilidad legal que distingue este
+producto de una hoja de cálculo — donde una celda editada no deja ningún rastro de quién ni
+cuándo —, y hoy esa constancia existe en la base de datos sin que nadie pueda verla agregada para
+todo el centro. Nada de esto añade datos personales nuevos ni toca al rol `student`.
+
+- **F-11 — Transparencia del registro de cambios.** R-20.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -956,3 +978,49 @@ propias y de sustitución separadas, coincidentes con lo que R-15 calcularía pa
 `administrator`; no ve ningún control para elegir otro profesor ni ninguna cifra ajena; el CSV
 exportado coincide con lo mostrado en pantalla; `administrator` sigue viendo el informe completo de
 R-15 sin cambios.
+
+---
+
+### R-20 — Registro de auditoría de cambios para el administrador
+**Oleada / Fase:** v6 / F-11 · **Migración:** No · **Depende de:** T-21, T-23
+**Origen:** roadmap (autoseñalado por la propia norma permanente de §0.2 de `HOJA_DE_RUTA.md`:
+`asistencia_historial` existe explícitamente para "responder quién cambió qué")
+
+**Objetivo:** `asistencia_historial` guarda ya, desde T-07/T-18, quién corrigió cada registro de
+asistencia y cuándo, cada vez que un profesor o `administrator` edita o anula una entrada (T-21). Hoy
+esa respuesta solo se obtiene registro a registro, abriendo «Registros» de un slot y una fecha
+concretos: no existe ninguna vista que responda, para todo el centro, "¿qué se ha corregido esta
+semana, y quién lo corrigió?". Un centro con varios profesores no tiene forma de comprobar de un
+vistazo que la disciplina de "quien se equivoca, lo arregla — y queda constancia" (principio 2) se
+cumple, más allá de ir caso por caso — exactamente el argumento de fiabilidad legal que distingue este
+producto de una hoja de cálculo, donde una celda editada no deja ningún rastro de quién ni cuándo.
+
+**Requisitos:**
+1. Pantalla propia para `administrator`, o bloque nuevo dentro del panel de centro (R-11) — decisión
+   de la sesión que lo implemente, sin condicionar esta spec — que lista, en orden cronológico inverso
+   (más reciente primero), cada modificación o anulación de un registro de asistencia de todo el
+   centro: instante del cambio (`cambiado_en`), quién lo hizo (`cambiado_por`), alumno afectado y
+   profesor titular del registro.
+2. Cada fila enlaza al registro completo en «Registros» (T-21), donde ya vive la comparación detallada
+   de valores previos y posteriores de ESE registro concreto (T-21, "dos modificaciones dejan dos filas
+   de historial con los valores previos") — esta pantalla no duplica esa comparación, es su índice a
+   nivel de centro: dónde mirar, no qué cambió exactamente en cada campo.
+3. Filtro por rango de fechas (por defecto los últimos 7 días) y por autor del cambio (`cambiado_por`),
+   para poder comprobar, por ejemplo, cuántas correcciones ha hecho un profesor concreto en un periodo.
+4. Paginado o límite razonable de filas por página, mismo criterio de rendimiento que el resto de
+   listados del centro (T-12, T-23): sin descargar el historial completo de golpe en un centro con
+   volumen alto de correcciones.
+5. Ningún dato ni tabla nuevos: se lee de `asistencia_historial`, ya poblada desde T-18/T-21 y con
+   lectura ya reservada a `administrator` (`asistencia_historial_admin_leer`, `003_politicas_rls.sql`,
+   T-10) — sin ninguna migración ni cambio de política.
+6. Reservado a `administrator`, mismo alcance que R-11/R-15/R-16: ningún `teacher` ve por esta vía el
+   historial de cambios de otro, ni siquiera el suyo propio — ya lo ve, registro a registro, dentro de
+   sus propios «Registros» (T-21); esta pantalla es una vista de centro completo, no una ampliación de
+   lo que un `teacher` puede ver.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** con un registro editado dos veces y otro anulado por un profesor distinto,
+la pantalla muestra las tres modificaciones en orden cronológico inverso, cada una con quién y cuándo,
+y un enlace que lleva al registro completo en «Registros»; filtrar por uno de los dos profesores
+autores muestra solo sus cambios; un `teacher` no accede a esta pantalla.

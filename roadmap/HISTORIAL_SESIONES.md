@@ -37,6 +37,46 @@
 
 ---
 
+### Sesión 2026-09-11 (rutina programada de producto) — decimoctavo ciclo del PM: R-20 abre la Oleada v6
+
+**Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)
+**Estado resultante:** R-20 añadida a §1 de `SEGUIMIENTO.md` (`PENDIENTE`, Oleada v6/F-11); resto de
+§1 sin cambio (37 `COMPLETADA`, 8 `BLOQUEADA`)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en
+`dev`, `010`-`016` sin aplicar)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera "Última actualización", fila
+R-20 en §1); `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v6/F-11 nueva, detalle de R-20);
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código
+**Health check post-deploy:** N/A (sin push de código, sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** revisada la pasada del 2026-09-11 (`f09ad7f`): cierra los cuatro
+hallazgos que seguían `ABIERTO` (**#15**, **#17**, **#18**, **#19**, ya resueltos por P-25/P-26/P-27 y
+por la fila de §7 de R-16 en sesiones de programador anteriores a esta) y no abre ninguno nuevo. Solo
+**#8** sigue `ABIERTO`, esperando al dueño en la pregunta #16 de §6
+**Tareas autopropuestas (P-XX):** ninguna — nada nuevo que registrar en §5 este ciclo
+**Hallazgos:** ninguno de código. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. Con la columna vertebral de código (v1 a v5) agotada — confirmado por las cuatro sesiones
+de programador consecutivas de hoy, todas sin trabajo accionable tras R-19 — se releyeron las
+diecinueve specs de R-01 a R-19 buscando una ampliación futura autoseñalada sin convertir todavía (el
+mismo mecanismo que ya dio R-13/R-14 a partir de R-06 y R-19 a partir de R-15): ninguna queda. Se
+revisó entonces el roadmap contra la visión de producto y contra la propia norma permanente de §0.2 de
+`HOJA_DE_RUTA.md`, que documenta que `asistencia_historial` existe explícitamente para "responder
+quién cambió qué" — un dato que el producto ya guarda desde T-07/T-18 (T-21 lo puebla en cada edición o
+anulación) sin exponerlo nunca como vista de centro completo: hoy solo se comprueba registro a
+registro, abriendo «Registros» de un slot y una fecha concretos. Se especifica **R-20** ("Registro de
+auditoría de cambios para el administrador"), Oleada v6/F-11: lectura de `asistencia_historial` ya
+reservada a `administrator` desde T-10, sin ninguna migración, sin dato personal nuevo y sin tocar al
+rol `student`
+**Próximo paso:** una sesión de programador implementa R-20 (spec completa en `ROADMAP_PRODUCTO.md`).
+Mientras tanto, siguen pendientes los mismos tres indicadores que las sesiones de programador ya vienen
+comprobando: pasada nueva del auditor, respuesta del dueño a alguna de las preguntas de §6 (la #16 es
+la que más desbloquearía) y migraciones nuevas aplicadas en `db/APLICADAS.md`
+
+---
+
 ### Sesión 2026-09-11 (rutina programada de programador, quinta pasada del día) — cuarta pasada seguida sin trabajo accionable tras R-19
 
 **Tarea(s):** ninguna T-XX/R-XX/P-XX — mismo chequeo de los tres indicadores que las tres sesiones
