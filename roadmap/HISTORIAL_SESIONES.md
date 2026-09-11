@@ -37,6 +37,37 @@
 
 ---
 
+### Sesión 2026-09-11 (rutina programada de programador, quinta pasada del día) — cuarta pasada seguida sin trabajo accionable tras R-19
+
+**Tarea(s):** ninguna T-XX/R-XX/P-XX — mismo chequeo de los tres indicadores que las tres sesiones
+anteriores; sin repetir el detalle completo, como recomendaba el "próximo paso" de la sesión anterior
+**Estado resultante:** sin cambio (§1: 37 `COMPLETADA`, 8 `BLOQUEADA`, cero `PENDIENTE`/`EN CURSO`; §5:
+27 filas `RESUELTA`/`IMPLEMENTADA`; §6: las once preguntas #7-#17 siguen sin respuesta)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en `dev`)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera "Última actualización");
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (**1586/1586**) · build ✅ — el contenedor
+volvió a traer `node_modules` incompleto (`@types/node` ausente), mismo síntoma que la pasada
+anterior; `npm ci` lo dejó en verde, 130 dependencias, 0 vulnerabilidades
+**Health check post-deploy:** N/A (sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva desde `f09ad7f` (2026-09-11), la
+misma que ya vieron las tres sesiones anteriores. Solo **#8** sigue `ABIERTO`, esperando al dueño en la
+pregunta #16 de §6
+**Tareas autopropuestas (P-XX):** ninguna
+**Hallazgos:** ninguno de producto. El único hecho reseñable es, de nuevo, de infraestructura del
+propio contenedor (`node_modules` incompleto al arrancar), no del repositorio
+**Próximo paso:** igual que las tres sesiones anteriores — repetir el chequeo de los tres indicadores
+(pasada del auditor, respuesta del dueño en §6, migración nueva en `db/APLICADAS.md`) antes de volver a
+recorrer §1/§5/§6 enteros; mientras sigan iguales, no hace falta una entrada con este mismo nivel de
+detalle. Si el contenedor sigue arrancando con `node_modules` incompleto en próximas sesiones, podría
+valer la pena preguntar al dueño si esto es esperado del entorno de ejecución programado o si conviene
+ajustar cómo se aprovisiona el contenedor — no es un defecto del repositorio, así que no se abre P-XX
+
+---
+
 ### Sesión 2026-09-11 (rutina programada de programador, cuarta pasada del día) — tercera pasada seguida sin trabajo accionable tras R-19
 
 **Tarea(s):** ninguna T-XX/R-XX/P-XX — mismo chequeo de los tres indicadores que las dos sesiones

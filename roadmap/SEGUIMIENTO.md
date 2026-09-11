@@ -10,16 +10,21 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-11 (rutina programada de programador, tercera pasada seguida sin
-trabajo accionable tras R-19): mismo chequeo de los tres indicadores que las dos sesiones anteriores
+**Última actualización:** 2026-09-11 (rutina programada de programador, cuarta pasada seguida sin
+trabajo accionable tras R-19): mismo chequeo de los tres indicadores que las tres sesiones anteriores
 — sin pasada nueva del auditor desde `f09ad7f`, las once preguntas de §6 (#7-#17) siguen sin
 respuesta (incluida **#16**, la única que desbloquearía trabajo real) y `009` sigue siendo la última
 migración aplicada en `dev` — todos exactamente iguales, así que no se repite el detalle completo (ver
 la entrada anterior de esta cabecera y `HISTORIAL_SESIONES.md`). §1 sin cambio (37 `COMPLETADA`, 8
-`BLOQUEADA`, cero `PENDIENTE`/`EN CURSO`). Esta vez el contenedor sí traía un `node_modules` en disco,
-pero incompleto (`@types/node` ausente, `npm run typecheck` fallaba con `TS2591` en todo `*.test.ts`)
-— reinstalado con `npm ci` tras `rm -rf node_modules`; verificación pre-push completa en verde
-después (`npm run typecheck`, `npm run lint`, **`npm test` 1586/1586**, `npm run build`). Sin ningún
+`BLOQUEADA`, cero `PENDIENTE`/`EN CURSO`); §5 sin ninguna P-XX `PENDIENTE`. El contenedor volvió a
+traer `node_modules` incompleto (`@types/node` ausente) — mismo síntoma que la pasada anterior;
+reinstalado con `npm ci`; verificación pre-push completa en verde después (`npm run typecheck`,
+`npm run lint`, **`npm test` 1586/1586** sin cambio, `npm run build`). Sin ningún commit de código.
+
+**Sesión anterior (2026-09-11, rutina programada de programador, "tercera pasada seguida sin trabajo
+accionable tras R-19"): mismo chequeo de los tres indicadores que las dos sesiones anteriores — sin
+cambio en ninguno. §1 sin cambio. Contenedor con `node_modules` incompleto (`@types/node` ausente),
+reinstalado con `npm ci`; verificación pre-push completa en verde (`npm test` 1586/1586). Sin ningún
 commit de código.
 
 **Sesión anterior (2026-09-11, rutina programada de programador, "sin trabajo accionable tras
