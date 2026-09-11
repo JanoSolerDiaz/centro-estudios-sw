@@ -37,6 +37,39 @@
 
 ---
 
+### Sesión 2026-09-11 (rutina programada de programador, segunda pasada del día) — sin trabajo accionable tras R-19
+
+**Tarea(s):** ninguna T-XX/R-XX/P-XX — chequeo de los tres indicadores antes de repetir la revisión
+completa de §1/§5/§6
+**Estado resultante:** §1 sin cambio (45 filas: 37 `COMPLETADA`, 8 `BLOQUEADA`, cero
+`PENDIENTE`/`EN CURSO`); §5 sin cambio (27 filas `RESUELTA`/`IMPLEMENTADA`)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en
+`dev`, `010`-`016` sin aplicar)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera "Última actualización");
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (**1586/1586**, sin cambio) · build ✅ — el
+contenedor de esta sesión arrancó sin `node_modules`; `npm install` recuperó las 130 dependencias
+declaradas, cero vulnerabilidades
+**Health check post-deploy:** N/A (sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva desde `f09ad7f` (2026-09-11), ya
+vista por la sesión anterior (R-19). Solo **#8** sigue `ABIERTO`, esperando al dueño en la pregunta
+#16 de §6
+**Tareas autopropuestas (P-XX):** ninguna — sin hallazgo nuevo que convertir
+**Hallazgos:** ninguno. Los tres indicadores que podrían desbloquear trabajo nuevo (pasada del
+auditor, respuesta del dueño en §6, migración nueva en `db/APLICADAS.md`) están exactamente igual que
+tras completar R-19: sin ninguna vía autónoma nueva que abrir sin inventar trabajo (§0.2), esta sesión
+de programador no ejecuta ningún cambio de código. Abrir una R-XX nueva es decisión reservada al ciclo
+de PM (rutina de producto)
+**Próximo paso:** repetir estos mismos tres chequeos antes de volver a recorrer §1/§5/§6 enteros; si
+los tres siguen iguales, no hace falta repetir esta nota con el mismo detalle. Si el ciclo de PM abre
+una R-XX nueva, o el dueño responde alguna pregunta de §6, o el auditor abre un hallazgo nuevo, esa es
+la vía para que la siguiente sesión de programador tenga trabajo real
+
+---
+
 ### Sesión 2026-09-11 (rutina programada de programador) — R-19 completada
 
 **Tarea(s):** R-19 ("Informe de horas propias para el profesor")
