@@ -433,7 +433,7 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08 y R-11) — dos
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08, R-11 y R-19) — dos
     routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un
     motor interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para
     `administrator` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`,
@@ -446,7 +446,8 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `slotId` es opcional, para el enlace profundo de "mi horario" a los registros de un slot
     concreto; el de `fecha` (`AAAA-MM-DD`), añadido por R-13, solo tiene sentido junto a `slotId` y
     enlaza además al DÍA concreto que el aviso de "sesiones sin pasar lista" señala —,
-    `#/historico` y `#/cierres` desde R-12, en modo solo lectura). `objetivo` se inyecta en los dos
+    `#/historico` y `#/cierres` desde R-12, en modo solo lectura, y `#/mis-horas` desde R-19).
+    `objetivo` se inyecta en los dos
     (nunca leen `window` directamente), mismo patrón que `instalarCapturaErrores`. Las dos gramáticas
     de ruta son independientes a propósito: las dos apps nunca están montadas a la vez (ver
     `mostrarAppProfesor` más abajo).
@@ -877,6 +878,18 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     pantalla por defecto (`alumnos`) ya está pintada antes de decidirlo, así que nunca bloquea la
     interfaz, y una navegación explícita mientras tanto (el usuario pulsa un enlace antes de que la
     comprobación termine) nunca se interrumpe. Sin migración (`Migración: No` en la spec).
+  - `pantallaMisHorasProfesor.ts` (R-19, nuevo) — `mostrarPantallaMisHorasProfesor(contenedor, deps)`:
+    el mismo cálculo de R-15 (`dominio/informeHorasProfesor.ts`, sin tocar), acotado exclusivamente al
+    propio profesor — `deps.profesorId`/`deps.profesorNombre` fijan un array de un único elemento,
+    nunca resuelto contra un listado del centro, así que no hay ningún selector de otro profesor ni
+    ninguna cifra ajena posible (requisito 2 de la spec). Misma fila SIEMPRE presente, en ceros si no
+    hay ninguna sesión (mismo criterio que R-15), sin el mensaje de "ningún profesor en este rango" de
+    aquella pantalla (aquí la fila propia nunca falta). Mismos botones "Descargar CSV"/"Imprimir / PDF"
+    sobre la misma fuente de filas que la tabla. Exclusiva de `teacher` (`puedeVerInformeHorasPropio`,
+    nueva en `permisosUi.ts`) — además, solo se monta dentro del router de `teacher`, así que un
+    `administrator` no llega a ella por ningún camino (mismo criterio de inaccesibilidad estructural
+    que R-15/R-10). Enrutada como `#/mis-horas`, con botón "Mis horas" en la barra de navegación de
+    `teacher`. Sin migración (`Migración: No` en la spec).
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

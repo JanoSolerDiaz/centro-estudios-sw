@@ -179,13 +179,17 @@ export function crearRouter(objetivo: ObjetivoRouter): Router<Ruta> {
  * La ruta por defecto sigue siendo `pasar-lista`, no `horario`: T-19 ya estableció que es la
  * pantalla del día a día (registrar en segundos), y cambiar qué se ve nada más entrar sin que
  * ninguna spec lo pida sería una regresión de comportamiento, no una mejora.
+ *
+ * `mis-horas` (R-19): informe de horas propias, mismo cálculo que `#/informe-horas` de
+ * `administrator` (R-15) acotado a sí mismo — pantalla propia, sin ningún segmento adicional.
  */
 export type RutaProfesor =
   | { readonly nombre: 'pasar-lista' }
   | { readonly nombre: 'horario' }
   | { readonly nombre: 'registros'; readonly slotId?: string; readonly fecha?: string }
   | { readonly nombre: 'historico' }
-  | { readonly nombre: 'cierres' };
+  | { readonly nombre: 'cierres' }
+  | { readonly nombre: 'mis-horas' };
 
 const RUTA_PROFESOR_POR_DEFECTO: RutaProfesor = { nombre: 'pasar-lista' };
 
@@ -214,6 +218,9 @@ export function analizarRutaProfesor(hash: string): RutaProfesor {
   if (primero === 'cierres') {
     return { nombre: 'cierres' };
   }
+  if (primero === 'mis-horas') {
+    return { nombre: 'mis-horas' };
+  }
   if (primero === 'pasar-lista') {
     return { nombre: 'pasar-lista' };
   }
@@ -237,6 +244,8 @@ export function hashDeRutaProfesor(ruta: RutaProfesor): string {
       return '#/historico';
     case 'cierres':
       return '#/cierres';
+    case 'mis-horas':
+      return '#/mis-horas';
   }
 }
 

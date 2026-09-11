@@ -37,6 +37,41 @@
 
 ---
 
+### Sesión 2026-09-11 (rutina programada de programador) — R-19 completada
+
+**Tarea(s):** R-19 ("Informe de horas propias para el profesor")
+**Estado resultante:** R-19 `COMPLETADA` en §1 de `SEGUIMIENTO.md` (era `PENDIENTE`); resto de §1
+sin cambio (37 `COMPLETADA`, 8 `BLOQUEADA`)
+**Commits a `develop`:** este, con el código y la documentación de R-19
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en
+`dev`, `010`-`016` sin aplicar) — R-19 declara `Migración: No` en su propia spec
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/ui/pantallaMisHorasProfesor.ts` (nuevo) y su test;
+`src/dominio/permisosUi.ts` (`puedeVerInformeHorasPropio`, nueva) y su test; `src/nucleo/router.ts`
+(`RutaProfesor` gana `mis-horas`, `#/mis-horas`) y su test; `src/ui/aplicacion.ts` (monta la pantalla
+nueva, botón "Mis horas" en la barra de `teacher`) y su test; `roadmap/SEGUIMIENTO.md` (cabecera, fila
+R-19 en §1); `roadmap/DECISIONES_TECNICAS.md` (4 filas nuevas); `DEVELOPERS.md` (router y catálogo de
+pantallas); `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (**1586/1586**, antes 1572) · build ✅ —
+el contenedor de esta sesión arrancó sin `node_modules`; `npm install` recuperó las 130 dependencias
+declaradas, cero vulnerabilidades
+**Health check post-deploy:** N/A (sin cambio de esquema)
+**Decisiones tomadas:** 4 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-11, R-19): array de un
+único profesor como mecanismo de acotación, sin el mensaje de "sin profesores" de R-15, ruta nueva de
+`teacher` e inaccesibilidad estructural frente a `administrator`
+**Hallazgos del auditor atendidos:** revisada la pasada nueva del auditor (commit `f09ad7f`,
+2026-09-11): cierra los cuatro hallazgos `ABIERTO` de la pasada anterior (**#15**/P-25, **#17**/P-26,
+**#18**/P-27, **#19**) y no abre ninguno nuevo. Solo **#8** sigue `ABIERTO`, esperando al dueño en la
+pregunta #16 de §6
+**Tareas autopropuestas (P-XX):** ninguna — sin hallazgo nuevo que convertir
+**Hallazgos:** ninguno. El formato de horas en cero de `formatearMinutosComoHoras` es `"0min"`, no
+`"0h 0min"` (ya establecido por R-15/R-04) — ajustado un aserto del test nuevo que lo daba por
+supuesto al revés antes de que la suite quedara en verde
+**Próximo paso:** repetir el protocolo habitual (auditor, §6, `db/APLICADAS.md`) para elegir la
+siguiente tarea; con R-19 completada, §1 vuelve a quedar sin ninguna `PENDIENTE`/`EN CURSO`
+
+---
+
 ### Sesión 2026-09-10 (rutina programada de producto) — decimoséptimo ciclo del PM: R-19 abre la Oleada v5
 
 **Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)

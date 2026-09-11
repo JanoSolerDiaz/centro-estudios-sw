@@ -650,6 +650,24 @@ void test('teacher con appProfesor: "Mi horario" navega a la vista semanal', asy
   assert.match(contenedor.textContent, /Sin horario asignado/);
 });
 
+void test('teacher con appProfesor: "Mis horas" navega al informe de horas propias (R-19), sin selector de otro profesor', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app });
+  await esperarMicrotareas();
+
+  const botonMisHoras = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Mis horas');
+  assert.ok(botonMisHoras);
+  botonMisHoras.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Mis horas/);
+  assert.match(contenedor.textContent, /Pedro Profesor/);
+  assert.equal(contenedor.querySelectorAll('select').length, 0);
+});
+
 void test('teacher: desde mi horario, "Ver registros" de un slot navega directo a los registros de ESE slot (requisito 2 de T-22)', async () => {
   const contenedor = crearContenedorDePruebas();
   const { app, objetivoRouter } = crearAppProfesorFalso(manejadorConSlotDelTeacher, '#/horario');

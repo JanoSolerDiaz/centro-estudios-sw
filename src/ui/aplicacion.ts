@@ -106,6 +106,7 @@ import { mostrarPantallaCierresCentro } from './pantallaCierresCentro.ts';
 import { mostrarPantallaImportacionMasiva } from './pantallaImportacionMasiva.ts';
 import { mostrarPantallaPanelCentro } from './pantallaPanelCentro.ts';
 import { mostrarPantallaInformeHorasProfesor } from './pantallaInformeHorasProfesor.ts';
+import { mostrarPantallaMisHorasProfesor } from './pantallaMisHorasProfesor.ts';
 import { mostrarPantallaAsistentePrimerosPasos } from './pantallaAsistentePrimerosPasos.ts';
 import { crearBoton } from './formularios.ts';
 
@@ -579,11 +580,15 @@ function mostrarAppProfesor(
   enlaceCierres.addEventListener('click', () => {
     router.navegar({ nombre: 'cierres' });
   });
+  const enlaceMisHoras = crearBoton(documento, 'Mis horas', 'button');
+  enlaceMisHoras.addEventListener('click', () => {
+    router.navegar({ nombre: 'mis-horas' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
-  nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, enlaceHistorico, enlaceCierres, botonSalir);
+  nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, enlaceHistorico, enlaceCierres, enlaceMisHoras, botonSalir);
 
   cabecera.append(titulo, saludo, nav);
 
@@ -688,6 +693,23 @@ function mostrarAppProfesor(
       mostrarPantallaCierresCentro(areaPantalla, {
         rol: perfil.rol,
         listarCierres: (opciones) => listarCierres(app.postgrest, opciones),
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'mis-horas') {
+      mostrarPantallaMisHorasProfesor(areaPantalla, {
+        rol: perfil.rol,
+        profesorId: perfil.id,
+        profesorNombre: perfil.nombre,
+        reloj: app.reloj,
+        listarSlotsPropios: () => listarSlotsDeProfesores(app.postgrest, [perfil.id]),
+        listarCierresActivos: () => listarCierres(app.postgrest, { estado: 'activos' }),
+        listarExcepcionesEnRango: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        listarHistoricoPropio: (desde, hasta) =>
+          listarHistoricoAsistenciaCompleto(app.postgrest, { profesorId: perfil.id, desde, hasta }),
+        descargador: crearDescargadorNavegador(documento),
+        abridorImpresion,
       });
       return;
     }

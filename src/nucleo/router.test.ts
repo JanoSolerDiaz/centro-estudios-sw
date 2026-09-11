@@ -198,6 +198,10 @@ void test('analizarRutaProfesor: "#/cierres" es la pantalla del calendario de ci
   assert.deepEqual(analizarRutaProfesor('#/cierres'), { nombre: 'cierres' });
 });
 
+void test('analizarRutaProfesor: "#/mis-horas" es el informe de horas propias (R-19)', () => {
+  assert.deepEqual(analizarRutaProfesor('#/mis-horas'), { nombre: 'mis-horas' });
+});
+
 void test('analizarRutaProfesor: un slotId con caracteres especiales llega decodificado', () => {
   assert.deepEqual(analizarRutaProfesor('#/registros/uno%20dos'), { nombre: 'registros', slotId: 'uno dos' });
 });
@@ -227,6 +231,7 @@ void test('hashDeRutaProfesor es el inverso exacto de analizarRutaProfesor para 
     { nombre: 'registros', slotId: 'slot-abc', fecha: '2026-09-07' },
     { nombre: 'historico' },
     { nombre: 'cierres' },
+    { nombre: 'mis-horas' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRutaProfesor(hashDeRutaProfesor(ruta)), ruta);

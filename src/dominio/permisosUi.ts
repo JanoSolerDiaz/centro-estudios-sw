@@ -166,3 +166,11 @@ export function puedeVerInformeHorasProfesor(rol: Rol): boolean {
 export function puedeVerAsistentePrimerosPasos(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Informe de horas propias (R-19): el mismo cálculo de R-15, acotado a sí mismo, sin selector de
+ * otro profesor ni ninguna cifra ajena (requisito 2). Exclusivamente `teacher` — `administrator`
+ * sigue con el informe completo de todos los profesores (`puedeVerInformeHorasProfesor`), una
+ * capacidad distinta que no cambia con esta. */
+export function puedeVerInformeHorasPropio(rol: Rol): boolean {
+  return rol === 'teacher';
+}

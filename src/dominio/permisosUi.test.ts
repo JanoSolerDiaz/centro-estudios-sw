@@ -20,6 +20,7 @@ import {
   puedeVerMiHorario,
   puedeVerPanelCentro,
   puedeVerInformeHorasProfesor,
+  puedeVerInformeHorasPropio,
   puedeVerPersonasReferencia,
   puedeVerAsistentePrimerosPasos,
 } from './permisosUi.ts';
@@ -130,4 +131,10 @@ void test('puedeVerAsistentePrimerosPasos: exclusivamente administrator, ni siqu
   assert.equal(puedeVerAsistentePrimerosPasos('administrator'), true);
   assert.equal(puedeVerAsistentePrimerosPasos('teacher'), false);
   assert.equal(puedeVerAsistentePrimerosPasos('student'), false);
+});
+
+void test('puedeVerInformeHorasPropio: exclusivamente teacher, ni siquiera administrator', () => {
+  assert.equal(puedeVerInformeHorasPropio('teacher'), true);
+  assert.equal(puedeVerInformeHorasPropio('administrator'), false);
+  assert.equal(puedeVerInformeHorasPropio('student'), false);
 });
