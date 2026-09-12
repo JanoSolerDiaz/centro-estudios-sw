@@ -8,45 +8,20 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-11 — decimoctavo ciclo del PM. `FEEDBACK.md` sigue sin entradas
+**Última actualización:** 2026-09-12 — decimonoveno ciclo del PM. `FEEDBACK.md` sigue sin entradas
 `nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` con una pasada
-nueva desde el ciclo anterior (2026-09-11, commit `f09ad7f`): cierra los cuatro hallazgos que seguían
-`ABIERTO` (**#15**, **#17**, **#18**, **#19**, ya resueltos por P-25/P-26/P-27 y por la fila de §7 de
-R-16) y no abre ninguno nuevo. Sigue **ABIERTO** solo **#8** (dato de salud del artículo 9 del RGPD en
-R-02), formalizado como pregunta **#16** de §6, esperando al dueño sin novedad — no requiere ninguna
-acción nueva de este ciclo, igual que en el anterior.
+nueva desde el ciclo anterior (2026-09-12, commit `e79de3c`): confirma sin cambio que sigue
+**ABIERTO** solo **#8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como pregunta
+**#16** de §6) y no abre ningún hallazgo nuevo — no requiere ninguna acción nueva de este ciclo.
 
-**Columna vertebral de código (v1 a v5) agotada por completo: confirmado por cuatro sesiones de
-programador consecutivas** tras completarse R-19 (§1: 37 `COMPLETADA`, 8 `BLOQUEADA` solo por
-migración sin aplicar o por la pregunta #16, **cero `PENDIENTE`/`EN CURSO`**). El MVP (T-00 a T-25)
-sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada ha llegado a
-desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez — pero, con la cola de
-trabajo formalmente vacía otra vez, toca volver a mirar más allá de la última oleada, mismo gesto que
-el noveno ciclo (definió v2 completa con v1 en curso), el decimoquinto (v3), el decimosexto (v4) y el
-decimoséptimo (v5).
-
-**Revisadas primero las mismas fuentes que agotaron los ciclos anteriores, sin ningún hueco nuevo que
-extraer de ellas:** ninguna spec de R-01 a R-19 deja ya una ampliación futura autoseñalada sin
-convertir (R-06→R-14 y R-15→R-19 ya se cerraron en ciclos anteriores; una relectura completa de las
-diecinueve specs no encuentra una tercera). Tampoco hay ninguna pregunta de §6 cuya respuesta por
-defecto sugiera trabajo nuevo más allá de lo ya especificado.
-
-**Una R-XX nueva este ciclo, abriendo la Oleada v6: R-20 (registro de auditoría de cambios para el
-administrador).** No sale de una spec que la autoseñale, sino de una capacidad que el propio producto
-ya tiene construida desde T-07/T-18 sin exponerla nunca a nivel de centro: `asistencia_historial`
-existe precisamente, dice la norma permanente de §0.2 de `HOJA_DE_RUTA.md`, para "responder quién
-cambió qué" — y hoy esa respuesta solo se puede obtener registro a registro, abriendo «Registros»
-(T-21) de un slot y una fecha concretos. Un centro con varios profesores no tiene ninguna forma de
-comprobar de un vistazo que la disciplina del principio 2 ("quien se equivoca, lo arregla — y queda
-constancia") se cumple, más allá de ir caso por caso; y es exactamente el argumento de fiabilidad
-legal que distingue este producto de una hoja de cálculo, donde una celda editada no deja rastro de
-quién ni cuándo. No es ninguna de las decisiones reservadas al dueño (no es precio, plan, cuenta de
-pago, texto legal, comunicación a usuarios reales, operación destructiva ni DDL de producción): es una
-vista nueva sobre un dato que ya existe, sin migración, sin dato personal nuevo y sin tocar al rol
-`student`. **Revisado el resto del roadmap contra el estado actual y la visión de producto: sin ningún
-otro hueco real que añadir este ciclo** — diecisiete ciclos consecutivos de PM ya habían traducido a
-tareas concretas el hueco real entre el MVP y el objetivo de producto; inventar una segunda tarea sin
-necesidad real detrás sería exactamente el vicio que este protocolo existe para evitar.
+**R-20 (Oleada v6/F-11), abierta el ciclo anterior, sigue `PENDIENTE` en §1: ninguna sesión de
+programador la ha tomado todavía.** La cola de trabajo no está vacía, así que este ciclo no repite el
+gesto de abrir una oleada nueva (v7): hacerlo antes de que la primera tarea de v6 se haya siquiera
+empezado sería inventar trabajo sin necesidad real detrás, exactamente lo que este protocolo existe
+para evitar. Revisado igualmente el resto del roadmap contra el estado actual y la visión de
+producto, sin ningún hueco nuevo que añadir. El MVP (T-00 a T-25) sigue sin estar completo (T-25
+pendiente del paso a producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se
+mueve a `ROADMAP_HISTORICO.md` esta vez.
 
 ---
 

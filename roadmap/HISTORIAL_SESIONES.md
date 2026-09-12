@@ -37,6 +37,45 @@
 
 ---
 
+### Sesión 2026-09-12 (rutina programada de producto) — decimonoveno ciclo del PM: sin R-XX nueva
+
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **decimonoveno ciclo del PM: ninguna R-XX
+nueva; ningún hallazgo de `auditoriacontinua.md` ni entrada `nuevo` de `FEEDBACK.md` que convertir;
+sin cambios de estado de T-XX/R-XX en §1 (R-20 sigue `PENDIENTE`, 37 `COMPLETADA`, 8 `BLOQUEADA`).**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: decimonoveno ciclo del PM — sin R-XX
+nueva, R-20 sigue pendiente de que un programador la tome)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010` a `016` siguen pendientes de que
+el dueño las aplique — la `011` sigue condicionada además a la pregunta #16 de §6)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada),
+`roadmap/SEGUIMIENTO.md` (cabecera; nueva entrada de sesión), `roadmap/HISTORIAL_SESIONES.md` (esta
+entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código. Comprobación de salud
+igualmente ejecutada: `npm ci` (130 paquetes, 0 vulnerabilidades; el contenedor arrancó sin
+`node_modules`, mismo síntoma ya documentado en sesiones anteriores) · `npm test` **1586/1586** sin
+cambio
+**Health check post-deploy:** N/A — sin cambios de código desplegado
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — esta sesión no decide ningún mecanismo
+nuevo
+**Hallazgos del auditor atendidos:** ninguno nuevo. `auditoriacontinua.md` trae una pasada nueva
+desde el ciclo anterior (commit `e79de3c`, 2026-09-12) que confirma sin cambio que **#8** (severidad
+alta, RGPD/dato de salud en R-02) sigue siendo el único hallazgo `ABIERTO`, ya correctamente
+formalizado como pregunta #16 de §6 desde el duodécimo ciclo, y no abre ningún hallazgo nuevo
+**Tareas autopropuestas (P-XX):** ninguna registrada ni ejecutada este ciclo
+**Hallazgos:** ninguno de producto. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. **R-20** (Oleada v6/F-11, especificada el ciclo anterior) sigue `PENDIENTE`: ninguna sesión
+de programador la ha tomado todavía, así que la cola de trabajo no está vacía y no hay base para abrir
+una Oleada v7 este ciclo — hacerlo sería inventar una segunda tarea sin que la primera se haya
+siquiera empezado, justo el vicio que este protocolo existe para evitar. Revisado el resto del
+roadmap contra el estado actual y la visión de producto: sin ningún hueco nuevo que añadir
+**Próximo paso:** una sesión de programador implementa R-20 (spec completa en `ROADMAP_PRODUCTO.md`).
+La siguiente sesión de producto vuelve a revisar `auditoriacontinua.md` y `FEEDBACK.md` en busca de
+hallazgos/entradas nuevas, y si R-20 ya está `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`, valora si toca
+abrir la Oleada v7
+
+---
+
 ### Sesión 2026-09-11 (rutina programada de producto) — decimoctavo ciclo del PM: R-20 abre la Oleada v6
 
 **Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)
