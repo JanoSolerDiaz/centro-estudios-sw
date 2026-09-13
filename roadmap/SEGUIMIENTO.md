@@ -10,18 +10,28 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-12 (rutina programada de producto, decimonoveno ciclo del PM):
+**Última actualización:** 2026-09-13 (rutina programada de producto, vigésimo ciclo del PM):
 revisadas las tres fuentes de entrada (auditor, feedback, roadmap contra visión de producto).
-`auditoriacontinua.md` trae una pasada nueva desde el ciclo anterior (`e79de3c`, 2026-09-12) que
+`auditoriacontinua.md` trae una pasada nueva desde el ciclo anterior (`346969f`, 2026-09-13) que
 confirma sin cambio el único hallazgo que sigue `ABIERTO` (**#8**, dato de salud del artículo 9 en
 `motivo_justificacion` de R-02, esperando al dueño en la pregunta #16 de §6) y no abre ninguno nuevo.
-`FEEDBACK.md` sigue con su única fila plantilla vacía, nada que convertir. **R-20** (Oleada v6/F-11,
-abierta el ciclo anterior) sigue `PENDIENTE` en §1: ninguna sesión de programador la ha tomado
-todavía, así que la cola de trabajo no está vacía y no hay base para abrir una Oleada v7 este ciclo —
-inventar una segunda R-XX nueva sin que la primera se haya siquiera empezado sería exactamente el
-vicio que este protocolo existe para evitar. Revisado el resto del roadmap contra el estado actual y
+`FEEDBACK.md` sigue con su única fila plantilla vacía, nada que convertir. **R-20** (Oleada v6/F-11)
+sigue `PENDIENTE` en §1, sin cambio desde el ciclo anterior: ninguna sesión de programador la ha
+tomado todavía, así que la cola de trabajo sigue sin estar vacía y no hay base para abrir una Oleada
+v7 este ciclo — sería inventar una segunda R-XX nueva sin que la primera se haya siquiera empezado,
+el mismo motivo exacto que el ciclo anterior. Revisado el resto del roadmap contra el estado actual y
 la visión de producto: sin ningún hueco nuevo que añadir. **Sin cambios de estado de T-XX/R-XX en §1;
-ninguna R-XX nueva este ciclo.**
+ninguna R-XX nueva este ciclo — segundo ciclo de PM consecutivo sin trabajo accionable.**
+
+**Sesión anterior (2026-09-12, rutina programada de producto, decimonoveno ciclo del PM: sin R-XX
+nueva):** revisadas las tres fuentes de entrada (auditor, feedback, roadmap contra visión de
+producto). `auditoriacontinua.md` trajo una pasada nueva desde el ciclo anterior (`e79de3c`,
+2026-09-12) que confirma sin cambio el único hallazgo que sigue `ABIERTO` (**#8**, dato de salud del
+artículo 9 en `motivo_justificacion` de R-02, esperando al dueño en la pregunta #16 de §6) y no abre
+ninguno nuevo. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que convertir. **R-20**
+(Oleada v6/F-11, abierta el ciclo anterior) seguía `PENDIENTE` en §1: ninguna sesión de programador
+la había tomado todavía, así que la cola de trabajo no estaba vacía y no había base para abrir una
+Oleada v7 ese ciclo. Sin cambios de estado de T-XX/R-XX en §1; ninguna R-XX nueva ese ciclo.
 
 **Sesión anterior (2026-09-11, rutina programada de producto, decimoctavo ciclo del PM: R-20 abre la
 Oleada v6):** revisadas las tres fuentes de entrada (auditor, feedback, roadmap contra visión de

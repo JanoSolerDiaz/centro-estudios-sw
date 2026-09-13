@@ -8,20 +8,20 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-12 — decimonoveno ciclo del PM. `FEEDBACK.md` sigue sin entradas
+**Última actualización:** 2026-09-13 — vigésimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
 `nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` con una pasada
-nueva desde el ciclo anterior (2026-09-12, commit `e79de3c`): confirma sin cambio que sigue
+nueva desde el ciclo anterior (2026-09-13, commit `346969f`): confirma sin cambio que sigue
 **ABIERTO** solo **#8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como pregunta
 **#16** de §6) y no abre ningún hallazgo nuevo — no requiere ninguna acción nueva de este ciclo.
 
-**R-20 (Oleada v6/F-11), abierta el ciclo anterior, sigue `PENDIENTE` en §1: ninguna sesión de
-programador la ha tomado todavía.** La cola de trabajo no está vacía, así que este ciclo no repite el
-gesto de abrir una oleada nueva (v7): hacerlo antes de que la primera tarea de v6 se haya siquiera
-empezado sería inventar trabajo sin necesidad real detrás, exactamente lo que este protocolo existe
-para evitar. Revisado igualmente el resto del roadmap contra el estado actual y la visión de
-producto, sin ningún hueco nuevo que añadir. El MVP (T-00 a T-25) sigue sin estar completo (T-25
-pendiente del paso a producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se
-mueve a `ROADMAP_HISTORICO.md` esta vez.
+**R-20 (Oleada v6/F-11) sigue `PENDIENTE` en §1, sin cambio desde el ciclo anterior: ninguna sesión
+de programador la ha tomado todavía.** Segundo ciclo de PM consecutivo sin trabajo accionable
+nuevo, y por el mismo motivo que el anterior: la cola no está vacía, así que abrir una Oleada v7
+ahora sería inventar una segunda tarea antes de que la primera de v6 se haya siquiera empezado —
+justo el vicio que este protocolo existe para evitar. Revisado igualmente el resto del roadmap
+contra el estado actual y la visión de producto, sin ningún hueco nuevo que añadir. El MVP (T-00 a
+T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada ha llegado a
+desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez.
 
 ---
 
