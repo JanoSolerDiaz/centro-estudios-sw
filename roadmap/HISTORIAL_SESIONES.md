@@ -37,6 +37,35 @@
 
 ---
 
+### Sesión 2026-09-14 (rutina programada de programador, quinta pasada seguida sin trabajo accionable tras P-28)
+
+**Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
+**Estado resultante:** sin cambio en §1 (cero `PENDIENTE`/`EN CURSO`) ni en §5 (cero P-XX `PENDIENTE`)
+**Commits a `develop`:** ver commit de esta sesión (solo actualización de bitácora, sin código)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera únicamente),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1617/1617, sin cambio) · build ✅ — tras
+`npm ci` (contenedor arrancado sin `node_modules`, 130 paquetes recuperados, 0 vulnerabilidades)
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno — sin pasada nueva del auditor desde `7477c26`
+(2026-09-14), ya revisada por las cuatro sesiones anteriores de hoy. **#8** (alta) sigue `ABIERTO`,
+esperando al dueño en la pregunta #16 de §6. **#20** (media) sigue `ABIERTO`, ya implementada por
+P-28 en una sesión anterior, pendiente de confirmación del dueño (`npm run probar-rls`) y de la
+próxima pasada del auditor — nada que hacer sobre ella desde esta sesión
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — §5 revisada de punta a punta, ninguna fila `PENDIENTE`
+**Próximo paso:** comprobar de nuevo, en orden, los tres indicadores que desbloquearían trabajo:
+pasada nueva del auditor en `auditoriacontinua.md`, respuesta del dueño a alguna pregunta de §6
+(en particular la #16, que desbloquearía R-02/T-25) y `db/APLICADAS.md` (si `010` o posteriores
+aparecen aplicadas). Mientras los tres sigan iguales, no hay ninguna T-XX/R-XX/P-XX nueva que
+inventar (§0.2/§0.3) — abrir una R-XX nueva es decisión del ciclo de PM, no de una sesión de
+programador
+
+---
+
 ### Sesión 2026-09-14 (rutina programada de programador, cuarta pasada seguida sin trabajo accionable tras P-28)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar

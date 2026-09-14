@@ -10,7 +10,26 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-14 (rutina programada de programador, cuarta pasada seguida sin
+**Última actualización:** 2026-09-14 (rutina programada de programador, quinta pasada seguida sin
+trabajo accionable, tras P-28): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada
+nueva del auditor desde `7477c26` (2026-09-14), la misma que ya revisaron las cuatro sesiones
+anteriores de hoy: **#8** sigue `ABIERTO` de severidad alta, sin ninguna acción posible (esperando al
+dueño en la pregunta #16 de §6); **#20** sigue `ABIERTO` de severidad media, pero ya **implementada**
+por P-28 en una sesión anterior — pendiente solo de que el dueño la confirme con su próximo
+`npm run probar-rls` y de que el auditor la reevalúe en su próxima pasada, nada nuevo que hacer sobre
+ella desde el código.
+Revisada §1 completa: **cero `PENDIENTE`/`EN CURSO`**, ninguna tarea de código a la que pasar.
+Revisadas las 17 preguntas de §6: todas con la columna "Respuesta" vacía, incluida **#16** (la única
+que desbloquearía R-02/T-25). Revisado `db/APLICADAS.md`: `009` sigue siendo la última migración
+aplicada en `dev`, sin cambio. Revisada además §5 (P-XX): ninguna fila `PENDIENTE`. Con los tres
+indicadores que podrían desbloquear trabajo —pasada del auditor, respuesta del dueño, migración
+nueva— exactamente iguales que en la sesión anterior, esta sesión no ejecuta ninguna T-XX, R-XX ni
+P-XX — **sin ningún commit de código**. El contenedor arrancó otra vez sin `node_modules`: `npm ci`
+recuperó los 130 paquetes declarados, 0 vulnerabilidades. Verificación pre-push completa en verde
+como comprobación de salud: `npm run typecheck`, `npm run lint`, **`npm test` 1617/1617** (sin cambio)
+y `npm run build`.
+
+**Sesión anterior (2026-09-14, rutina programada de programador, cuarta pasada seguida sin
 trabajo accionable, tras P-28): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada
 nueva del auditor desde `7477c26` (2026-09-14), la misma que ya revisaron las tres sesiones anteriores
 de hoy: **#8** sigue `ABIERTO` de severidad alta, sin ninguna acción posible (esperando al dueño en la
