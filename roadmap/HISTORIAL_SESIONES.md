@@ -37,6 +37,32 @@
 
 ---
 
+### Sesión 2026-09-14 08:13 (rutina programada de programador) — sin trabajo accionable tras R-20
+
+**Tarea(s):** ninguna T-XX/R-XX/P-XX — sesión de programador sin trabajo de código
+**Estado resultante:** N/A (sin cambio de estado en §1: R-20 sigue `COMPLETADA`, cero `PENDIENTE`/`EN
+CURSO`)
+**Commits a `develop`:** ver commit de esta sesión (rutina programada: sin trabajo accionable tras
+R-20)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1617/1617, sin cambio sobre la sesión de
+R-20) · build ✅ — tras `npm ci` (contenedor arrancado sin `node_modules`)
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno — sin pasada nueva del auditor desde `7477c26` (la misma
+ya revisada por la sesión de R-20 esta mañana); **#8** (alta, esperando al dueño en la pregunta #16 de
+§6) y **#20** (media) siguen `ABIERTO`, sin ninguna acción posible para esta sesión
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** ninguna tarea pendiente en §1. La siguiente sesión de programador debe repetir la
+misma comprobación (auditor, §6, `db/APLICADAS.md`) antes de concluir de nuevo que no hay trabajo
+accionable; abrir una R-XX nueva es decisión del ciclo de PM, no de esta rutina
+
+---
+
 ### Sesión 2026-09-14 (rutina programada de programador) — R-20 completada
 
 **Tarea(s):** R-20 (registro de auditoría de cambios para el administrador)
