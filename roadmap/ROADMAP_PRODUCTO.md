@@ -8,20 +8,28 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-13 — vigésimo ciclo del PM. `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` con una pasada
-nueva desde el ciclo anterior (2026-09-13, commit `346969f`): confirma sin cambio que sigue
-**ABIERTO** solo **#8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como pregunta
-**#16** de §6) y no abre ningún hallazgo nuevo — no requiere ninguna acción nueva de este ciclo.
+**Última actualización:** 2026-09-14 — vigésimo primer ciclo del PM: **abre la Oleada v7 con
+R-21.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` sin pasada nueva desde el ciclo anterior (sigue en `7477c26`, 2026-09-14):
+confirma sin cambio que solo quedan **ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02,
+formalizado como pregunta **#16** de §6, esperando al dueño) y **#20** (hueco de cobertura del
+bucket de avatares contra `student`, ya implementado por P-28 el mismo día, pendiente solo de que
+el dueño lo confirme con `npm run probar-rls` y de que el auditor lo reevalúe) — ninguno de los dos
+requiere una R-XX nueva: el primero ya está reflejado como bloqueo de R-02/pregunta #16, y el
+segundo es deuda técnica de la batería de pruebas, no producto, y ya lo atendió el programador
+como P-XX.
 
-**R-20 (Oleada v6/F-11) sigue `PENDIENTE` en §1, sin cambio desde el ciclo anterior: ninguna sesión
-de programador la ha tomado todavía.** Segundo ciclo de PM consecutivo sin trabajo accionable
-nuevo, y por el mismo motivo que el anterior: la cola no está vacía, así que abrir una Oleada v7
-ahora sería inventar una segunda tarea antes de que la primera de v6 se haya siquiera empezado —
-justo el vicio que este protocolo existe para evitar. Revisado igualmente el resto del roadmap
-contra el estado actual y la visión de producto, sin ningún hueco nuevo que añadir. El MVP (T-00 a
-T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada ha llegado a
-desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez.
+**R-20 (Oleada v6/F-11) pasó a `COMPLETADA` el 2026-09-14** (ver §1 de `SEGUIMIENTO.md`): con eso,
+la columna vertebral de código de las oleadas v1 a v6 queda agotada — cada R-XX de v1 a v20 está
+`COMPLETADA` o `BLOQUEADA` solo por una migración pendiente de aplicar, sin ninguna spec que deje ya
+una ampliación autoseñalada sin convertir. Revisado el roadmap completo contra la visión de
+producto (control diario con fiabilidad legal, agilidad de pasar lista, prioridad al profesor que
+pasa lista cada día): se abre la **Oleada v7** con **R-21** (pausa programada de un alumno, F-12) —
+detalle en la sección correspondiente más abajo. Añadida su fila `PENDIENTE` en §1 de
+`SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
+producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto, no de
+programador.
 
 ---
 
@@ -202,6 +210,30 @@ cuándo —, y hoy esa constancia existe en la base de datos sin que nadie pueda
 todo el centro. Nada de esto añade datos personales nuevos ni toca al rol `student`.
 
 - **F-11 — Transparencia del registro de cambios.** R-20.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v7 — Excepciones de asistencia a nivel de alumno
+
+**Arranca cuando la oleada v6 (R-20) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta oleada
+queda especificada y en cola, detrás de la oleada v6, en el orden de §1.
+
+Por qué esta oleada: R-06 ya resuelve la excepción de un día sobre un slot completo cuando falta el
+profesor (sustitución o cancelación), y R-12 resuelve la excepción de un día sobre todo el centro
+(festivo o vacación). Falta la tercera combinación, simétrica a las otras dos y hasta ahora sin
+resolver: la excepción de **varios días sobre un único alumno**, cuando se sabe de antemano que va a
+faltar un periodo completo (una gripe de una semana, un viaje familiar fuera del calendario del
+centro). Hoy esa situación obliga al profesor a marcarlo ausente día a día (R-01) durante todo el
+periodo, infla el ranking de ausencias sin justificar del panel de centro (R-11) y el informe
+mensual (R-04) con sesiones que no eran realmente ausencias imprevistas, y no ahorra ningún toque al
+usuario de mayor frecuencia pese a que el motivo ya se conocía de antemano. No añade ningún dato
+personal nuevo (el motivo es siempre texto libre, nunca una categoría cerrada) ni toca al rol
+`student`.
+
+- **F-12 — Pausa programada de un alumno.** R-21.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -999,3 +1031,65 @@ producto de una hoja de cálculo, donde una celda editada no deja ningún rastro
 la pantalla muestra las tres modificaciones en orden cronológico inverso, cada una con quién y cuándo,
 y un enlace que lleva al registro completo en «Registros»; filtrar por uno de los dos profesores
 autores muestra solo sus cambios; un `teacher` no accede a esta pantalla.
+
+---
+
+### R-21 — Pausa programada de un alumno
+**Oleada / Fase:** v7 / F-12 · **Migración:** Sí (`017_pausa_alumno`, número a confirmar por la
+sesión que la escriba según el estado real de `db/APLICADAS.md` en ese momento) · **Depende de:**
+T-12, T-15, R-01, R-04, R-06, R-11
+**Origen:** roadmap
+
+**Objetivo:** R-06 ya permite declarar que un slot completo no se da un día porque el profesor
+falta; R-12 ya permite declarar que el centro entero cierra un día. Falta el caso simétrico a nivel
+de alumno: cuando se sabe de antemano que un alumno concreto va a faltar varios días seguidos
+(enfermedad, viaje familiar, cualquier ausencia prevista), el profesor tiene hoy que marcarlo
+ausente día a día (R-01) durante todo el periodo — o, peor, simplemente no marcar nada y dejar un
+hueco que en el histórico es indistinguible de un olvido. Cualquiera de las dos infla el ranking de
+ausencias sin justificar del panel de centro (R-11) y las sesiones "esperadas pero no dadas" del
+informe mensual (R-04) con algo que nunca fue una ausencia imprevista, y no ahorra al profesor
+ningún toque pese a que el motivo ya se conocía de antemano — justo lo que el principio de "cero
+fricción con lo habitual, cero bloqueo con la excepción" pide resolver.
+
+**Requisitos:**
+1. `administrator` puede declarar, sobre un alumno concreto, una pausa con fecha de inicio y fecha
+   de fin (ambas inclusive) y un motivo breve en texto libre **opcional** — nunca una lista cerrada
+   de motivos, y nunca ninguna opción que categorice salud (aprendido del hallazgo #8/pregunta #16
+   de §6 sobre R-02: no repetir el mismo problema con una tabla nueva).
+2. Mientras la fecha de hoy cae dentro de una pausa vigente de un alumno, ese alumno concreto no se
+   ofrece como pendiente en pasar lista (T-19) en ninguno de sus slots — el resto de alumnos del
+   mismo slot no se ven afectados en absoluto. No se crea automáticamente ninguna fila de asistencia
+   ni de ausencia para él esos días: igual que R-06 con un slot cancelado, la pausa hace que el
+   alumno simplemente no aparezca como pendiente, en vez de generar un registro de ausencia por
+   omisión.
+3. Los días de una pausa quedan excluidos de "sesiones esperadas" para ese alumno en su informe
+   mensual (R-04) y del cómputo de ausencias sin justificar en el panel de centro (R-11) — mismo
+   principio que `esDiaCerrado` (R-12) y la cancelación de slot (R-06), aplicado esta vez a nivel de
+   alumno en lugar de centro o slot.
+4. Una pausa no puede declararse sobre un rango que se solape con fechas donde ese alumno ya tiene
+   algún registro de asistencia (entrada o ausencia): se rechaza con aviso, indicando que hay que
+   anular esos registros primero si de verdad se quiere cubrir esas fechas — mismo criterio de
+   no-retroactividad que R-06 aplica a la excepción de slot.
+5. Desde la ficha del alumno (T-12), un bloque nuevo lista las pausas del alumno (pasadas, en curso
+   y futuras). Una pausa que todavía no ha empezado puede cancelarse (queda anulada, con motivo,
+   nunca borrada); una pausa en curso puede acortarse cambiando su fecha de fin a una fecha futura,
+   nunca a una fecha ya pasada — jamás un `DELETE` real, mismo régimen de anulación que el resto del
+   producto (§0.2 de `HOJA_DE_RUTA.md`).
+6. Reservado a `administrator` para declarar, editar o cancelar. Un `teacher` no gestiona pausas,
+   pero sí ve —en pasar lista y en «Mi horario» (T-22), sobre el hueco donde estaría el alumno— que
+   está en pausa y hasta cuándo, para no interpretarlo como un alumno que ha dejado de existir en ese
+   slot ese día.
+7. Ningún dato ni categoría nueva de salud: el motivo es siempre texto libre opcional, nunca una
+   lista cerrada con opciones del estilo "enfermedad"/"cita médica". Ninguna tabla ni columna nueva
+   fuera de la propia pausa (fechas, alumno, motivo, quién la creó y cuándo).
+
+**Bloqueo humano:** ninguno — no trata ningún dato del artículo 9 del RGPD, mismo criterio que el
+resto del producto salvo R-02.
+
+**Criterio de aceptación:** un alumno con una pausa declarada de cinco días laborables no aparece
+como pendiente en pasar lista de su profesor durante esos días, y ninguno de esos días cuenta como
+sesión esperada en su informe mensual (R-04) ni en el ranking de ausencias del panel de centro
+(R-11); el resto de alumnos del mismo slot se registran con total normalidad esos mismos días;
+declarar una pausa sobre un rango que ya tiene un registro de asistencia de ese alumno se rechaza;
+un `teacher` ve la marca "en pausa" del alumno pero no tiene ningún control para crearla, editarla ni
+cancelarla.

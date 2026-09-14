@@ -10,7 +10,28 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-14 (rutina programada de programador, quinta pasada seguida sin
+**Última actualización:** 2026-09-14 (rutina programada de producto, vigésimo primer ciclo del PM:
+**abre la Oleada v7 con R-21**): revisadas las tres fuentes de entrada. `auditoriacontinua.md` sin
+pasada nueva desde el ciclo anterior (sigue en `7477c26`, 2026-09-14): confirma sin cambio que solo
+quedan **ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02, pregunta #16 de §6, esperando
+al dueño) y **#20** (hueco de cobertura de la batería de RLS contra `student` en el bucket de
+avatares, ya implementado por P-28 el mismo día, pendiente solo de confirmación del dueño y
+reevaluación del auditor) — ninguno de los dos exige una R-XX nueva: el primero ya está reflejado
+como bloqueo de R-02, y el segundo es deuda técnica de pruebas, ya atendida como P-XX por el
+programador. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que convertir. **R-20**
+(Oleada v6/F-11) pasó a `COMPLETADA` el mismo día (sesión de programador): con eso, la columna
+vertebral de código de las oleadas v1 a v6 queda agotada — cada R-XX de v1 a v20 está `COMPLETADA` o
+`BLOQUEADA` solo por una migración pendiente, sin ninguna spec que deje ya una ampliación
+autoseñalada sin convertir. Revisado el roadmap completo contra la visión de producto (control
+diario con fiabilidad legal, agilidad de pasar lista en tres toques, prioridad al profesor que pasa
+lista cada día): se abre la **Oleada v7** con **R-21** (pausa programada de un alumno, F-12) —
+resuelve el hueco simétrico a R-06 (excepción de slot) y R-12 (cierre de centro) que faltaba a nivel
+de alumno individual, sin añadir ningún dato personal nuevo ni tocar al rol `student`. Spec completa
+en `ROADMAP_PRODUCTO.md`; fila `PENDIENTE` añadida en §1. Ninguna oleada ha llegado a desplegarse
+todavía (T-25 pendiente del paso a producción), así que nada se mueve a `ROADMAP_HISTORICO.md` esta
+vez. **Sin ningún commit de código — sesión de producto, no de programador.**
+
+**Sesión anterior (2026-09-14, rutina programada de programador, quinta pasada seguida sin
 trabajo accionable, tras P-28): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada
 nueva del auditor desde `7477c26` (2026-09-14), la misma que ya revisaron las cuatro sesiones
 anteriores de hoy: **#8** sigue `ABIERTO` de severidad alta, sin ninguna acción posible (esperando al
@@ -2628,6 +2649,7 @@ pantallas del requisito 2.
 | R-18 | Asistente de primeros pasos para el administrador | COMPLETADA | 2026-09-10 | Oleada v4 / F-09 · Sin migración: depende de T-11/T-12/T-15/T-24, las cuatro `COMPLETADA`. `dominio/asistentePrimerosPasos.ts` (nuevo, puro): los cuatro pasos (centro, alumno, horario, profesor), calculados sobre booleanos ya resueltos. Pantalla propia `ui/pantallaAsistentePrimerosPasos.ts` (`#/primeros-pasos`, exclusiva de `administrator`), con enlace por paso a la pantalla donde completarlo. Nueva `datos/slotsHorario.ts#listarTodosLosSlots` (todo el centro, sin filtrar por alumno/profesor) y `dominio/permisosUi.ts#puedeVerAsistentePrimerosPasos`. `ui/aplicacion.ts`: botón fijo "Primeros pasos" en la barra de navegación (siempre accesible) y, al entrar sin ningún hash en la URL, comprobación en segundo plano que navega sola al asistente si queda algún paso pendiente — nunca si ya se navegó a una ruta explícita, y sin bloquear el primer pintado (la pantalla por defecto ya está en pantalla mientras se decide). 22 tests nuevos en total (1570 en total, antes 1548) |
 | R-19 | Informe de horas propias para el profesor | COMPLETADA | 2026-09-11 | Oleada v5 / F-10 · Sin migración: depende de R-15 (`COMPLETADA`). `ui/pantallaMisHorasProfesor.ts` (nuevo) reutiliza tal cual `dominio/informeHorasProfesor.ts` (R-15), acotado a un único profesor (el propio) — sin selector de otro profesor ni ranking. Nueva `dominio/permisosUi.ts#puedeVerInformeHorasPropio` (exclusiva de `teacher`). Ruta `#/mis-horas` en `crearRouterProfesor` (`nucleo/router.ts`), botón "Mis horas" en la barra de navegación de `teacher`. 14 tests nuevos en total (1586 en total, antes 1572) |
 | R-20 | Registro de auditoría de cambios para el administrador | COMPLETADA | 2026-09-14 | Oleada v6 / F-11 · Sin migración: `asistencia_historial` ya existe y ya está reservada a `administrator` desde T-10. Nueva `datos/asistencia.ts#listarHistorialDeCentro` (mismo patrón que `listarHistoricoAsistencia` de T-23, paginada, filtro por rango de fechas —últimos 7 días por defecto— y por autor del cambio contra CUALQUIER perfil activo, no solo profesores). Pantalla nueva `ui/pantallaRegistroAuditoria.ts` (`#/auditoria`), exclusiva de `administrator` (`puedeVerRegistroAuditoria`). Cada fila con `slot_id` enlaza a «Registros» (T-21) con profesor/slot/fecha ya elegidos — `nucleo/router.ts` gana tres segmentos opcionales en `#/registros` de `administrator` y `pantallaRegistrosSlot.ts` gana `profesorIdInicial` (antes `slotInicialId`/`fechaInicial` no tenían efecto para `administrator`). 31 tests nuevos (1617 en total, antes 1586) |
+| R-21 | Pausa programada de un alumno | PENDIENTE | 2026-09-14 | Oleada v7 / F-12 · Abierta por el vigésimo primer ciclo del PM al agotarse la columna vertebral de código de v1 a v6 (toda R-XX de v1-v6 `COMPLETADA` o `BLOQUEADA` solo por migración). Spec completa en `ROADMAP_PRODUCTO.md`. Migración prevista `017_pausa_alumno` (número a confirmar contra `db/APLICADAS.md` al escribirla) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

@@ -37,6 +37,52 @@
 
 ---
 
+### Sesión 2026-09-14 (rutina programada de producto) — vigésimo primer ciclo del PM: R-21 abre la Oleada v7
+
+**Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)
+**Estado resultante:** R-21 añadida a §1 de `SEGUIMIENTO.md` (`PENDIENTE`, Oleada v7/F-12); resto de
+§1 sin cambio salvo R-20, ya pasada a `COMPLETADA` por la sesión de programador de hoy
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en
+`dev`, `010`-`016` sin aplicar)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera "Última actualización", fila
+R-21 en §1); `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v7/F-12 nueva, detalle de R-21);
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código
+**Health check post-deploy:** N/A (sin push de código, sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** revisado `auditoriacontinua.md` — sin pasada nueva desde
+`7477c26` (2026-09-14), la misma que ya revisaron las sesiones de programador de hoy. Siguen
+`ABIERTO` **#8** (dato de salud del art. 9 RGPD en R-02, esperando al dueño en la pregunta #16 de
+§6) y **#20** (cobertura de RLS del bucket de avatares contra `student`, ya implementada por P-28 en
+una sesión de programador de hoy, pendiente de confirmación del dueño y reevaluación del auditor).
+Ninguno de los dos exige una R-XX nueva: el primero ya está reflejado como bloqueo de R-02, el
+segundo es deuda técnica de pruebas, ajena al roadmap de producto
+**Tareas autopropuestas (P-XX):** ninguna — nada nuevo que registrar en §5 este ciclo
+**Hallazgos:** ninguno de código. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. Con **R-20** pasada a `COMPLETADA` por una sesión de programador anterior el mismo día, la
+columna vertebral de código de las oleadas v1 a v6 queda agotada: cada R-XX de v1 a v20 está
+`COMPLETADA` o `BLOQUEADA` solo por una migración pendiente de aplicar, sin ninguna spec que deje ya
+una ampliación autoseñalada sin convertir (mismo mecanismo que ya dio R-13/R-14, R-19 y R-20 en
+ciclos anteriores, agotado esta vez). Revisado el roadmap contra la visión de producto y el
+principio "cero fricción con lo habitual, cero bloqueo con la excepción": R-06 ya resuelve la
+excepción de un día sobre un slot (falta el profesor) y R-12 la excepción de un día sobre todo el
+centro (cierre); falta el caso simétrico a nivel de un único alumno cuando se sabe de antemano que
+va a faltar varios días seguidos — hoy obliga a marcarlo ausente día a día (R-01) e infla los
+rankings de ausencias sin justificar (R-11) y el informe mensual (R-04) con algo que nunca fue una
+ausencia imprevista. Se especifica **R-21** ("Pausa programada de un alumno"), Oleada v7/F-12: motivo
+siempre en texto libre (nunca lista cerrada, aprendido del propio hallazgo #8/pregunta #16 de R-02),
+sin ningún dato personal nuevo y sin tocar al rol `student`
+**Próximo paso:** una sesión de programador implementa R-21 (spec completa en
+`ROADMAP_PRODUCTO.md`; migración prevista `017_pausa_alumno`, número a confirmar contra
+`db/APLICADAS.md` en ese momento). Mientras tanto, siguen pendientes los mismos tres indicadores que
+las sesiones de programador ya vienen comprobando: pasada nueva del auditor, respuesta del dueño a
+alguna pregunta de §6 (la #16 es la que más desbloquearía) y migraciones nuevas aplicadas en
+`db/APLICADAS.md`
+
+---
+
 ### Sesión 2026-09-14 (rutina programada de programador, quinta pasada seguida sin trabajo accionable tras P-28)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
