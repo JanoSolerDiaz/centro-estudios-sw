@@ -871,6 +871,103 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 7c. Barrido obligatorio de student sobre storage.objects (P-28,
+--     hallazgo #20 de auditoriacontinua.md): la sección 6 recorre las
+--     diez tablas de `public` esperando rechazo de student en todas,
+--     pero nunca llegó a incluir el bucket `avatares` — la única
+--     combinación rol×recurso de todo el proyecto donde el rol más
+--     restringido no tenía un caso negativo ejecutable contra el
+--     recurso más sensible (fotos de menores). Va aquí, después de la
+--     sección 7 y no dentro de la 6, porque reutiliza sus dos fixtures
+--     (`alumno_prueba`/`alumno_inactivo` y las dos filas de
+--     `storage.objects` que crea) en vez de duplicarlas: la sección 6
+--     corre antes de que existan. Ningún GRANT ni política de
+--     `003_politicas_rls.sql` menciona a `student` sobre
+--     `storage.objects` (mismo motivo que las demás tablas: sin
+--     política propia, RLS lo deja siempre en 0 filas), así que se
+--     espera el mismo desenlace que la sección 6: 0 filas o
+--     `permission denied`/RLS, cualquiera de los dos.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_bucket_existe   boolean;
+  v_alumno_activo   uuid := pg_temp.dato('alumno_prueba');
+  v_alumno_inactivo uuid := pg_temp.dato('alumno_inactivo');
+  v_ruta_activo     text;
+  v_ruta_inactivo   text;
+  v_existe_activo   boolean;
+  v_existe_inactivo boolean;
+  v_n               integer;
+begin
+  select exists(select 1 from storage.buckets where id = 'avatares') into v_bucket_existe;
+  if not v_bucket_existe then
+    perform pg_temp.omitir('avatares / student no lee alumno activo (debe fallar)', 'el bucket "avatares" todavía no existe (T-14)');
+    perform pg_temp.omitir('avatares / student no lee alumno inactivo (debe fallar)', 'el bucket "avatares" todavía no existe (T-14)');
+    perform pg_temp.omitir('avatares / student escribe (debe fallar)', 'el bucket "avatares" todavía no existe (T-14)');
+    return;
+  end if;
+
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('avatares / student no lee alumno activo (debe fallar)', 'no hay student en este entorno');
+    perform pg_temp.omitir('avatares / student no lee alumno inactivo (debe fallar)', 'no hay student en este entorno');
+    perform pg_temp.omitir('avatares / student escribe (debe fallar)', 'no hay student en este entorno');
+    return;
+  end if;
+
+  if v_alumno_activo is null then
+    perform pg_temp.omitir('avatares / student no lee alumno activo (debe fallar)', 'no hay alumno de prueba (sección 2) en este entorno');
+  else
+    v_ruta_activo := 'alumno/' || v_alumno_activo::text || '/prueba-rls/avatar-mini.webp';
+    -- Comprobado con el rol de conexión (bypassa RLS): confirma que la fila de fixture de la
+    -- sección 7 sigue existiendo antes de exigirle a student que no la vea — si no existiera,
+    -- "0 filas" no probaría nada.
+    select exists(select 1 from storage.objects where bucket_id = 'avatares' and name = v_ruta_activo) into v_existe_activo;
+    if not v_existe_activo then
+      perform pg_temp.omitir('avatares / student no lee alumno activo (debe fallar)', 'no se pudo crear el fixture de storage.objects en la sección 7');
+    else
+      perform pg_temp.impersonar('student');
+      begin
+        select count(*) into v_n from storage.objects where bucket_id = 'avatares' and name = v_ruta_activo;
+        perform pg_temp.registrar('avatares / student no lee alumno activo (debe fallar)', 'prohibido', v_n = 0);
+      exception when others then
+        perform pg_temp.registrar_prohibido('avatares / student no lee alumno activo (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end if;
+  end if;
+
+  if v_alumno_inactivo is null then
+    perform pg_temp.omitir('avatares / student no lee alumno inactivo (debe fallar)', 'no se pudo crear el fixture del alumno dado de baja (sección 7)');
+  else
+    v_ruta_inactivo := 'alumno/' || v_alumno_inactivo::text || '/prueba-rls/avatar-mini.webp';
+    select exists(select 1 from storage.objects where bucket_id = 'avatares' and name = v_ruta_inactivo) into v_existe_inactivo;
+    if not v_existe_inactivo then
+      perform pg_temp.omitir('avatares / student no lee alumno inactivo (debe fallar)', 'no se pudo crear el fixture de storage.objects en la sección 7');
+    else
+      perform pg_temp.impersonar('student');
+      begin
+        select count(*) into v_n from storage.objects where bucket_id = 'avatares' and name = v_ruta_inactivo;
+        perform pg_temp.registrar('avatares / student no lee alumno inactivo (debe fallar)', 'prohibido', v_n = 0);
+      exception when others then
+        perform pg_temp.registrar_prohibido('avatares / student no lee alumno inactivo (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+      end;
+      perform pg_temp.dejar_de_impersonar();
+    end if;
+  end if;
+
+  perform pg_temp.impersonar('student');
+  begin
+    insert into storage.objects (bucket_id, name) values ('avatares', 'alumno/00000000-0000-0000-0000-000000000000/prueba-rls-student/avatar.webp');
+    perform pg_temp.registrar('avatares / student escribe (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avatares / student escribe (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 7b. registrar_asistencia (T-18, db/005_rpc_registrar_asistencia.sql) —
 --     la única vía de alta de asistencia. Reutiliza los fixtures ya
 --     creados por las secciones 2 (alumno_prueba), 4 (slot_prueba, del

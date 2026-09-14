@@ -37,6 +37,45 @@
 
 ---
 
+### Sesión 2026-09-14 (rutina programada de programador) — P-28: cobertura de `student` sobre el bucket de avatares (hallazgo #20)
+
+**Tarea(s):** P-28 (autopropuesta, backlog de auditoría — hallazgo #20, severidad media)
+**Estado resultante:** T-10 sigue `COMPLETADA` (nota añadida en §1 referenciando P-28); §1 sigue sin
+ninguna `PENDIENTE`/`EN CURSO`
+**Commits a `develop`:** ver commit de esta sesión (P-28: cobertura de `student` sobre el bucket de
+avatares en `db/pruebas_rls.sql`, hallazgo #20)
+**Migraciones aplicadas:** ninguna — `db/pruebas_rls.sql` es un script de prueba, no DDL; no toca
+ninguna tabla ni política
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (nueva sección 7c), `roadmap/SEGUIMIENTO.md`
+(cabecera, §1 fila T-10, §5 fila P-28 nueva), `roadmap/DECISIONES_TECNICAS.md` (3 filas nuevas, todas
+P-28), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1617/1617, sin cambio: el fichero tocado es
+SQL, fuera de `npm test`) · build ✅ — tras `npm ci` (contenedor arrancado sin `node_modules`)
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** 3 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-14, P-28): por qué la
+sección va después de la 7 y no dentro de la 6 (depende de sus fixtures); por qué comprueba primero
+con el rol de conexión que la fila de fixture sigue existiendo antes de exigir "0 filas" a `student`;
+por qué se añade también el caso de escritura, que el hallazgo no pedía explícitamente
+**Hallazgos del auditor atendidos:** #20 (severidad media, "Autorización (RLS) / calidad de la
+batería de pruebas — bucket de avatares", `ABIERTO` desde 2026-09-14) — código y P-XX completos;
+**no se marca `RESUELTO` aquí**, eso lo decide el auditor en su próxima pasada, y solo una vez que el
+dueño confirme con `npm run probar-rls` que la sección 7c se comporta como se espera contra `dev`
+real (el agente nunca ejecuta este script, §0.1). **#8** (alta, esperando al dueño en la pregunta #16
+de §6) sigue `ABIERTO`, sin ninguna acción posible para esta sesión
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** **P-28** registrada e implementada en la misma sesión (§5 de
+`SEGUIMIENTO.md`) — no es urgente (§0.3: severidad media, no bug de producción ni fallo de
+seguridad activo), se ejecuta porque §1 no tenía ninguna T-XX/R-XX pendiente y es la única P-XX
+abierta entre dos tareas de la columna vertebral (dentro del límite de 3)
+**Próximo paso:** sin ninguna tarea `PENDIENTE`/`EN CURSO` en §1. La siguiente sesión de programador
+debe repetir la comprobación de los tres indicadores (pasada nueva del auditor, respuesta del dueño
+en §6 —en particular la #16—, migración nueva en `db/APLICADAS.md`) antes de concluir de nuevo que no
+hay trabajo accionable de la columna vertebral; si ninguno cambió, valorar si queda algún otro hueco
+de backlog razonable como P-XX antes de declarar la sesión sin trabajo
+
+---
+
 ### Sesión 2026-09-14 08:13 (rutina programada de programador) — sin trabajo accionable tras R-20
 
 **Tarea(s):** ninguna T-XX/R-XX/P-XX — sesión de programador sin trabajo de código
