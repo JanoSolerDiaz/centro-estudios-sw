@@ -10,18 +10,47 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-13 (rutina programada de producto, vigésimo ciclo del PM):
-revisadas las tres fuentes de entrada (auditor, feedback, roadmap contra visión de producto).
-`auditoriacontinua.md` trae una pasada nueva desde el ciclo anterior (`346969f`, 2026-09-13) que
-confirma sin cambio el único hallazgo que sigue `ABIERTO` (**#8**, dato de salud del artículo 9 en
-`motivo_justificacion` de R-02, esperando al dueño en la pregunta #16 de §6) y no abre ninguno nuevo.
-`FEEDBACK.md` sigue con su única fila plantilla vacía, nada que convertir. **R-20** (Oleada v6/F-11)
-sigue `PENDIENTE` en §1, sin cambio desde el ciclo anterior: ninguna sesión de programador la ha
-tomado todavía, así que la cola de trabajo sigue sin estar vacía y no hay base para abrir una Oleada
-v7 este ciclo — sería inventar una segunda R-XX nueva sin que la primera se haya siquiera empezado,
-el mismo motivo exacto que el ciclo anterior. Revisado el resto del roadmap contra el estado actual y
-la visión de producto: sin ningún hueco nuevo que añadir. **Sin cambios de estado de T-XX/R-XX en §1;
-ninguna R-XX nueva este ciclo — segundo ciclo de PM consecutivo sin trabajo accionable.**
+**Última actualización:** 2026-09-14 (rutina programada de programador, R-20 completada): revisado
+`auditoriacontinua.md` antes de elegir tarea — el único hallazgo `ABIERTO` de severidad alta (**#8**,
+dato de salud del artículo 9 en `motivo_justificacion` de R-02) sigue esperando la respuesta del
+dueño a la pregunta #16 de §6, sin ninguna acción posible para esta sesión; el otro `ABIERTO`
+(**#20**, cobertura de `student` contra el bucket de avatares en `db/pruebas_rls.sql`) es severidad
+media, no alta, así que no activa el régimen de urgencia de §0.3 y queda para el ciclo normal del PM.
+Sin ninguna urgencia que atender, siguiente tarea de §1: **R-20** (registro de auditoría de cambios
+para `administrator`), la única `PENDIENTE`. Implementada completa, sin migración (`asistencia_historial`
+ya existe y ya está reservada a `administrator` desde T-10): `datos/asistencia.ts#listarHistorialDeCentro`
+(mismo patrón que `listarHistoricoAsistencia` de T-23, paginado en servidor, filtro por rango de
+fechas —por defecto últimos 7 días— y por autor del cambio); `dominio/permisosUi.ts#puedeVerRegistroAuditoria`;
+`nucleo/router.ts` ampliado con `#/auditoria` y con tres segmentos opcionales nuevos en `#/registros`
+de `administrator` (`profesorId`/`slotId`/`fecha`, antes exclusivos del router de `teacher`);
+`pantallaRegistrosSlot.ts` (T-21) ampliada con `deps.profesorIdInicial?`, que resuelve para
+`administrator` el paso de elegir profesor que antes dejaba sin efecto a `slotInicialId`/`fechaInicial`
+fuera de `teacher`; pantalla nueva `ui/pantallaRegistroAuditoria.ts`, enrutada y con botón "Auditoría"
+en la barra de navegación de `administrator`. Desviación documentada en `DECISIONES_TECNICAS.md`: el
+enlace "Ver registro completo" usa el `slot_id`/`ocurrido_en` que la propia fila de historial trae
+(snapshot de ANTES del cambio), que puede no coincidir con el slot/día actual si el cambio en
+cuestión fue precisamente "cambiar el slot atribuido" o mover el día — limitación conocida y
+aceptada, nunca un enlace roto (la fila de origen `manual`, sin `slot_id`, simplemente no ofrece
+enlace). 31 tests nuevos (1617 en total, antes 1586 — verificado con `git stash -u` contra este mismo
+`develop`, para no arrastrar el conteo declarado en ninguna sesión anterior sin comprobarlo);
+`npm run typecheck`, `npm run lint`, `npm test` y `npm run build` en verde. **R-20 pasa de
+`PENDIENTE` a `COMPLETADA` en §1.** Nota de entorno (no es una decisión, es un hecho operativo): esta
+sesión encontró `node_modules/` vacío al arrancar — la verificación previa a la elección de tarea
+exige `npm ci` si no se ha corrido ya, o el conteo de tests y los resultados de typecheck/lint no
+significan nada.
+
+**Sesión anterior (2026-09-13, rutina programada de producto, vigésimo ciclo del PM):** revisadas las
+tres fuentes de entrada (auditor, feedback, roadmap contra visión de producto). `auditoriacontinua.md`
+trae una pasada nueva desde el ciclo anterior (`346969f`, 2026-09-13) que confirma sin cambio el único
+hallazgo que sigue `ABIERTO` (**#8**, dato de salud del artículo 9 en `motivo_justificacion` de R-02,
+esperando al dueño en la pregunta #16 de §6) y no abre ninguno nuevo. `FEEDBACK.md` sigue con su
+única fila plantilla vacía, nada que convertir. **R-20** (Oleada v6/F-11) sigue `PENDIENTE` en §1, sin
+cambio desde el ciclo anterior: ninguna sesión de programador la ha tomado todavía, así que la cola de
+trabajo sigue sin estar vacía y no hay base para abrir una Oleada v7 este ciclo — sería inventar una
+segunda R-XX nueva sin que la primera se haya siquiera empezado, el mismo motivo exacto que el ciclo
+anterior. Revisado el resto del roadmap contra el estado actual y la visión de producto: sin ningún
+hueco nuevo que añadir. **Sin cambios de estado de T-XX/R-XX en §1; ninguna R-XX nueva este ciclo —
+segundo ciclo de PM consecutivo sin trabajo accionable.**
 
 **Sesión anterior (2026-09-12, rutina programada de producto, decimonoveno ciclo del PM: sin R-XX
 nueva):** revisadas las tres fuentes de entrada (auditor, feedback, roadmap contra visión de
@@ -2521,7 +2550,7 @@ pantallas del requisito 2.
 | R-17 | Cierre de slot en un toque: marcar pendientes como ausentes en bloque | COMPLETADA | 2026-09-10 | Oleada v4 / F-08 · Sin migración: depende de R-01 (código-completa, bloqueada solo por migración — mismo precedente que R-04/R-11/R-13/R-15), T-19 y T-21 (ambas `COMPLETADA`). Nueva `dominio/asistencia.ts#slotsDeLaMismaSesion` (9 tests): en este modelo `slot_horario` es por alumno, así que "un slot con ocho alumnos" son ocho filas que comparten profesor/día/horario/asignatura. Nueva `datos/asistencia.ts#listarRegistrosDeSlotsYFecha` (3 tests, una sola petición para el grupo). `pantallaPasarLista.ts` (T-19): botón "Marcar el resto como ausente" sobre el slot EN CURSO, reutilizando `manejarAusente` tal cual por cada pendiente (8 tests nuevos). `pantallaRegistrosSlot.ts` (T-21): mismo control sobre la sesión del slot elegido, con confirmación y reintento locales sin round-trip tras cada intento (8 tests nuevos). 26 tests nuevos en total (1548 en total, antes 1522) |
 | R-18 | Asistente de primeros pasos para el administrador | COMPLETADA | 2026-09-10 | Oleada v4 / F-09 · Sin migración: depende de T-11/T-12/T-15/T-24, las cuatro `COMPLETADA`. `dominio/asistentePrimerosPasos.ts` (nuevo, puro): los cuatro pasos (centro, alumno, horario, profesor), calculados sobre booleanos ya resueltos. Pantalla propia `ui/pantallaAsistentePrimerosPasos.ts` (`#/primeros-pasos`, exclusiva de `administrator`), con enlace por paso a la pantalla donde completarlo. Nueva `datos/slotsHorario.ts#listarTodosLosSlots` (todo el centro, sin filtrar por alumno/profesor) y `dominio/permisosUi.ts#puedeVerAsistentePrimerosPasos`. `ui/aplicacion.ts`: botón fijo "Primeros pasos" en la barra de navegación (siempre accesible) y, al entrar sin ningún hash en la URL, comprobación en segundo plano que navega sola al asistente si queda algún paso pendiente — nunca si ya se navegó a una ruta explícita, y sin bloquear el primer pintado (la pantalla por defecto ya está en pantalla mientras se decide). 22 tests nuevos en total (1570 en total, antes 1548) |
 | R-19 | Informe de horas propias para el profesor | COMPLETADA | 2026-09-11 | Oleada v5 / F-10 · Sin migración: depende de R-15 (`COMPLETADA`). `ui/pantallaMisHorasProfesor.ts` (nuevo) reutiliza tal cual `dominio/informeHorasProfesor.ts` (R-15), acotado a un único profesor (el propio) — sin selector de otro profesor ni ranking. Nueva `dominio/permisosUi.ts#puedeVerInformeHorasPropio` (exclusiva de `teacher`). Ruta `#/mis-horas` en `crearRouterProfesor` (`nucleo/router.ts`), botón "Mis horas" en la barra de navegación de `teacher`. 14 tests nuevos en total (1586 en total, antes 1572) |
-| R-20 | Registro de auditoría de cambios para el administrador | PENDIENTE | 2026-09-11 | Oleada v6 / F-11 · Sin migración: depende de T-21, T-23 (ambas `COMPLETADA`). Spec completa en `ROADMAP_PRODUCTO.md`: vista de centro completo, cronológica e inversa, sobre `asistencia_historial` (ya poblada desde T-18/T-21, lectura ya reservada a `administrator` desde T-10) — quién corrigió qué registro y cuándo, con enlace a la comparación detallada que ya construye «Registros» (T-21) |
+| R-20 | Registro de auditoría de cambios para el administrador | COMPLETADA | 2026-09-14 | Oleada v6 / F-11 · Sin migración: `asistencia_historial` ya existe y ya está reservada a `administrator` desde T-10. Nueva `datos/asistencia.ts#listarHistorialDeCentro` (mismo patrón que `listarHistoricoAsistencia` de T-23, paginada, filtro por rango de fechas —últimos 7 días por defecto— y por autor del cambio contra CUALQUIER perfil activo, no solo profesores). Pantalla nueva `ui/pantallaRegistroAuditoria.ts` (`#/auditoria`), exclusiva de `administrator` (`puedeVerRegistroAuditoria`). Cada fila con `slot_id` enlaza a «Registros» (T-21) con profesor/slot/fecha ya elegidos — `nucleo/router.ts` gana tres segmentos opcionales en `#/registros` de `administrator` y `pantallaRegistrosSlot.ts` gana `profesorIdInicial` (antes `slotInicialId`/`fechaInicial` no tenían efecto para `administrator`). 31 tests nuevos (1617 en total, antes 1586) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 
@@ -2670,3 +2699,4 @@ pantallas del requisito 2.
 | 2026-09-09 | R-15 | **Requisito 4 no cumplido literalmente: el CSV no incluye ningún campo "Centro" en su cabecera de metadatos**, pese a que la spec dice literalmente "cabecera de centro, rango de fechas y fecha de generación" (mismo texto que el requisito de R-04, del que se copió). R-15 no tiene ningún alumno concreto del que resolver un `centro_referencia_id` — es un informe sobre el conjunto de profesores de la academia, no sobre un alumno — así que no existe ningún valor único y correcto que poner ahí | Interpretado como una frase de la spec no adaptada al nuevo sujeto del informe (copiada de R-04 sin ajustar), no como un requisito literal a cumplir a cualquier precio. Documentado en `DECISIONES_TECNICAS.md`; sin pregunta a §6 porque no hay ninguna decisión de negocio pendiente, solo un dato que no existe para este informe |
 | 2026-09-09 | R-15 | **Criterio de aceptación interpretado, no cumplido con un mecanismo literal: "un `teacher` recibe `SinPermiso` al intentar generarlo" se satisface por inaccesibilidad estructural (la pantalla solo existe dentro del router de `administrator`), sin ninguna llamada al servidor que devuelva un `403` real.** Mismo texto exacto que ya usó R-10 (`ROADMAP_PRODUCTO.md:684`), resuelto de la misma forma sin que quedara fila en este §7 — se añade ahora para las dos, dado el patrón ya señalado por el auditor (hallazgos #9/#11, `RESUELTO`) de que esta sección debe ganar su fila sin que haga falta que lo señale una pasada de auditoría | `Migración: No` en ambas specs descarta forzar un `403` real con una RPC `SECURITY DEFINER` nueva (que exigiría migración); la pantalla completa vive detrás del router de `administrator`, del que un `teacher` no puede formar parte, así que la pregunta de qué le devolvería el servidor no llega a plantearse. Documentado en `DECISIONES_TECNICAS.md` |
 | 2026-09-09 | R-16 | **Mismo criterio interpretado que la fila anterior de R-15, reaparecido en la misma tarde sin ganar su fila en su momento: "un `teacher` recibe `SinPermiso` al intentarlo" se satisface por inaccesibilidad estructural (el botón «Exportar todo el centro» vive dentro de `pantallaPanelCentro.ts`, detrás del router de `administrator`), no por un `403` real del servidor.** `DECISIONES_TECNICAS.md:297` ya lo documentaba ("mismo razonamiento que R-15... sin una segunda comprobación de rol") pero la fila de este §7 no se añadió junto con la de R-15, pese a resolverse por el mismo mecanismo horas después — hallazgo #19 de `auditoriacontinua.md` (severidad baja, gobernanza documental, sin impacto funcional: R-16 es realmente exclusiva de `administrator`, impuesto por RLS) | `Migración: No` descarta forzar un `403` real con una RPC nueva; el botón vive dentro del bloque de `administrator` de `pantallaPanelCentro.ts` (R-11), del que un `teacher` no puede formar parte. Documentado en `DECISIONES_TECNICAS.md:297`; esta fila cierra el hallazgo #19 |
+| 2026-09-14 | R-20 | **Requisito 2 no cumplido con precisión absoluta: el enlace "Ver registro completo" puede apuntar al slot/día de ANTES del cambio auditado, no siempre al actual.** La spec pide que cada fila "enlace al registro completo en «Registros»"; el enlace usa el `slot_id`/`ocurrido_en` que la propia fila de `asistencia_historial` trae (snapshot de ANTES del cambio en cuestión). En el caso normal (corregir hora, nota o estado) coincide con dónde vive hoy el registro; si el cambio auditado fue "cambiar el slot atribuido" (T-21) o mover `ocurrido_en` a otro día natural, el enlace lleva al slot/día de antes de ESE cambio, no al actual | No hay forma de resolver el slot/día ACTUAL sin una consulta adicional por fila (una petición por elemento, prohibido por §0.2) o sin guardar en `asistencia_historial` un puntero al estado posterior (columna nueva, migración, fuera del alcance "sin tabla ni migración" de la propia spec). Se acepta como "índice de dónde mirar", nunca un dato incorrecto — nunca un enlace roto: una fila de origen `manual` (sin `slot_id`) simplemente no ofrece enlace. Documentado también en la cabecera de `pantallaRegistroAuditoria.ts` |

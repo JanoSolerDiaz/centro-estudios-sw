@@ -44,6 +44,35 @@ void test('analizarRuta: "#/registros" es la pantalla de registros (T-21)', () =
   assert.deepEqual(analizarRuta('#/registros'), { nombre: 'registros' });
 });
 
+void test('analizarRuta: "#/registros/<profesorId>" preselecciona ese profesor (R-20)', () => {
+  assert.deepEqual(analizarRuta('#/registros/prof-1'), { nombre: 'registros', profesorId: 'prof-1' });
+});
+
+void test('analizarRuta: "#/registros/<profesorId>/<slotId>" preselecciona profesor y slot (R-20)', () => {
+  assert.deepEqual(analizarRuta('#/registros/prof-1/slot-abc'), {
+    nombre: 'registros',
+    profesorId: 'prof-1',
+    slotId: 'slot-abc',
+  });
+});
+
+void test('analizarRuta: "#/registros/<profesorId>/<slotId>/<fecha>" preselecciona los tres (R-20, enlace desde Auditoría)', () => {
+  assert.deepEqual(analizarRuta('#/registros/prof-1/slot-abc/2026-09-10'), {
+    nombre: 'registros',
+    profesorId: 'prof-1',
+    slotId: 'slot-abc',
+    fecha: '2026-09-10',
+  });
+});
+
+void test('analizarRuta: "#/registros/<profesorId>" decodifica el id', () => {
+  assert.deepEqual(analizarRuta('#/registros/uno%20dos'), { nombre: 'registros', profesorId: 'uno dos' });
+});
+
+void test('analizarRuta: "#/auditoria" es el registro de auditoría de cambios (R-20)', () => {
+  assert.deepEqual(analizarRuta('#/auditoria'), { nombre: 'auditoria' });
+});
+
 void test('analizarRuta: "#/historico" es la pantalla de histórico (T-23)', () => {
   assert.deepEqual(analizarRuta('#/historico'), { nombre: 'historico' });
 });
@@ -91,6 +120,9 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'alumno-nuevo' },
     { nombre: 'alumno-detalle', alumnoId: 'abc-123' },
     { nombre: 'registros' },
+    { nombre: 'registros', profesorId: 'prof-1' },
+    { nombre: 'registros', profesorId: 'prof-1', slotId: 'slot-abc' },
+    { nombre: 'registros', profesorId: 'prof-1', slotId: 'slot-abc', fecha: '2026-09-10' },
     { nombre: 'historico' },
     { nombre: 'historico', alumnoId: 'abc-123' },
     { nombre: 'usuarios' },
@@ -99,6 +131,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'panel' },
     { nombre: 'informe-horas' },
     { nombre: 'primeros-pasos' },
+    { nombre: 'auditoria' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);
@@ -147,6 +180,18 @@ void test('navegar() cambia el hash del objetivo y notifica a los suscriptores',
 
   assert.equal(objetivo.location.hash, '#/alumnos/x1');
   assert.deepEqual(recibidas, [{ nombre: 'alumno-detalle', alumnoId: 'x1' }]);
+});
+
+void test('navegar() a registros con profesorId, slotId y fecha cambia el hash con los tres segmentos (R-20)', () => {
+  const objetivo = crearObjetivoDePrueba('#/alumnos');
+  const router = crearRouter(objetivo);
+  const recibidas: Ruta[] = [];
+  router.suscribir((ruta) => recibidas.push(ruta));
+
+  router.navegar({ nombre: 'registros', profesorId: 'prof-1', slotId: 'slot-1', fecha: '2026-09-10' });
+
+  assert.equal(objetivo.location.hash, '#/registros/prof-1/slot-1/2026-09-10');
+  assert.deepEqual(recibidas, [{ nombre: 'registros', profesorId: 'prof-1', slotId: 'slot-1', fecha: '2026-09-10' }]);
 });
 
 void test('un cambio de hash externo (no por navegar()) también notifica a los suscriptores', () => {

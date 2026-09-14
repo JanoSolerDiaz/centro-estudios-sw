@@ -14,11 +14,12 @@ import {
   listarRegistrosDeSlotYFecha,
   listarRegistrosDeSlotsYFecha,
   listarHistorialDeAsistencia,
+  listarHistorialDeCentro,
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
 } from './asistencia.ts';
 import { Conflicto, ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
-import type { Asistencia } from '../dominio/tipos.ts';
+import type { Asistencia, AsistenciaHistorial } from '../dominio/tipos.ts';
 
 const FILA: Asistencia = {
   id: 'as1',
@@ -855,4 +856,100 @@ void test('listarHistorialDeAsistencia: una única petición, acotada al registr
   assert.equal(url.pathname, '/rest/v1/asistencia_historial');
   assert.equal(url.searchParams.get('asistencia_id'), 'eq.as1');
   assert.equal(url.searchParams.get('order'), 'cambiado_en.asc');
+});
+
+// --- listarHistorialDeCentro (R-20) --------------------------------------------------------------
+
+const FILA_HISTORIAL: AsistenciaHistorial = {
+  id: 'h1',
+  asistencia_id: 'as1',
+  cambiado_en: '2026-09-10T09:00:00.000Z',
+  cambiado_por: 'admin1',
+  alumno_id: 'al1',
+  profesor_id: 'p1',
+  registrado_en: '2026-08-31T09:00:00.000Z',
+  ocurrido_en: '2026-08-31T09:00:00.000Z',
+  ocurrido_en_salida: null,
+  es_retroactivo: false,
+  origen: 'manual',
+  slot_id: null,
+  slot_dia_semana: null,
+  slot_hora_inicio: null,
+  slot_hora_fin: null,
+  slot_asignatura_o_grupo: null,
+  estado: 'valida',
+  motivo_anulacion: null,
+  motivo_justificacion: null,
+  nota_justificacion: null,
+  nota: null,
+  actualizado_en: null,
+  actualizado_por: null,
+  peticion_id: 'peticion-1',
+};
+
+void test('listarHistorialDeCentro: sin filtros, una única petición paginada y ordenada de más reciente a más antiguo', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [FILA_HISTORIAL], cabeceras: { 'content-range': '0-0/1' } };
+  });
+
+  const resultado = await listarHistorialDeCentro(postgrest);
+
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'GET');
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/asistencia_historial');
+  assert.equal(url.searchParams.get('order'), 'cambiado_en.desc');
+  assert.equal(peticion.cabeceras.range, '0-19');
+  assert.equal(url.searchParams.get('cambiado_por'), null);
+  assert.deepEqual(resultado, { filas: [FILA_HISTORIAL], totalAproximado: 1 });
+});
+
+void test('listarHistorialDeCentro: filtro por autor del cambio', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [], cabeceras: { 'content-range': '0-0/0' } };
+  });
+
+  await listarHistorialDeCentro(postgrest, { cambiadoPorId: 'admin1' });
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.searchParams.get('cambiado_por'), 'eq.admin1');
+});
+
+void test('listarHistorialDeCentro: rango de fechas acota cambiado_en al día natural de desde/hasta', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [], cabeceras: { 'content-range': '0-0/0' } };
+  });
+
+  // 2026-08-26 y 2026-08-27, mediodía CEST (UTC+2).
+  await listarHistorialDeCentro(postgrest, {
+    desde: new Date('2026-08-26T12:00:00.000Z'),
+    hasta: new Date('2026-08-27T12:00:00.000Z'),
+  });
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.deepEqual(url.searchParams.getAll('cambiado_en'), [
+    'gte."2026-08-25T22:00:00.000Z"',
+    'lte."2026-08-27T21:59:59.999Z"',
+  ]);
+});
+
+void test('listarHistorialDeCentro: página y tamaño de página se traducen en la cabecera Range', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [], cabeceras: { 'content-range': '0-0/0' } };
+  });
+
+  await listarHistorialDeCentro(postgrest, { pagina: 2, porPagina: 10 });
+
+  assert.ok(peticion);
+  assert.equal(peticion.cabeceras.range, '20-29');
 });

@@ -23,6 +23,7 @@ import {
   puedeVerInformeHorasPropio,
   puedeVerPersonasReferencia,
   puedeVerAsistentePrimerosPasos,
+  puedeVerRegistroAuditoria,
 } from './permisosUi.ts';
 
 const ROLES: readonly Rol[] = ['administrator', 'teacher', 'student'];
@@ -137,4 +138,10 @@ void test('puedeVerInformeHorasPropio: exclusivamente teacher, ni siquiera admin
   assert.equal(puedeVerInformeHorasPropio('teacher'), true);
   assert.equal(puedeVerInformeHorasPropio('administrator'), false);
   assert.equal(puedeVerInformeHorasPropio('student'), false);
+});
+
+void test('puedeVerRegistroAuditoria: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeVerRegistroAuditoria('administrator'), true);
+  assert.equal(puedeVerRegistroAuditoria('teacher'), false);
+  assert.equal(puedeVerRegistroAuditoria('student'), false);
 });

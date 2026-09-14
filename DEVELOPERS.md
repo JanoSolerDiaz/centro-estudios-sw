@@ -433,14 +433,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08, R-11 y R-19) — dos
-    routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)` (puras) sobre un
-    motor interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)` para
-    `administrator` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`, `#/registros`,
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08, R-11, R-19 y
+    R-20) — dos routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)`
+    (puras) sobre un motor interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)`
+    para `administrator` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`,
+    `#/registros[/<profesorId>[/<slotId>[/<fecha>]]]` — los tres segmentos, opcionales y solo
+    juntos, añadidos por R-20 para que el registro de auditoría de cambios enlace directo a un
+    registro concreto (a diferencia de `teacher`, aquí hace falta elegir profesor primero) —,
     `#/historico[/<alumnoId>]` — el segmento de `alumnoId`, opcional, añadido por R-04 para que la
     ficha de alumno enlace al informe mensual con el alumno ya preseleccionado —, `#/usuarios` desde
     T-24, `#/cierres` desde R-12, `#/importacion` desde R-08, `#/panel` desde R-11, `#/informe-horas`
-    desde R-15, `#/primeros-pasos` desde R-18) y
+    desde R-15, `#/primeros-pasos` desde R-18, `#/auditoria` desde R-20) y
     `crearRouterProfesor(objetivo)`
     para `teacher` (`#/pasar-lista`, `#/horario`, `#/registros[/<slotId>[/<fecha>]]` — el segmento de
     `slotId` es opcional, para el enlace profundo de "mi horario" a los registros de un slot
@@ -687,7 +690,7 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     cancelados para ese slot, R-06 — una sustitución NO excluye, ver el propio fichero de dominio).
     Un botón "Completar registro" por aviso llama a `deps.irARegistros(slotId, fecha)`, que el router
     de `teacher` traduce a `#/registros/<slotId>/<fecha>` (segmento de fecha nuevo de R-13).
-  - `pantallaRegistrosSlot.ts` (T-21, ampliada en T-22) — `mostrarPantallaRegistrosSlot(contenedor,
+  - `pantallaRegistrosSlot.ts` (T-21, ampliada en T-22 y R-20) — `mostrarPantallaRegistrosSlot(contenedor,
     deps)`: consulta y modificación de los registros de UN slot en UN día, para `teacher` (solo lo
     suyo, sin selector de profesor) y `administrator` (elige profesor,
     `puedeEditarAsistenciaDeCualquiera`, `permisosUi.ts`) — la RLS de `003_politicas_rls.sql` ya
@@ -890,6 +893,26 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `administrator` no llega a ella por ningún camino (mismo criterio de inaccesibilidad estructural
     que R-15/R-10). Enrutada como `#/mis-horas`, con botón "Mis horas" en la barra de navegación de
     `teacher`. Sin migración (`Migración: No` en la spec).
+  - `pantallaRegistroAuditoria.ts` (R-20, nuevo) — `mostrarPantallaRegistroAuditoria(contenedor, deps)`:
+    índice de CENTRO COMPLETO, cronológico inverso, de `asistencia_historial` (ya poblada desde
+    T-07/T-18, lectura ya reservada a `administrator` desde T-10) — cada fila ya es una modificación
+    o anulación real, sin agrupar por `asistencia_id`. Nueva `datos/asistencia.ts#listarHistorialDeCentro`
+    (mismo patrón exacto que `listarHistoricoAsistencia` de T-23, pero paginando/filtrando sobre
+    `cambiado_en`/`cambiado_por` en vez de `ocurrido_en`/`profesor_id`), resuelta con
+    `resolverIdentificacionAlumnos`/`resolverNombresProfesores` (T-23) reutilizados tal cual. Filtro
+    por rango de fechas — por defecto los últimos 7 días, calculado con `deps.reloj.ahora()` — y por
+    autor del cambio (`cambiado_por`, contra CUALQUIER perfil activo vía `listarUsuarios` sin filtrar
+    por rol, no solo profesores: quien corrige un registro puede ser `administrator` sobre uno de
+    `teacher`). Cada fila con `slot_id` ofrece "Ver registro completo", que navega a `#/registros`
+    con el profesor, el slot y la fecha (día de `ocurrido_en`) de esa fila de historial ya
+    preseleccionados — una fila de origen `manual` (sin `slot_id`) no ofrece enlace. Ese enlace exige
+    ampliar `#/registros` con tres segmentos opcionales (`nucleo/router.ts`) y una dependencia nueva
+    de `pantallaRegistrosSlot.ts` (`profesorIdInicial`, exclusiva de `administrator`): antes de R-20,
+    `slotInicialId`/`fechaInicial` no tenían ningún efecto para `administrator`, que siempre debía
+    elegir profesor a mano primero — `profesorIdInicial` resuelve ese paso previo. Sin tabla ni
+    migración nuevas (`Migración: No` en la spec). Exclusiva de `administrator`
+    (`puedeVerRegistroAuditoria`). Enrutada como `#/auditoria`, con botón "Auditoría" en la barra de
+    navegación.
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

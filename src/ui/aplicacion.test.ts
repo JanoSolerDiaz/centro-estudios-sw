@@ -579,6 +579,111 @@ void test('administrator con appAdministrador: "Usuarios" navega a la pantalla d
   assert.match(contenedor.textContent, /No hay ningún usuario/);
 });
 
+// --- R-20: registro de auditoría de cambios, y su enlace a Registros ----------------------------
+
+void test('administrator con appAdministrador: "Auditoría" navega al registro de auditoría de cambios', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const { app } = crearAppAdministradorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonAuditoria = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Auditoría');
+  assert.ok(botonAuditoria);
+  botonAuditoria.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Registro de auditoría de cambios/);
+  assert.ok(contenedor.querySelector('#auditoria-filtro-desde'));
+  assert.ok(contenedor.querySelector('#auditoria-filtro-autor'));
+});
+
+void test('administrator con appAdministrador: "Ver registro completo" en Auditoría enlaza a Registros con profesor, slot y fecha ya elegidos (requisito 2 de R-20)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const FILA_HISTORIAL = {
+    id: 'h1',
+    asistencia_id: 'as1',
+    cambiado_en: '2026-09-10T09:00:00.000Z',
+    cambiado_por: 'u1',
+    alumno_id: 'alumno-1',
+    profesor_id: 'profesor-1',
+    registrado_en: '2026-08-31T09:00:00.000Z',
+    ocurrido_en: '2026-08-31T09:00:00.000Z',
+    ocurrido_en_salida: null,
+    es_retroactivo: false,
+    origen: 'slot',
+    slot_id: 'slot-1',
+    slot_dia_semana: 1,
+    slot_hora_inicio: '17:00',
+    slot_hora_fin: '18:00',
+    slot_asignatura_o_grupo: 'Matemáticas',
+    estado: 'valida',
+    motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
+    nota: null,
+    actualizado_en: null,
+    actualizado_por: null,
+    peticion_id: 'peticion-1',
+  };
+  const { app } = crearAppAdministradorFalso((p) => {
+    const pathname = new URL(p.url).pathname;
+    if (pathname === '/rest/v1/asistencia_historial') {
+      return { estado: 200, cuerpo: [FILA_HISTORIAL], cabeceras: { 'content-range': '0-0/1' } };
+    }
+    if (pathname === '/rest/v1/perfil') {
+      return { estado: 200, cuerpo: [{ id: 'profesor-1', nombre: 'Marta Ruiz' }] };
+    }
+    if (pathname === '/rest/v1/slot_horario') {
+      return {
+        estado: 200,
+        cuerpo: [
+          {
+            id: 'slot-1',
+            alumno_id: 'alumno-1',
+            profesor_id: 'profesor-1',
+            dia_semana: 1,
+            hora_inicio: '17:00',
+            hora_fin: '18:00',
+            asignatura_o_grupo: 'Matemáticas',
+            vigente_desde: '2026-01-01',
+            vigente_hasta: null,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+            alumno: { id: 'alumno-1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, avatar_ruta: null, activo: true },
+          },
+        ],
+      };
+    }
+    return { estado: 200, cuerpo: [] };
+  });
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonAuditoria = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Auditoría');
+  assert.ok(botonAuditoria);
+  botonAuditoria.click();
+  await esperarMicrotareas();
+
+  const botonVerRegistro = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Ver registro completo');
+  assert.ok(botonVerRegistro);
+  botonVerRegistro.click();
+  await esperarMicrotareas();
+
+  const selectProfesor = contenedor.querySelector<HTMLSelectElement>('#registros-profesor');
+  assert.ok(selectProfesor);
+  assert.equal(selectProfesor.value, 'profesor-1');
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  assert.equal(selectSlot.value, 'slot-1');
+  const campoFecha = contenedor.querySelector<HTMLInputElement>('#registros-fecha');
+  assert.ok(campoFecha);
+  assert.equal(campoFecha.value, '2026-08-31');
+});
+
 void test('teacher con appProfesor: "Histórico" navega a la pantalla de histórico, sin selector de profesor ni de centro', async () => {
   const contenedor = crearContenedorDePruebas();
   const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));

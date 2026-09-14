@@ -85,6 +85,7 @@ import {
   listarRegistrosDeSlotYFecha,
   listarRegistrosDeSlotsYFecha,
   listarHistorialDeAsistencia,
+  listarHistorialDeCentro,
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
 } from '../datos/asistencia.ts';
@@ -108,6 +109,7 @@ import { mostrarPantallaPanelCentro } from './pantallaPanelCentro.ts';
 import { mostrarPantallaInformeHorasProfesor } from './pantallaInformeHorasProfesor.ts';
 import { mostrarPantallaMisHorasProfesor } from './pantallaMisHorasProfesor.ts';
 import { mostrarPantallaAsistentePrimerosPasos } from './pantallaAsistentePrimerosPasos.ts';
+import { mostrarPantallaRegistroAuditoria } from './pantallaRegistroAuditoria.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -234,6 +236,10 @@ function mostrarAppAdministrador(
   enlaceInformeHoras.addEventListener('click', () => {
     router.navegar({ nombre: 'informe-horas' });
   });
+  const enlaceAuditoria = crearBoton(documento, 'Auditoría', 'button');
+  enlaceAuditoria.addEventListener('click', () => {
+    router.navegar({ nombre: 'auditoria' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
@@ -249,6 +255,7 @@ function mostrarAppAdministrador(
     enlaceCierres,
     enlaceImportacion,
     enlaceInformeHoras,
+    enlaceAuditoria,
     botonSalir,
   );
 
@@ -309,6 +316,9 @@ function mostrarAppAdministrador(
       mostrarPantallaRegistrosSlot(areaPantalla, {
         rol: perfil.rol,
         profesorId: perfil.id,
+        ...(ruta.profesorId !== undefined ? { profesorIdInicial: ruta.profesorId } : {}),
+        ...(ruta.slotId !== undefined ? { slotInicialId: ruta.slotId } : {}),
+        ...(ruta.fecha !== undefined ? { fechaInicial: ruta.fecha } : {}),
         reloj: app.reloj,
         listarProfesoresParaSelector: () => listarProfesoresActivos(app.postgrest),
         listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesorConAlumno(app.postgrest, profesorId),
@@ -401,6 +411,21 @@ function mostrarAppAdministrador(
         listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
         descargador: crearDescargadorNavegador(documento),
         abridorImpresion,
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'auditoria') {
+      mostrarPantallaRegistroAuditoria(areaPantalla, {
+        rol: perfil.rol,
+        reloj: app.reloj,
+        listarHistorial: (filtro) => listarHistorialDeCentro(app.postgrest, filtro),
+        resolverNombresAlumnos: (ids) => resolverIdentificacionAlumnos(app.postgrest, ids),
+        resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
+        listarAutoresParaFiltro: () => listarUsuarios(app.postgrest, { estado: 'activos' }),
+        irARegistro: (profesorId, slotId, fecha) => {
+          router.navegar({ nombre: 'registros', profesorId, slotId, fecha });
+        },
       });
       return;
     }

@@ -416,3 +416,59 @@ export async function listarHistorialDeAsistencia(
     .order('cambiado_en', { descendente: false })
     .seleccionar();
 }
+
+export interface FiltroHistorialCentro {
+  readonly cambiadoPorId?: string;
+  /** Día de calendario (en `zonaHoraria`) desde el que empieza el rango, inclusive — sobre
+   * `cambiado_en` (el instante del CAMBIO, no el de la sesión: esta consulta responde "qué se ha
+   * corregido esta semana", no "qué sesiones hubo esta semana"). */
+  readonly desde?: Date;
+  /** Día de calendario (en `zonaHoraria`) en el que termina el rango, inclusive. */
+  readonly hasta?: Date;
+  /** Página 0-based. */
+  readonly pagina?: number;
+  readonly porPagina?: number;
+}
+
+export interface ResultadoHistorialCentro {
+  readonly filas: readonly AsistenciaHistorial[];
+  readonly totalAproximado: number | null;
+}
+
+const PAGINA_POR_DEFECTO_AUDITORIA = 20;
+
+/** Registro de auditoría de cambios de TODO el centro (R-20): cada fila de `asistencia_historial`
+ * es ya, por construcción del trigger (T-07/T-18), una modificación o anulación de un registro de
+ * asistencia — esta consulta simplemente las lista todas, sin agrupar por `asistencia_id`, del
+ * cambio más reciente al más antiguo (requisito 1). RLS (`asistencia_historial_admin_leer`,
+ * `003_politicas_rls.sql`, T-10) ya acota el resultado a `administrator`; esta función no repite esa
+ * comprobación, mismo criterio que el resto del módulo. Paginada en servidor (requisito 4), mismo
+ * patrón exacto que `listarHistoricoAsistencia` (T-23) pero sobre `cambiado_en`/`cambiado_por` en
+ * vez de `ocurrido_en`/`profesor_id`. Sin migración ni tabla nueva (requisito 5). */
+export async function listarHistorialDeCentro(
+  cliente: ClientePostgrest,
+  filtro: FiltroHistorialCentro = {},
+  zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
+): Promise<ResultadoHistorialCentro> {
+  let consulta = cliente.desde<AsistenciaHistorial>(TABLA_HISTORIAL);
+
+  if (filtro.cambiadoPorId) {
+    consulta = consulta.eq('cambiado_por', filtro.cambiadoPorId);
+  }
+  if (filtro.desde) {
+    consulta = consulta.gte('cambiado_en', limitesDiaLocal(filtro.desde, zonaHoraria).inicioUtc.toISOString());
+  }
+  if (filtro.hasta) {
+    const { finUtc } = limitesDiaLocal(filtro.hasta, zonaHoraria);
+    consulta = consulta.lte('cambiado_en', new Date(finUtc.getTime() - 1).toISOString());
+  }
+
+  const porPagina = filtro.porPagina ?? PAGINA_POR_DEFECTO_AUDITORIA;
+  const pagina = filtro.pagina ?? 0;
+  const desde = pagina * porPagina;
+  const { filas, totalAproximado } = await consulta
+    .order('cambiado_en', { descendente: true })
+    .range(desde, desde + porPagina - 1)
+    .seleccionarConTotal();
+  return { filas, totalAproximado };
+}

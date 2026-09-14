@@ -64,7 +64,13 @@ export type Ruta =
   | { readonly nombre: 'alumnos' }
   | { readonly nombre: 'alumno-nuevo' }
   | { readonly nombre: 'alumno-detalle'; readonly alumnoId: string }
-  | { readonly nombre: 'registros' }
+  /** `profesorId`/`slotId`/`fecha` son opcionales y solo sirven para enlazar directo a un registro
+   * concreto (R-20, "Auditoría" enlaza aquí a la fila exacta que corrigió cada cambio): sin ellos,
+   * la pantalla arranca exactamente igual que siempre ("elige un profesor…"). Los tres juntos o
+   * ninguno — `slotId`/`fecha` no tendrían profesor con el que resolverse si `profesorId` faltara.
+   * Mismo patrón que `slotId`/`fecha` opcionales de `RutaProfesor` (T-22/R-13), con el segmento de
+   * profesor añadido delante porque aquí, a diferencia de `teacher`, hay que elegirlo primero. */
+  | { readonly nombre: 'registros'; readonly profesorId?: string; readonly slotId?: string; readonly fecha?: string }
   /** El segmento de `alumnoId` es opcional (`#/historico[/<alumnoId>]`, R-04) — solo sirve para que
    * la ficha de alumno pueda enlazar directo al histórico con el alumno ya preseleccionado, para
    * generar su informe mensual, sin obligar a la pantalla de histórico a exigir nada nuevo a quien
@@ -76,7 +82,8 @@ export type Ruta =
   | { readonly nombre: 'importacion' }
   | { readonly nombre: 'panel' }
   | { readonly nombre: 'informe-horas' }
-  | { readonly nombre: 'primeros-pasos' };
+  | { readonly nombre: 'primeros-pasos' }
+  | { readonly nombre: 'auditoria' };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -90,13 +97,26 @@ export function analizarRuta(hash: string): Ruta {
     .map((segmento) => segmento.trim())
     .filter((segmento) => segmento.length > 0);
 
-  const [primero, segundo] = segmentos;
+  const [primero, segundo, tercero, cuarto] = segmentos;
 
   if (primero === 'centros') {
     return { nombre: 'centros' };
   }
   if (primero === 'registros') {
-    return { nombre: 'registros' };
+    if (segundo === undefined) {
+      return { nombre: 'registros' };
+    }
+    const profesorId = decodeURIComponent(segundo);
+    if (tercero === undefined) {
+      return { nombre: 'registros', profesorId };
+    }
+    const slotId = decodeURIComponent(tercero);
+    return cuarto === undefined
+      ? { nombre: 'registros', profesorId, slotId }
+      : { nombre: 'registros', profesorId, slotId, fecha: decodeURIComponent(cuarto) };
+  }
+  if (primero === 'auditoria') {
+    return { nombre: 'auditoria' };
   }
   if (primero === 'historico') {
     return segundo === undefined ? { nombre: 'historico' } : { nombre: 'historico', alumnoId: decodeURIComponent(segundo) };
@@ -144,7 +164,15 @@ export function hashDeRuta(ruta: Ruta): string {
     case 'alumno-detalle':
       return `#/alumnos/${encodeURIComponent(ruta.alumnoId)}`;
     case 'registros':
-      return '#/registros';
+      if (ruta.profesorId === undefined) {
+        return '#/registros';
+      }
+      if (ruta.slotId === undefined) {
+        return `#/registros/${encodeURIComponent(ruta.profesorId)}`;
+      }
+      return ruta.fecha === undefined
+        ? `#/registros/${encodeURIComponent(ruta.profesorId)}/${encodeURIComponent(ruta.slotId)}`
+        : `#/registros/${encodeURIComponent(ruta.profesorId)}/${encodeURIComponent(ruta.slotId)}/${encodeURIComponent(ruta.fecha)}`;
     case 'historico':
       return ruta.alumnoId === undefined ? '#/historico' : `#/historico/${encodeURIComponent(ruta.alumnoId)}`;
     case 'usuarios':
@@ -159,6 +187,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/informe-horas';
     case 'primeros-pasos':
       return '#/primeros-pasos';
+    case 'auditoria':
+      return '#/auditoria';
   }
 }
 

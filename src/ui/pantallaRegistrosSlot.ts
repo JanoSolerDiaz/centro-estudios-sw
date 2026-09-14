@@ -10,7 +10,12 @@
  * Desde T-22, `teacher` navega aquí por el router real de `aplicacion.ts#mostrarAppProfesor`
  * (`#/registros[/<slotId>]`) en vez de la navegación local que T-21 dejó como paso intermedio;
  * `deps.slotInicialId` es lo que "mi horario" (T-22) usa para enlazar directo a los registros de UN
- * slot concreto sin pasar por el selector.
+ * slot concreto sin pasar por el selector. Desde R-20, `administrator` navega aquí con los tres
+ * segmentos `#/registros/<profesorId>/<slotId>/<fecha>` (`aplicacion.ts#mostrarAppAdministrador`,
+ * ruta `registros` de `nucleo/router.ts`) cuando llega desde un enlace del registro de auditoría de
+ * cambios (`pantallaRegistroAuditoria.ts`) — `deps.profesorIdInicial` es lo que resuelve, para
+ * `administrator`, el paso previo de elegir profesor que antes dejaba sin efecto a
+ * `slotInicialId`/`fechaInicial` fuera de `teacher`.
  *
  * Ocho acciones de edición (requisito 4 de T-21, más "justificar" de R-02 y "marcar/ajustar salida"
  * de R-03), cada una su propio mini-formulario dentro del panel de edición de la fila — nunca un
@@ -82,12 +87,21 @@ export interface DependenciasPantallaRegistrosSlot {
   /** El propio `teacher` (slots fijos, sin selector); ignorado para `administrator`, que elige. */
   readonly profesorId: string;
   readonly reloj: Reloj;
+  /** Profesor a preseleccionar al abrir — exclusivo de `administrator` (requisito 2 de R-20: "cada
+   * fila [de Auditoría] enlaza al registro completo en «Registros»"), que de otro modo tendría que
+   * elegir un profesor a mano antes de que `slotInicialId`/`fechaInicial` pudieran tener ningún
+   * efecto. Sin efecto para `teacher` (que nunca elige profesor, ver `slotInicialId`). Si no
+   * coincide con ningún profesor listado, se ignora en silencio: la pantalla arranca como siempre,
+   * "elige un profesor…". */
+  readonly profesorIdInicial?: string;
   /** Slot a preseleccionar al abrir (T-22, "mi horario" enlaza directo a los registros de UN slot
-   * concreto). Solo tiene efecto para `teacher` (sin selector de profesor: sus slots se cargan de
-   * inmediato); para `administrator`, que primero elige profesor, no hay slot que preseleccionar
-   * hasta que ese paso ocurra, así que este campo no se usa en ese caso. Si no coincide con ningún
-   * slot cargado (p. ej. ha cambiado de horario entre que se generó el enlace y se abrió), se
-   * ignora en silencio y la pantalla arranca como siempre: "elige un slot…". */
+   * concreto; R-20, "Auditoría" enlaza aquí junto con `profesorIdInicial`). Sin `profesorIdInicial`,
+   * solo tiene efecto para `teacher` (sin selector de profesor: sus slots se cargan de inmediato);
+   * para `administrator`, que primero elige profesor, no hay slot que preseleccionar hasta que ese
+   * paso ocurra — a menos que `profesorIdInicial` también venga, en cuyo caso ese paso ya queda
+   * resuelto. Si no coincide con ningún slot cargado (p. ej. ha cambiado de horario entre que se
+   * generó el enlace y se abrió), se ignora en silencio y la pantalla arranca como siempre: "elige
+   * un slot…". */
   readonly slotInicialId?: string;
   /** Fecha a preseleccionar al abrir (`AAAA-MM-DD`), junto con `slotInicialId` — el aviso de
    * sesiones sin pasar lista (R-13, "Mi horario") enlaza aquí al día concreto que quedó sin
@@ -332,7 +346,7 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
   const puedeElegirProfesor = puedeEditarAsistenciaDeCualquiera(deps.rol);
   const almacen = crearAlmacenEstado<EstadoPantalla>({
     profesores: [],
-    profesorSeleccionadoId: puedeElegirProfesor ? '' : deps.profesorId,
+    profesorSeleccionadoId: puedeElegirProfesor ? (deps.profesorIdInicial ?? '') : deps.profesorId,
     slots: [],
     slotSeleccionadoId: '',
     fechaIso: deps.slotInicialId && deps.fechaInicial ? deps.fechaInicial : fechaLocalISO(deps.reloj.ahora()),
@@ -1590,6 +1604,12 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     void (deps.listarProfesoresParaSelector?.() ?? Promise.resolve([])).then((profesores) => {
       almacen.actualizar({ profesores });
     });
+    if (deps.profesorIdInicial) {
+      // R-20: "Auditoría" enlaza aquí con un profesor ya elegido — sin esto, `slotInicialId`/
+      // `fechaInicial` no tendrían efecto para administrator (ver cabecera de `cargarSlots`), que de
+      // otro modo tendría que elegir el profesor a mano antes de ver nada preseleccionado.
+      void cargarSlots(deps.profesorIdInicial);
+    }
   } else {
     void cargarSlots(deps.profesorId);
   }

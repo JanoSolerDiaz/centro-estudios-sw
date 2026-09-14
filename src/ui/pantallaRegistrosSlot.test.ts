@@ -95,6 +95,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     rol: overrides.rol ?? 'teacher',
     profesorId: overrides.profesorId ?? 'profesor-1',
     reloj: overrides.reloj ?? crearRelojFijo(INSTANTE),
+    ...(overrides.profesorIdInicial !== undefined ? { profesorIdInicial: overrides.profesorIdInicial } : {}),
     ...(overrides.slotInicialId !== undefined ? { slotInicialId: overrides.slotInicialId } : {}),
     ...(overrides.fechaInicial !== undefined ? { fechaInicial: overrides.fechaInicial } : {}),
     listarProfesoresParaSelector: overrides.listarProfesoresParaSelector ?? (() => Promise.resolve([])),
@@ -208,6 +209,82 @@ void test('administrator: hay selector de profesor y no se cargan slots hasta el
   await esperarMicrotareas();
 
   assert.equal(llamadasSlots, 1);
+});
+
+// --- Preselección de profesor (R-20, enlace desde el registro de auditoría) --------------------
+
+void test('administrator: profesorIdInicial preselecciona el profesor y carga sus slots sin elegir nada', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let idPedido: string | undefined;
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      rol: 'administrator',
+      profesorIdInicial: 'p1',
+      listarProfesoresParaSelector: () => Promise.resolve([{ id: 'p1', nombre: 'Marta Ruiz' }]),
+      listarSlotsDeProfesor: (id) => {
+        idPedido = id;
+        return Promise.resolve([crearSlot()]);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(idPedido, 'p1');
+  const selectProfesor = contenedor.querySelector<HTMLSelectElement>('#registros-profesor');
+  assert.ok(selectProfesor);
+  assert.equal(selectProfesor.value, 'p1');
+});
+
+void test('administrator: profesorIdInicial junto con slotInicialId y fechaInicial preselecciona los tres (enlace de Auditoría)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let argumentos: readonly [string, Date] | undefined;
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      rol: 'administrator',
+      profesorIdInicial: 'p1',
+      slotInicialId: 'slot-1',
+      fechaInicial: '2026-08-24',
+      listarProfesoresParaSelector: () => Promise.resolve([{ id: 'p1', nombre: 'Marta Ruiz' }]),
+      listarSlotsDeProfesor: () => Promise.resolve([crearSlot({ id: 'slot-1' })]),
+      listarRegistros: (slotId, fecha) => {
+        argumentos = [slotId, fecha];
+        return Promise.resolve([]);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  assert.equal(selectSlot.value, 'slot-1');
+  const campoFecha = contenedor.querySelector<HTMLInputElement>('#registros-fecha');
+  assert.ok(campoFecha);
+  assert.equal(campoFecha.value, '2026-08-24');
+  assert.ok(argumentos);
+  assert.equal(argumentos[0], 'slot-1');
+  assert.equal(argumentos[1].toISOString().slice(0, 10), '2026-08-24');
+});
+
+void test('teacher: profesorIdInicial no tiene ningún efecto (nunca elige profesor)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let idPedido: string | undefined;
+  mostrarPantallaRegistrosSlot(
+    contenedor,
+    crearDepsFalsas({
+      rol: 'teacher',
+      profesorId: 'profesor-1',
+      profesorIdInicial: 'otro-profesor',
+      listarSlotsDeProfesor: (id) => {
+        idPedido = id;
+        return Promise.resolve([]);
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(idPedido, 'profesor-1');
 });
 
 // --- Selector de slot y carga de registros ------------------------------------------------------

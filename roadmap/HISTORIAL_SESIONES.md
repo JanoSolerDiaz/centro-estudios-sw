@@ -37,6 +37,52 @@
 
 ---
 
+### Sesión 2026-09-14 (rutina programada de programador) — R-20 completada
+
+**Tarea(s):** R-20 (registro de auditoría de cambios para el administrador)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (R-20: registro de auditoría de cambios, con
+enlace a Registros)
+**Migraciones aplicadas:** ninguna — R-20 declara `Migración: No` en su propia spec y se cumple
+literalmente: lee `asistencia_historial`, ya poblada desde T-18/T-21 y ya reservada a
+`administrator` desde T-10 (`003_politicas_rls.sql`)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** nuevos `src/ui/pantallaRegistroAuditoria.ts` y
+`src/ui/pantallaRegistroAuditoria.test.ts`; modificados `src/datos/asistencia.ts` (+`listarHistorialDeCentro`)
+y su test, `src/dominio/permisosUi.ts` (+`puedeVerRegistroAuditoria`) y su test, `src/nucleo/router.ts`
+(`#/auditoria` nueva; `#/registros` de `administrator` gana tres segmentos opcionales) y su test,
+`src/ui/pantallaRegistrosSlot.ts` (+`deps.profesorIdInicial?`) y su test, `src/ui/aplicacion.ts`
+(ruta `auditoria`, botón "Auditoría", `registros` reenvía los tres segmentos nuevos) y su test,
+`DEVELOPERS.md`, `roadmap/SEGUIMIENTO.md` (cabecera, §1, §7), `roadmap/DECISIONES_TECNICAS.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1617/1617, 31 nuevos sobre los 1586 de
+`develop` limpio, verificado con `git stash -u` antes de dar el número por bueno) · build ✅
+**Health check post-deploy:** N/A — modo AUTONOMÍA TOTAL sin `npm run health` configurado contra
+ningún hosting real todavía (proveedor `<pendiente>`, T-25); no se ejecuta
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-14): agrupación de
+`listarHistorialDeCentro` por evento y no por registro; filtro de autor sobre CUALQUIER perfil activo,
+no solo profesores; el enlace "Ver registro completo" usa el snapshot de la propia fila de historial,
+sin petición adicional; extensión de `#/registros` de `administrator` en vez de una ruta paralela;
+`profesorIdInicial` dispara `cargarSlots` sin esperar a la lista de opciones; nota de entorno
+(`node_modules` vacío al arrancar esta sesión, resuelto con `npm ci`, sin relación con el código)
+**Hallazgos del auditor atendidos:** ninguno resuelto por esta sesión. Revisado el registro completo
+de `auditoriacontinua.md` antes de elegir tarea (paso 2 del protocolo): un único hallazgo `ABIERTO`
+de severidad alta (**#8**, dato de salud del artículo 9 en R-02), sin ninguna acción posible para el
+programador — sigue esperando la respuesta del dueño a la pregunta #16 de §6 — así que no activa el
+régimen de urgencia de §0.3; el otro `ABIERTO` (**#20**, cobertura de `student` en `db/pruebas_rls.sql`)
+es severidad media, fuera del disparador de "atiéndelo como P-XX urgente" (reservado a severidad alta),
+así que queda para el ciclo normal del PM
+**Hallazgos:** ninguno nuevo. Desviación documentada en §7 de `SEGUIMIENTO.md`: el enlace "Ver
+registro completo" puede apuntar al slot/día de ANTES del cambio auditado si ese cambio concreto fue
+"cambiar el slot atribuido" o mover el día — limitación conocida y aceptada, nunca un enlace roto
+**Tareas autopropuestas (P-XX):** ninguna — R-20 no dejó margen para una P-XX adicional (ver límite de
+3 entre tareas consecutivas, §0.3), y no se detectó ningún bug ni deuda técnica fuera de su alcance
+**Próximo paso:** ninguna tarea pendiente de la columna vertebral en §1 (todas `COMPLETADA` o
+`BLOQUEADA` por migración/decisión del dueño) — la siguiente sesión de programador debe volver a
+`auditoriacontinua.md` y a §1 de `SEGUIMIENTO.md` para confirmarlo antes de proponer una P-XX o quedar
+sin trabajo accionable, mismo protocolo de siempre
+
+---
+
 ### Sesión 2026-09-13 (rutina programada de producto) — vigésimo ciclo del PM: sin R-XX nueva
 
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)

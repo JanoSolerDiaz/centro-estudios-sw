@@ -174,3 +174,12 @@ export function puedeVerAsistentePrimerosPasos(rol: Rol): boolean {
 export function puedeVerInformeHorasPropio(rol: Rol): boolean {
   return rol === 'teacher';
 }
+
+/** Registro de auditoría de cambios (R-20): índice de centro completo de las modificaciones y
+ * anulaciones de asistencia, sobre `asistencia_historial` (lectura ya reservada a `administrator`
+ * desde T-10). Exclusivamente `administrator` (requisito 6) — un `teacher` ya ve, registro a
+ * registro, el historial de LO SUYO dentro de sus propios «Registros» (T-21); esta pantalla es una
+ * vista de centro completo, no una ampliación de lo que puede ver un `teacher`. */
+export function puedeVerRegistroAuditoria(rol: Rol): boolean {
+  return rol === 'administrator';
+}
