@@ -37,6 +37,50 @@
 
 ---
 
+### Sesión 2026-09-15 (rutina programada de producto) — vigésimo segundo ciclo del PM: R-22 abre la Oleada v8
+
+**Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)
+**Estado resultante:** R-22 añadida a §1 de `SEGUIMIENTO.md` (`PENDIENTE`, Oleada v8/F-13); resto de
+§1 sin cambio (R-21 sigue `BLOQUEADA — pendiente aplicar migración 017`)
+**Commits a `develop`:** solo este, documental — sin código
+**Migraciones aplicadas:** ninguna; `db/APLICADAS.md` sin cambio (`009` sigue siendo la última en
+`dev`, `010`-`017` sin aplicar)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera "Última actualización", fila
+R-22 en §1); `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v8/F-13 nueva, detalle de R-22);
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código
+**Health check post-deploy:** N/A (sin push de código, sin cambio de esquema)
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** revisado `auditoriacontinua.md` — pasada nueva desde el ciclo
+anterior (`2963bfe`, 2026-09-15, previa incluso a R-21). Sigue `ABIERTO` **#8** (dato de salud del
+art. 9 RGPD en R-02, esperando al dueño en la pregunta #16 de §6); **#20** quedó **RESUELTO** en esa
+misma pasada (verificado por lectura directa de `db/pruebas_rls.sql` sección 7c, P-28), pendiente
+solo de confirmación en ejecución real por el dueño. Ninguno de los dos exige una R-XX nueva
+**Tareas autopropuestas (P-XX):** ninguna — nada nuevo que registrar en §5 este ciclo
+**Hallazgos:** ninguno de código. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. R-21 (Oleada v7/F-12) sigue código-completa, bloqueada solo por la migración `017`: su
+columna vertebral también queda agotada, sin ninguna ampliación autoseñalada nueva sin convertir.
+Revisado el roadmap contra la propia spec de R-21, que enumera la matriz de excepciones de
+asistencia resuelta hasta ahora — R-06 (un slot, un día, falta el profesor), R-12 (todo el centro,
+varios días, cierre) y R-21 (un alumno, varios días, ausencia prevista). Falta la cuarta
+combinación, simétrica a las otras tres: **un profesor, varios días**, cuando se sabe de antemano
+que va a faltar un periodo completo (baja médica, formación, vacaciones fuera del calendario del
+centro) — hoy obliga a `administrator` a declarar R-06 día por día, slot por slot, y como
+`slot_horario` es por alumno (T-15), la baja de un profesor con agenda cargada puede significar
+decenas de declaraciones manuales idénticas. Se especifica **R-22** ("Baja programada de un
+profesor: excepción en bloque para varios días"), Oleada v8/F-13: sin RPC de escritura nueva (orquesta
+llamadas repetidas a la ya existente de R-06), sin ningún dato personal nuevo y sin tocar al rol
+`student`
+**Próximo paso:** una sesión de programador puede implementar R-22 en cuanto lo decida el orden de
+§1 (spec completa en `ROADMAP_PRODUCTO.md`; migración prevista con número a confirmar contra
+`db/APLICADAS.md` en ese momento, columna de agrupación sobre `excepcion_slot`). Mientras tanto,
+siguen pendientes los mismos tres indicadores que las sesiones de programador ya vienen comprobando:
+pasada nueva del auditor, respuesta del dueño a alguna pregunta de §6 (la #16 es la que más
+desbloquearía) y migraciones nuevas aplicadas en `db/APLICADAS.md`
+
+---
+
 ### Sesión 2026-09-15 (rutina programada de programador, cuarta pasada sin trabajo accionable tras R-21)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar

@@ -8,23 +8,23 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-14 — vigésimo primer ciclo del PM: **abre la Oleada v7 con
-R-21.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` sin pasada nueva desde el ciclo anterior (sigue en `7477c26`, 2026-09-14):
-confirma sin cambio que solo quedan **ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02,
-formalizado como pregunta **#16** de §6, esperando al dueño) y **#20** (hueco de cobertura del
-bucket de avatares contra `student`, ya implementado por P-28 el mismo día, pendiente solo de que
-el dueño lo confirme con `npm run probar-rls` y de que el auditor lo reevalúe) — ninguno de los dos
-requiere una R-XX nueva: el primero ya está reflejado como bloqueo de R-02/pregunta #16, y el
-segundo es deuda técnica de la batería de pruebas, no producto, y ya lo atendió el programador
-como P-XX.
+**Última actualización:** 2026-09-15 — vigésimo segundo ciclo del PM: **abre la Oleada v8 con
+R-22.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`2963bfe`, 2026-09-15, previa a
+R-21): confirma sin cambio que solo queda **ABIERTO #8** (dato de salud del artículo 9 del RGPD en
+R-02, formalizado como pregunta **#16** de §6, esperando al dueño) — **#20** quedó **RESUELTO** en
+esa misma pasada (P-28 verificado por lectura directa del SQL, pendiente solo de que el dueño lo
+confirme en ejecución con `npm run probar-rls`). No requiere ninguna R-XX nueva: ya está reflejado
+como bloqueo de R-02/pregunta #16.
 
-**R-20 (Oleada v6/F-11) pasó a `COMPLETADA` el 2026-09-14** (ver §1 de `SEGUIMIENTO.md`): con eso,
-la columna vertebral de código de las oleadas v1 a v6 queda agotada — cada R-XX de v1 a v20 está
-`COMPLETADA` o `BLOQUEADA` solo por una migración pendiente de aplicar, sin ninguna spec que deje ya
-una ampliación autoseñalada sin convertir. Revisado el roadmap completo contra la visión de
-producto (control diario con fiabilidad legal, agilidad de pasar lista, prioridad al profesor que
-pasa lista cada día): se abre la **Oleada v7** con **R-21** (pausa programada de un alumno, F-12) —
+**R-21 (Oleada v7/F-12) sigue `BLOQUEADA`** solo por la migración `017` pendiente de aplicar (código
+y tests completos desde 2026-09-15, fila 20 de §3 de `SEGUIMIENTO.md`) — con eso, su columna
+vertebral de código también queda agotada: no deja ninguna ampliación autoseñalada nueva sin
+convertir. Revisado el roadmap completo contra la visión de producto y contra el propio texto de
+R-21, que enumera la matriz de excepciones resuelta hasta ahora: R-06 (un slot, un día, falta el
+profesor), R-12 (todo el centro, varios días, cierre) y R-21 (un alumno, varios días, ausencia
+prevista). Falta la cuarta combinación de esa misma matriz — **un profesor, varios días** —, hasta
+ahora sin resolver: se abre la **Oleada v8** con **R-22** (baja programada de un profesor, F-13) —
 detalle en la sección correspondiente más abajo. Añadida su fila `PENDIENTE` en §1 de
 `SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
 producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a
@@ -234,6 +234,30 @@ personal nuevo (el motivo es siempre texto libre, nunca una categoría cerrada) 
 `student`.
 
 - **F-12 — Pausa programada de un alumno.** R-21.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v8 — Excepciones de asistencia a nivel de profesor: baja programada en bloque
+
+**Arranca cuando la oleada v7 (R-21) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta oleada
+queda especificada y en cola, detrás de la oleada v7, en el orden de §1.
+
+Por qué esta oleada: la propia spec de R-21 enumera la matriz de excepciones de asistencia resuelta
+hasta ahora — R-06 (un slot, un día, cuando falta el profesor: sustitución o cancelación), R-12
+(todo el centro, varios días, festivo o vacación) y R-21 (un alumno, varios días, ausencia prevista).
+Falta la cuarta combinación, simétrica a las otras tres y hasta ahora sin resolver: **un profesor,
+varios días**, cuando se sabe de antemano que va a faltar un periodo completo (baja médica,
+formación, vacaciones fuera del calendario del centro). Hoy esa situación obliga a `administrator` a
+declarar R-06 día por día, slot por slot — y como `slot_horario` es por alumno (una clase de ocho
+alumnos son ocho filas, T-15), la baja de un profesor con agenda cargada durante una semana puede
+significar decenas de declaraciones manuales idénticas, justo la fricción repetitiva que el
+principio de "cero fricción con lo habitual, cero bloqueo con la excepción" pide resolver. No añade
+ningún dato personal nuevo ni toca al rol `student`.
+
+- **F-13 — Baja programada de un profesor.** R-22.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1093,3 +1117,71 @@ sesión esperada en su informe mensual (R-04) ni en el ranking de ausencias del 
 declarar una pausa sobre un rango que ya tiene un registro de asistencia de ese alumno se rechaza;
 un `teacher` ve la marca "en pausa" del alumno pero no tiene ningún control para crearla, editarla ni
 cancelarla.
+
+---
+
+### R-22 — Baja programada de un profesor: excepción en bloque para varios días
+**Oleada / Fase:** v8 / F-13 · **Migración:** Sí (columna de agrupación sobre `excepcion_slot` para
+poder listar/cancelar juntas las excepciones de una misma baja; número y forma exactos a decidir por
+la sesión que la escriba, según el estado de `db/APLICADAS.md` en ese momento) · **Depende de:**
+T-15, T-16, T-22, R-06
+**Origen:** roadmap (autoseñalada por la propia spec de R-21, que enumera la matriz de excepciones
+resuelta y deja este hueco simétrico sin cubrir)
+
+**Objetivo:** R-06 ya permite declarar una excepción — sustitución o cancelación — para un slot y un
+día concretos, cuando falta el profesor; R-12 ya permite declarar el cierre del centro entero para
+varios días; R-21 ya permite declarar la pausa de un alumno concreto para varios días. Falta la
+cuarta combinación de esa misma matriz, simétrica a las otras tres: la excepción de **varios días
+sobre TODOS los slots de un único profesor**, cuando se sabe de antemano que va a faltar un periodo
+completo (baja médica, formación, vacaciones fuera del calendario del centro). Hoy esa situación
+obliga a `administrator` a declarar R-06 día por día, slot por slot — y como `slot_horario` es por
+alumno (una clase de ocho alumnos son ocho filas, T-15), la baja de un profesor con agenda cargada
+durante una semana puede significar decenas de declaraciones manuales idénticas, exactamente la
+fricción repetitiva que el principio de "cero fricción con lo habitual, cero bloqueo con la
+excepción" pide resolver — y sin ella, cada una de esas decenas de excepciones sigue siendo
+imprescindible, así que hoy simplemente no se declaran y el hueco queda indistinguible de un olvido.
+
+**Requisitos:**
+1. Desde la gestión de profesores (T-16), `administrator` declara una baja programada de un
+   profesor: profesor, fecha de inicio, fecha de fin (ambas inclusive), y un tratamiento por defecto
+   para todos sus slots en ese rango — **sustitución** (un único profesor sustituto para toda la
+   baja) o **cancelación** (sin sustituto, motivo breve en texto libre). Ningún dato de alumno.
+2. Al confirmar, el sistema calcula qué combinaciones (slot, fecha) del profesor titular caen dentro
+   del rango — un slot solo cuenta los días que coinciden con su propio día de la semana (T-15) — y
+   por cada una declara una excepción de slot exactamente igual que si `administrator` la hubiera
+   creado una a una con R-06: misma RPC, mismas reglas de no-retroactividad. Ninguna RPC nueva de
+   escritura de excepción: esta tarea solo orquesta llamadas repetidas a la ya existente.
+3. Vista previa obligatoria antes de confirmar, mismo patrón que la importación masiva (R-08):
+   cuántas excepciones se van a crear y cuáles quedan excluidas porque esa fecha concreta ya tiene
+   registros de asistencia en ese slot (mismo rechazo que R-06 aplica fila a fila) — la baja se
+   declara igualmente para el resto; la fecha con conflicto se deja intacta y se avisa de que hay
+   que resolverla a mano si de verdad hace falta cubrirla.
+4. Toda excepción creada por esta vía queda marcada como perteneciente a la misma baja, para poder
+   listarlas y cancelarlas juntas desde una única pantalla — el detalle de cómo se agrupan (columna
+   nueva en `excepcion_slot` u otro mecanismo equivalente) es una decisión de esquema de la sesión
+   que lo implemente, no de esta especificación.
+5. Antes de que empiece, la baja completa se cancela en un solo gesto: anula en bloque todas las
+   excepciones futuras que generó, con motivo, nunca un borrado real (§0.2 de `HOJA_DE_RUTA.md`). Ya
+   empezada, se puede acortar su fecha de fin a una fecha futura, lo que anula únicamente las
+   excepciones de los días que quedan fuera del nuevo rango — ninguna de las dos operaciones toca una
+   excepción de un día ya pasado, mismo principio de no-retroactividad que R-21 aplica a la pausa.
+6. Un día concreto dentro de una baja ya declarada admite un tratamiento distinto al del resto (por
+   ejemplo, ese día sí hay sustituto aunque el resto de la baja sea cancelación): se edita esa
+   excepción de slot individual como ya permite R-06, sin afectar al resto de la baja ni exigir
+   ningún control nuevo — es la misma pantalla de siempre.
+7. «Mi horario» (T-22) del profesor titular muestra cada día de la baja igual que R-06 ya muestra una
+   excepción individual («Cubierto por [sustituto]» o «Cancelada — <motivo>»), nunca como si el slot
+   hubiera dejado de existir.
+8. Reservado a `administrator` para declarar, editar o cancelar, mismo alcance que R-06 y R-12.
+   Ningún dato personal nuevo ni tabla nueva de datos de alumno o de contacto.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** declarar una baja de cinco días laborables sobre un profesor con seis
+slots crea hasta 30 excepciones (slot × día coincidente), cada una idéntica a como si se hubiera
+creado una a una con R-06; un día con registros de asistencia ya existentes en alguno de esos slots
+queda excluido de la vista previa y de la creación, sin bloquear el resto; cancelar la baja antes de
+empezar anula en bloque todas las excepciones futuras; acortar la fecha de fin de una baja en curso
+anula solo las excepciones de los días que quedan fuera del nuevo rango; un día suelto dentro de la
+baja admite un tratamiento distinto sin afectar al resto; un `teacher` no puede declarar, editar ni
+cancelar una baja.
