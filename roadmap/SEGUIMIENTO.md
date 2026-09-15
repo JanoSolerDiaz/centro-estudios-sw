@@ -11,14 +11,14 @@
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
 **Última actualización:** 2026-09-15 (rutina programada de programador: sin trabajo accionable tras
-R-21, tercera pasada). HEAD idéntico al de la pasada anterior (`6778da3`, sin ningún commit nuevo
+R-21, cuarta pasada). HEAD idéntico al de la pasada anterior (`fc9cf4c`, sin ningún commit nuevo
 entre medias): se repite la misma comprobación de los tres indicadores y da el mismo resultado.
 Revisado primero `auditoriacontinua.md` (protocolo §0.3): última pasada sigue siendo `2963bfe`
 (2026-09-15, anterior a la implementación de R-21), sin pasada nueva desde entonces — solo quedan
 **#8** (`ABIERTO`, alta, esperando al dueño en la pregunta #16 de §6, sin ninguna acción posible
 desde el código) y **#20** (`RESUELTO` 2026-09-15 por P-28); ninguno bloquea la columna vertebral ni
 exige una P-XX urgente. Comprobados los tres indicadores que desbloquearían trabajo (mismo criterio
-que las dos pasadas anteriores de hoy): **(1)** sin pasada nueva del auditor desde la implementación
+que las tres pasadas anteriores de hoy): **(1)** sin pasada nueva del auditor desde la implementación
 de R-21 (`454da97`); **(2)** sin respuesta nueva del dueño en §6 (las filas 7, 8, 9, 10, 11, 15, 16 y
 17 siguen con la columna «Respuesta» vacía, comprobado por lectura directa de las 17 preguntas); **(3)**
 `db/APLICADAS.md` sin cambio — `009` sigue siendo la última migración aplicada en `dev`, las ocho de
@@ -26,7 +26,7 @@ las filas 13 a 20 de §3 (`010` a `017`) siguen `PENDIENTE`. Con los tres indica
 con cero `PENDIENTE`/`EN CURSO` (R-21 es la última R-XX de la Oleada v7, ya `BLOQUEADA` solo por la
 migración `017`) y §5 sin ninguna P-XX `PENDIENTE` (las 28 registradas están `RESUELTA`/`DESCARTADA`):
 no hay ninguna T-XX/R-XX/P-XX que ejecutar. Abrir una R-XX nueva (Oleada v8) es decisión del ciclo de
-PM, no de esta sesión de programador (mismo criterio que las sesiones del 2026-09-14 y las dos pasadas
+PM, no de esta sesión de programador (mismo criterio que las sesiones del 2026-09-14 y las tres pasadas
 anteriores de hoy). Verificación pre-push completa ejecutada igualmente como comprobación de salud,
 sin ningún commit de código: `npm run typecheck`, `npm run lint`, `npm test` (**1678/1678**, sin
 cambio desde R-21) y `npm run build`, las cuatro en verde tras `npm ci` (130 paquetes, 0

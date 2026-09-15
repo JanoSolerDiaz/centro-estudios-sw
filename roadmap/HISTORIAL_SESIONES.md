@@ -37,6 +37,37 @@
 
 ---
 
+### Sesión 2026-09-15 (rutina programada de programador, cuarta pasada sin trabajo accionable tras R-21)
+
+**Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
+**Estado resultante:** sin cambio en §1 (cero `PENDIENTE`/`EN CURSO`; R-21 sigue `BLOQUEADA —
+pendiente aplicar migración 017`) ni en §5 (cero P-XX `PENDIENTE`)
+**Commits a `develop`:** ver commit de esta sesión (solo actualización de bitácora, sin código)
+**Migraciones aplicadas:** ninguna — `db/APLICADAS.md` sigue con `009` como última aplicada; las
+ocho de las filas 13 a 20 de §3 (`010` a `017`) siguen `PENDIENTE`
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera únicamente),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1678/1678, sin cambio desde R-21) · build ✅
+— tras `npm ci` (130 paquetes, 0 vulnerabilidades; el contenedor arrancó otra vez sin `node_modules`)
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva del auditor desde `2963bfe`
+(2026-09-15, anterior a R-21). **#8** (alta) sigue `ABIERTO`, esperando al dueño en la pregunta #16
+de §6. **#20** (media) sigue `RESUELTO` (P-28), sin cambio desde la pasada anterior
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — §5 revisada, ninguna `PENDIENTE`
+**Próximo paso:** el HEAD de `develop` es idéntico al de la pasada anterior de hoy (`fc9cf4c`, cero
+commits nuevos entre medias), así que esta sesión repite exactamente la misma comprobación y llega
+al mismo resultado. Comprobar de nuevo, en orden, los tres indicadores que desbloquearían trabajo:
+pasada nueva del auditor en `auditoriacontinua.md`, respuesta del dueño a alguna pregunta de §6 (en
+particular la #16, que desbloquearía R-02/T-25) y `db/APLICADAS.md` (si `010` o posteriores aparecen
+aplicadas). Mientras los tres sigan iguales, no hay ninguna T-XX/R-XX/P-XX nueva que inventar
+(§0.2/§0.3) — abrir una R-XX nueva (Oleada v8) es decisión del ciclo de PM, no de una sesión de
+programador, mismo criterio que las sesiones del 2026-09-14 y las tres pasadas anteriores de hoy
+
+---
+
 ### Sesión 2026-09-15 (rutina programada de programador, tercera pasada sin trabajo accionable tras R-21)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
