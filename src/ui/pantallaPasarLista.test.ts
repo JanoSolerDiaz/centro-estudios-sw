@@ -110,6 +110,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     ...(overrides.zonaHoraria !== undefined ? { zonaHoraria: overrides.zonaHoraria } : {}),
     ...(overrides.tolerancia !== undefined ? { tolerancia: overrides.tolerancia } : {}),
     ...(overrides.listarExcepcionesDeHoy !== undefined ? { listarExcepcionesDeHoy: overrides.listarExcepcionesDeHoy } : {}),
+    ...(overrides.listarPausasDeHoy !== undefined ? { listarPausasDeHoy: overrides.listarPausasDeHoy } : {}),
     ...(overrides.colaOffline !== undefined ? { colaOffline: overrides.colaOffline } : {}),
     ...(overrides.detectorConexion !== undefined ? { detectorConexion: overrides.detectorConexion } : {}),
   };
@@ -348,6 +349,77 @@ void test('sin listarExcepcionesDeHoy inyectada, pasar lista funciona exactament
   await esperarMicrotareas();
 
   assert.equal(botonesDeTarjeta(contenedor).length, 1);
+});
+
+// --- R-21: pausa programada de un alumno ---------------------------------------------------------
+
+function crearPausa(sobrescribir: Partial<import('../dominio/tipos.ts').PausaAlumno> = {}): import('../dominio/tipos.ts').PausaAlumno {
+  return {
+    id: 'pausa-1',
+    alumno_id: 'alumno-1',
+    fecha_inicio: '2026-08-24',
+    fecha_fin: '2026-08-28',
+    motivo: 'Viaje familiar',
+    estado: 'activa',
+    motivo_anulacion: null,
+    creado_por: 'admin-1',
+    anulado_por: null,
+    anulado_en: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    ...sobrescribir,
+  };
+}
+
+void test('un alumno en pausa hoy no se ofrece como pendiente: "sin clases", sin card, listado aparte', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      listarPausasDeHoy: () => Promise.resolve([crearPausa()]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /No tienes ninguna clase más hoy/);
+  assert.equal(botonesDeTarjeta(contenedor).length, 0);
+  assert.match(contenedor.textContent, /En pausa hoy/);
+  assert.match(contenedor.textContent, /Ana García — en pausa hasta 2026-08-28/);
+});
+
+void test('el resto de alumnos del mismo profesor no se ven afectados por la pausa de otro', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotPausado = crearSlot({ id: 'slot-pausado', alumno_id: 'alumno-1' });
+  const slotNormal = crearSlot(
+    { id: 'slot-normal', alumno_id: 'alumno-2' },
+    { id: 'alumno-2', nombre: 'Luis', primer_apellido: 'Martín' },
+  );
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slotPausado, slotNormal]),
+      listarPausasDeHoy: () => Promise.resolve([crearPausa({ alumno_id: 'alumno-1' })]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botones = botonesDeTarjeta(contenedor);
+  assert.equal(botones.length, 1);
+  assert.match(botones[0]?.textContent ?? '', /Martín/);
+  // "Ana García" solo aparece en la lista informativa "En pausa hoy", nunca como card de pendiente.
+  assert.match(contenedor.textContent, /En pausa hoy.*Ana García/s);
+});
+
+void test('sin listarPausasDeHoy inyectada, pasar lista funciona exactamente como antes de R-21', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.equal(botonesDeTarjeta(contenedor).length, 1);
+  assert.doesNotMatch(contenedor.textContent, /En pausa hoy/);
 });
 
 // --- Requisito 5: ya registrado al abrir --------------------------------------------------------

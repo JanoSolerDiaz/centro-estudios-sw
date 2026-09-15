@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Asistencia, CierreCentro, ExcepcionSlot, SlotHorario } from './tipos.ts';
+import type { Asistencia, CierreCentro, ExcepcionSlot, PausaAlumno, SlotHorario } from './tipos.ts';
 import {
   sesionesDeHoyPanelCentro,
   rankingAusenciasSinJustificarPanelCentro,
@@ -327,6 +327,28 @@ void test('rankingAusenciasSinJustificarPanelCentro: un alumno sin nombre resuel
   const asistencias = [crearAsistencia({ alumno_id: 'alumno-ajeno', estado: 'ausente', motivo_justificacion: null })];
   const ranking = rankingAusenciasSinJustificarPanelCentro(asistencias, new Map());
   assert.equal(ranking[0]?.alumnoNombre, 'Alumno desconocido');
+});
+
+void test('rankingAusenciasSinJustificarPanelCentro: un registro dentro de una pausa (R-21) del alumno no cuenta', () => {
+  const asistencias = [
+    crearAsistencia({ alumno_id: 'alumno-1', estado: 'ausente', motivo_justificacion: null, ocurrido_en: '2026-09-10T09:00:00.000Z' }),
+  ];
+  const pausa: PausaAlumno = {
+    id: 'pausa-1',
+    alumno_id: 'alumno-1',
+    fecha_inicio: '2026-09-08',
+    fecha_fin: '2026-09-12',
+    motivo: null,
+    estado: 'activa',
+    motivo_anulacion: null,
+    creado_por: 'admin-1',
+    anulado_por: null,
+    anulado_en: null,
+    creado_en: '2026-09-01T00:00:00.000Z',
+    actualizado_en: '2026-09-01T00:00:00.000Z',
+  };
+  const ranking = rankingAusenciasSinJustificarPanelCentro(asistencias, new Map([['alumno-1', crearAlumno()]]), [pausa]);
+  assert.deepEqual(ranking, []);
 });
 
 // --- rankingAsistenciaProfesoresPanelCentro ---

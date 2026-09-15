@@ -6,19 +6,22 @@
  * `datos/excepcionesSlot.ts` (R-06) resuelven las consultas; `src/ui/pantallaHistorico.ts` compone
  * el resultado y decide cómo exportarlo.
  *
- * Reutiliza sin tocarlos los dos únicos criterios ya fijados para excluir un día de "sesiones
- * esperadas" —`esDiaCerrado` (R-12) y `esDiaCanceladoParaSlot` (R-06)—, ambos documentados ya en su
- * propio fichero como pensados también para este informe (mismo principio que R-13, que ya los
- * reutilizó primero): una sustitución NO excluye (hubo clase, solo cambió quién la impartió), una
- * cancelación sí. Las fechas viajan siempre como texto `AAAA-MM-DD`: ninguna función de este fichero
- * construye un `Date` ni lee el reloj del sistema — el reloj para "fecha de generación" es
- * responsabilidad exclusiva de quien llama (la pantalla), nunca de este módulo.
+ * Reutiliza sin tocarlos los tres únicos criterios ya fijados para excluir un día de "sesiones
+ * esperadas" —`esDiaCerrado` (R-12), `esDiaCanceladoParaSlot` (R-06) y `esDiaPausadoParaAlumno`
+ * (R-21)—, todos documentados ya en su propio fichero como pensados también para este informe
+ * (mismo principio que R-13, que reutilizó primero los dos primeros): una sustitución NO excluye
+ * (hubo clase, solo cambió quién la impartió), una cancelación sí, y un día dentro de una pausa
+ * declarada del propio alumno también excluye (R-21: mientras esté en pausa, ese día nunca fue una
+ * sesión esperada de verdad). Las fechas viajan siempre como texto `AAAA-MM-DD`: ninguna función de
+ * este fichero construye un `Date` ni lee el reloj del sistema — el reloj para "fecha de
+ * generación" es responsabilidad exclusiva de quien llama (la pantalla), nunca de este módulo.
  */
 
-import type { Asistencia, CierreCentro, ExcepcionSlot, SlotHorario } from './tipos.ts';
+import type { Asistencia, CierreCentro, ExcepcionSlot, PausaAlumno, SlotHorario } from './tipos.ts';
 import { duracionRealMinutos } from './asistencia.ts';
 import { fechaCoincideConDiaSemana, esDiaCanceladoParaSlot } from './excepcionSlot.ts';
 import { esDiaCerrado } from './cierresCentro.ts';
+import { esDiaPausadoParaAlumno } from './pausaAlumno.ts';
 import { minutosDesdeMedianoche } from './slotHorario.ts';
 import { documentoCsv } from '../nucleo/csv.ts';
 
@@ -49,6 +52,8 @@ export interface DiaEsperadoInformeMensual {
 export interface ParametrosSesionesEsperadas {
   readonly anio: number;
   readonly mes: number;
+  /** El alumno del informe — necesario para saber qué pausas (R-21) le afectan a ÉL y no a otro. */
+  readonly alumnoId: string;
   /** Todas las versiones (pasadas y vigente) del horario del alumno — de `listarSlotsDeAlumno`
    * (T-15), ya acotadas por RLS a lo que puede ver quien pide el informe (un `teacher` solo ve sus
    * propias filas, requisito 4: "teacher solo sobre alumnos de sus propios slots"). */
@@ -59,14 +64,17 @@ export interface ParametrosSesionesEsperadas {
   /** Excepciones de slot ACTIVAS (R-06) cuya fecha cae dentro del mes — de cualquier slot, esta
    * función filtra por `slot.id` internamente vía `esDiaCanceladoParaSlot`. */
   readonly excepciones: readonly ExcepcionSlot[];
+  /** Pausas (R-21) del propio alumno, cualquier estado — `esDiaPausadoParaAlumno` ya ignora las
+   * `'anuladas'`, quien llama no necesita filtrarlas de antemano. */
+  readonly pausas: readonly PausaAlumno[];
 }
 
 /** Sesiones esperadas del mes natural (requisito 1 de R-04): para cada día del mes cuyo día de la
  * semana coincide con `slot.dia_semana` Y el slot está vigente ese día concreto (`vigente_desde`/
  * `vigente_hasta`, snapshot histórico — requisito 3: "usa los slots vigentes de cada semana del
- * mes... coherente con la no-retroactividad de T-15"), salvo que el día esté cerrado (R-12) o
- * cancelado para ESE slot (R-06). Una sustitución no excluye. Ordenadas por fecha y, dentro del
- * mismo día, por hora de inicio. */
+ * mes... coherente con la no-retroactividad de T-15"), salvo que el día esté cerrado (R-12),
+ * cancelado para ESE slot (R-06) o el propio alumno esté en pausa (R-21) ese día. Una sustitución
+ * no excluye. Ordenadas por fecha y, dentro del mismo día, por hora de inicio. */
 export function sesionesEsperadasDelMes(parametros: ParametrosSesionesEsperadas): readonly DiaEsperadoInformeMensual[] {
   const { primerDia, ultimoDia } = limitesDelMes(parametros.anio, parametros.mes);
   const cabecera = primerDia.slice(0, 7);
@@ -82,7 +90,11 @@ export function sesionesEsperadasDelMes(parametros: ParametrosSesionesEsperadas)
       if (!fechaCoincideConDiaSemana(fecha, slot.dia_semana)) {
         continue;
       }
-      if (esDiaCerrado(fecha, parametros.cierres) || esDiaCanceladoParaSlot(slot.id, fecha, parametros.excepciones)) {
+      if (
+        esDiaCerrado(fecha, parametros.cierres) ||
+        esDiaCanceladoParaSlot(slot.id, fecha, parametros.excepciones) ||
+        esDiaPausadoParaAlumno(parametros.alumnoId, fecha, parametros.pausas)
+      ) {
         continue;
       }
       sesiones.push({ fecha, slot });

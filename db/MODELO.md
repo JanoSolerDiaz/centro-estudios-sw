@@ -535,6 +535,51 @@ para los alumnos nuevos (sin restricción natural que dependa de las demás fila
 T-15 es quien impide reimportar el mismo fichero de horarios sin corregir nada, sin necesitar una
 comprobación de duplicado de cliente propia como la de alumnos.
 
+## Pausa programada de un alumno (`017_pausa_alumno.sql`, R-21) — sin aplicar todavía
+
+Tabla nueva, `pausa_alumno`: `alumno_id` (referencia a `alumno`), `fecha_inicio`/`fecha_fin` (`date`,
+ambas inclusive), `motivo` (texto SIEMPRE opcional y libre — nunca una lista cerrada ni ninguna
+opción que categorice salud, lección explícita del hallazgo #8/pregunta #16 de §6 sobre R-02),
+`estado` (`activa`/`anulada`, baja lógica, nunca `DELETE`), `motivo_anulacion`/`anulado_por`/
+`anulado_en` (solo si `estado = 'anulada'`, un `CHECK` exige los tres a la vez o ninguno) y
+`creado_por`. Caso simétrico a R-06 (excepción de UN slot) y R-12 (cierre de TODO el centro), esta
+vez a nivel de UN alumno durante un rango de días.
+
+**Sin GRANT de INSERT/UPDATE a `authenticated`, mismo motivo exacto que `excepcion_slot` (R-06):**
+toda escritura pasa por tres RPC `SECURITY DEFINER` — `declarar_pausa_alumno(...)`,
+`cancelar_pausa_alumno(...)` y `acortar_pausa_alumno(...)` — nunca por CRUD directo. El requisito 4
+("nunca sobre un rango que se solape con un registro de asistencia ya existente del alumno") protege
+la misma invariante de "no reescribir historia" que la inmutabilidad de `asistencia` (§0.2), así que
+se comprueba de forma ATÓMICA en el servidor, igual que R-06.
+
+**Tres RPC, no dos como R-06 (declarar/desactivar):** una pausa nunca se "desactiva" sin más —
+requisito 5, "jamás un `DELETE` real, mismo régimen de anulación que el resto del producto" — así que
+la cancelación (solo si todavía no ha empezado) y el acortamiento (solo si ya está en curso, moviendo
+`fecha_fin` hacia una fecha futura, nunca al pasado) son dos operaciones distintas, cada una con su
+propia guarda de estado.
+
+**Políticas RLS:** `administrator` lee todas; `teacher` solo las ACTIVAS de los alumnos que tiene en
+sus propios slots (`exists` contra `slot_horario`, mismo patrón que la política del sustituto de
+R-06); sin ninguna política para `student`.
+
+**A diferencia de R-06, ninguna RPC existente se sustituye.** `registrar_asistencia`/
+`registrar_ausencia` no cambian: la pausa actúa solo como filtro de CLIENTE sobre "quién se ofrece
+como pendiente" (`dominio/pausaAlumno.ts#excluirAlumnosPausadosHoy`, alimentando
+`dominio/slots.ts#alumnosPropuestos` sin tocar esa función, mismo principio que
+`slotsEfectivosDelDia` de R-06), no un bloqueo de servidor sobre un alta manual. Decisión razonada,
+documentada en `DECISIONES_TECNICAS.md`: el requisito 2 habla de "no se ofrece como pendiente" y "no
+se crea automáticamente ninguna fila", nunca de rechazar un alta explícita fuera de ese flujo — mismo
+criterio con el que R-06 tampoco bloquea un alta `origen = 'manual'` sobre un slot cancelado.
+
+**`esDiaPausadoParaAlumno(alumnoId, fecha, pausas)`** (mismo principio que `esDiaCerrado` de R-12 y
+`esDiaCanceladoParaSlot` de R-06, a nivel de alumno) es el tercer criterio de exclusión de "sesiones
+esperadas", reutilizado sin tocarlos por el informe mensual (R-04) y el ranking de ausencias sin
+justificar del panel de centro (R-11, defensivo: en la práctica nunca hay un registro dentro de una
+pausa, porque declararla ya lo impide, pero el ranking lo excluye igual si alguna vez lo hubiera).
+
+**Todavía sin aplicar en `dev`:** ver fila 20 de §3 de `SEGUIMIENTO.md` y la nota correspondiente en
+`db/APLICADAS.md`.
+
 ## Calendario de cierres del centro (`014_calendario_cierres.sql`, R-12)
 
 Tabla nueva, `cierre_centro`: `fecha_inicio`/`fecha_fin` (`date`, ambos inclusive — puede coincidir

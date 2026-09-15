@@ -185,6 +185,25 @@ activo, teacher/student rechazados, un email sin cuenta o de un administrator/te
 devuelve ninguna fila). Fila 19 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda
 inafectada: `016` es posterior y no forma parte de las diez migraciones de su paso a producción.
 
+**`017_pausa_alumno.sql`** (R-21, "pausa programada de un alumno") — escrita y empujada a `develop`
+el 2026-09-15, todavía sin aplicar. Tabla nueva `pausa_alumno` (RLS y políticas en el mismo fichero,
+sin precedente que aplazarlas) más tres RPC `SECURITY DEFINER` exclusivas de `administrator`:
+`declarar_pausa_alumno` (rechaza un rango que se solape con un registro de asistencia ya existente
+del alumno, requisito 4), `cancelar_pausa_alumno` (solo si todavía no ha empezado) y
+`acortar_pausa_alumno` (solo sobre una pausa en curso, adelantando su fin). No sustituye ninguna RPC
+existente: a diferencia de R-06, `registrar_asistencia`/`registrar_ausencia` no cambian — la pausa
+actúa solo como filtro de cliente sobre "quién se ofrece como pendiente" (decisión razonada, ver
+`DECISIONES_TECNICAS.md`). Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en
+local, comprobar que `esquema_version()` devuelve `17` (o más, si `011`/`012` ya se resolvieron), y
+ejecutar también `npm run probar-rls` (nueva sección 8n: administrator declara/cancela/acorta una
+pausa, teacher/student rechazados en las tres RPC, rango invertido rechazado, solape con un registro
+de asistencia existente rechazado, cancelar una pausa ya empezada rechazado, acortar una que todavía
+no ha empezado o que ya terminó rechazado, teacher lee las pausas activas de sus propios alumnos y no
+las de otro profesor; más `pausa_alumno` añadida a los barridos obligatorios de `student` —sección
+6— y de `anon` —sección 8f/TRUNCATE). Fila 20 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila
+12) queda inafectada: `017` es posterior y no forma parte de las diez migraciones de su paso a
+producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

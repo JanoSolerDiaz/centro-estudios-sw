@@ -19,18 +19,27 @@
  * pantalla." y no se dispara ninguna petición de datos.
  */
 
-import { ETIQUETA_DIA_SEMANA, type Rol, type CentroEstudios, type PersonaReferencia, type SlotHorario, type DiaSemana, type Asistencia } from '../dominio/tipos.ts';
+import { ETIQUETA_DIA_SEMANA, type Rol, type CentroEstudios, type PersonaReferencia, type SlotHorario, type DiaSemana, type Asistencia, type PausaAlumno } from '../dominio/tipos.ts';
 import {
   puedeGestionarFichaAlumno,
   puedeVerPersonasReferencia,
   puedeGestionarHorarios,
   puedeExportarExpedienteCompleto,
+  puedeGestionarPausasAlumno,
 } from '../dominio/permisosUi.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
 import { buscarPersonaReferenciaDuplicada, normalizarTelefonoReferencia } from '../dominio/personaReferencia.ts';
 import type { DatosNombreAlumno } from '../dominio/alumno.ts';
 import { inicialesAlumno, colorMonograma, esTipoImagenOrigenAceptado } from '../dominio/avatarAlumno.ts';
-import { fechaHoraLocalLegible, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
+import { fechaHoraLocalLegible, fechaLocalISO, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
+import {
+  rangoPausaValido,
+  buscarPausaSolapada,
+  categoriaPausa,
+  puedeCancelarPausa,
+  puedeAcortarPausa,
+  type CategoriaPausa,
+} from '../dominio/pausaAlumno.ts';
 import {
   construirDatosExpedienteAlumno,
   generarJsonExpediente,
@@ -83,6 +92,13 @@ export interface DependenciasPantallaFichaAlumno {
    * ningún filtro de fecha — `listarHistoricoAsistenciaCompleto` (T-23) ya trae anuladas y
    * retroactivos porque no filtra por `estado`. Solo se llama si `puedeExportarExpedienteCompleto`. */
   listarHistoricoCompletoDeAlumno(alumnoId: string): Promise<readonly Asistencia[]>;
+  /** Pausas (R-21, cualquier estado) del alumno, para el bloque nuevo de la ficha (requisito 5:
+   * "lista las pausas del alumno, pasadas, en curso y futuras"). Solo se llama si
+   * `puedeGestionarPausasAlumno(rol)`. */
+  listarPausasDeAlumno(alumnoId: string): Promise<readonly PausaAlumno[]>;
+  declararPausaAlumno(alumnoId: string, fechaInicio: string, fechaFin: string, motivo: string | null): Promise<PausaAlumno>;
+  cancelarPausaAlumno(pausaId: string, motivo: string): Promise<PausaAlumno>;
+  acortarPausaAlumno(pausaId: string, nuevaFechaFin: string): Promise<PausaAlumno>;
   /** Resuelve en lote los nombres de profesor del histórico del expediente (§0.2: nunca una
    * petición por fila) — mismo resolutor que ya usa `pantallaHistorico.ts`. */
   resolverNombresProfesores(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
@@ -1055,7 +1071,247 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
 }
 
 // ---------------------------------------------------------------------------------------------
-// Bloque 5: expediente completo (R-10, acceso y portabilidad RGPD).
+// Bloque 5: pausa programada del alumno (R-21).
+// ---------------------------------------------------------------------------------------------
+
+interface DependenciasBloquePausas {
+  readonly zonaHoraria: string;
+  readonly reloj: Reloj;
+  listarPausasDeAlumno(): Promise<readonly PausaAlumno[]>;
+  declararPausaAlumno(fechaInicio: string, fechaFin: string, motivo: string | null): Promise<PausaAlumno>;
+  cancelarPausaAlumno(pausaId: string, motivo: string): Promise<PausaAlumno>;
+  acortarPausaAlumno(pausaId: string, nuevaFechaFin: string): Promise<PausaAlumno>;
+}
+
+const ETIQUETA_CATEGORIA_PAUSA: Readonly<Record<CategoriaPausa, string>> = {
+  futura: 'Futura',
+  en_curso: 'En curso',
+  pasada: 'Pasada',
+  anulada: 'Anulada',
+};
+
+function montarBloquePausas(contenedorBloque: HTMLElement, deps: DependenciasBloquePausas): void {
+  const documento = contenedorBloque.ownerDocument;
+
+  let cargando = true;
+  let error = '';
+  let pausas: readonly PausaAlumno[] = [];
+  let idEnCancelacion: string | null = null;
+  let idEnAcortamiento: string | null = null;
+
+  const zonaError = crearZonaMensaje(documento, 'alert');
+  const listaEl = documento.createElement('div');
+  const formularioAlta = documento.createElement('form');
+
+  function hoy(): string {
+    return fechaLocalISO(deps.reloj.ahora(), deps.zonaHoraria);
+  }
+
+  function pintarFilaCancelacion(pausa: PausaAlumno): HTMLElement {
+    const zona = documento.createElement('div');
+    const campoMotivo = crearCampoTexto(documento, `pausa-cancelar-motivo-${pausa.id}`, 'Motivo de la cancelación', 'text', 'off');
+    const errorMotivo = crearMensajeErrorCampo(documento, campoMotivo.input, `pausa-cancelar-motivo-error-${pausa.id}`);
+    const botonConfirmar = crearBoton(documento, 'Confirmar cancelación', 'button');
+    botonConfirmar.addEventListener('click', () => {
+      if (campoMotivo.input.value.trim().length === 0) {
+        errorMotivo.establecer('Indica el motivo de la cancelación.');
+        return;
+      }
+      errorMotivo.limpiar();
+      void (async () => {
+        try {
+          await deps.cancelarPausaAlumno(pausa.id, campoMotivo.input.value.trim());
+          idEnCancelacion = null;
+          await cargar();
+        } catch (cancelarError) {
+          error = mensajeAmigable(cancelarError);
+          pintar();
+        }
+      })();
+    });
+    const botonCancelar = crearBoton(documento, 'Volver', 'button');
+    botonCancelar.addEventListener('click', () => {
+      idEnCancelacion = null;
+      pintar();
+    });
+    zona.append(campoMotivo.contenedor, errorMotivo.elemento, botonConfirmar, botonCancelar);
+    return zona;
+  }
+
+  function pintarFilaAcortamiento(pausa: PausaAlumno): HTMLElement {
+    const zona = documento.createElement('div');
+    const idFecha = `pausa-acortar-fecha-${pausa.id}`;
+    const campoFecha = documento.createElement('input');
+    campoFecha.type = 'date';
+    campoFecha.id = idFecha;
+    campoFecha.required = true;
+    campoFecha.min = hoy();
+    const etiqueta = crearElemento(documento, 'label', { texto: 'Nueva fecha de fin', atributos: { for: idFecha } });
+    const errorFecha = crearMensajeErrorCampo(documento, campoFecha, `pausa-acortar-fecha-error-${pausa.id}`);
+    const botonConfirmar = crearBoton(documento, 'Confirmar acortamiento', 'button');
+    botonConfirmar.addEventListener('click', () => {
+      if (!campoFecha.value) {
+        errorFecha.establecer('Indica la nueva fecha de fin.');
+        return;
+      }
+      if (campoFecha.value >= pausa.fecha_fin) {
+        errorFecha.establecer('La nueva fecha de fin debe ser anterior a la actual.');
+        return;
+      }
+      errorFecha.limpiar();
+      void (async () => {
+        try {
+          await deps.acortarPausaAlumno(pausa.id, campoFecha.value);
+          idEnAcortamiento = null;
+          await cargar();
+        } catch (acortarError) {
+          error = mensajeAmigable(acortarError);
+          pintar();
+        }
+      })();
+    });
+    const botonCancelar = crearBoton(documento, 'Volver', 'button');
+    botonCancelar.addEventListener('click', () => {
+      idEnAcortamiento = null;
+      pintar();
+    });
+    zona.append(etiqueta, campoFecha, errorFecha.elemento, botonConfirmar, botonCancelar);
+    return zona;
+  }
+
+  function pintarFila(pausa: PausaAlumno): HTMLElement {
+    const categoria = categoriaPausa(pausa, hoy());
+    const fila = documento.createElement('div');
+    fila.append(
+      crearElemento(documento, 'span', { texto: ETIQUETA_CATEGORIA_PAUSA[categoria] }),
+      crearElemento(documento, 'span', { texto: `${pausa.fecha_inicio} — ${pausa.fecha_fin}` }),
+      crearElemento(documento, 'span', { texto: pausa.motivo ?? 'Sin motivo' }),
+    );
+    if (categoria === 'anulada') {
+      fila.append(crearElemento(documento, 'span', { texto: `Anulada: ${pausa.motivo_anulacion ?? ''}` }));
+    }
+
+    if (idEnCancelacion === pausa.id) {
+      fila.append(pintarFilaCancelacion(pausa));
+      return fila;
+    }
+    if (idEnAcortamiento === pausa.id) {
+      fila.append(pintarFilaAcortamiento(pausa));
+      return fila;
+    }
+
+    if (puedeCancelarPausa(pausa, hoy())) {
+      const boton = crearBoton(documento, 'Cancelar', 'button');
+      boton.addEventListener('click', () => {
+        idEnCancelacion = pausa.id;
+        idEnAcortamiento = null;
+        pintar();
+      });
+      fila.append(boton);
+    } else if (puedeAcortarPausa(pausa, hoy())) {
+      const boton = crearBoton(documento, 'Acortar', 'button');
+      boton.addEventListener('click', () => {
+        idEnAcortamiento = pausa.id;
+        idEnCancelacion = null;
+        pintar();
+      });
+      fila.append(boton);
+    }
+
+    return fila;
+  }
+
+  function pintar(): void {
+    zonaError.textContent = error;
+    listaEl.textContent = '';
+    if (cargando) {
+      listaEl.append(crearElemento(documento, 'p', { texto: 'Cargando pausas…' }));
+      return;
+    }
+    if (pausas.length === 0) {
+      listaEl.append(crearElemento(documento, 'p', { texto: 'Este alumno no tiene ninguna pausa declarada.' }));
+    } else {
+      for (const pausa of pausas) {
+        listaEl.append(pintarFila(pausa));
+      }
+    }
+  }
+
+  async function cargar(): Promise<void> {
+    cargando = true;
+    error = '';
+    pintar();
+    try {
+      pausas = await deps.listarPausasDeAlumno();
+    } catch (cargarError) {
+      error = mensajeAmigable(cargarError);
+    } finally {
+      cargando = false;
+      pintar();
+    }
+  }
+
+  const campoInicioAlta = documento.createElement('input');
+  campoInicioAlta.type = 'date';
+  campoInicioAlta.id = 'pausa-nueva-inicio';
+  campoInicioAlta.required = true;
+  const etiquetaInicioAlta = crearElemento(documento, 'label', { texto: 'Fecha de inicio', atributos: { for: 'pausa-nueva-inicio' } });
+  const campoFinAlta = documento.createElement('input');
+  campoFinAlta.type = 'date';
+  campoFinAlta.id = 'pausa-nueva-fin';
+  campoFinAlta.required = true;
+  const etiquetaFinAlta = crearElemento(documento, 'label', { texto: 'Fecha de fin', atributos: { for: 'pausa-nueva-fin' } });
+  const errorRangoAlta = crearMensajeErrorCampo(documento, campoFinAlta, 'pausa-nueva-fin-error');
+  const campoMotivoAlta = crearCampoTexto(documento, 'pausa-nueva-motivo', 'Motivo (opcional)', 'text', 'off');
+  campoMotivoAlta.input.required = false;
+
+  formularioAlta.append(
+    etiquetaInicioAlta,
+    campoInicioAlta,
+    etiquetaFinAlta,
+    campoFinAlta,
+    errorRangoAlta.elemento,
+    campoMotivoAlta.contenedor,
+    crearBoton(documento, 'Declarar pausa'),
+  );
+
+  formularioAlta.addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    if (!rangoPausaValido(campoInicioAlta.value, campoFinAlta.value)) {
+      errorRangoAlta.establecer('La fecha de fin no puede ser anterior a la fecha de inicio.');
+      return;
+    }
+    // Un campo vacío o de solo espacios se normaliza a "sin motivo" (null), nunca se rechaza: el
+    // motivo es SIEMPRE opcional (requisito 1 de R-21). `motivoPausaValido` ya queda satisfecha por
+    // construcción (null, o un texto recortado no vacío), así que no hace falta comprobarla aquí.
+    const motivo = campoMotivoAlta.input.value.trim().length > 0 ? campoMotivoAlta.input.value.trim() : null;
+    const solapada = buscarPausaSolapada({ fecha_inicio: campoInicioAlta.value, fecha_fin: campoFinAlta.value }, pausas);
+    if (solapada) {
+      errorRangoAlta.establecer('Ya hay una pausa activa de este alumno que se solapa con ese rango de fechas.');
+      return;
+    }
+    errorRangoAlta.limpiar();
+    void (async () => {
+      try {
+        await deps.declararPausaAlumno(campoInicioAlta.value, campoFinAlta.value, motivo);
+        campoInicioAlta.value = '';
+        campoFinAlta.value = '';
+        campoMotivoAlta.input.value = '';
+        await cargar();
+      } catch (declararError) {
+        error = mensajeAmigable(declararError);
+        pintar();
+      }
+    })();
+  });
+
+  contenedorBloque.append(zonaError, listaEl, formularioAlta);
+  pintar();
+  void cargar();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Bloque 6: expediente completo (R-10, acceso y portabilidad RGPD).
 // ---------------------------------------------------------------------------------------------
 
 interface DependenciasBloqueExpediente {
@@ -1203,6 +1459,7 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
   const bloquePersonas = documento.createElement('section');
   const bloqueAvatar = documento.createElement('section');
   const bloqueHorario = documento.createElement('section');
+  const bloquePausas = documento.createElement('section');
   const bloqueExpediente = documento.createElement('section');
 
   // Referenciar un método de `deps` sin llamarlo (`crearAlumno: deps.crearAlumno`) dispara
@@ -1293,6 +1550,18 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
           crearSlot: (datos) => deps.crearSlot(datos),
           modificarSlot: (slotId, cambios, fechaEfecto) => deps.modificarSlot(slotId, cambios, fechaEfecto),
           cesarSlot: (slotId, fechaEfecto) => deps.cesarSlot(slotId, fechaEfecto),
+        });
+      }
+
+      if (puedeGestionarPausasAlumno(deps.rol)) {
+        areaContenido.append(crearElemento(documento, 'h3', { texto: 'Pausa programada' }), bloquePausas);
+        montarBloquePausas(bloquePausas, {
+          zonaHoraria: ZONA_HORARIA_CENTRO_POR_DEFECTO,
+          reloj: deps.reloj,
+          listarPausasDeAlumno: () => deps.listarPausasDeAlumno(alumnoId),
+          declararPausaAlumno: (fechaInicio, fechaFin, motivo) => deps.declararPausaAlumno(alumnoId, fechaInicio, fechaFin, motivo),
+          cancelarPausaAlumno: (pausaId, motivo) => deps.cancelarPausaAlumno(pausaId, motivo),
+          acortarPausaAlumno: (pausaId, nuevaFechaFin) => deps.acortarPausaAlumno(pausaId, nuevaFechaFin),
         });
       }
 

@@ -114,6 +114,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaHistorico> = {})
     listarSlotsDeAlumnoParaInforme: overrides.listarSlotsDeAlumnoParaInforme ?? (() => Promise.resolve([])),
     listarCierresActivosParaInforme: overrides.listarCierresActivosParaInforme ?? (() => Promise.resolve([])),
     listarExcepcionesEnRangoParaInforme: overrides.listarExcepcionesEnRangoParaInforme ?? (() => Promise.resolve([])),
+    listarPausasDeAlumnoParaInforme: overrides.listarPausasDeAlumnoParaInforme ?? (() => Promise.resolve([])),
     // Sin valor por defecto (a diferencia de `resolverContactoAlumnos`): esta dependencia es
     // opcional de verdad — un `teacher` nunca la recibe en producción (`aplicacion.ts`) — así que el
     // doble debe reflejar "no provista" (`undefined`) salvo que el test la necesite de verdad,

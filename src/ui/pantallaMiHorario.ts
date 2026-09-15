@@ -35,7 +35,7 @@
  * navega a «Registros» de ese slot Y esa fecha (`deps.irARegistros(slotId, fecha)`, requisito 2).
  */
 
-import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro } from '../dominio/tipos.ts';
+import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro, PausaAlumno } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import {
   fechaLocalISO,
@@ -48,6 +48,7 @@ import {
 import { nombreCompletoAlumno, compararAlumnosParaOrden } from '../dominio/alumno.ts';
 import { puedeVerMiHorario } from '../dominio/permisosUi.ts';
 import { etiquetaExcepcion, excepcionDelDia } from '../dominio/excepcionSlot.ts';
+import { pausaDeAlumnoEnFecha } from '../dominio/pausaAlumno.ts';
 import { VENTANA_EDICION_TEACHER_DIAS } from '../dominio/asistencia.ts';
 import { sesionesSinPasarLista, type RegistroParaAvisoPasarLista, type SesionSinPasarLista } from '../dominio/avisosPasarLista.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
@@ -78,6 +79,11 @@ export interface DependenciasPantallaMiHorario {
    * — motivo", nunca como el slot normal ni como "Sin clases este día"). Opcional: sin ella, «Mi
    * horario» funciona exactamente como antes de R-06. */
   listarExcepcionesDeHoy?(fecha: string): Promise<readonly ExcepcionSlot[]>;
+  /** Pausas ACTIVAS (R-21) de los alumnos del profesor, para relabelar la fila de hoy de un alumno
+   * en pausa ("En pausa hasta X") en vez de "En curso"/"Siguiente" — mismo criterio exacto que
+   * `listarExcepcionesDeHoy` (R-06). Opcional: sin ella, «Mi horario» funciona exactamente como
+   * antes de R-21. */
+  listarPausasDeHoy?(): Promise<readonly PausaAlumno[]>;
   /** R-13: registros del profesor entre `desde` y `hasta` (inclusive), de cualquier estado —
    * mismo criterio que `datos/asistencia.ts#listarHistoricoAsistenciaCompleto` filtrado por
    * `profesorId`. Junto con `listarCierresActivos`/`listarExcepcionesRecientes`, las tres
@@ -120,6 +126,8 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
   // abierta sin cerrar sesión es el mismo escenario ya aceptado como riesgo inocuo en
   // `pantallaPasarLista.ts`).
   let excepcionesHoyCache: readonly ExcepcionSlot[] = [];
+  // R-21: pausas ACTIVAS, pedidas una vez al cargar — mismo criterio de caché que `excepcionesHoyCache`.
+  let pausasHoyCache: readonly PausaAlumno[] = [];
 
   const almacen = crearAlmacenEstado<EstadoPantalla>({
     cargando: true,
@@ -167,12 +175,14 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     const instante = deps.reloj.ahora();
     const fechaHoy = fechaLocalISO(instante);
     try {
-      const [slots, excepciones] = await Promise.all([
+      const [slots, excepciones, pausas] = await Promise.all([
         deps.cargarSlots(),
         deps.listarExcepcionesDeHoy ? deps.listarExcepcionesDeHoy(fechaHoy) : Promise.resolve([]),
+        deps.listarPausasDeHoy ? deps.listarPausasDeHoy() : Promise.resolve([]),
       ]);
       slotsCache = slots;
       excepcionesHoyCache = excepciones;
+      pausasHoyCache = pausas;
       const avisos = puedeCalcularAvisos() ? await cargarAvisos(instante) : [];
       almacen.actualizar({ cargando: false, instante: deps.reloj.ahora(), avisos });
     } catch (error) {
@@ -204,9 +214,10 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
 
   function pintarResumen(vista: readonly SlotSemanal[], instante: Date): void {
     zonaResumen.textContent = '';
-    // R-06: un slot cancelado o sustituido hoy no cuenta como "Ahora" en el resumen — coherente con
-    // que su fila, más abajo, ya no dice "En curso" (mismo criterio, misma comprobación).
-    const actuales = vista.filter((slot) => slot.esActual && !excepcionDeHoy(slot, instante));
+    // R-06/R-21: un slot cancelado, sustituido, o cuyo alumno está en pausa hoy, no cuenta como
+    // "Ahora" en el resumen — coherente con que su fila, más abajo, ya no dice "En curso" (mismo
+    // criterio, misma comprobación).
+    const actuales = vista.filter((slot) => slot.esActual && !excepcionDeHoy(slot, instante) && !pausaDeHoy(slot, instante));
     if (actuales.length > 0) {
       const nombres = actuales.map((slot) => nombreCompletoAlumno(slot.alumno)).join(', ');
       zonaResumen.append(crearElemento(documento, 'p', { texto: `Ahora: ${nombres}` }));
@@ -235,6 +246,16 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     return excepcionDelDia(slot.id, fechaLocalISO(instante), excepcionesHoyCache);
   }
 
+  /** ¿Está el alumno de `slot` en pausa HOY (R-21)? Mismo criterio y misma limitación que
+   * `excepcionDeHoy`: solo se comprueba (y se relabela) la fila que de verdad cae hoy, nunca la de
+   * otro día del ciclo semanal. */
+  function pausaDeHoy(slot: SlotSemanal, instante: Date): PausaAlumno | undefined {
+    if (slot.dia_semana !== instanteLocal(instante, ZONA_HORARIA_CENTRO_POR_DEFECTO).diaSemana) {
+      return undefined;
+    }
+    return pausaDeAlumnoEnFecha(slot.alumno.id, fechaLocalISO(instante), pausasHoyCache);
+  }
+
   function pintarFilaSlot(slot: SlotSemanal, instante: Date): HTMLLIElement {
     const li = documento.createElement('li');
     li.append(
@@ -242,18 +263,22 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
       crearElemento(documento, 'span', { texto: slot.asignatura_o_grupo ?? '—' }),
       crearElemento(documento, 'span', { texto: nombreCompletoAlumno(slot.alumno) }),
     );
-    // R-06, requisito 4: una excepción de hoy manda sobre "en curso"/"siguiente" — nunca las dos
-    // etiquetas a la vez, y "Pasar lista" no se ofrece (para que el titular no piense que tiene
-    // que pasar lista sobre una clase cancelada o cubierta por otro).
+    // R-06/R-21, requisito 6 de R-21: una excepción o una pausa de hoy mandan sobre "en
+    // curso"/"siguiente" — nunca ninguna combinación de las dos a la vez, y "Pasar lista" no se
+    // ofrece (para que el titular no piense que tiene que pasar lista sobre una clase cancelada,
+    // cubierta por otro, o de un alumno en pausa que no aparece como pendiente).
     const excepcion = excepcionDeHoy(slot, instante);
+    const pausa = excepcion ? undefined : pausaDeHoy(slot, instante);
     if (excepcion) {
       li.append(crearElemento(documento, 'span', { texto: etiquetaExcepcion(excepcion) }));
+    } else if (pausa) {
+      li.append(crearElemento(documento, 'span', { texto: `En pausa hasta ${pausa.fecha_fin}` }));
     } else if (slot.esActual) {
       li.append(crearElemento(documento, 'span', { texto: 'En curso' }));
     } else if (slot.esSiguiente) {
       li.append(crearElemento(documento, 'span', { texto: 'Siguiente' }));
     }
-    if (slot.esActual && !excepcion) {
+    if (slot.esActual && !excepcion && !pausa) {
       const botonPasarLista = crearBoton(documento, 'Pasar lista', 'button');
       botonPasarLista.addEventListener('click', () => {
         deps.irAPasarLista();

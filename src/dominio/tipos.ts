@@ -142,6 +142,32 @@ export interface ExcepcionSlot {
   readonly actualizado_en: string;
 }
 
+export type EstadoPausaAlumno = 'activa' | 'anulada';
+
+/** Periodo declarado en el que un alumno concreto no da clase (R-21, `db/017_pausa_alumno.sql`):
+ * mientras la fecha de hoy cae dentro de una pausa `'activa'`, ese alumno no se ofrece como
+ * pendiente en pasar lista (T-19) ni cuenta como sesión esperada en el informe mensual (R-04) ni en
+ * el ranking de ausencias del panel de centro (R-11). `fecha_inicio`/`fecha_fin` en formato
+ * `AAAA-MM-DD`, ambos límites inclusive. `motivo` SIEMPRE texto libre opcional — nunca una lista
+ * cerrada ni ninguna opción que categorice salud (lección del hallazgo #8/pregunta #16 de §6 sobre
+ * R-02). Baja lógica (`estado`), nunca DELETE: cancelarla (solo si no ha empezado) la deja
+ * `'anulada'` con `motivo_anulacion`; una pausa en curso solo se acorta (`fecha_fin` hacia una fecha
+ * futura, nunca hacia el pasado). */
+export interface PausaAlumno {
+  readonly id: string;
+  readonly alumno_id: string;
+  readonly fecha_inicio: string;
+  readonly fecha_fin: string;
+  readonly motivo: string | null;
+  readonly estado: EstadoPausaAlumno;
+  readonly motivo_anulacion: string | null;
+  readonly creado_por: string | null;
+  readonly anulado_por: string | null;
+  readonly anulado_en: string | null;
+  readonly creado_en: string;
+  readonly actualizado_en: string;
+}
+
 export type OrigenAsistencia = 'slot' | 'manual';
 export type EstadoAsistencia = 'valida' | 'anulada' | 'ausente';
 /** Lista corta cerrada de motivos de justificación de una ausencia (R-02, requisito 1) — el `CHECK

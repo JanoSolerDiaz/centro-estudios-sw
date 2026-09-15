@@ -740,7 +740,7 @@ begin
   perform pg_temp.impersonar('student');
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot'
+    'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot', 'pausa_alumno'
   ]
   loop
     begin
@@ -1201,7 +1201,7 @@ begin
   foreach v_tabla in array array[
     'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario',
     'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa',
-    'cierre_centro', 'excepcion_slot'
+    'cierre_centro', 'excepcion_slot', 'pausa_alumno'
   ]
   loop
     foreach v_rol in array array['administrator', 'teacher']
@@ -1855,7 +1855,7 @@ begin
 
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro', 'excepcion_slot'
+    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro', 'excepcion_slot', 'pausa_alumno'
   ]
   loop
     begin
@@ -2875,6 +2875,287 @@ begin
     end;
     perform pg_temp.dejar_de_impersonar();
   end if;
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 8n. Pausa programada de un alumno (R-21, db/017_pausa_alumno.sql) —
+--     declarar/cancelar/acortar. Crea su PROPIO alumno de prueba (nunca
+--     reutiliza alumno_prueba, que a estas alturas del script ya
+--     acumula registros de asistencia de muchas secciones anteriores en
+--     el día de hoy — cualquier pausa que cubriera "hoy" chocaría con
+--     ellos por el requisito 4, sin que eso tuviera nada que ver con lo
+--     que esta sección quiere probar): mismo criterio exacto que
+--     v_slot_b_id de la sección 8c o los slots propios de 8g/8h/8i/8k.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_centro_id          uuid := pg_temp.dato('centro_admin');
+  v_alumno_id          uuid;
+  v_teacher_id         uuid;
+  v_teacher2_id        uuid;
+  v_slot_id            uuid;
+  v_hoy                date := (now() at time zone 'Europe/Madrid')::date;
+  v_ocurrido_registro  timestamptz := now() - interval '1 day';
+  v_fecha_registro     date;
+  v_pausa_futura       public.pausa_alumno;
+  v_pausa_en_curso     public.pausa_alumno;
+  v_pausa_acortada     public.pausa_alumno;
+  v_visto              boolean;
+  v_n                  integer;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
+
+  if v_centro_id is null or v_teacher_id is null or not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('declarar_pausa_alumno / teacher no puede llamar (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_pausa_alumno / student no puede llamar (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_pausa_alumno / rango invertido (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_pausa_alumno / solapa con un registro de asistencia existente (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_pausa_alumno / administrator declara una pausa futura', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_pausa_alumno / administrator declara una pausa en curso', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_pausa_alumno / solapa con otra pausa activa del mismo alumno (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_pausa_alumno / teacher no puede llamar (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_pausa_alumno / pausa ya empezada (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_pausa_alumno / sin motivo (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_pausa_alumno / administrator cancela una pausa futura', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('acortar_pausa_alumno / teacher no puede llamar (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('acortar_pausa_alumno / nueva fecha no anterior a la actual (debe fallar)', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('acortar_pausa_alumno / administrator acorta una pausa en curso', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('pausa_alumno / teacher lee la pausa activa de su propio alumno', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('pausa_alumno / teacher2 no lee la pausa de un alumno ajeno', 'falta el centro, un teacher o el administrator de prueba');
+    perform pg_temp.omitir('pausa_alumno / administrator lee todas las pausas del alumno (incluida la anulada)', 'falta el centro, un teacher o el administrator de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.alumno (nombre, primer_apellido, centro_referencia_id)
+      values ('__prueba_rls__pausa', 'Alumno', v_centro_id)
+      returning id into v_alumno_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_hoy)::smallint, '08:00', '09:00', current_date - 30)
+      returning id into v_slot_id;
+  exception when others then
+    v_alumno_id := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_alumno_id is null or v_slot_id is null then
+    perform pg_temp.omitir('declarar_pausa_alumno / teacher no puede llamar (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_pausa_alumno / student no puede llamar (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_pausa_alumno / rango invertido (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_pausa_alumno / solapa con un registro de asistencia existente (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_pausa_alumno / administrator declara una pausa futura', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_pausa_alumno / administrator declara una pausa en curso', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_pausa_alumno / solapa con otra pausa activa del mismo alumno (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_pausa_alumno / teacher no puede llamar (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_pausa_alumno / pausa ya empezada (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_pausa_alumno / sin motivo (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_pausa_alumno / administrator cancela una pausa futura', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('acortar_pausa_alumno / teacher no puede llamar (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('acortar_pausa_alumno / nueva fecha no anterior a la actual (debe fallar)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('acortar_pausa_alumno / administrator acorta una pausa en curso', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('pausa_alumno / teacher lee la pausa activa de su propio alumno', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('pausa_alumno / teacher2 no lee la pausa de un alumno ajeno', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    perform pg_temp.omitir('pausa_alumno / administrator lee todas las pausas del alumno (incluida la anulada)', 'no se pudo crear el alumno/slot de prueba propios de esta sección');
+    return;
+  end if;
+
+  -- Registro RETROACTIVO de ayer (dentro de la ventana de 7 días), para el rechazo por solape
+  -- (requisito 4) — nunca "hoy", que hace falta libre para la pausa EN CURSO de más abajo.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.registrar_asistencia(
+      p_alumno_id => v_alumno_id, p_origen => 'slot', p_slot_id => v_slot_id,
+      p_ocurrido_en => v_ocurrido_registro, p_peticion_id => gen_random_uuid()
+    );
+  exception when others then
+    null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+  select (ocurrido_en at time zone 'Europe/Madrid')::date into v_fecha_registro
+    from public.asistencia where alumno_id = v_alumno_id order by registrado_en desc limit 1;
+
+  -- teacher no puede declarar (§0.2: solo administrator gestiona pausas).
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.declarar_pausa_alumno(p_alumno_id => v_alumno_id, p_fecha_inicio => v_hoy + 30, p_fecha_fin => v_hoy + 40);
+    perform pg_temp.registrar('declarar_pausa_alumno / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_pausa_alumno / teacher no puede llamar (debe fallar)', array['%solo un administrador puede declarar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student, tampoco.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('declarar_pausa_alumno / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.declarar_pausa_alumno(p_alumno_id => v_alumno_id, p_fecha_inicio => v_hoy + 30, p_fecha_fin => v_hoy + 40);
+      perform pg_temp.registrar('declarar_pausa_alumno / student no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('declarar_pausa_alumno / student no puede llamar (debe fallar)', array['%solo un administrador puede declarar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Rango invertido: rechazado.
+  begin
+    perform public.declarar_pausa_alumno(p_alumno_id => v_alumno_id, p_fecha_inicio => v_hoy + 40, p_fecha_fin => v_hoy + 30);
+    perform pg_temp.registrar('declarar_pausa_alumno / rango invertido (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_pausa_alumno / rango invertido (debe fallar)', array['%fecha de fin no puede ser anterior%'], sqlerrm);
+  end;
+
+  -- Requisito 4: ya hay un registro de asistencia (ayer) dentro del rango propuesto.
+  if v_fecha_registro is null then
+    perform pg_temp.omitir('declarar_pausa_alumno / solapa con un registro de asistencia existente (debe fallar)', 'no se pudo crear el registro retroactivo de esta sección');
+  else
+    begin
+      perform public.declarar_pausa_alumno(p_alumno_id => v_alumno_id, p_fecha_inicio => v_fecha_registro - 1, p_fecha_fin => v_fecha_registro + 1);
+      perform pg_temp.registrar('declarar_pausa_alumno / solapa con un registro de asistencia existente (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('declarar_pausa_alumno / solapa con un registro de asistencia existente (debe fallar)', array['%ya tiene algún registro de asistencia%'], sqlerrm);
+    end;
+  end if;
+
+  -- Alta real, futura (todavía no ha empezado) — para cancelar más abajo.
+  begin
+    select * into v_pausa_futura from public.declarar_pausa_alumno(
+      p_alumno_id => v_alumno_id, p_fecha_inicio => v_hoy + 30, p_fecha_fin => v_hoy + 40, p_motivo => '__prueba_rls__pausa_futura'
+    );
+    perform pg_temp.registrar(
+      'declarar_pausa_alumno / administrator declara una pausa futura', 'permitido',
+      v_pausa_futura.id is not null and v_pausa_futura.estado = 'activa'
+    );
+  exception when others then
+    perform pg_temp.registrar('declarar_pausa_alumno / administrator declara una pausa futura', 'permitido', false, sqlerrm);
+  end;
+
+  -- Alta real, EN CURSO (empieza hoy) — no solapa con el registro de ayer. Para acortar más abajo.
+  begin
+    select * into v_pausa_en_curso from public.declarar_pausa_alumno(p_alumno_id => v_alumno_id, p_fecha_inicio => v_hoy, p_fecha_fin => v_hoy + 5);
+    perform pg_temp.registrar('declarar_pausa_alumno / administrator declara una pausa en curso', 'permitido', v_pausa_en_curso.id is not null);
+  exception when others then
+    perform pg_temp.registrar('declarar_pausa_alumno / administrator declara una pausa en curso', 'permitido', false, sqlerrm);
+  end;
+
+  -- Dos pausas ACTIVAS del mismo alumno nunca se solapan — este rango cae dentro de v_pausa_futura.
+  begin
+    perform public.declarar_pausa_alumno(p_alumno_id => v_alumno_id, p_fecha_inicio => v_hoy + 35, p_fecha_fin => v_hoy + 36);
+    perform pg_temp.registrar('declarar_pausa_alumno / solapa con otra pausa activa del mismo alumno (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_pausa_alumno / solapa con otra pausa activa del mismo alumno (debe fallar)', array['%ya hay una pausa activa%'], sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher no puede cancelar.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.cancelar_pausa_alumno(v_pausa_futura.id, '__prueba_rls__motivo');
+    perform pg_temp.registrar('cancelar_pausa_alumno / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se anuló sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('cancelar_pausa_alumno / teacher no puede llamar (debe fallar)', array['%solo un administrador puede cancelar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Requisito 5: la pausa EN CURSO ya ha empezado, no se puede cancelar entera (solo acortar).
+  begin
+    perform public.cancelar_pausa_alumno(v_pausa_en_curso.id, '__prueba_rls__motivo');
+    perform pg_temp.registrar('cancelar_pausa_alumno / pausa ya empezada (debe fallar)', 'prohibido', false, 'se anuló sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('cancelar_pausa_alumno / pausa ya empezada (debe fallar)', array['%ya ha empezado%'], sqlerrm);
+  end;
+
+  -- Cancelar sin motivo: rechazado.
+  begin
+    perform public.cancelar_pausa_alumno(v_pausa_futura.id, '');
+    perform pg_temp.registrar('cancelar_pausa_alumno / sin motivo (debe fallar)', 'prohibido', false, 'se anuló sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('cancelar_pausa_alumno / sin motivo (debe fallar)', array['%exige un motivo%'], sqlerrm);
+  end;
+
+  -- Cancelar de verdad la pausa futura: permitido, queda anulada.
+  begin
+    perform public.cancelar_pausa_alumno(v_pausa_futura.id, '__prueba_rls__cancelada');
+    perform pg_temp.registrar('cancelar_pausa_alumno / administrator cancela una pausa futura', 'permitido', true);
+  exception when others then
+    perform pg_temp.registrar('cancelar_pausa_alumno / administrator cancela una pausa futura', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher no puede acortar.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.acortar_pausa_alumno(v_pausa_en_curso.id, v_hoy + 1);
+    perform pg_temp.registrar('acortar_pausa_alumno / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se acortó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('acortar_pausa_alumno / teacher no puede llamar (debe fallar)', array['%solo un administrador puede acortar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Nueva fecha de fin no anterior a la actual: rechazado (eso alargaría, no acortaría).
+  begin
+    perform public.acortar_pausa_alumno(v_pausa_en_curso.id, v_pausa_en_curso.fecha_fin);
+    perform pg_temp.registrar('acortar_pausa_alumno / nueva fecha no anterior a la actual (debe fallar)', 'prohibido', false, 'se acortó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('acortar_pausa_alumno / nueva fecha no anterior a la actual (debe fallar)', array['%debe ser anterior a la fecha de fin actual%'], sqlerrm);
+  end;
+
+  -- Acortar de verdad: permitido.
+  begin
+    select * into v_pausa_acortada from public.acortar_pausa_alumno(v_pausa_en_curso.id, v_hoy + 1);
+    perform pg_temp.registrar('acortar_pausa_alumno / administrator acorta una pausa en curso', 'permitido', v_pausa_acortada.fecha_fin = v_hoy + 1);
+  exception when others then
+    perform pg_temp.registrar('acortar_pausa_alumno / administrator acorta una pausa en curso', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- Lectura (requisito 6): teacher (titular del slot) ve la pausa activa de su propio alumno.
+  perform pg_temp.impersonar('teacher');
+  begin
+    select exists(select 1 from public.pausa_alumno where id = v_pausa_en_curso.id) into v_visto;
+    perform pg_temp.registrar('pausa_alumno / teacher lee la pausa activa de su propio alumno', 'permitido', v_visto);
+  exception when others then
+    perform pg_temp.registrar('pausa_alumno / teacher lee la pausa activa de su propio alumno', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher2, sin ningún slot con este alumno, no la ve.
+  if v_teacher2_id is null then
+    perform pg_temp.omitir('pausa_alumno / teacher2 no lee la pausa de un alumno ajeno', 'no hay un segundo teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher2');
+    begin
+      select exists(select 1 from public.pausa_alumno where id = v_pausa_en_curso.id) into v_visto;
+      perform pg_temp.registrar('pausa_alumno / teacher2 no lee la pausa de un alumno ajeno', 'prohibido', not v_visto);
+    exception when others then
+      perform pg_temp.registrar('pausa_alumno / teacher2 no lee la pausa de un alumno ajeno', 'prohibido', false, sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  -- administrator ve TODAS las pausas del alumno, incluida la ya anulada.
+  perform pg_temp.impersonar('administrator');
+  begin
+    select count(*) into v_n from public.pausa_alumno where alumno_id = v_alumno_id;
+    perform pg_temp.registrar('pausa_alumno / administrator lee todas las pausas del alumno (incluida la anulada)', 'permitido', v_n >= 2);
+  exception when others then
+    perform pg_temp.registrar('pausa_alumno / administrator lee todas las pausas del alumno (incluida la anulada)', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
 end $$;
 
 

@@ -253,6 +253,93 @@ void test('sin listarExcepcionesDeHoy inyectada, Mi horario funciona exactamente
   assert.match(fila.textContent, /En curso/);
 });
 
+// --- R-21: pausa programada de un alumno --------------------------------------------------------
+
+void test('un slot en curso cuyo alumno está en pausa hoy: "En pausa hasta X", sin "Pasar lista" ni "En curso", fuera del resumen', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarPausasDeHoy: () =>
+        Promise.resolve([
+          {
+            id: 'pausa-1',
+            alumno_id: slot.alumno_id,
+            fecha_inicio: '2026-08-24',
+            fecha_fin: '2026-08-28',
+            motivo: 'Viaje familiar',
+            estado: 'activa',
+            motivo_anulacion: null,
+            creado_por: 'admin-1',
+            anulado_por: null,
+            anulado_en: null,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const fila = contenedor.querySelector('li');
+  assert.ok(fila);
+  assert.match(fila.textContent, /En pausa hasta 2026-08-28/);
+  assert.doesNotMatch(fila.textContent, /En curso/);
+  assert.doesNotMatch(contenedor.textContent, /Ahora: Ana García López/);
+  const botonPasarLista = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Pasar lista');
+  assert.equal(botonPasarLista, undefined, 'un alumno en pausa no debe ofrecer "Pasar lista"');
+  const botonRegistros = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Ver registros');
+  assert.ok(botonRegistros, '"Ver registros" se sigue ofreciendo');
+});
+
+void test('una pausa de OTRO alumno no afecta a la fila de este', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarPausasDeHoy: () =>
+        Promise.resolve([
+          {
+            id: 'pausa-1',
+            alumno_id: 'otro-alumno',
+            fecha_inicio: '2026-08-24',
+            fecha_fin: '2026-08-28',
+            motivo: null,
+            estado: 'activa',
+            motivo_anulacion: null,
+            creado_por: 'admin-1',
+            anulado_por: null,
+            anulado_en: null,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Ahora: Ana García López/);
+  const fila = contenedor.querySelector('li');
+  assert.ok(fila);
+  assert.match(fila.textContent, /En curso/);
+});
+
+void test('sin listarPausasDeHoy inyectada, Mi horario funciona exactamente como antes de R-21', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Ahora: Ana García López/);
+  const fila = contenedor.querySelector('li');
+  assert.ok(fila);
+  assert.match(fila.textContent, /En curso/);
+});
+
 void test('un slot que no ha empezado no ofrece "Pasar lista", se marca "Siguiente" y aparece en el resumen', async () => {
   const contenedor = crearContenedorDePruebas();
   const slot = crearSlot({ id: 'slot-siguiente', hora_inicio: '18:00', hora_fin: '19:00' });

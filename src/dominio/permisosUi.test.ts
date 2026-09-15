@@ -10,6 +10,7 @@ import {
   puedeGestionarCierresCentro,
   puedeGestionarExcepcionesSlot,
   puedeGestionarHorarios,
+  puedeGestionarPausasAlumno,
   puedeGestionarUsuarios,
   puedeGenerarInformeMensual,
   puedeImportarMasivamente,
@@ -144,4 +145,10 @@ void test('puedeVerRegistroAuditoria: exclusivamente administrator, ni siquiera 
   assert.equal(puedeVerRegistroAuditoria('administrator'), true);
   assert.equal(puedeVerRegistroAuditoria('teacher'), false);
   assert.equal(puedeVerRegistroAuditoria('student'), false);
+});
+
+void test('puedeGestionarPausasAlumno: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeGestionarPausasAlumno('administrator'), true);
+  assert.equal(puedeGestionarPausasAlumno('teacher'), false);
+  assert.equal(puedeGestionarPausasAlumno('student'), false);
 });

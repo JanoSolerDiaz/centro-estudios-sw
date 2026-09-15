@@ -11,7 +11,7 @@ import {
   generarCsvInformeMensual,
   type DatosInformeMensual,
 } from './informeMensualAlumno.ts';
-import type { Asistencia, CierreCentro, ExcepcionSlot, SlotHorario } from './tipos.ts';
+import type { Asistencia, CierreCentro, ExcepcionSlot, PausaAlumno, SlotHorario } from './tipos.ts';
 
 function crearSlot(sobrescribir: Partial<SlotHorario> = {}): SlotHorario {
   return {
@@ -81,9 +81,11 @@ void test('sesionesEsperadasDelMes: cuenta cada miércoles de marzo de 2026 (mar
   const sesiones = sesionesEsperadasDelMes({
     anio: 2026,
     mes: 3,
+    alumnoId: 'alumno-1',
     slots: [crearSlot()],
     cierres: [],
     excepciones: [],
+    pausas: [],
   });
   assert.deepEqual(
     sesiones.map((s) => s.fecha),
@@ -95,9 +97,11 @@ void test('sesionesEsperadasDelMes: un slot que empieza a mitad de mes solo cuen
   const sesiones = sesionesEsperadasDelMes({
     anio: 2026,
     mes: 3,
+    alumnoId: 'alumno-1',
     slots: [crearSlot({ vigente_desde: '2026-03-12' })],
     cierres: [],
     excepciones: [],
+    pausas: [],
   });
   assert.deepEqual(
     sesiones.map((s) => s.fecha),
@@ -111,9 +115,11 @@ void test('sesionesEsperadasDelMes: horario cambiado a mitad de mes usa el slot 
   const sesiones = sesionesEsperadasDelMes({
     anio: 2026,
     mes: 3,
+    alumnoId: 'alumno-1',
     slots: [versionAntigua, versionNueva],
     cierres: [],
     excepciones: [],
+    pausas: [],
   });
   assert.deepEqual(
     sesiones.map((s) => ({ fecha: s.fecha, slotId: s.slot.id })),
@@ -136,7 +142,7 @@ void test('sesionesEsperadasDelMes: un día cerrado del centro (R-12) no cuenta 
     creado_en: '2026-01-01T00:00:00.000Z',
     actualizado_en: '2026-01-01T00:00:00.000Z',
   };
-  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, slots: [crearSlot()], cierres: [cierre], excepciones: [] });
+  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, alumnoId: 'alumno-1', slots: [crearSlot()], cierres: [cierre], excepciones: [], pausas: [] });
   assert.deepEqual(
     sesiones.map((s) => s.fecha),
     ['2026-03-04', '2026-03-11', '2026-03-25'],
@@ -153,7 +159,7 @@ void test('sesionesEsperadasDelMes: un cierre desactivado no excluye nada', () =
     creado_en: '2026-01-01T00:00:00.000Z',
     actualizado_en: '2026-01-01T00:00:00.000Z',
   };
-  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, slots: [crearSlot()], cierres: [cierre], excepciones: [] });
+  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, alumnoId: 'alumno-1', slots: [crearSlot()], cierres: [cierre], excepciones: [], pausas: [] });
   assert.equal(sesiones.length, 4);
 });
 
@@ -178,9 +184,11 @@ void test('sesionesEsperadasDelMes: una cancelación (R-06) de ESE slot no cuent
   const sesiones = sesionesEsperadasDelMes({
     anio: 2026,
     mes: 3,
+    alumnoId: 'alumno-1',
     slots: [crearSlot()],
     cierres: [],
     excepciones: [crearExcepcion()],
+    pausas: [],
   });
   assert.deepEqual(
     sesiones.map((s) => s.fecha),
@@ -192,9 +200,11 @@ void test('sesionesEsperadasDelMes: una sustitución (R-06) SÍ cuenta como espe
   const sesiones = sesionesEsperadasDelMes({
     anio: 2026,
     mes: 3,
+    alumnoId: 'alumno-1',
     slots: [crearSlot()],
     cierres: [],
     excepciones: [crearExcepcion({ tipo: 'sustitucion', profesor_sustituto_id: 'profesor-2', motivo: null })],
+    pausas: [],
   });
   assert.equal(sesiones.length, 4);
 });
@@ -203,17 +213,79 @@ void test('sesionesEsperadasDelMes: una cancelación de OTRO slot no afecta a es
   const sesiones = sesionesEsperadasDelMes({
     anio: 2026,
     mes: 3,
+    alumnoId: 'alumno-1',
     slots: [crearSlot()],
     cierres: [],
     excepciones: [crearExcepcion({ slot_id: 'otro-slot' })],
+    pausas: [],
   });
+  assert.equal(sesiones.length, 4);
+});
+
+void test('sesionesEsperadasDelMes: un día dentro de una pausa ACTIVA del alumno (R-21) no cuenta como esperado', () => {
+  const pausa: PausaAlumno = {
+    id: 'pausa-1',
+    alumno_id: 'alumno-1',
+    fecha_inicio: '2026-03-16',
+    fecha_fin: '2026-03-20',
+    motivo: 'Viaje familiar',
+    estado: 'activa',
+    motivo_anulacion: null,
+    creado_por: 'admin-1',
+    anulado_por: null,
+    anulado_en: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+  };
+  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, alumnoId: 'alumno-1', slots: [crearSlot()], cierres: [], excepciones: [], pausas: [pausa] });
+  assert.deepEqual(
+    sesiones.map((s) => s.fecha),
+    ['2026-03-04', '2026-03-11', '2026-03-25'],
+  );
+});
+
+void test('sesionesEsperadasDelMes: una pausa ANULADA no excluye nada', () => {
+  const pausa: PausaAlumno = {
+    id: 'pausa-1',
+    alumno_id: 'alumno-1',
+    fecha_inicio: '2026-03-16',
+    fecha_fin: '2026-03-20',
+    motivo: 'Viaje familiar',
+    estado: 'anulada',
+    motivo_anulacion: 'Ya no hace falta',
+    creado_por: 'admin-1',
+    anulado_por: 'admin-1',
+    anulado_en: '2026-02-01T00:00:00.000Z',
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-02-01T00:00:00.000Z',
+  };
+  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, alumnoId: 'alumno-1', slots: [crearSlot()], cierres: [], excepciones: [], pausas: [pausa] });
+  assert.equal(sesiones.length, 4);
+});
+
+void test('sesionesEsperadasDelMes: una pausa de OTRO alumno no afecta a este', () => {
+  const pausa: PausaAlumno = {
+    id: 'pausa-1',
+    alumno_id: 'otro-alumno',
+    fecha_inicio: '2026-03-16',
+    fecha_fin: '2026-03-20',
+    motivo: null,
+    estado: 'activa',
+    motivo_anulacion: null,
+    creado_por: 'admin-1',
+    anulado_por: null,
+    anulado_en: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+  };
+  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, alumnoId: 'alumno-1', slots: [crearSlot()], cierres: [], excepciones: [], pausas: [pausa] });
   assert.equal(sesiones.length, 4);
 });
 
 void test('sesionesEsperadasDelMes: dos slots del mismo alumno en días distintos se listan por fecha', () => {
   const lunes = crearSlot({ id: 'slot-lunes', dia_semana: 1, hora_inicio: '09:00', hora_fin: '10:00' });
   const miercoles = crearSlot({ id: 'slot-miercoles', dia_semana: 3 });
-  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, slots: [miercoles, lunes], cierres: [], excepciones: [] });
+  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, alumnoId: 'alumno-1', slots: [miercoles, lunes], cierres: [], excepciones: [], pausas: [] });
   // marzo de 2026: lunes 2, 9, 16, 23, 30; miércoles 4, 11, 18, 25 — deben venir intercalados por fecha.
   assert.deepEqual(
     sesiones.map((s) => s.fecha),
@@ -224,7 +296,7 @@ void test('sesionesEsperadasDelMes: dos slots del mismo alumno en días distinto
 // --- resumenInformeMensual ---------------------------------------------------------------------
 
 void test('resumenInformeMensual: sin ningún registro, todo a cero salvo las sesiones esperadas', () => {
-  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, slots: [crearSlot()], cierres: [], excepciones: [] });
+  const sesiones = sesionesEsperadasDelMes({ anio: 2026, mes: 3, alumnoId: 'alumno-1', slots: [crearSlot()], cierres: [], excepciones: [], pausas: [] });
   const resumen = resumenInformeMensual(sesiones, []);
   assert.deepEqual(resumen, {
     sesionesEsperadas: 4,

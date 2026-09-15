@@ -112,6 +112,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPanelCentro> = {
     listarSlotsDeAlumnos: () => Promise.resolve([]),
     listarCierresActivos: () => Promise.resolve([]),
     listarExcepcionesEnRango: () => Promise.resolve([]),
+    listarPausasActivasDeAlumnos: () => Promise.resolve([]),
     listarHistoricoCompleto: () => Promise.resolve([]),
     resolverNombresProfesores: () => Promise.resolve(new Map()),
     nombreUsuarioActual: 'Ana Admin',

@@ -7,17 +7,20 @@
  * `disciplinaReloj.test.ts`); `src/ui/pantallaPanelCentro.ts` decide cuándo pedir los datos y cómo
  * pintar el resultado.
  *
- * Reutiliza sin tocarlos los dos únicos criterios ya fijados para excluir un día de "sesión
- * esperada" — `esDiaCerrado` (R-12) y `esDiaCanceladoParaSlot` (R-06) —, mismo principio que R-04 y
- * R-13: una sustitución (R-06) NO excluye el slot (hubo clase, solo cambió quién la impartió), una
- * cancelación sí. Un registro de CUALQUIER estado, incluida una anulada, cuenta como "se pasó
- * lista" ese día para ese slot (mismo criterio que `dominio/avisosPasarLista.ts`, R-13: lo que se
- * mide aquí es si hubo acción, no si fue correcta).
+ * Reutiliza sin tocarlos los tres únicos criterios ya fijados para excluir un día de "sesión
+ * esperada" — `esDiaCerrado` (R-12), `esDiaCanceladoParaSlot` (R-06) y `esDiaPausadoParaAlumno`
+ * (R-21) —, mismo principio que R-04 y R-13: una sustitución (R-06) NO excluye el slot (hubo clase,
+ * solo cambió quién la impartió), una cancelación sí, y un día dentro de una pausa (R-21) del propio
+ * alumno tampoco cuenta como ausencia sin justificar suya — requisito 3 de R-21. Un registro de
+ * CUALQUIER estado, incluida una anulada, cuenta como "se pasó lista" ese día para ese slot (mismo
+ * criterio que `dominio/avisosPasarLista.ts`, R-13: lo que se mide aquí es si hubo acción, no si fue
+ * correcta).
  */
 
-import type { Asistencia, CierreCentro, ExcepcionSlot, SlotHorario } from './tipos.ts';
+import type { Asistencia, CierreCentro, ExcepcionSlot, PausaAlumno, SlotHorario } from './tipos.ts';
 import { fechaCoincideConDiaSemana, esDiaCanceladoParaSlot } from './excepcionSlot.ts';
 import { esDiaCerrado } from './cierresCentro.ts';
+import { esDiaPausadoParaAlumno } from './pausaAlumno.ts';
 import { minutosDesdeMedianoche } from './slotHorario.ts';
 import { fechaLocalISO, instanteLocal, ZONA_HORARIA_CENTRO_POR_DEFECTO } from './slots.ts';
 import { nombreCompletoAlumno } from './alumno.ts';
@@ -141,14 +144,22 @@ export interface FilaRankingAusenciasPanelCentro {
  * elegido: cuenta los registros `estado === 'ausente'` con `motivo_justificacion === null` de cada
  * alumno en alcance, de mayor a menor y, en empate, por nombre. Solo alumnos con al menos una
  * ausencia sin justificar aparecen — un alumno sin ninguna no aporta nada a un ranking de "más
- * ausencias". */
+ * ausencias". Un registro que cae dentro de una pausa (R-21) declarada de ese mismo alumno no
+ * cuenta (requisito 3 de R-21) — en la práctica esto no debería darse nunca (una pausa nunca se
+ * declara sobre un rango con registros ya existentes), pero protege el ranking igual si alguna vez
+ * se registrara algo fuera de la interfaz habitual mientras el alumno está en pausa. */
 export function rankingAusenciasSinJustificarPanelCentro(
-  asistencias: readonly Pick<Asistencia, 'alumno_id' | 'estado' | 'motivo_justificacion'>[],
+  asistencias: readonly Pick<Asistencia, 'alumno_id' | 'estado' | 'motivo_justificacion' | 'ocurrido_en'>[],
   alumnosPorId: ReadonlyMap<string, AlumnoParaPanelCentro>,
+  pausas: readonly PausaAlumno[] = [],
+  zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
 ): readonly FilaRankingAusenciasPanelCentro[] {
   const conteos = new Map<string, number>();
   for (const fila of asistencias) {
     if (fila.estado !== 'ausente' || fila.motivo_justificacion !== null) {
+      continue;
+    }
+    if (esDiaPausadoParaAlumno(fila.alumno_id, fechaLocalISO(new Date(fila.ocurrido_en), zonaHoraria), pausas)) {
       continue;
     }
     conteos.set(fila.alumno_id, (conteos.get(fila.alumno_id) ?? 0) + 1);

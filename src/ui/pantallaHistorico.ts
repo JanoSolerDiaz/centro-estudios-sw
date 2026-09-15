@@ -20,7 +20,7 @@
  * repuesto explícita, nunca en blanco ni con el id crudo.
  */
 
-import type { CierreCentro, ExcepcionSlot, Rol, SlotHorario } from '../dominio/tipos.ts';
+import type { CierreCentro, ExcepcionSlot, PausaAlumno, Rol, SlotHorario } from '../dominio/tipos.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
 import {
   puedeVerHistorico,
@@ -116,6 +116,11 @@ export interface DependenciasPantallaHistorico {
   /** Excepciones ACTIVAS (R-06) cuya fecha cae en `[desde, hasta]` (`AAAA-MM-DD`, el mes del
    * informe) — de cualquier slot, `sesionesEsperadasDelMes` filtra por slot internamente. */
   listarExcepcionesEnRangoParaInforme(desde: string, hasta: string): Promise<readonly ExcepcionSlot[]>;
+  /** Pausas (R-21, cualquier estado — `sesionesEsperadasDelMes` ya ignora las anuladas) del propio
+   * alumno del informe, para excluir de "sesiones esperadas" los días en que estuvo en pausa. RLS
+   * ya acota lo que ve cada rol (`administrator` todas, `teacher` solo las activas de sus propios
+   * alumnos), mismo criterio que el resto de esta pantalla. */
+  listarPausasDeAlumnoParaInforme(alumnoId: string): Promise<readonly PausaAlumno[]>;
   /** El `centro_referencia_id` del alumno (R-04, cabecera del informe) — solo resuelve para
    * `administrator` (`alumno_ficha` no devuelve fila a `teacher`, ver `datos/alumnos.ts`); opcional
    * porque un `teacher` (para quien esta llamada siempre daría `null`) no tiene por qué proveerla,
@@ -429,10 +434,11 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     const mes = Number(estado.informeMes.slice(5, 7));
     const { primerDia, ultimoDia } = limitesDelMes(anio, mes);
 
-    const [slots, cierres, excepciones, asistencias, centroReferenciaId] = await Promise.all([
+    const [slots, cierres, excepciones, pausas, asistencias, centroReferenciaId] = await Promise.all([
       deps.listarSlotsDeAlumnoParaInforme(alumnoId),
       deps.listarCierresActivosParaInforme(),
       deps.listarExcepcionesEnRangoParaInforme(primerDia, ultimoDia),
+      deps.listarPausasDeAlumnoParaInforme(alumnoId),
       deps.listarHistoricoCompleto({
         alumnoId,
         desde: new Date(`${primerDia}T00:00:00.000Z`),
@@ -441,7 +447,7 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
       deps.resolverCentroReferenciaIdParaInforme?.(alumnoId) ?? Promise.resolve(null),
     ]);
 
-    const sesiones = sesionesEsperadasDelMes({ anio, mes, slots, cierres, excepciones });
+    const sesiones = sesionesEsperadasDelMes({ anio, mes, alumnoId, slots, cierres, excepciones, pausas });
     const resumen = resumenInformeMensual(sesiones, asistencias);
     const centroNombre = centroReferenciaId
       ? (estado.centrosDisponibles.find((centro) => centro.id === centroReferenciaId)?.nombre ?? null)

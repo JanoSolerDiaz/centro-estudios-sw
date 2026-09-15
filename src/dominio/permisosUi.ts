@@ -175,6 +175,13 @@ export function puedeVerInformeHorasPropio(rol: Rol): boolean {
   return rol === 'teacher';
 }
 
+/** Pausa programada de un alumno (R-21): declarar, cancelar o acortar. Exclusivamente
+ * `administrator` (requisito 6) — un `teacher` solo consulta el resultado (en pasar lista o en «Mi
+ * horario»), nunca la declara, mismo motivo que `puedeGestionarExcepcionesSlot`. */
+export function puedeGestionarPausasAlumno(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
 /** Registro de auditoría de cambios (R-20): índice de centro completo de las modificaciones y
  * anulaciones de asistencia, sobre `asistencia_historial` (lectura ya reservada a `administrator`
  * desde T-10). Exclusivamente `administrator` (requisito 6) — un `teacher` ya ve, registro a

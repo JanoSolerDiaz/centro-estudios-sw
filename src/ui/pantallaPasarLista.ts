@@ -61,7 +61,7 @@
  */
 
 import type { Rol, SlotHorario } from '../dominio/tipos.ts';
-import type { Asistencia } from '../dominio/tipos.ts';
+import type { Asistencia, PausaAlumno } from '../dominio/tipos.ts';
 import {
   alumnosPropuestos,
   fechaLocalISO,
@@ -78,6 +78,7 @@ import { compararAlumnosParaOrden } from '../dominio/alumno.ts';
 import { inicialesAlumno, colorMonograma } from '../dominio/avatarAlumno.ts';
 import { puedeUsarPasarLista } from '../dominio/permisosUi.ts';
 import { slotsEfectivosDelDia } from '../dominio/excepcionSlot.ts';
+import { excluirAlumnosPausadosHoy, alumnosPausadosHoy, type AlumnoPausadoHoy } from '../dominio/pausaAlumno.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
@@ -114,6 +115,11 @@ export interface DependenciasPantallaPasarLista {
    * (`datos/excepcionesSlot.ts#listarExcepcionesDelDiaParaProfesor`). Opcional: sin ella, pasar
    * lista funciona exactamente como antes de R-06 (ningún slot se excluye ni se añade). */
   listarExcepcionesDeHoy?(fecha: string): Promise<readonly ExcepcionSlotConSlot[]>;
+  /** Pausas ACTIVAS (R-21) de los alumnos del profesor, para no ofrecerlos como pendientes mientras
+   * dure su pausa (requisito 2) y para mostrarlos en una lista aparte, meramente informativa
+   * (requisito 6: "que no ha dejado de existir en ese slot ese día"). Opcional: sin ella, pasar
+   * lista funciona exactamente como antes de R-21 (ningún alumno se excluye por pausa). */
+  listarPausasDeHoy?(): Promise<readonly PausaAlumno[]>;
   registrar(entrada: RegistrarAsistenciaEntrada): Promise<Asistencia>;
   /** Marca ausente a un alumno de un slot (R-01, requisito 1) — control secundario de la card,
    * distinguible del toque simple que registra presencia. */
@@ -217,6 +223,11 @@ interface EstadoPantalla {
    * card suelta mientras tanto: `manejarAusente` (reutilizada tal cual, requisito 3) ya es un
    * no-op seguro sobre una card que mientras tanto dejó de estar `'pendiente'`. */
   readonly cierreEnBloque: { readonly confirmando: boolean; readonly enviando: boolean; readonly claves: readonly string[] };
+  /** R-21: alumnos en pausa hoy entre los slots efectivos del profesor — nunca ofrecidos como
+   * pendientes (requisito 2), pero listados aparte para que no parezcan haber desaparecido
+   * (requisito 6). Recalculado solo al `cargar()`, igual que `excepcionesHoyCache`: la pausa de un
+   * alumno no cambia dentro de la misma sesión de pantalla abierta. */
+  readonly pausadosHoy: readonly AlumnoPausadoHoy[];
 }
 
 function formatearMinutos(minutos: number): string {
@@ -305,6 +316,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     avatares: new Map(),
     conectado: deps.detectorConexion?.estaConectado() ?? true,
     cierreEnBloque: { confirmando: false, enviando: false, claves: [] },
+    pausadosHoy: [],
   });
 
   const zonaError = crearZonaMensaje(documento, 'alert');
@@ -328,6 +340,9 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   rejilla.style.display = 'grid';
   rejilla.style.gridTemplateColumns = 'repeat(auto-fill, minmax(160px, 1fr))';
   rejilla.style.gap = '12px';
+  // R-21, requisito 6: nunca una card de pendiente (el alumno no se ofrece), pero sí una nota aparte
+  // para que no parezca que ha dejado de existir en su slot de hoy.
+  const zonaPausados = documento.createElement('div');
 
   function pintarEstadoSlot(propuesta: PropuestaAsistencia | null): void {
     estadoSlotEl.textContent = '';
@@ -589,11 +604,30 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     return claveSalida ? { clave: claveSalida, control: 'salida' } : null;
   }
 
+  function pintarPausados(pausadosHoy: readonly AlumnoPausadoHoy[]): void {
+    zonaPausados.textContent = '';
+    if (pausadosHoy.length === 0) {
+      return;
+    }
+    const titulo = crearElemento(documento, 'h2', { texto: 'En pausa hoy' });
+    const lista = documento.createElement('ul');
+    for (const { alumno, pausa } of pausadosHoy) {
+      const item = documento.createElement('li');
+      item.append(
+        crearElemento(documento, 'span', { texto: `${alumno.nombre} ${alumno.primer_apellido}` }),
+        crearElemento(documento, 'span', { texto: ` — en pausa hasta ${pausa.fecha_fin}` }),
+      );
+      lista.append(item);
+    }
+    zonaPausados.append(titulo, lista);
+  }
+
   function pintar(estado: EstadoPantalla): void {
     zonaError.textContent = estado.errorCarga;
     horaEl.textContent = `Hora actual: ${instanteLocal(estado.instante, zonaHoraria).horaMinuto}`;
     botonActualizar.disabled = estado.cargando;
     pintarEstadoSlot(estado.propuesta);
+    pintarPausados(estado.pausadosHoy);
 
     if (deps.detectorConexion) {
       const pendientes = [...estado.tarjetas.values(), ...estado.extras.values()].filter((t) => t.fase === 'pendiente_offline').length;
@@ -710,17 +744,22 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const instante = deps.reloj.ahora();
     const fechaHoy = fechaLocalISO(instante, zonaHoraria);
     try {
-      const [slots, asistenciaHoy, excepcionesHoy] = await Promise.all([
+      const [slots, asistenciaHoy, excepcionesHoy, pausasHoy] = await Promise.all([
         deps.cargarPropuesta(),
         deps.cargarAsistenciaDeHoy(instante),
         deps.listarExcepcionesDeHoy ? deps.listarExcepcionesDeHoy(fechaHoy) : Promise.resolve([]),
+        deps.listarPausasDeHoy ? deps.listarPausasDeHoy() : Promise.resolve([]),
       ]);
       // R-06: un slot propio cancelado/sustituido hoy se excluye; uno ajeno que este profesor
       // cubre hoy como sustituto se añade — ver dominio/excepcionSlot.ts#slotsEfectivosDelDia.
-      slotsCache = slotsEfectivosDelDia(deps.profesorId, slots, excepcionesHoy);
+      const slotsEfectivos = slotsEfectivosDelDia(deps.profesorId, slots, excepcionesHoy);
+      // R-21: un alumno en pausa hoy no se ofrece como pendiente en ninguno de sus slots, pero se
+      // lista aparte (`pausadosHoy`) para que no parezca haber desaparecido.
+      const pausadosHoy = alumnosPausadosHoy(slotsEfectivos, fechaHoy, pausasHoy);
+      slotsCache = excluirAlumnosPausadosHoy(slotsEfectivos, fechaHoy, pausasHoy);
       registrosHoyCache = registrosDeHoyPorAlumnoSlot(asistenciaHoy);
       aplicarRecalculo(instante);
-      almacen.actualizar({ cargando: false });
+      almacen.actualizar({ cargando: false, pausadosHoy });
       void cargarAvataresPendientes();
     } catch (error) {
       almacen.actualizar({ cargando: false, errorCarga: mensajeAmigable(error) });
@@ -1383,7 +1422,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   });
 
   almacen.suscribir(pintar);
-  contenedor.append(zonaError, cabecera, seccionExtra, mensajeCargando, rejilla);
+  contenedor.append(zonaError, cabecera, seccionExtra, mensajeCargando, zonaPausados, rejilla);
   pintar(almacen.obtener());
   void cargar().then(() => restaurarColaOffline());
 

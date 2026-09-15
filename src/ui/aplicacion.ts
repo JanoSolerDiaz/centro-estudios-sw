@@ -45,6 +45,14 @@ import {
   registrarAvisoCancelacionSlot,
 } from '../datos/excepcionesSlot.ts';
 import {
+  declararPausaAlumno,
+  cancelarPausaAlumno,
+  acortarPausaAlumno,
+  listarPausasDeAlumno,
+  listarPausasActivasDeAlumnos,
+  listarPausasActivasDeMisAlumnos,
+} from '../datos/pausasAlumno.ts';
+import {
   listarAlumnos,
   obtenerAlumno,
   crearAlumno,
@@ -274,6 +282,7 @@ function mostrarAppAdministrador(
         listarSlotsDeAlumnos: (alumnoIds) => listarSlotsDeAlumnos(app.postgrest, alumnoIds),
         listarCierresActivos: () => listarCierres(app.postgrest, { estado: 'activos' }),
         listarExcepcionesEnRango: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        listarPausasActivasDeAlumnos: (alumnoIds) => listarPausasActivasDeAlumnos(app.postgrest, alumnoIds),
         listarHistoricoCompleto: (filtro) => listarHistoricoAsistenciaCompleto(app.postgrest, filtro),
         resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
         nombreUsuarioActual: perfil.nombre,
@@ -359,6 +368,7 @@ function mostrarAppAdministrador(
         listarSlotsDeAlumnoParaInforme: (alumnoId) => listarSlotsDeAlumno(app.postgrest, alumnoId),
         listarCierresActivosParaInforme: () => listarCierres(app.postgrest, { estado: 'activos' }),
         listarExcepcionesEnRangoParaInforme: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        listarPausasDeAlumnoParaInforme: (alumnoId) => listarPausasDeAlumno(app.postgrest, alumnoId),
         resolverCentroReferenciaIdParaInforme: (alumnoId) => resolverCentroReferenciaIdDeAlumno(app.postgrest, alumnoId),
         abridorImpresion,
       });
@@ -493,6 +503,11 @@ function mostrarAppAdministrador(
       crearSlot: (datos) => crearSlot(app.postgrest, datos),
       modificarSlot: (slotId, cambios, fechaEfecto) => modificarSlot(app.postgrest, slotId, cambios, fechaEfecto),
       cesarSlot: (slotId, fechaEfecto) => cesarSlot(app.postgrest, slotId, fechaEfecto),
+      listarPausasDeAlumno: (id) => listarPausasDeAlumno(app.postgrest, id),
+      declararPausaAlumno: (id, fechaInicio, fechaFin, motivo) =>
+        declararPausaAlumno(app.postgrest, { alumnoId: id, fechaInicio, fechaFin, motivo }),
+      cancelarPausaAlumno: (pausaId, motivo) => cancelarPausaAlumno(app.postgrest, pausaId, motivo),
+      acortarPausaAlumno: (pausaId, nuevaFechaFin) => acortarPausaAlumno(app.postgrest, pausaId, nuevaFechaFin),
       listarHistoricoCompletoDeAlumno: (id) => listarHistoricoAsistenciaCompleto(app.postgrest, { alumnoId: id }),
       resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
       reloj: app.reloj,
@@ -630,6 +645,7 @@ function mostrarAppProfesor(
         programador: app.programador,
         cargarSlots: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
         listarExcepcionesDeHoy: (fecha) => listarExcepcionesDelDiaParaProfesor(app.postgrest, fecha),
+        listarPausasDeHoy: () => listarPausasActivasDeMisAlumnos(app.postgrest),
         listarRegistrosRecientes: (desde, hasta) =>
           listarHistoricoAsistenciaCompleto(app.postgrest, { profesorId: perfil.id, desde, hasta }),
         listarCierresActivos: () => listarCierres(app.postgrest, { estado: 'activos' }),
@@ -707,6 +723,7 @@ function mostrarAppProfesor(
         listarSlotsDeAlumnoParaInforme: (alumnoId) => listarSlotsDeAlumno(app.postgrest, alumnoId),
         listarCierresActivosParaInforme: () => listarCierres(app.postgrest, { estado: 'activos' }),
         listarExcepcionesEnRangoParaInforme: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        listarPausasDeAlumnoParaInforme: (alumnoId) => listarPausasDeAlumno(app.postgrest, alumnoId),
         abridorImpresion,
       });
       return;
@@ -747,6 +764,7 @@ function mostrarAppProfesor(
       cargarPropuesta: () => listarSlotsDeProfesorConAlumno(app.postgrest, perfil.id),
       cargarAsistenciaDeHoy: (instante) => listarAsistenciaDeHoy(app.postgrest, perfil.id, instante),
       listarExcepcionesDeHoy: (fecha) => listarExcepcionesDelDiaParaProfesor(app.postgrest, fecha),
+      listarPausasDeHoy: () => listarPausasActivasDeMisAlumnos(app.postgrest),
       registrar: (entrada) =>
         registrarAsistencia(
           { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },

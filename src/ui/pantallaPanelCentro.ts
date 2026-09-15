@@ -29,7 +29,7 @@
  * estructural de todo el panel).
  */
 
-import type { Rol, CentroEstudios, CierreCentro, ExcepcionSlot, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
+import type { Rol, CentroEstudios, CierreCentro, ExcepcionSlot, PausaAlumno, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
 import { puedeVerPanelCentro } from '../dominio/permisosUi.ts';
 import {
   sesionesDeHoyPanelCentro,
@@ -96,6 +96,10 @@ export interface DependenciasPantallaPanelCentro {
   listarSlotsDeAlumnos(alumnoIds: readonly string[]): Promise<readonly SlotHorario[]>;
   listarCierresActivos(): Promise<readonly CierreCentro[]>;
   listarExcepcionesEnRango(desde: string, hasta: string): Promise<readonly ExcepcionSlot[]>;
+  /** Pausas ACTIVAS (R-21) de los alumnos en alcance, en una única petición — excluye del ranking
+   * de ausencias sin justificar (requisito 3 de R-21) cualquier registro que cayera dentro de una
+   * pausa del propio alumno. */
+  listarPausasActivasDeAlumnos(alumnoIds: readonly string[]): Promise<readonly PausaAlumno[]>;
   listarHistoricoCompleto(filtro: Omit<FiltroHistorico, 'pagina' | 'porPagina'>): Promise<readonly Asistencia[]>;
   resolverNombresProfesores(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
   /** Solo para el bloque de exportación completa (R-16) — el resto de la pantalla nunca necesita el
@@ -149,11 +153,12 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
 
       const filtroBase: Omit<FiltroHistorico, 'pagina' | 'porPagina' | 'desde' | 'hasta'> = centroId ? { centroId } : {};
 
-      const [slots, cierres, excepcionesHoy, excepcionesRango, registrosHoyBruto, registrosRangoBruto] = await Promise.all([
+      const [slots, cierres, excepcionesHoy, excepcionesRango, pausas, registrosHoyBruto, registrosRangoBruto] = await Promise.all([
         deps.listarSlotsDeAlumnos(alumnoIds),
         deps.listarCierresActivos(),
         deps.listarExcepcionesEnRango(hoyIso, hoyIso),
         deps.listarExcepcionesEnRango(filtroDesde, filtroHasta),
+        deps.listarPausasActivasDeAlumnos(alumnoIds),
         deps.listarHistoricoCompleto({
           ...filtroBase,
           desde: new Date(`${hoyIso}T00:00:00.000Z`),
@@ -184,7 +189,7 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
         excepciones: excepcionesHoy,
         zonaHoraria,
       });
-      rankingAusencias = rankingAusenciasSinJustificarPanelCentro(registrosRango, alumnosPorId);
+      rankingAusencias = rankingAusenciasSinJustificarPanelCentro(registrosRango, alumnosPorId, pausas, zonaHoraria);
       rankingProfesores = rankingAsistenciaProfesoresPanelCentro({
         desde: filtroDesde,
         hasta: filtroHasta,

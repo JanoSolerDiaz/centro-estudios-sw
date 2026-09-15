@@ -165,6 +165,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   documento imprimible, mismo criterio que `filasInformeMensual` de R-04) completan el módulo. El
   avatar se informa como `tieneAvatar: booleano`, nunca la ruta ni una URL (§0.2). `permisosUi.ts`
   añade `puedeExportarExpedienteCompleto` (exclusiva de `administrator`).
+  Desde R-21: `pausaAlumno.ts` (nuevo) — `rangoPausaValido`/`motivoPausaValido`, `buscarPausaSolapada`
+  (mismo principio que `buscarCierreSolapado` de R-12, ámbito el propio alumno en vez del centro),
+  `pausaVigenteEnFecha`/`pausaDeAlumnoEnFecha`/`esDiaPausadoParaAlumno` (mismo principio que
+  `esDiaCerrado`, tercer criterio de exclusión de "sesión esperada" junto a R-12/R-06, reutilizado sin
+  cambios por R-04 y R-11), `excluirAlumnosPausadosHoy(slots, fecha, pausas)` — conecta con el motor
+  de propuesta de T-17 (`alumnosPropuestos`) SIN tocar esa función, mismo patrón que
+  `slotsEfectivosDelDia` de R-06 pero por alumno en vez de por slot — y `alumnosPausadosHoy` (para la
+  lista informativa "En pausa hoy" de pasar lista, T-19). `puedeCancelarPausa`/`puedeAcortarPausa`/
+  `categoriaPausa` deciden qué acción ofrece la ficha de alumno según si la pausa todavía no ha
+  empezado, está en curso, ya pasó o quedó anulada. A diferencia de R-06, ninguna RPC existente
+  (`registrar_asistencia`/`registrar_ausencia`) se sustituye — decisión razonada en
+  `DECISIONES_TECNICAS.md`. `permisosUi.ts` añade `puedeGestionarPausasAlumno` (exclusiva de
+  `administrator`).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -251,6 +264,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `db/015_aviso_cancelacion_slot.sql`), anota quién avisó a las familias de una cancelación y
     cuándo, una sola vez para la excepción completa (no por alumno); mismo motivo de opacidad que las
     otras dos: sin GRANT de UPDATE directo, la RPC es la única vía.
+  - `pausasAlumno.ts` (R-21, nuevo) — `declararPausaAlumno`/`cancelarPausaAlumno`/`acortarPausaAlumno`,
+    las tres EXCLUSIVAMENTE vía RPC (`db/017_pausa_alumno.sql`, `SECURITY DEFINER`), mismo motivo de
+    opacidad que `excepcionesSlot.ts`: la tabla `pausa_alumno` tampoco concede INSERT/UPDATE directo a
+    `authenticated` (el rechazo por solape con un registro de asistencia existente es atómico, en el
+    servidor). `listarPausasDeAlumno` (cualquier estado, para el bloque de la ficha de alumno) y
+    `listarPausasActivasDeAlumnos`/`listarPausasActivasDeMisAlumnos` (activas, en lote o acotadas por
+    RLS al `teacher` que llama, para pasar lista/«Mi horario»/panel de centro) son consultas directas.
   - `usuarios.ts` (T-24, nuevo) — `listarUsuarios`/`actualizarUsuario` sobre `perfil` directamente
     (sin RPC: el `UPDATE` de `administrator` sobre cualquier fila ya estaba concedido y aislado por
     RLS desde el bootstrap). `actualizarUsuario` combina nombre/rol/activo en una llamada parcial

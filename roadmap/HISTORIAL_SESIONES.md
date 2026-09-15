@@ -37,6 +37,59 @@
 
 ---
 
+### Sesión 2026-09-15 (rutina programada de programador) — R-21: pausa programada de un alumno
+
+**Tarea(s):** R-21 (pausa programada de un alumno)
+**Estado resultante:** BLOQUEADA — pendiente aplicar migración `017`
+**Commits a `develop`:** ver commit de esta sesión (R-21: pausa programada de un alumno)
+**Migraciones aplicadas:** ninguna. `db/017_pausa_alumno.sql` escrita y empujada, todavía sin aplicar
+— fila 20 de §3 de `SEGUIMIENTO.md` nueva, `db/APLICADAS.md` actualizado con la nota de pendiente
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue bloqueada esperando el paso a producción)
+**Archivos creados/modificados:** nuevos `db/017_pausa_alumno.sql`, `src/dominio/pausaAlumno.ts` +
+test, `src/datos/pausasAlumno.ts` + test; modificados `src/dominio/tipos.ts` (+`PausaAlumno`/
+`EstadoPausaAlumno`), `src/dominio/informeMensualAlumno.ts` (+`sesionesEsperadasDelMes` gana
+`alumnoId`/`pausas`) y su test, `src/dominio/panelCentro.ts` (+`rankingAusenciasSinJustificarPanelCentro`
+gana `pausas`/`zonaHoraria` opcionales) y su test, `src/dominio/permisosUi.ts`
+(+`puedeGestionarPausasAlumno`) y su test, `src/ui/pantallaPasarLista.ts` (+`listarPausasDeHoy?`,
+exclusión de pendientes y lista "En pausa hoy") y su test, `src/ui/pantallaMiHorario.ts`
+(+`listarPausasDeHoy?`, relabelado de la fila de hoy) y su test, `src/ui/pantallaFichaAlumno.ts`
+(bloque sexto nuevo "Pausa programada": listar/declarar/cancelar/acortar) y su test,
+`src/ui/pantallaHistorico.ts` (+`listarPausasDeAlumnoParaInforme`) y su test,
+`src/ui/pantallaPanelCentro.ts` (+`listarPausasActivasDeAlumnos`) y su test, `src/ui/aplicacion.ts`
+(wiring de las cinco pantallas anteriores), `db/pruebas_rls.sql` (sección 8n nueva, 17 comprobaciones;
+`pausa_alumno` añadida a los barridos de `student`/`TRUNCATE`/`anon`), `db/APLICADAS.md`,
+`db/MODELO.md`, `roadmap/SEGUIMIENTO.md` (cabecera, §1, §3), `roadmap/DECISIONES_TECNICAS.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1678/1678, 61 nuevos sobre los 1617 de
+`develop` limpio) · build ✅
+**Health check post-deploy:** N/A — modo AUTONOMÍA TOTAL sin `npm run health` configurado contra
+ningún hosting real todavía (proveedor `<pendiente>`, T-25); no se ejecuta
+**Decisiones tomadas:** cinco filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-15): `pausa_alumno`
+no sustituye `registrar_asistencia`/`registrar_ausencia` (a diferencia de R-06, es solo un filtro de
+cliente); tres RPC en vez de dos (cancelar/acortar tienen guardas de estado incompatibles); la
+sección 8n de `db/pruebas_rls.sql` crea su propio alumno de prueba en vez de reutilizar
+`alumno_prueba` (que ya acumula registros de "hoy" de secciones anteriores); el registro de control
+del rechazo por solape se fecha retroactivo (ayer), no "hoy", para no chocar con la pausa EN CURSO
+que la misma sección necesita para probar `acortar_pausa_alumno`
+**Hallazgos del auditor atendidos:** ninguno resuelto por esta sesión. Revisado el registro completo
+de `auditoriacontinua.md` antes de elegir tarea (paso 2 del protocolo): un único hallazgo `ABIERTO`
+de severidad alta (**#8**, dato de salud del artículo 9 en R-02), sin ninguna acción posible para el
+programador — sigue esperando la respuesta del dueño a la pregunta #16 de §6 — así que no activa el
+régimen de urgencia de §0.3; el otro `ABIERTO` (**#20**, cobertura de RLS del bucket de avatares
+contra `student`) ya está implementado por P-28, pendiente solo de confirmación del dueño y
+reevaluación del auditor, ninguno de los dos exige atención de código en esta sesión
+**Tareas autopropuestas (P-XX):** ninguna — nada nuevo que registrar en §5 este ciclo
+**Hallazgos:** ninguno nuevo. `db/pruebas_rls.sql` no se ha podido ejecutar en esta sesión contra
+`dev` (§0.1: el agente nunca tiene esa credencial) — la sección 8n queda escrita y revisada a mano,
+pendiente de la primera pasada real de `npm run probar-rls` del dueño tras aplicar la migración `017`
+**Próximo paso:** el dueño aplica `db/017_pausa_alumno.sql` en `dev` (`git pull` + `npm run migrate`),
+comprueba `esquema_version()` = `17` (o más) y ejecuta `npm run probar-rls` (sección 8n: 17
+comprobaciones nuevas) — fila 20 de §3. Con eso resuelto, R-21 queda `COMPLETADA`. Mientras tanto, la
+siguiente sesión de programador sigue con la cola normal de §1 (a esta fecha, sin ninguna otra
+`PENDIENTE` salvo R-21 misma, así que toca esperar a una nueva especificación del PM o atender
+bloqueos de migración ya resueltos por el dueño)
+
+---
+
 ### Sesión 2026-09-14 (rutina programada de producto) — vigésimo primer ciclo del PM: R-21 abre la Oleada v7
 
 **Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)

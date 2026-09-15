@@ -151,6 +151,10 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaFichaAlumno> = {
     crearSlot: overrides.crearSlot ?? noImplementado('crearSlot'),
     modificarSlot: overrides.modificarSlot ?? noImplementado('modificarSlot'),
     cesarSlot: overrides.cesarSlot ?? noImplementado('cesarSlot'),
+    listarPausasDeAlumno: overrides.listarPausasDeAlumno ?? (() => Promise.resolve([])),
+    declararPausaAlumno: overrides.declararPausaAlumno ?? noImplementado('declararPausaAlumno'),
+    cancelarPausaAlumno: overrides.cancelarPausaAlumno ?? noImplementado('cancelarPausaAlumno'),
+    acortarPausaAlumno: overrides.acortarPausaAlumno ?? noImplementado('acortarPausaAlumno'),
     listarHistoricoCompletoDeAlumno: overrides.listarHistoricoCompletoDeAlumno ?? (() => Promise.resolve([])),
     resolverNombresProfesores: overrides.resolverNombresProfesores ?? (() => Promise.resolve(new Map())),
     reloj: overrides.reloj ?? crearRelojFijo(new Date('2026-03-04T10:00:00.000Z')),
@@ -259,7 +263,7 @@ void test('modo edición: un 403 (SinPermiso) al cargar muestra un mensaje compr
   assert.ok(contenedor.querySelector('button')); // "Volver al listado" sigue presente
 });
 
-void test('modo edición: carga con éxito pinta los cinco bloques con sus cabeceras', async () => {
+void test('modo edición: carga con éxito pinta los seis bloques con sus cabeceras', async () => {
   const contenedor = crearContenedorDePruebas();
   mostrarPantallaFichaAlumno(
     contenedor,
@@ -273,7 +277,14 @@ void test('modo edición: carga con éxito pinta los cinco bloques con sus cabec
   await esperarMicrotareas();
 
   const cabeceras = Array.from(contenedor.querySelectorAll('h3')).map((h) => h.textContent);
-  assert.deepEqual(cabeceras, ['Datos y centro', 'Avatar', 'Personas de referencia', 'Horario', 'Expediente completo (RGPD)']);
+  assert.deepEqual(cabeceras, [
+    'Datos y centro',
+    'Avatar',
+    'Personas de referencia',
+    'Horario',
+    'Pausa programada',
+    'Expediente completo (RGPD)',
+  ]);
   assert.match(contenedor.textContent, /Marta García López/); // título con nombre completo
 });
 
@@ -863,6 +874,270 @@ void test('un fallo al subir el avatar no descarta los cambios sin guardar del b
   // ...pero el campo de nombre del bloque de datos conserva el cambio sin guardar.
   const campoNombreTrasFallo = contenedor.querySelector<HTMLInputElement>('#ficha-datos-nombre');
   assert.equal(campoNombreTrasFallo?.value, 'Cambio sin guardar');
+});
+
+// --- Bloque de pausa programada (R-21) ----------------------------------------------------------
+
+function crearPausa(sobrescribir: Partial<import('../dominio/tipos.ts').PausaAlumno> = {}): import('../dominio/tipos.ts').PausaAlumno {
+  return {
+    id: 'pausa-1',
+    alumno_id: 'a1',
+    fecha_inicio: '2026-04-01',
+    fecha_fin: '2026-04-10',
+    motivo: 'Viaje familiar',
+    estado: 'activa',
+    motivo_anulacion: null,
+    creado_por: 'admin-1',
+    anulado_por: null,
+    anulado_en: null,
+    creado_en: '2026-01-01T00:00:00.000Z',
+    actualizado_en: '2026-01-01T00:00:00.000Z',
+    ...sobrescribir,
+  };
+}
+
+void test('bloque de pausas: sin ninguna pausa, muestra el mensaje explícito', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(contenedor, crearDepsFalsas({ alumnoId: 'a1', obtenerAlumno: () => Promise.resolve(crearFicha()) }));
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /no tiene ninguna pausa declarada/);
+});
+
+void test('bloque de pausas: pinta categoría, rango y motivo de cada pausa', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarPausasDeAlumno: () => Promise.resolve([crearPausa()]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const texto = contenedor.textContent;
+  assert.match(texto, /2026-04-01 — 2026-04-10/);
+  assert.match(texto, /Viaje familiar/);
+});
+
+void test('bloque de pausas: rango inválido (fin antes que inicio) se rechaza en el cliente, sin llamar a declararPausaAlumno', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let llamado = false;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      declararPausaAlumno: () => {
+        llamado = true;
+        return Promise.reject(new Error('no debería llamarse'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const inicio = contenedor.querySelector<HTMLInputElement>('#pausa-nueva-inicio');
+  const fin = contenedor.querySelector<HTMLInputElement>('#pausa-nueva-fin');
+  assert.ok(inicio && fin);
+  inicio.value = '2026-04-10';
+  fin.value = '2026-04-01';
+  const formPausa = Array.from(contenedor.querySelectorAll('form')).find((f) => f.querySelector('#pausa-nueva-inicio'));
+  assert.ok(formPausa);
+  disparar(formPausa, 'submit');
+  await esperarMicrotareas();
+
+  assert.equal(llamado, false);
+  assert.match(contenedor.textContent, /La fecha de fin no puede ser anterior a la fecha de inicio/);
+});
+
+void test('bloque de pausas: un rango que se solapa con una pausa activa ya existente se rechaza en el cliente', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let llamado = false;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarPausasDeAlumno: () => Promise.resolve([crearPausa()]),
+      declararPausaAlumno: () => {
+        llamado = true;
+        return Promise.reject(new Error('no debería llamarse'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const inicio = contenedor.querySelector<HTMLInputElement>('#pausa-nueva-inicio');
+  const fin = contenedor.querySelector<HTMLInputElement>('#pausa-nueva-fin');
+  assert.ok(inicio && fin);
+  inicio.value = '2026-04-05';
+  fin.value = '2026-04-15';
+  const formPausa = Array.from(contenedor.querySelectorAll('form')).find((f) => f.querySelector('#pausa-nueva-inicio'));
+  assert.ok(formPausa);
+  disparar(formPausa, 'submit');
+  await esperarMicrotareas();
+
+  assert.equal(llamado, false);
+  assert.match(contenedor.textContent, /se solapa con ese rango de fechas/);
+});
+
+void test('bloque de pausas: alta válida llama a declararPausaAlumno con el rango y el motivo', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let recibido: { alumnoId: string; fechaInicio: string; fechaFin: string; motivo: string | null } | undefined;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      declararPausaAlumno: (alumnoId, fechaInicio, fechaFin, motivo) => {
+        recibido = { alumnoId, fechaInicio, fechaFin, motivo };
+        return Promise.resolve(crearPausa({ fecha_inicio: fechaInicio, fecha_fin: fechaFin, motivo }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const inicio = contenedor.querySelector<HTMLInputElement>('#pausa-nueva-inicio');
+  const fin = contenedor.querySelector<HTMLInputElement>('#pausa-nueva-fin');
+  const motivo = contenedor.querySelector<HTMLInputElement>('#pausa-nueva-motivo');
+  assert.ok(inicio && fin && motivo);
+  inicio.value = '2026-05-01';
+  fin.value = '2026-05-10';
+  motivo.value = 'Enfermedad';
+  const formPausa = Array.from(contenedor.querySelectorAll('form')).find((f) => f.querySelector('#pausa-nueva-inicio'));
+  assert.ok(formPausa);
+  disparar(formPausa, 'submit');
+  await esperarMicrotareas();
+
+  assert.deepEqual(recibido, { alumnoId: 'a1', fechaInicio: '2026-05-01', fechaFin: '2026-05-10', motivo: 'Enfermedad' });
+});
+
+void test('bloque de pausas: una pausa futura ofrece "Cancelar", nunca "Acortar"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      reloj: crearRelojFijo(new Date('2026-03-01T10:00:00.000Z')),
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarPausasDeAlumno: () => Promise.resolve([crearPausa({ fecha_inicio: '2026-04-01', fecha_fin: '2026-04-10' })]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.ok(boton(contenedor, 'Cancelar'));
+  assert.equal(Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Acortar'), undefined);
+});
+
+void test('bloque de pausas: cancelar una pausa futura exige motivo y llama a cancelarPausaAlumno', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let recibido: { pausaId: string; motivo: string } | undefined;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      reloj: crearRelojFijo(new Date('2026-03-01T10:00:00.000Z')),
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarPausasDeAlumno: () => Promise.resolve([crearPausa({ fecha_inicio: '2026-04-01', fecha_fin: '2026-04-10' })]),
+      cancelarPausaAlumno: (pausaId, motivo) => {
+        recibido = { pausaId, motivo };
+        return Promise.resolve(crearPausa({ estado: 'anulada', motivo_anulacion: motivo }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Cancelar').click();
+  await esperarMicrotareas();
+
+  // Sin motivo: se rechaza en el cliente, sin llamar al servidor.
+  boton(contenedor, 'Confirmar cancelación').click();
+  await esperarMicrotareas();
+  assert.equal(recibido, undefined);
+  assert.match(contenedor.textContent, /Indica el motivo de la cancelación/);
+
+  const campoMotivo = Array.from(contenedor.querySelectorAll<HTMLInputElement>('input')).find((i) => i.id.startsWith('pausa-cancelar-motivo-'));
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'Ya no hace falta';
+  boton(contenedor, 'Confirmar cancelación').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(recibido, { pausaId: 'pausa-1', motivo: 'Ya no hace falta' });
+});
+
+void test('bloque de pausas: una pausa en curso ofrece "Acortar", nunca "Cancelar"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      reloj: crearRelojFijo(new Date('2026-04-05T10:00:00.000Z')),
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarPausasDeAlumno: () => Promise.resolve([crearPausa({ fecha_inicio: '2026-04-01', fecha_fin: '2026-04-10' })]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.ok(boton(contenedor, 'Acortar'));
+  assert.equal(Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Cancelar'), undefined);
+});
+
+void test('bloque de pausas: acortar una pausa en curso llama a acortarPausaAlumno con la nueva fecha de fin', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let recibido: { pausaId: string; nuevaFechaFin: string } | undefined;
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      reloj: crearRelojFijo(new Date('2026-04-05T10:00:00.000Z')),
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarPausasDeAlumno: () => Promise.resolve([crearPausa({ fecha_inicio: '2026-04-01', fecha_fin: '2026-04-10' })]),
+      acortarPausaAlumno: (pausaId, nuevaFechaFin) => {
+        recibido = { pausaId, nuevaFechaFin };
+        return Promise.resolve(crearPausa({ fecha_fin: nuevaFechaFin }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Acortar').click();
+  await esperarMicrotareas();
+
+  const campoFecha = contenedor.querySelector<HTMLInputElement>('input[id^="pausa-acortar-fecha-"]');
+  assert.ok(campoFecha);
+  campoFecha.value = '2026-04-06';
+  boton(contenedor, 'Confirmar acortamiento').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(recibido, { pausaId: 'pausa-1', nuevaFechaFin: '2026-04-06' });
+});
+
+void test('bloque de pausas: una pausa pasada o anulada no ofrece ninguna acción', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaFichaAlumno(
+    contenedor,
+    crearDepsFalsas({
+      alumnoId: 'a1',
+      reloj: crearRelojFijo(new Date('2026-05-01T10:00:00.000Z')),
+      obtenerAlumno: () => Promise.resolve(crearFicha()),
+      listarPausasDeAlumno: () =>
+        Promise.resolve([
+          crearPausa({ id: 'pausada-pasada', fecha_inicio: '2026-04-01', fecha_fin: '2026-04-10' }),
+          crearPausa({
+            id: 'pausa-anulada',
+            fecha_inicio: '2026-06-01',
+            fecha_fin: '2026-06-10',
+            estado: 'anulada',
+            motivo_anulacion: 'Ya no hace falta',
+          }),
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Cancelar'), undefined);
+  assert.equal(Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Acortar'), undefined);
+  assert.match(contenedor.textContent, /Anulada: Ya no hace falta/);
 });
 
 // --- Bloque de expediente completo (R-10, acceso y portabilidad RGPD) -------------------------
