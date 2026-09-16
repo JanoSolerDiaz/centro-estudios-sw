@@ -37,6 +37,33 @@
 
 ---
 
+### Sesión 2026-09-16 (rutina programada de programador, tercera pasada sin trabajo accionable tras R-22)
+
+**Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
+**Estado resultante:** sin cambio en §1 (cero `PENDIENTE`/`EN CURSO`; R-22 sigue `BLOQUEADA —
+pendiente aplicar migración 018, y antes que ella la 013 de R-06`) ni en §5 (cero P-XX `PENDIENTE`)
+**Commits a `develop`:** ver commit de esta sesión (solo actualización de bitácora, sin código)
+**Migraciones aplicadas:** ninguna — `db/APLICADAS.md` sigue con `009` como última aplicada; las
+nueve de las filas 13 a 21 de §3 (`010` a `018`) siguen `PENDIENTE`
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera únicamente),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1719/1719, sin cambio desde R-22) · build ✅
+— tras `npm ci` (130 paquetes, 0 vulnerabilidades; el contenedor arrancó otra vez sin `node_modules`)
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva del auditor desde `c338c04`
+(2026-09-16, la misma que ya revisaron las dos sesiones anteriores de hoy). **#8** (alta) sigue
+`ABIERTO`, esperando al dueño en la pregunta #16 de §6 (columna "Respuesta" verificada vacía)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — §5 revisada, ninguna `PENDIENTE`
+**Próximo paso:** exactamente el mismo que dejaron las dos sesiones anteriores de hoy — la siguiente
+sesión debe repetir la comprobación de los tres indicadores (pasada del auditor, respuesta del dueño
+a la pregunta #16, migración nueva aplicada) antes de asumir que sigue sin haber trabajo; abrir una
+R-23/Oleada v9 es decisión del ciclo de PM, no de esta rutina de programador
+
+---
+
 ### Sesión 2026-09-16 (rutina programada de programador, segunda pasada sin trabajo accionable tras R-22)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
