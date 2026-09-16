@@ -37,6 +37,47 @@
 
 ---
 
+### Sesión 2026-09-16 (PM, vigésimo tercer ciclo)
+
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código). Nueva fila R-23 en §1 (`PENDIENTE`)
+**Commits a `develop`:** ver commit de esta sesión (roadmap: vigésimo tercer ciclo del PM — R-23
+abre la Oleada v9)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva — sigue exactamente la misma lista de §3 (filas
+13-21, `010` a `018`, todas `PENDIENTE`; fila 12, T-25, `PENDIENTE`)
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v9/F-14, detalle
+de R-23), `roadmap/SEGUIMIENTO.md` (§1: fila R-23 `PENDIENTE`), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna decisión técnica de esquema/RLS/cliente (eso es del programador)
+**Hallazgos del auditor atendidos:** revisado `auditoriacontinua.md` completo — el único hallazgo
+`ABIERTO` sigue siendo **#8** (dato de salud del artículo 9 del RGPD en R-02), sin cambio desde la
+pasada `c338c04` (2026-09-16, duodécimo ciclo consecutivo confirmándolo sin novedad); ya está
+reflejado como bloqueo de R-02 y como pregunta **#16** de §6, no requiere ninguna R-XX nueva. Nada
+que convertir
+**Hallazgos:** `FEEDBACK.md` revisado — sigue sin entradas `nuevo` reales (fila plantilla vacía),
+nada que convertir. Las cuatro rutinas programadas de programador posteriores a R-22 dejaron dicho
+explícitamente que abrir una R-23/Oleada v9 era decisión de este ciclo, no suya — revisado el
+roadmap completo contra la visión/misión y el ICP: la matriz de excepciones (R-06/R-12/R-21/R-22)
+queda completa con R-22, sin ninguna quinta combinación pendiente; pero T-19 (pasar lista) sigue sin
+ninguna vía de cierre en bloque para el sentido contrario al de R-17 (marcar el resto como
+**presente**, no como ausente) — relevante para el segmento de grupos numerosos del ICP
+(preparación de exámenes), donde una sesión sin ninguna ausencia sigue costando un toque por
+alumno. Se abre la **Oleada v9** con **R-23** (F-14), simétrica a R-17, sin ninguna migración ni
+dato personal nuevo, sin tocar el rol `student`
+**Tareas autopropuestas (P-XX):** ninguna — es competencia del programador, no de este ciclo
+**Próximo paso:** la siguiente sesión de programador puede escribir R-23 (código y tests, sin
+migración) en cuanto le llegue en la cola de §1, sin esperar a que se resuelvan las migraciones
+pendientes de R-01 a R-22 (mismo precedente que R-04/R-11/R-13/R-15/R-17/R-21 con sus dependencias
+código-completas). El siguiente ciclo de PM debe repetir la comprobación de los tres indicadores de
+siempre (pasada nueva del auditor, respuesta del dueño a alguna pregunta de §6 — en particular la
+#16 — y migraciones nuevas aplicadas en `db/APLICADAS.md`) antes de decidir si hay roadmap nuevo que
+añadir o si alguna oleada ya desplegada puede archivarse en `ROADMAP_HISTORICO.md`.
+
+---
+
 ### Sesión 2026-09-16 (rutina programada de programador, cuarta pasada sin trabajo accionable tras R-22)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar

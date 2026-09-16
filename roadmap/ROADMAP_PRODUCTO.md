@@ -8,28 +8,33 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-15 — vigésimo segundo ciclo del PM: **abre la Oleada v8 con
-R-22.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`2963bfe`, 2026-09-15, previa a
-R-21): confirma sin cambio que solo queda **ABIERTO #8** (dato de salud del artículo 9 del RGPD en
-R-02, formalizado como pregunta **#16** de §6, esperando al dueño) — **#20** quedó **RESUELTO** en
-esa misma pasada (P-28 verificado por lectura directa del SQL, pendiente solo de que el dueño lo
-confirme en ejecución con `npm run probar-rls`). No requiere ninguna R-XX nueva: ya está reflejado
-como bloqueo de R-02/pregunta #16.
+**Última actualización:** 2026-09-16 — vigésimo tercer ciclo del PM: **abre la Oleada v9 con
+R-23.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`c338c04`, 2026-09-16, previa a
+la implementación de R-22): confirma sin cambio, duodécimo ciclo consecutivo, que solo queda
+**ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como pregunta **#16** de
+§6, esperando al dueño). No requiere ninguna R-XX nueva: ya está reflejado como bloqueo de
+R-02/pregunta #16. Las cuatro rutinas programadas de programador posteriores a R-22 (sin trabajo
+accionable, como corresponde: nada suyo que hacer mientras la única migración pendiente relevante
+—`018`, y antes la `013`— siga esperando al dueño) dejaron dicho explícitamente que abrir una
+R-23/Oleada v9 era decisión de este ciclo, no suya.
 
-**R-21 (Oleada v7/F-12) sigue `BLOQUEADA`** solo por la migración `017` pendiente de aplicar (código
-y tests completos desde 2026-09-15, fila 20 de §3 de `SEGUIMIENTO.md`) — con eso, su columna
-vertebral de código también queda agotada: no deja ninguna ampliación autoseñalada nueva sin
-convertir. Revisado el roadmap completo contra la visión de producto y contra el propio texto de
-R-21, que enumera la matriz de excepciones resuelta hasta ahora: R-06 (un slot, un día, falta el
-profesor), R-12 (todo el centro, varios días, cierre) y R-21 (un alumno, varios días, ausencia
-prevista). Falta la cuarta combinación de esa misma matriz — **un profesor, varios días** —, hasta
-ahora sin resolver: se abre la **Oleada v8** con **R-22** (baja programada de un profesor, F-13) —
-detalle en la sección correspondiente más abajo. Añadida su fila `PENDIENTE` en §1 de
-`SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
-producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a
-`ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto, no de
-programador.
+**R-22 (Oleada v8/F-13) sigue `BLOQUEADA`** solo por las migraciones `013`/`018` pendientes de
+aplicar (código y tests completos desde 2026-09-16, fila 21 de §3 de `SEGUIMIENTO.md`) — con eso,
+su columna vertebral de código también queda agotada: la matriz de excepciones que su propia spec
+enumeraba (slot+día, centro+días, alumno+días, profesor+días) queda completa con las cuatro
+combinaciones resueltas, sin dejar ninguna quinta combinación pendiente. Revisado el roadmap
+completo contra la visión de producto y contra el ICP (académias de refuerzo escolar/clases
+particulares, pero también preparación de exámenes con grupos más numerosos): T-19 (pasar lista)
+sigue sin ninguna vía de cierre en bloque para el sentido contrario al de R-17 — un slot con quince
+alumnos, todos presentes, sigue costando quince toques, el mismo problema de "toques que no
+escalan con el tamaño del grupo" que R-17 ya resolvió para el caso de las ausencias, sin resolverlo
+todavía para el caso simétrico. Se abre la **Oleada v9** con **R-23** (cierre de slot en un toque:
+marcar el resto como presente en bloque, F-14) — detalle en la sección correspondiente más abajo.
+Añadida su fila `PENDIENTE` en §1 de `SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo
+(T-25 pendiente del paso a producción) y ninguna oleada ha llegado a desplegarse todavía, así que
+nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto,
+no de programador.
 
 ---
 
@@ -258,6 +263,27 @@ principio de "cero fricción con lo habitual, cero bloqueo con la excepción" pi
 ningún dato personal nuevo ni toca al rol `student`.
 
 - **F-13 — Baja programada de un profesor.** R-22.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v9 — Fricción cero en clases numerosas: cerrar en bloque también lo esperado
+
+**Arranca cuando la oleada v8 (R-22) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta oleada
+queda especificada y en cola, detrás de la oleada v8, en el orden de §1.
+
+Por qué esta oleada: R-17 (Oleada v4) ya resuelve que cerrar un slot marcando a quien de verdad
+faltó no cueste un toque por alumno ausente, pero deja sin resolver el caso simétrico — un slot
+donde han venido todos —, que en una clase particular de dos o tres alumnos apenas se nota (ya es
+rápido tocar cada card, T-19 lo diseñó así desde el principio), pero que en una clase de grupo
+numerosa (el segmento de preparación de exámenes del ICP, no solo el refuerzo escolar de uno a
+tres alumnos) vuelve a costar tantos toques como alumnos, exactamente el problema que R-17 ya
+identificó y resolvió para el sentido opuesto. No añade ningún dato personal nuevo ni toca al rol
+`student`.
+
+- **F-14 — Cierre en bloque también para la presencia.** R-23.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1185,3 +1211,62 @@ empezar anula en bloque todas las excepciones futuras; acortar la fecha de fin d
 anula solo las excepciones de los días que quedan fuera del nuevo rango; un día suelto dentro de la
 baja admite un tratamiento distinto sin afectar al resto; un `teacher` no puede declarar, editar ni
 cancelar una baja.
+
+---
+
+### R-23 — Cierre de slot en un toque: marcar el resto como presente en bloque
+**Oleada / Fase:** v9 / F-14 · **Migración:** No · **Depende de:** T-18, T-19, T-21, R-17
+**Origen:** roadmap (simétrica a R-17, que resolvió el mismo problema de fondo para el sentido
+opuesto)
+
+**Objetivo:** R-17 ya deja cerrar un slot de un gesto cuando alguien de verdad faltó; el caso
+contrario —una sesión donde han venido todos— sigue costando un toque por alumno. En una clase
+particular de dos o tres alumnos (el grueso del ICP) eso ya es rápido, porque T-19 diseñó la card
+para que un solo toque baste; pero en una clase de grupo numerosa —el segmento de preparación de
+exámenes que el propio ICP también contempla, con quince o veinte alumnos en el mismo slot— cerrar
+una sesión sin ninguna ausencia vuelve a costar tantos toques como alumnos tiene el grupo, exacto el
+problema de "los toques no escalan con el tamaño del grupo" que R-17 ya identificó y resolvió para
+las ausencias, sin resolverlo todavía para la presencia. Cerrar de un gesto lo que el profesor ya ha
+visto con sus propios ojos —que ha venido todo el mundo— completa la simetría que R-17 dejó abierta,
+sin contradecir el principio de que el sistema nunca infiere nada por sí solo: sigue siendo un toque
+explícito del profesor, que primero ve la lista nominal de a quién va a registrar y solo entonces
+confirma, exactamente igual de deliberado que marcar a alguien ausente.
+
+**Requisitos:**
+1. En pasar lista (T-19), cuando el slot en curso tiene al menos un alumno sin ningún registro (ni
+   entrada ni ausencia) ese día, aparece, junto al control «Marcar el resto como ausente» de R-17 y
+   visualmente distinguible de él, un segundo control explícito «Marcar el resto como presente» —
+   nunca activo por defecto, nunca disparado por un temporizador ni por cambiar de pantalla.
+2. Un toque sobre ese control abre una confirmación que **lista nominalmente** a los alumnos que se
+   van a registrar (nunca solo una cifra), mismo patrón exacto que R-17 requisito 2: el profesor ve
+   exactamente a quién antes de decidir. Solo al confirmar se ejecuta la acción.
+3. Cada alumno pendiente se registra con la misma RPC de T-18 (`registrar_asistencia`, reutilizando
+   `manejarToque` tal cual — mismo criterio con el que R-17 reutiliza `manejarAusente`), una llamada
+   por alumno — no una operación atómica conjunta —, respetando el límite de tasa ya existente
+   (T-06). Cada fila queda con la hora real del servidor en el instante de su propia llamada, nunca
+   una hora de bloque simulada ni copiada de otra fila — coherente con "la hora real, no la
+   teórica" aplicado también aquí. Si alguna llamada falla (límite alcanzado, red), las que ya se
+   completaron quedan (igual que si se hubieran marcado una a una) y la interfaz dice exactamente
+   cuáles no se pudieron marcar, para reintentarlas sueltas — mismo comportamiento que R-17
+   requisito 3.
+4. Un alumno que ya tiene un registro de entrada o de ausencia ese día queda excluido de la
+   confirmación desde el principio, igual que R-17 requisito 4: la acción nunca sobrescribe ni
+   duplica un registro existente.
+5. Disponible también desde «Registros» (T-21) para el mismo slot y fecha, con el mismo
+   comportamiento — mismo criterio que R-17, que ya se ofrece en los dos sitios.
+6. Cada fila creada es indistinguible, en su naturaleza, de una entrada registrada individualmente:
+   mismo régimen de edición, anulación y rastro en `asistencia_historial` (§0.2). No crea ningún
+   estado, columna ni tabla nueva.
+7. Los dos controles —«marcar el resto como ausente» (R-17) y este— conviven sin interferir: usar
+   uno dejando pendientes a los demás no impide usar después el otro sobre quien siga sin registro.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un slot de quince alumnos donde diez ya tienen entrada y dos tienen
+ausencia marcada muestra la confirmación de «marcar el resto como presente» con los tres restantes
+exactos, nombrados; confirmar produce tres registros de entrada trazables, uno por alumno, cada uno
+con la hora real de su propia llamada, sin tocar los doce ya existentes; repetir la acción sobre el
+mismo slot y fecha ya no ofrece a nadie, porque todos tienen registro; un fallo de red al marcar uno
+de los tres deja completados a los otros dos y avisa cuál falló, sin perderlo; usar «marcar el resto
+como ausente» sobre dos de los tres restantes y después «marcar el resto como presente» sobre el
+último funciona sin conflicto, sin duplicar ni sobrescribir ningún registro.
