@@ -10,7 +10,24 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-16 (rutina programada de programador, primera pasada sin trabajo
+**Última actualización:** 2026-09-16 (rutina programada de programador, segunda pasada sin trabajo
+accionable tras R-22): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada nueva del
+auditor desde `c338c04` (2026-09-16, la misma que ya revisó la sesión anterior de hoy): sigue
+**ABIERTO** solo **#8** (alta), sin ninguna acción posible desde el código, esperando al dueño en la
+pregunta #16 de §6. Revisada §1 completa: **cero `PENDIENTE`/`EN CURSO`** — ninguna tarea de código a
+la que pasar. Revisadas las 17 preguntas de §6: todas con la columna "Respuesta" vacía de `#7` a
+`#17`, incluida **#16** (la única que desbloquearía R-02/T-25). Revisado `db/APLICADAS.md`: `009`
+sigue siendo la última migración aplicada en `dev`, sin cambio (las nueve de las filas 13 a 21 de §3,
+`010` a `018`, siguen `PENDIENTE`). Revisada además §5 (P-XX): las 28 filas siguen
+`RESUELTA`/`IMPLEMENTADA`, ninguna `PENDIENTE`. Con los tres indicadores que podrían desbloquear
+trabajo —pasada del auditor, respuesta del dueño, migración nueva— exactamente iguales que en la
+sesión anterior, esta sesión no ejecuta ninguna T-XX, R-XX ni P-XX — **sin ningún commit de código**.
+El contenedor arrancó sin `node_modules`: `npm ci` recuperó los 130 paquetes declarados, 0
+vulnerabilidades. Verificación pre-push completa en verde como comprobación de salud: `npm run
+typecheck`, `npm run lint`, **`npm test` 1719/1719** (sin cambio) y `npm run build`. Abrir una R-XX
+nueva (Oleada v9) es decisión del ciclo de PM (rutina de producto), no de esta sesión de programador.
+
+**Sesión anterior (2026-09-16, rutina programada de programador, primera pasada sin trabajo
 accionable tras R-22): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada nueva del
 auditor desde `c338c04` (2026-09-16, anterior a la implementación de R-22): sigue **ABIERTO** solo
 **#8** (alta), sin ninguna acción posible desde el código, esperando al dueño en la pregunta #16 de
