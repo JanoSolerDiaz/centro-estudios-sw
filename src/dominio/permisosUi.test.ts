@@ -11,6 +11,7 @@ import {
   puedeGestionarExcepcionesSlot,
   puedeGestionarHorarios,
   puedeGestionarPausasAlumno,
+  puedeGestionarBajasProfesor,
   puedeGestionarUsuarios,
   puedeGenerarInformeMensual,
   puedeImportarMasivamente,
@@ -151,4 +152,10 @@ void test('puedeGestionarPausasAlumno: exclusivamente administrator, ni siquiera
   assert.equal(puedeGestionarPausasAlumno('administrator'), true);
   assert.equal(puedeGestionarPausasAlumno('teacher'), false);
   assert.equal(puedeGestionarPausasAlumno('student'), false);
+});
+
+void test('puedeGestionarBajasProfesor: exclusivamente administrator, ni siquiera teacher', () => {
+  assert.equal(puedeGestionarBajasProfesor('administrator'), true);
+  assert.equal(puedeGestionarBajasProfesor('teacher'), false);
+  assert.equal(puedeGestionarBajasProfesor('student'), false);
 });

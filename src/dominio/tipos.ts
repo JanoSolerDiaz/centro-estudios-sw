@@ -168,6 +168,39 @@ export interface PausaAlumno {
   readonly actualizado_en: string;
 }
 
+export type EstadoBajaProfesor = 'activa' | 'anulada';
+
+/** Baja programada de un profesor durante un rango de días (R-22, `db/018_baja_profesor.sql`):
+ * excepción en bloque, simétrica a `ExcepcionSlot` (R-06, un slot y un día) y a `PausaAlumno` (R-21,
+ * un alumno y un rango), esta vez a nivel de TODOS los slots de un profesor durante un rango de
+ * días. `fecha_inicio`/`fecha_fin` en formato `AAAA-MM-DD`, ambos límites inclusive. `tipo`,
+ * `profesor_sustituto_id` y `motivo` son el tratamiento POR DEFECTO que `declarar_baja_profesor`
+ * aplica a cada `(slot, fecha)` que genera — mismas reglas de coherencia que `ExcepcionSlot`
+ * (sustitución exige sustituto y no admite motivo; cancelación exige motivo y no admite sustituto).
+ * Cada `excepcion_slot` generada por esta vía queda con `baja_profesor_id` apuntando aquí (requisito
+ * 4 de R-22), para poder listarlas y cancelarlas juntas; un día editado individualmente después
+ * (requisito 6) sigue apuntando a la misma baja aunque su propio `tipo`/`sustituto`/`motivo` ya no
+ * coincida con el de esta fila. Baja lógica (`estado`), nunca DELETE: cancelarla (solo si todavía no
+ * ha empezado) la deja `'anulada'` con `motivo_anulacion` y anula en bloque las excepciones que
+ * generó; una baja en curso solo se acorta (`fecha_fin` hacia una fecha futura, nunca hacia el
+ * pasado), lo que anula las excepciones de los días que quedan fuera del nuevo rango. */
+export interface BajaProfesor {
+  readonly id: string;
+  readonly profesor_id: string;
+  readonly fecha_inicio: string;
+  readonly fecha_fin: string;
+  readonly tipo: TipoExcepcionSlot;
+  readonly profesor_sustituto_id: string | null;
+  readonly motivo: string | null;
+  readonly estado: EstadoBajaProfesor;
+  readonly motivo_anulacion: string | null;
+  readonly creado_por: string | null;
+  readonly anulado_por: string | null;
+  readonly anulado_en: string | null;
+  readonly creado_en: string;
+  readonly actualizado_en: string;
+}
+
 export type OrigenAsistencia = 'slot' | 'manual';
 export type EstadoAsistencia = 'valida' | 'anulada' | 'ausente';
 /** Lista corta cerrada de motivos de justificación de una ausencia (R-02, requisito 1) — el `CHECK

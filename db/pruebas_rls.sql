@@ -3160,6 +3160,353 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 8o. Baja programada de un profesor (R-22, db/018_baja_profesor.sql) —
+--     declarar/cancelar/acortar, y que declarar_baja_profesor reutilice
+--     de verdad declarar_excepcion_slot (R-06) por cada combinación.
+--     Crea sus PROPIOS alumnos y slots (mismo criterio que 8g/8h/8i/8k/8n):
+--     dos slots del mismo teacher, con dos días de la semana DISTINTOS
+--     (hoy y mañana, en Europe/Madrid — mismo motivo que 8k para fijar el
+--     día real sin depender de cuándo se ejecute esta batería) para poder
+--     acotar con precisión cuántas combinaciones produce cada llamada:
+--     v_slot_a_id (día = hoy) acumula un registro de asistencia HOY, para
+--     probar la exclusión del requisito 3; v_slot_b_id (día = mañana) se
+--     deja limpio.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_centro_id      uuid := pg_temp.dato('centro_admin');
+  v_alumno_a_id    uuid;
+  v_alumno_b_id    uuid;
+  v_teacher_id     uuid;
+  v_teacher2_id    uuid;
+  v_slot_a_id      uuid;
+  v_slot_b_id      uuid;
+  v_hoy            date := (now() at time zone 'Europe/Madrid')::date;
+  v_dia_hoy        smallint := extract(isodow from (now() at time zone 'Europe/Madrid'))::smallint;
+  v_dia_manana     smallint := (extract(isodow from (now() at time zone 'Europe/Madrid'))::smallint % 7) + 1;
+  v_fila           record;
+  v_creadas        integer;
+  v_excluidas      integer;
+  v_baja_cancel    uuid;
+  v_baja_futura    uuid;
+  v_baja_encurso   uuid;
+  v_exc_dentro_id  uuid; -- se declara en el rango que SOBREVIVE a acortar_baja_profesor
+  v_exc_fuera_id   uuid; -- se declara en el rango que acortar_baja_profesor debe desactivar
+  v_baja_row       public.baja_profesor;
+  v_n              integer;
+  v_todas_inactivas boolean;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
+
+  if v_centro_id is null or v_teacher_id is null or v_teacher2_id is null or not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('declarar_baja_profesor / teacher no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_baja_profesor / student no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_baja_profesor / tipo no válido (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_baja_profesor / sustituto igual al titular (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_baja_profesor / cancelación sin motivo (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_baja_profesor / cancelación con un día excluido por asistencia ya existente', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('excepcion_slot / la excepción generada por la baja queda marcada con baja_profesor_id', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('declarar_baja_profesor / sustitución en curso genera excepciones en los dos slots', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_baja_profesor / teacher no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_baja_profesor / baja ya empezada (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_baja_profesor / sin motivo (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('cancelar_baja_profesor / administrator cancela una baja futura y desactiva sus excepciones', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('acortar_baja_profesor / teacher no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('acortar_baja_profesor / nueva fecha no anterior a la actual (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('acortar_baja_profesor / administrator acorta una baja en curso y desactiva solo la excepción fuera de rango', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('baja_profesor / teacher no lee ninguna fila', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('baja_profesor / administrator lee las bajas del profesor', 'falta el centro, un segundo teacher o el administrator de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.alumno (nombre, primer_apellido, centro_referencia_id)
+      values ('__prueba_rls__baja_a', 'Alumno', v_centro_id)
+      returning id into v_alumno_a_id;
+    insert into public.alumno (nombre, primer_apellido, centro_referencia_id)
+      values ('__prueba_rls__baja_b', 'Alumno', v_centro_id)
+      returning id into v_alumno_b_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_a_id, v_teacher_id, v_dia_hoy, '08:00', '09:00', current_date - 60)
+      returning id into v_slot_a_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_b_id, v_teacher_id, v_dia_manana, '09:00', '10:00', current_date - 60)
+      returning id into v_slot_b_id;
+  exception when others then
+    v_slot_a_id := null;
+    v_slot_b_id := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_slot_a_id is null or v_slot_b_id is null then
+    perform pg_temp.omitir('declarar_baja_profesor / teacher no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_baja_profesor / student no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_baja_profesor / tipo no válido (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_baja_profesor / sustituto igual al titular (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_baja_profesor / cancelación sin motivo (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_baja_profesor / cancelación con un día excluido por asistencia ya existente', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('excepcion_slot / la excepción generada por la baja queda marcada con baja_profesor_id', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('declarar_baja_profesor / sustitución en curso genera excepciones en los dos slots', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_baja_profesor / teacher no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_baja_profesor / baja ya empezada (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_baja_profesor / sin motivo (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('cancelar_baja_profesor / administrator cancela una baja futura y desactiva sus excepciones', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('acortar_baja_profesor / teacher no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('acortar_baja_profesor / nueva fecha no anterior a la actual (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('acortar_baja_profesor / administrator acorta una baja en curso y desactiva solo la excepción fuera de rango', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('baja_profesor / teacher no lee ninguna fila', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('baja_profesor / administrator lee las bajas del profesor', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    return;
+  end if;
+
+  -- Registro real HOY sobre v_slot_a_id (sin p_ocurrido_en: resuelve "ahora" con el reloj del
+  -- servidor, igual que 8k) — es el registro de asistencia que el requisito 3 debe excluir.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.registrar_asistencia(p_alumno_id => v_alumno_a_id, p_origen => 'slot', p_slot_id => v_slot_a_id, p_peticion_id => gen_random_uuid());
+  exception when others then
+    null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher no puede declarar (§0.2: solo administrator gestiona bajas de profesor).
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 1, 'cancelacion', null, '__prueba_rls__motivo');
+    perform pg_temp.registrar('declarar_baja_profesor / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se declaró sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_baja_profesor / teacher no puede llamar (debe fallar)', array['%solo un administrador puede declarar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student, tampoco.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('declarar_baja_profesor / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 1, 'cancelacion', null, '__prueba_rls__motivo');
+      perform pg_temp.registrar('declarar_baja_profesor / student no puede llamar (debe fallar)', 'prohibido', false, 'se declaró sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('declarar_baja_profesor / student no puede llamar (debe fallar)', array['%solo un administrador puede declarar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Tipo no válido: rechazado antes de tocar ninguna tabla.
+  begin
+    perform public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 1, 'vacaciones', null, '__prueba_rls__motivo');
+    perform pg_temp.registrar('declarar_baja_profesor / tipo no válido (debe fallar)', 'prohibido', false, 'se declaró sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_baja_profesor / tipo no válido (debe fallar)', array['%tipo no válido%'], sqlerrm);
+  end;
+
+  -- El sustituto no puede ser el propio titular.
+  begin
+    perform public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 1, 'sustitucion', v_teacher_id, null);
+    perform pg_temp.registrar('declarar_baja_profesor / sustituto igual al titular (debe fallar)', 'prohibido', false, 'se declaró sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_baja_profesor / sustituto igual al titular (debe fallar)', array['%sustituto no puede ser el propio titular%'], sqlerrm);
+  end;
+
+  -- Cancelación sin motivo: rechazada.
+  begin
+    perform public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 1, 'cancelacion', null, null);
+    perform pg_temp.registrar('declarar_baja_profesor / cancelación sin motivo (debe fallar)', 'prohibido', false, 'se declaró sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('declarar_baja_profesor / cancelación sin motivo (debe fallar)', array['%exige un motivo%'], sqlerrm);
+  end;
+
+  -- Requisito 2/3: cancelación real hoy..hoy+1 — v_slot_a_id (día = hoy) es el único que cae en
+  -- "hoy" y ya tiene asistencia, así que su combinación queda EXCLUIDA; v_slot_b_id (día = mañana)
+  -- es el único que cae en "hoy+1" y está limpio, así que su combinación se crea de verdad
+  -- reutilizando declarar_excepcion_slot.
+  begin
+    v_creadas := 0;
+    v_excluidas := 0;
+    for v_fila in select * from public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 1, 'cancelacion', null, '__prueba_rls__baja_cancelacion') loop
+      v_baja_cancel := v_fila.out_baja_profesor_id;
+      if v_fila.out_slot_id is null then
+        continue;
+      end if;
+      if v_fila.out_excluido then
+        v_excluidas := v_excluidas + 1;
+      else
+        v_creadas := v_creadas + 1;
+        if v_fila.out_slot_id = v_slot_b_id then
+          v_exc_dentro_id := v_fila.out_excepcion_id; -- reutilizada más abajo solo para el chequeo de marcado
+        end if;
+      end if;
+    end loop;
+    perform pg_temp.registrar(
+      'declarar_baja_profesor / cancelación con un día excluido por asistencia ya existente', 'permitido',
+      v_baja_cancel is not null and v_creadas = 1 and v_excluidas = 1
+    );
+  exception when others then
+    perform pg_temp.registrar('declarar_baja_profesor / cancelación con un día excluido por asistencia ya existente', 'permitido', false, sqlerrm);
+  end;
+
+  -- La excepción creada de verdad queda etiquetada con baja_profesor_id (requisito 4) y es de tipo
+  -- cancelación (mismo tratamiento que la baja).
+  if v_exc_dentro_id is not null then
+    perform pg_temp.registrar(
+      'excepcion_slot / la excepción generada por la baja queda marcada con baja_profesor_id', 'permitido',
+      exists (select 1 from public.excepcion_slot where id = v_exc_dentro_id and baja_profesor_id = v_baja_cancel and tipo = 'cancelacion')
+    );
+  end if;
+  v_exc_dentro_id := null;
+
+  -- Requisito 2: sustitución EN CURSO (empieza HOY, para acortar_baja_profesor más abajo) sobre
+  -- hoy..hoy+8 — un rango nuevo, sin solape con las fechas ya consumidas arriba (hoy en v_slot_a_id
+  -- sigue excluido por la misma asistencia; hoy+1 en v_slot_b_id ahora tiene una excepción ACTIVA de
+  -- la llamada anterior, así que también queda excluido, esta vez por duplicado) — las dos
+  -- combinaciones limpias de este rango (v_slot_a_id/hoy+7 y v_slot_b_id/hoy+8) sí se crean.
+  begin
+    v_creadas := 0;
+    for v_fila in select * from public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 8, 'sustitucion', v_teacher2_id, null) loop
+      v_baja_encurso := v_fila.out_baja_profesor_id;
+      if v_fila.out_slot_id is null or v_fila.out_excluido then
+        continue;
+      end if;
+      v_creadas := v_creadas + 1;
+      if v_fila.out_slot_id = v_slot_a_id then
+        v_exc_dentro_id := v_fila.out_excepcion_id; -- hoy+7, DENTRO del rango tras acortar a hoy+7
+      elsif v_fila.out_slot_id = v_slot_b_id then
+        v_exc_fuera_id := v_fila.out_excepcion_id; -- hoy+8, FUERA del rango tras acortar a hoy+7
+      end if;
+    end loop;
+    perform pg_temp.registrar(
+      'declarar_baja_profesor / sustitución en curso genera excepciones en los dos slots', 'permitido',
+      v_creadas = 2 and v_exc_dentro_id is not null and v_exc_fuera_id is not null
+    );
+  exception when others then
+    perform pg_temp.registrar('declarar_baja_profesor / sustitución en curso genera excepciones en los dos slots', 'permitido', false, sqlerrm);
+  end;
+
+  -- Baja FUTURA (empieza dentro de diez semanas, mismo día de la semana que hoy) para probar
+  -- cancelar_baja_profesor de verdad, sin interferir con la baja en curso de más arriba.
+  begin
+    for v_fila in select * from public.declarar_baja_profesor(v_teacher_id, v_hoy + 70, v_hoy + 70, 'cancelacion', null, '__prueba_rls__baja_futura') loop
+      v_baja_futura := v_fila.out_baja_profesor_id;
+    end loop;
+  exception when others then
+    v_baja_futura := null;
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher no puede cancelar.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.cancelar_baja_profesor(v_baja_futura, '__prueba_rls__motivo');
+    perform pg_temp.registrar('cancelar_baja_profesor / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se anuló sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('cancelar_baja_profesor / teacher no puede llamar (debe fallar)', array['%solo un administrador puede cancelar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Requisito 5: la baja en curso (v_baja_encurso, empieza hoy) ya ha empezado — no se puede
+  -- cancelar entera, solo acortar.
+  begin
+    perform public.cancelar_baja_profesor(v_baja_encurso, '__prueba_rls__motivo');
+    perform pg_temp.registrar('cancelar_baja_profesor / baja ya empezada (debe fallar)', 'prohibido', false, 'se anuló sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('cancelar_baja_profesor / baja ya empezada (debe fallar)', array['%ya ha empezado%'], sqlerrm);
+  end;
+
+  -- Cancelar sin motivo: rechazado.
+  begin
+    perform public.cancelar_baja_profesor(v_baja_futura, '');
+    perform pg_temp.registrar('cancelar_baja_profesor / sin motivo (debe fallar)', 'prohibido', false, 'se anuló sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('cancelar_baja_profesor / sin motivo (debe fallar)', array['%exige un motivo%'], sqlerrm);
+  end;
+
+  -- Cancelar de verdad la baja futura: permitido, y desactiva en bloque las excepciones que generó
+  -- (si generó alguna: el rango de un solo día puede haber caído sobre un slot inexistente ese día
+  -- de la semana en algún entorno atípico, `coalesce` lo trata como "nada que desactivar").
+  begin
+    select * into v_baja_row from public.cancelar_baja_profesor(v_baja_futura, '__prueba_rls__cancelada');
+    select bool_and(not activo) into v_todas_inactivas from public.excepcion_slot where baja_profesor_id = v_baja_futura;
+    perform pg_temp.registrar(
+      'cancelar_baja_profesor / administrator cancela una baja futura y desactiva sus excepciones', 'permitido',
+      v_baja_row.estado = 'anulada' and coalesce(v_todas_inactivas, true)
+    );
+  exception when others then
+    perform pg_temp.registrar('cancelar_baja_profesor / administrator cancela una baja futura y desactiva sus excepciones', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher no puede acortar.
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.acortar_baja_profesor(v_baja_encurso, v_hoy + 1);
+    perform pg_temp.registrar('acortar_baja_profesor / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se acortó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('acortar_baja_profesor / teacher no puede llamar (debe fallar)', array['%solo un administrador puede acortar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Nueva fecha de fin no anterior a la actual (hoy+8): rechazado (eso dejaría igual, nunca acortaría).
+  begin
+    perform public.acortar_baja_profesor(v_baja_encurso, v_hoy + 8);
+    perform pg_temp.registrar('acortar_baja_profesor / nueva fecha no anterior a la actual (debe fallar)', 'prohibido', false, 'se acortó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('acortar_baja_profesor / nueva fecha no anterior a la actual (debe fallar)', array['%debe ser anterior a la fecha de fin actual%'], sqlerrm);
+  end;
+
+  -- Acortar de verdad, a hoy+7: la excepción de hoy+8 (v_exc_fuera_id, fecha > hoy+7) se desactiva;
+  -- la de hoy+7 (v_exc_dentro_id, fecha = hoy+7, no ES mayor que hoy+7) sigue activa.
+  begin
+    select * into v_baja_row from public.acortar_baja_profesor(v_baja_encurso, v_hoy + 7);
+    perform pg_temp.registrar(
+      'acortar_baja_profesor / administrator acorta una baja en curso y desactiva solo la excepción fuera de rango', 'permitido',
+      v_baja_row.fecha_fin = v_hoy + 7
+      and not (select activo from public.excepcion_slot where id = v_exc_fuera_id)
+      and (select activo from public.excepcion_slot where id = v_exc_dentro_id)
+    );
+  exception when others then
+    perform pg_temp.registrar('acortar_baja_profesor / administrator acorta una baja en curso y desactiva solo la excepción fuera de rango', 'permitido', false, sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- Lectura (requisito 8): teacher no ve ninguna fila de baja_profesor, ni siquiera las que le
+  -- afectan a él como titular — a diferencia de excepcion_slot/pausa_alumno, aquí no hay ninguna
+  -- política de teacher.
+  perform pg_temp.impersonar('teacher');
+  begin
+    select count(*) into v_n from public.baja_profesor where profesor_id = v_teacher_id;
+    perform pg_temp.registrar('baja_profesor / teacher no lee ninguna fila', 'prohibido', v_n = 0);
+  exception when others then
+    perform pg_temp.registrar('baja_profesor / teacher no lee ninguna fila', 'prohibido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- administrator lee todas las bajas del profesor (al menos las tres que ha declarado esta sección).
+  perform pg_temp.impersonar('administrator');
+  begin
+    select count(*) into v_n from public.baja_profesor where profesor_id = v_teacher_id;
+    perform pg_temp.registrar('baja_profesor / administrator lee las bajas del profesor', 'permitido', v_n >= 3);
+  exception when others then
+    perform pg_temp.registrar('baja_profesor / administrator lee las bajas del profesor', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+end $$;
+
+
+
+-- ---------------------------------------------------------------------
 -- 9. Resultado final — lo único que ve `herramientas/probarRls.ts`.
 --    NUNCA se llega a un commit: los datos de prueba desaparecen aunque
 --    todo haya salido bien.

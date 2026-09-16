@@ -182,6 +182,14 @@ export function puedeGestionarPausasAlumno(rol: Rol): boolean {
   return rol === 'administrator';
 }
 
+/** Baja programada de un profesor (R-22): declarar, cancelar o acortar — la cuarta combinación de la
+ * matriz de excepciones (R-06/R-12/R-21), a nivel de profesor. Exclusivamente `administrator`
+ * (requisito 8) — mismo motivo que `puedeGestionarExcepcionesSlot`/`puedeGestionarPausasAlumno`: un
+ * `teacher` solo consulta el resultado en «Mi horario», nunca la declara. */
+export function puedeGestionarBajasProfesor(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
 /** Registro de auditoría de cambios (R-20): índice de centro completo de las modificaciones y
  * anulaciones de asistencia, sobre `asistencia_historial` (lectura ya reservada a `administrator`
  * desde T-10). Exclusivamente `administrator` (requisito 6) — un `teacher` ya ve, registro a

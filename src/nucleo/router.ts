@@ -83,7 +83,12 @@ export type Ruta =
   | { readonly nombre: 'panel' }
   | { readonly nombre: 'informe-horas' }
   | { readonly nombre: 'primeros-pasos' }
-  | { readonly nombre: 'auditoria' };
+  | { readonly nombre: 'auditoria' }
+  /** `profesorId` opcional (`#/bajas-profesor[/<profesorId>]`, R-22) — solo sirve para que la
+   * gestión de usuarios (T-24, `pantallaUsuarios.ts`) enlace directo a la baja de UN profesor ya
+   * elegido, sin obligar a esta pantalla a exigir nada nuevo a quien navegue sin él (arranca
+   * igual, "elige un profesor…"). Mismo criterio que `profesorId` opcional de la ruta `registros`. */
+  | { readonly nombre: 'bajas-profesor'; readonly profesorId?: string };
 
 const RUTA_POR_DEFECTO: Ruta = { nombre: 'alumnos' };
 
@@ -117,6 +122,9 @@ export function analizarRuta(hash: string): Ruta {
   }
   if (primero === 'auditoria') {
     return { nombre: 'auditoria' };
+  }
+  if (primero === 'bajas-profesor') {
+    return segundo === undefined ? { nombre: 'bajas-profesor' } : { nombre: 'bajas-profesor', profesorId: decodeURIComponent(segundo) };
   }
   if (primero === 'historico') {
     return segundo === undefined ? { nombre: 'historico' } : { nombre: 'historico', alumnoId: decodeURIComponent(segundo) };
@@ -189,6 +197,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/primeros-pasos';
     case 'auditoria':
       return '#/auditoria';
+    case 'bajas-profesor':
+      return ruta.profesorId === undefined ? '#/bajas-profesor' : `#/bajas-profesor/${encodeURIComponent(ruta.profesorId)}`;
   }
 }
 

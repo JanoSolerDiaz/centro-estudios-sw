@@ -206,6 +206,35 @@ export async function listarRegistrosDeSlotsYFecha(
     .seleccionar();
 }
 
+/** Registros de VARIOS slots cuyo `ocurrido_en` cae en el rango `[desde, hasta]` (ambos días
+ * naturales completos, `limitesDiaLocal`) — R-22, vista previa de la baja programada de un profesor
+ * (`dominio/bajaProfesor.ts#combinacionesBajaProfesor`): necesita saber, de una sola vez y para TODOS
+ * los slots del profesor, qué combinaciones (slot, día) ya tienen algún registro, para excluirlas de
+ * la creación en bloque (requisito 3 de R-22) en vez de dejar que cada una falle contra la RPC. Mismo
+ * alcance de RLS que `listarRegistrosDeSlotsYFecha`: CUALQUIER estado, incluidos los anulados — a
+ * quien llama (`combinacionesBajaProfesor`) le basta con que exista la fila, no con su estado. Sin
+ * petición si `slotIds` está vacío. */
+export async function listarRegistrosDeSlotsEnRango(
+  cliente: ClientePostgrest,
+  slotIds: readonly string[],
+  desde: Date,
+  hasta: Date,
+  zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO,
+): Promise<readonly Asistencia[]> {
+  if (slotIds.length === 0) {
+    return [];
+  }
+  const { inicioUtc } = limitesDiaLocal(desde, zonaHoraria);
+  const { finUtc } = limitesDiaLocal(hasta, zonaHoraria);
+  return cliente
+    .desde<Asistencia>(TABLA)
+    .in('slot_id', slotIds)
+    .gte('ocurrido_en', inicioUtc.toISOString())
+    .lte('ocurrido_en', new Date(finUtc.getTime() - 1).toISOString())
+    .order('ocurrido_en', { descendente: false })
+    .seleccionar();
+}
+
 /** Registros ya válidos de `profesorId` cuyo `ocurrido_en` cae en el día natural (`limitesDiaLocal`,
  * `dominio/slots.ts`) que contiene `instante` — una única petición a PostgREST (T-19, requisito 5:
  * "al abrir, ya se ve quién está registrado hoy en ese slot"; §0.2, "las URL firmadas de una

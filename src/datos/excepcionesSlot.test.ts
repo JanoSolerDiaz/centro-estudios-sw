@@ -8,6 +8,7 @@ import {
   listarExcepcionesDeSlot,
   listarExcepcionesDelDiaParaProfesor,
   listarExcepcionesDeProfesorEnRango,
+  listarExcepcionesActivasDeSlotsEnRango,
   registrarAvisoCancelacionSlot,
 } from './excepcionesSlot.ts';
 import { SinPermiso } from './erroresDominio.ts';
@@ -173,6 +174,37 @@ void test('listarExcepcionesDeProfesorEnRango filtra por fecha entre desde y has
   assert.equal(url.searchParams.get('activo'), 'eq.true');
   assert.deepEqual(url.searchParams.getAll('fecha'), ['gte.2026-08-31', 'lte.2026-09-07']);
   assert.deepEqual(filas, [SUSTITUCION]);
+});
+
+void test('listarExcepcionesActivasDeSlotsEnRango: una sola petición con "in" para varios slots, activo=eq.true y fecha entre desde y hasta (R-22)', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [SUSTITUCION] };
+  });
+
+  const filas = await listarExcepcionesActivasDeSlotsEnRango(cliente, ['slot1', 'slot2'], '2026-09-21', '2026-09-25');
+
+  assert.ok(peticion);
+  const url = new URL(peticion.url);
+  assert.equal(url.pathname, '/rest/v1/excepcion_slot');
+  assert.equal(url.searchParams.get('slot_id'), 'in.(slot1,slot2)');
+  assert.equal(url.searchParams.get('activo'), 'eq.true');
+  assert.deepEqual(url.searchParams.getAll('fecha'), ['gte.2026-09-21', 'lte.2026-09-25']);
+  assert.deepEqual(filas, [SUSTITUCION]);
+});
+
+void test('listarExcepcionesActivasDeSlotsEnRango: sin slotIds, ninguna petición y lista vacía', async () => {
+  let llamadas = 0;
+  const cliente = crearCliente(() => {
+    llamadas += 1;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const filas = await listarExcepcionesActivasDeSlotsEnRango(cliente, [], '2026-09-21', '2026-09-25');
+
+  assert.equal(llamadas, 0);
+  assert.deepEqual(filas, []);
 });
 
 void test('registrarAvisoCancelacionSlot llama a la RPC registrar_aviso_cancelacion_slot con el id y quien (R-14)', async () => {

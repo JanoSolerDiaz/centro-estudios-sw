@@ -178,6 +178,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   (`registrar_asistencia`/`registrar_ausencia`) se sustituye — decisión razonada en
   `DECISIONES_TECNICAS.md`. `permisosUi.ts` añade `puedeGestionarPausasAlumno` (exclusiva de
   `administrator`).
+  Desde R-22: `bajaProfesor.ts` (nuevo) — cuarta combinación de la matriz de excepciones (R-06/R-12/
+  R-21), a nivel de profesor y varios días. `rangoBajaValido` (mismo criterio que `rangoPausaValido`),
+  `claveCombinacionBaja(slotId, fecha)` (clave estable para indexar exclusiones) y
+  `combinacionesBajaProfesor(...)` — vista previa pura (mismo espíritu que R-08): itera día a día el
+  rango, cruza cada slot del profesor por `dia_semana`/vigencia, y marca excluida cada combinación que
+  ya tiene asistencia o una excepción activa ese día, sin tocar la red. `puedeCancelarBaja`/
+  `puedeAcortarBaja`/`categoriaBaja` (mismos criterios que sus homólogos de `pausaAlumno.ts`).
+  `permisosUi.ts` añade `puedeGestionarBajasProfesor` (exclusiva de `administrator`). La confirmación
+  real (crear las excepciones de verdad) no es cliente: es la RPC `declarar_baja_profesor`
+  (`db/018_baja_profesor.sql`), que reutiliza `declarar_excepcion_slot` (R-06) internamente por cada
+  combinación — ver `datos/bajasProfesor.ts` más abajo.
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -271,6 +282,18 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     servidor). `listarPausasDeAlumno` (cualquier estado, para el bloque de la ficha de alumno) y
     `listarPausasActivasDeAlumnos`/`listarPausasActivasDeMisAlumnos` (activas, en lote o acotadas por
     RLS al `teacher` que llama, para pasar lista/«Mi horario»/panel de centro) son consultas directas.
+  - `bajasProfesor.ts` (R-22, nuevo) — `declararBajaProfesor` llama a la RPC `declarar_baja_profesor`
+    (`db/018_baja_profesor.sql`) y APLANA su resultado (columnas `out_*`, ver la cabecera de esa
+    migración) a `FilaResultadoBajaProfesor` en camelCase; `cancelarBajaProfesor`/`acortarBajaProfesor`
+    completan las tres RPC, mismo motivo de opacidad que `excepcionesSlot.ts`/`pausasAlumno.ts`.
+    `listarBajasDeProfesor` (cualquier estado, para la pantalla de gestión) y `listarExcepcionesDeBaja`
+    (las filas de `excepcion_slot` con ese `baja_profesor_id`, para listarlas/mostrarlas agrupadas) son
+    consultas directas — RLS reserva `baja_profesor` a `administrator`, sin ninguna política de
+    `teacher` (a diferencia de `excepcion_slot`/`pausa_alumno`: el profesor ve el EFECTO, nunca la baja
+    en sí). `asistencia.ts` gana `listarRegistrosDeSlotsEnRango` y `excepcionesSlot.ts` gana
+    `listarExcepcionesActivasDeSlotsEnRango` — mismo patrón que sus homólogas de un único día/varios
+    slots, pero acotadas a un rango de fechas, para que la vista previa de `dominio/bajaProfesor.ts`
+    pueda calcular exclusiones sin una petición por día.
   - `usuarios.ts` (T-24, nuevo) — `listarUsuarios`/`actualizarUsuario` sobre `perfil` directamente
     (sin RPC: el `UPDATE` de `administrator` sobre cualquier fila ya estaba concedido y aislado por
     RLS desde el bootstrap). `actualizarUsuario` combina nombre/rol/activo en una llamada parcial
@@ -453,8 +476,8 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08, R-11, R-19 y
-    R-20) — dos routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)`
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08, R-11, R-19, R-20 y
+    R-22) — dos routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)`
     (puras) sobre un motor interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)`
     para `administrator` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`,
     `#/registros[/<profesorId>[/<slotId>[/<fecha>]]]` — los tres segmentos, opcionales y solo
@@ -933,6 +956,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     migración nuevas (`Migración: No` en la spec). Exclusiva de `administrator`
     (`puedeVerRegistroAuditoria`). Enrutada como `#/auditoria`, con botón "Auditoría" en la barra de
     navegación.
+  - `pantallaBajasProfesor.ts` (R-22, nuevo) — `mostrarPantallaBajasProfesor(contenedor, deps)`: elegir
+    un profesor (o llegar con uno preseleccionado desde `pantallaUsuarios.ts`, botón "Declarar baja
+    programada" sobre la fila de un `teacher`), declarar una baja (fecha de inicio/fin, tipo,
+    sustituto/motivo según tipo), vista previa OBLIGATORIA antes de confirmar (`dominio/bajaProfesor.ts#
+    combinacionesBajaProfesor`, mismo espíritu que R-08) y listar/cancelar/acortar/ver las excepciones
+    generadas de las bajas ya declaradas. La vista previa se invalida (`snapshotVistaPrevia` deja de
+    coincidir con el formulario actual) en cuanto cambia cualquier campo — los campos de fecha, el
+    `<select>` de tratamiento y el de sustituto disparan un repintado en su evento `change` (nunca
+    `input`, para no perder el punto de edición en cada tecla); el motivo de la cancelación hace lo
+    mismo. `confirmarBaja` repite la comprobación de coherencia como guarda funcional además de la
+    visual del botón deshabilitado (defensa en profundidad, mismo criterio que el resto del proyecto).
+    Exclusiva de `administrator` (`puedeGestionarBajasProfesor`). Enrutada como
+    `#/bajas-profesor[/<profesorId>]`, con botón "Bajas de profesor" en la barra de navegación.
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

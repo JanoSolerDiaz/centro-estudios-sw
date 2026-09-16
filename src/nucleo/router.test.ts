@@ -73,6 +73,18 @@ void test('analizarRuta: "#/auditoria" es el registro de auditoría de cambios (
   assert.deepEqual(analizarRuta('#/auditoria'), { nombre: 'auditoria' });
 });
 
+void test('analizarRuta: "#/bajas-profesor" es la pantalla de bajas programadas de profesor (R-22)', () => {
+  assert.deepEqual(analizarRuta('#/bajas-profesor'), { nombre: 'bajas-profesor' });
+});
+
+void test('analizarRuta: "#/bajas-profesor/<profesorId>" preselecciona el profesor (R-22, enlace desde usuarios)', () => {
+  assert.deepEqual(analizarRuta('#/bajas-profesor/prof-1'), { nombre: 'bajas-profesor', profesorId: 'prof-1' });
+});
+
+void test('analizarRuta: "#/bajas-profesor/<profesorId>" decodifica el id', () => {
+  assert.deepEqual(analizarRuta('#/bajas-profesor/uno%20dos'), { nombre: 'bajas-profesor', profesorId: 'uno dos' });
+});
+
 void test('analizarRuta: "#/historico" es la pantalla de histórico (T-23)', () => {
   assert.deepEqual(analizarRuta('#/historico'), { nombre: 'historico' });
 });
@@ -132,6 +144,8 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'informe-horas' },
     { nombre: 'primeros-pasos' },
     { nombre: 'auditoria' },
+    { nombre: 'bajas-profesor' },
+    { nombre: 'bajas-profesor', profesorId: 'prof-1' },
   ];
   for (const ruta of rutas) {
     assert.deepEqual(analizarRuta(hashDeRuta(ruta)), ruta);

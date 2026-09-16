@@ -369,3 +369,43 @@ void test('un error del servidor al aplicar un cambio se muestra sin perder la f
   assert.match(zonaError.textContent, /No tienes permiso/);
   assert.match(contenedor.textContent, /Pedro Profesor/);
 });
+
+void test('con irABajaProfesor informado, la fila de un teacher ofrece "Declarar baja programada" y navega con su id (R-22)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let idRecibido: string | undefined;
+  mostrarPantallaUsuarios(
+    contenedor,
+    crearDepsFalsas({
+      listarUsuarios: () => Promise.resolve([TEACHER, ADMIN]),
+      irABajaProfesor: (id) => {
+        idRecibido = id;
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  const botones = Array.from(contenedor.querySelectorAll('button')).filter((b) => b.textContent === 'Declarar baja programada');
+  assert.equal(botones.length, 1);
+  botones[0]?.click();
+
+  assert.equal(idRecibido, TEACHER.id);
+});
+
+void test('sin irABajaProfesor, ninguna fila ofrece "Declarar baja programada"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaUsuarios(contenedor, crearDepsFalsas({ listarUsuarios: () => Promise.resolve([TEACHER, ADMIN]) }));
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Declarar baja programada/);
+});
+
+void test('la fila de un administrator nunca ofrece "Declarar baja programada", aunque irABajaProfesor esté informado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaUsuarios(
+    contenedor,
+    crearDepsFalsas({ listarUsuarios: () => Promise.resolve([ADMIN]), irABajaProfesor: () => undefined }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Declarar baja programada/);
+});

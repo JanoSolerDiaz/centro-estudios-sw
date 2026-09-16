@@ -580,6 +580,74 @@ pausa, porque declararla ya lo impide, pero el ranking lo excluye igual si algun
 **Todavía sin aplicar en `dev`:** ver fila 20 de §3 de `SEGUIMIENTO.md` y la nota correspondiente en
 `db/APLICADAS.md`.
 
+## Baja programada de un profesor (`018_baja_profesor.sql`, R-22) — sin aplicar todavía
+
+La cuarta combinación de la matriz de excepciones: R-06 es un slot y un día, R-12 es todo el centro y
+un rango, R-21 es un alumno y un rango, y ésta es TODOS los slots de un profesor durante un rango de
+días — declarar de una vez que un profesor va a faltar una semana entera, en vez de crear la misma
+excepción de R-06 slot a slot, día a día.
+
+Tabla nueva, `baja_profesor`: `profesor_id` (el titular en baja), `fecha_inicio`/`fecha_fin` (`date`,
+ambas inclusive), `tipo`/`profesor_sustituto_id`/`motivo` (mismas dos reglas de coherencia que
+`excepcion_slot`, sección de arriba: sustitución exige sustituto, cancelación exige motivo — es el
+tratamiento POR DEFECTO que se aplica a cada combinación que genera), `estado` (`activa`/`anulada`,
+baja lógica, nunca `DELETE`) y `motivo_anulacion`/`anulado_por`/`anulado_en` (mismo `CHECK` de "los
+tres a la vez o ninguno" que `pausa_alumno`). `excepcion_slot` (sección de arriba) gana una columna
+nueva, `baja_profesor_id` — añadida por `ALTER TABLE` en ESTA migración, no editando `013`
+directamente: la columna referencia una tabla (`baja_profesor`) que no existe todavía cuando `013`
+se aplicaría, así que el precedente de `013` editando `010` (dos migraciones sin aplicar, la posterior
+modificando a la anterior) no vale aquí en la dirección contraria — decisión razonada en
+`DECISIONES_TECNICAS.md`.
+
+**Una sola RPC de escritura real, `declarar_baja_profesor(...)`, que orquesta la RPC de R-06 en vez de
+sustituirla o duplicarla** (requisito 2, literal: "ninguna RPC nueva de escritura de excepción... esta
+tarea solo orquesta llamadas repetidas a la ya existente"): en una única transacción, calcula qué
+combinaciones (slot, fecha) del profesor caen en el rango — un slot solo cuenta los días que coinciden
+con su propio día de la semana, y solo mientras esté vigente ese día concreto — y por cada una que NO
+tenga ya un registro de asistencia ni una excepción activa ese día (requisito 3) llama internamente a
+`declarar_excepcion_slot()` (R-06, `013`, sin tocarla) y marca la fila resultante con
+`baja_profesor_id`. Devuelve una fila por combinación EVALUADA (creada o excluida, con el motivo), o
+una única fila "centinela" con solo el id de la baja si el profesor no tenía ningún slot en el rango —
+así la pantalla informa el resultado exacto sin necesitar una segunda RPC de solo lectura. Las columnas
+de su `RETURNS TABLE` llevan el prefijo `out_` (`out_slot_id`, `out_fecha`, …): sin él coincidirían con
+columnas reales de `excepcion_slot`/`asistencia` que el cuerpo de la función consulta, y PL/pgSQL
+resolvería una comparación como `where slot_id = ...` contra la VARIABLE en vez de la columna
+(`column reference is ambiguous`, mismo síntoma exacto que ya tumbó `aplicar_limite_tasa()` al
+aplicarse `005` — arreglado en `006`) — decisión razonada en `DECISIONES_TECNICAS.md`.
+
+**`cancelar_baja_profesor(...)`/`acortar_baja_profesor(...)` (requisito 5) desactivan en bloque, con
+un `UPDATE` directo sobre `excepcion_slot` — no llamando a `desactivar_excepcion_slot()` fila a
+fila.** Cancelar solo procede si la baja todavía no ha empezado (`fecha_inicio > hoy`) y anula TODAS
+las excepciones que generó; acortar solo procede sobre una baja EN CURSO y anula solo las de
+`fecha > nueva_fecha_fin`. En los dos casos los días afectados son estrictamente futuros por
+construcción (`registrar_asistencia` nunca acepta un `ocurrido_en` futuro, T-18), así que la
+comprobación de "no reescribir historia" que protege `desactivar_excepcion_slot()` sería siempre
+`false` aquí — razonado en `DECISIONES_TECNICAS.md`.
+
+**Políticas RLS: exclusivamente `administrator`, ni siquiera en lectura.** A diferencia de
+`excepcion_slot`/`pausa_alumno`, `baja_profesor` no tiene ninguna política de `teacher`: un profesor
+nunca necesita leer la baja como registro propio, ve su EFECTO (los huecos cubiertos o cancelados) a
+través de las políticas de `excepcion_slot` que ya existen desde `013`, sin ningún cambio en «Mi
+horario» (T-22) ni en pasar lista (T-19) — cada excepción que genera una baja es una fila de
+`excepcion_slot` normal y corriente.
+
+**Un día suelto dentro de una baja admite un tratamiento distinto sin ningún código nuevo (requisito
+6):** la excepción de slot de ese día sigue siendo una `excepcion_slot` cualquiera, editable con el
+mismo mecanismo de siempre (desactivar + declarar de nuevo) desde «Registros» (T-21, R-06) — solo que
+sigue apuntando a la misma baja por `baja_profesor_id`, así que se sigue listando/cancelando junto al
+resto aunque su `tipo`/sustituto/motivo ya no coincida con el de la baja.
+
+**Verificación excepcional de esta migración: ejecutada de verdad contra una base PostgreSQL local
+DESECHABLE de esta sesión** (sin ninguna credencial de Supabase, borrada al terminar) — no sustituye
+la verificación real del dueño contra `dev` (fila 21 de §3 de `SEGUIMIENTO.md`), pero confirmó que la
+tabla, las políticas y las tres RPC se crean sin error sobre `013` ya aplicada, y que los cinco casos
+de rechazo, la exclusión por asistencia y por duplicado, el marcado `baja_profesor_id` y la
+desactivación en bloque de cancelar/acortar se comportan exactamente como se diseñaron. Detalle
+completo en `DECISIONES_TECNICAS.md`.
+
+**Todavía sin aplicar en `dev`:** ver fila 21 de §3 de `SEGUIMIENTO.md` y la nota correspondiente en
+`db/APLICADAS.md`. Depende de `013_excepcion_slot.sql`, también sin aplicar todavía.
+
 ## Calendario de cierres del centro (`014_calendario_cierres.sql`, R-12)
 
 Tabla nueva, `cierre_centro`: `fecha_inicio`/`fecha_fin` (`date`, ambos inclusive — puede coincidir

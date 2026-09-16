@@ -10,27 +10,31 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-15 (rutina programada de programador: sin trabajo accionable tras
-R-21, cuarta pasada). HEAD idéntico al de la pasada anterior (`fc9cf4c`, sin ningún commit nuevo
-entre medias): se repite la misma comprobación de los tres indicadores y da el mismo resultado.
-Revisado primero `auditoriacontinua.md` (protocolo §0.3): última pasada sigue siendo `2963bfe`
-(2026-09-15, anterior a la implementación de R-21), sin pasada nueva desde entonces — solo quedan
-**#8** (`ABIERTO`, alta, esperando al dueño en la pregunta #16 de §6, sin ninguna acción posible
-desde el código) y **#20** (`RESUELTO` 2026-09-15 por P-28); ninguno bloquea la columna vertebral ni
-exige una P-XX urgente. Comprobados los tres indicadores que desbloquearían trabajo (mismo criterio
-que las tres pasadas anteriores de hoy): **(1)** sin pasada nueva del auditor desde la implementación
-de R-21 (`454da97`); **(2)** sin respuesta nueva del dueño en §6 (las filas 7, 8, 9, 10, 11, 15, 16 y
-17 siguen con la columna «Respuesta» vacía, comprobado por lectura directa de las 17 preguntas); **(3)**
-`db/APLICADAS.md` sin cambio — `009` sigue siendo la última migración aplicada en `dev`, las ocho de
-las filas 13 a 20 de §3 (`010` a `017`) siguen `PENDIENTE`. Con los tres indicadores iguales, §1 sigue
-con cero `PENDIENTE`/`EN CURSO` (R-21 es la última R-XX de la Oleada v7, ya `BLOQUEADA` solo por la
-migración `017`) y §5 sin ninguna P-XX `PENDIENTE` (las 28 registradas están `RESUELTA`/`DESCARTADA`):
-no hay ninguna T-XX/R-XX/P-XX que ejecutar. Abrir una R-XX nueva (Oleada v8) es decisión del ciclo de
-PM, no de esta sesión de programador (mismo criterio que las sesiones del 2026-09-14 y las tres pasadas
-anteriores de hoy). Verificación pre-push completa ejecutada igualmente como comprobación de salud,
-sin ningún commit de código: `npm run typecheck`, `npm run lint`, `npm test` (**1678/1678**, sin
-cambio desde R-21) y `npm run build`, las cuatro en verde tras `npm ci` (130 paquetes, 0
-vulnerabilidades) — el contenedor arrancó otra vez sin `node_modules`.
+**Última actualización:** 2026-09-16 — **R-22 implementada** (Oleada v8, cuarta combinación de la
+matriz de excepciones: baja programada de un profesor, varios días, todos sus slots). Sin hallazgo
+`ABIERTO` de severidad alta con vía de acción desde el código (revisado `auditoriacontinua.md` §0.3
+primero: sigue solo **#8**, esperando al dueño en la pregunta #16 de §6). `declarar_baja_profesor`
+(`db/018_baja_profesor.sql`) calcula las combinaciones (slot, fecha) del rango y reutiliza
+`declarar_excepcion_slot` (R-06, `013`) por cada una que no tiene ya asistencia o excepción activa ese
+día, sin ninguna RPC nueva de escritura de excepción (requisito 2, literal); `cancelar_baja_profesor`/
+`acortar_baja_profesor` desactivan en bloque las excepciones generadas. Código y 60 tests nuevos
+(dominio `bajaProfesor.ts`, datos `bajasProfesor.ts` + dos funciones nuevas de rango en
+`asistencia.ts`/`excepcionesSlot.ts`, pantalla propia `pantallaBajasProfesor.ts` con vista previa
+obligatoria antes de confirmar —mismo patrón que R-08—, enlace desde `pantallaUsuarios.ts` sobre la
+fila de un `teacher`, ruta `#/bajas-profesor[/<profesorId>]`), 1719 en total (antes 1678). R-22 queda
+`BLOQUEADA` — pendiente aplicar `018` (fila 21 de §3), y antes que ella la `013` de R-06 (el runner
+aplica en orden numérico) —, mismo precedente que R-04/R-11/R-13/R-15/R-17/R-20/R-21: el código está
+completo y probado contra dobles, solo falta la migración. **Verificación excepcional de esta sesión:**
+la migración `018` completa (tabla, RLS, tres RPC) se ejecutó de verdad contra una base PostgreSQL 16
+LOCAL Y DESECHABLE (sin ninguna credencial de Supabase, `auth.users`/`auth.uid()` emulados a mano,
+base borrada y servicio detenido al terminar) — no sustituye la verificación real del dueño contra
+`dev`, pero confirmó los cinco casos de rechazo, la exclusión por asistencia y por duplicado, el
+marcado `baja_profesor_id` y la desactivación en bloque de cancelar/acortar, todos con el resultado
+exacto esperado; también permitió detectar y corregir en el sitio un riesgo real de ambigüedad de
+columna en PL/pgSQL (mismo síntoma que ya tumbó `aplicar_limite_tasa()` en `005`) antes de empujar el
+fichero. Detalle completo en `DECISIONES_TECNICAS.md` y `db/MODELO.md`. Verificación pre-push completa
+en verde: `npm run typecheck`, `npm run lint`, `npm test` (**1719/1719**) y `npm run build`, tras
+`npm ci` (130 paquetes, 0 vulnerabilidades).
 
 **Sesión anterior (2026-09-15, rutina programada de programador: R-21, pausa programada de un
 alumno).** Revisado primero `auditoriacontinua.md` (protocolo §0.3): sin pasada nueva desde `7477c26`
@@ -2701,7 +2705,7 @@ pantallas del requisito 2.
 | R-19 | Informe de horas propias para el profesor | COMPLETADA | 2026-09-11 | Oleada v5 / F-10 · Sin migración: depende de R-15 (`COMPLETADA`). `ui/pantallaMisHorasProfesor.ts` (nuevo) reutiliza tal cual `dominio/informeHorasProfesor.ts` (R-15), acotado a un único profesor (el propio) — sin selector de otro profesor ni ranking. Nueva `dominio/permisosUi.ts#puedeVerInformeHorasPropio` (exclusiva de `teacher`). Ruta `#/mis-horas` en `crearRouterProfesor` (`nucleo/router.ts`), botón "Mis horas" en la barra de navegación de `teacher`. 14 tests nuevos en total (1586 en total, antes 1572) |
 | R-20 | Registro de auditoría de cambios para el administrador | COMPLETADA | 2026-09-14 | Oleada v6 / F-11 · Sin migración: `asistencia_historial` ya existe y ya está reservada a `administrator` desde T-10. Nueva `datos/asistencia.ts#listarHistorialDeCentro` (mismo patrón que `listarHistoricoAsistencia` de T-23, paginada, filtro por rango de fechas —últimos 7 días por defecto— y por autor del cambio contra CUALQUIER perfil activo, no solo profesores). Pantalla nueva `ui/pantallaRegistroAuditoria.ts` (`#/auditoria`), exclusiva de `administrator` (`puedeVerRegistroAuditoria`). Cada fila con `slot_id` enlaza a «Registros» (T-21) con profesor/slot/fecha ya elegidos — `nucleo/router.ts` gana tres segmentos opcionales en `#/registros` de `administrator` y `pantallaRegistrosSlot.ts` gana `profesorIdInicial` (antes `slotInicialId`/`fechaInicial` no tenían efecto para `administrator`). 31 tests nuevos (1617 en total, antes 1586) |
 | R-21 | Pausa programada de un alumno | BLOQUEADA — pendiente aplicar migración `017` (fila 20 de §3) | 2026-09-15 | Oleada v7 / F-12 · Código y tests completos, contra dobles. Migración `017_pausa_alumno.sql` escrita y empujada, todavía sin aplicar — mismo patrón de opacidad (RPC `SECURITY DEFINER`, sin GRANT directo a `authenticated`) que `excepcion_slot` de R-06, decisión razonada en `DECISIONES_TECNICAS.md`: a diferencia de R-06, ninguna RPC existente (`registrar_asistencia`/`registrar_ausencia`) se sustituye — la pausa es solo un filtro de cliente sobre "quién se ofrece como pendiente" |
-| R-22 | Baja programada de un profesor: excepción en bloque para varios días | PENDIENTE | 2026-09-15 | Oleada v8 / F-13 · Especificada por el vigésimo segundo ciclo del PM — cuarta combinación de la matriz de excepciones (R-06/R-12/R-21), a nivel de profesor y varios días. Depende de R-06 (código-completa, bloqueada solo por migración `013`) |
+| R-22 | Baja programada de un profesor: excepción en bloque para varios días | BLOQUEADA — pendiente aplicar migración `018` (fila 21 de §3), y antes que ella la `013` de R-06 (el runner aplica en orden numérico) | 2026-09-16 | Oleada v8 / F-13 · Código y tests completos, contra dobles (1719 en total, antes 1678). Migración `018_baja_profesor.sql` escrita y empujada, todavía sin aplicar — depende de `013_excepcion_slot.sql` (también sin aplicar: R-06 sigue `BLOQUEADA`). `declarar_baja_profesor` reutiliza `declarar_excepcion_slot` (R-06) por cada combinación slot×fecha del rango, sin ninguna RPC nueva de escritura de excepción (requisito 2, literal). Verificación excepcional: la migración completa (tabla, RLS, tres RPC) se ejecutó de verdad contra una base PostgreSQL local desechable de esta sesión (sin ninguna credencial de Supabase, borrada al terminar) — no sustituye la verificación real del dueño contra `dev`, pero confirmó los cinco casos de rechazo, la exclusión por asistencia/duplicado, el marcado `baja_profesor_id` y la desactivación en bloque de cancelar/acortar. Detalle en `DECISIONES_TECNICAS.md` y `db/MODELO.md` |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 
@@ -2744,6 +2748,7 @@ pantallas del requisito 2.
 | 18 | Aplicar la migración `015_aviso_cancelacion_slot` en `dev`, **junto con** la fila 17 (`013`) | R-14 | `015` amplía `excepcion_slot`, que crea `013`: el runner no llegará a `015` mientras `013` siga pendiente, así que en la práctica ambas se aplican en la misma pasada de `npm run migrate` (orden numérico). No crea ninguna tabla nueva: solo dos columnas (`aviso_familias_quien`/`aviso_familias_en`) y una RPC (`registrar_aviso_cancelacion_slot`), así que no hay ningún barrido nuevo que añadir a las secciones 6/8f de `db/pruebas_rls.sql` (esas son por TABLA, y `excepcion_slot` ya está en las dos desde `013`). `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `15` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8l: administrator anota el aviso sobre una cancelación propia, teacher/student rechazados, quien vacío rechazado, y una sustitución rechazada por no admitir aviso) | PENDIENTE |
 | 19 | Aplicar la migración `016_resolver_profesor_por_email` en `dev` | R-08 | `016` no depende conceptualmente de ninguna migración anterior (no toca ninguna tabla, solo añade una función nueva que lee `auth.users`), pero el runner aplica siempre en orden numérico dentro de la misma invocación: quedará detrás de las filas 13-18 mientras sigan pendientes. `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `16` (o más, si `011`/`012`/`013`/`014`/`015` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección: administrator resuelve el email de un teacher activo, un email sin cuenta o de un administrator no devuelve ninguna fila sin error, teacher/student rechazados) | PENDIENTE |
 | 20 | Aplicar la migración `017_pausa_alumno` en `dev` | R-21 | `017` no depende conceptualmente de ninguna migración anterior (tabla nueva, sin relación con las columnas que añaden `010`-`016`), pero el runner aplica siempre en orden numérico dentro de la misma invocación: quedará detrás de las filas 13-19 mientras sigan pendientes. `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `17` (o más, si `011`-`016` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8n: administrator declara/cancela/acorta una pausa, teacher/student rechazados en las tres RPC, rango invertido rechazado, solape con un registro de asistencia existente rechazado, solape con otra pausa activa del mismo alumno rechazado, cancelar una pausa ya empezada rechazado, acortar una que todavía no ha empezado o a una fecha no anterior a la actual rechazado, teacher lee las pausas activas de sus propios alumnos y no las de otro profesor, administrator lee todas incluida una anulada; más `pausa_alumno` añadida a los barridos obligatorios de `student` —sección 6—, `TRUNCATE` —sección 5— y `anon` —sección 8f) | PENDIENTE |
+| 21 | Aplicar la migración `018_baja_profesor` en `dev`, **después** de la fila 17 (`013`) | R-22 | `018` depende de `013_excepcion_slot` (reutiliza su RPC `declarar_excepcion_slot` y añade una columna a su tabla `excepcion_slot`) — el runner aplica siempre en orden numérico dentro de la misma invocación, así que `013` entrará antes en la misma pasada. `git pull` y `npm run migrate` en local. Al terminar, comprobar que `esquema_version()` devuelve `18` (o más, si `010`-`012`/`014`-`017` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8o: administrator declara una baja de cancelación y otra de sustitución reutilizando `declarar_excepcion_slot`, teacher/student rechazados en las tres RPC, tipo inválido/sustituto igual al titular/cancelación sin motivo rechazados, un día con asistencia ya registrada queda excluido sin bloquear el resto, la excepción creada queda marcada con `baja_profesor_id`, cancelar una baja ya empezada rechazado, acortar con una fecha no anterior a la actual rechazado, cancelar/acortar desactivan en bloque las excepciones que generaron, `teacher` no lee ninguna fila de `baja_profesor` y `administrator` sí) | PENDIENTE |
 
 ---
 

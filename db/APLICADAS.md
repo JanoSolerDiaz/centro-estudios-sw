@@ -204,6 +204,30 @@ las de otro profesor; más `pausa_alumno` añadida a los barridos obligatorios d
 12) queda inafectada: `017` es posterior y no forma parte de las diez migraciones de su paso a
 producción.
 
+**`018_baja_profesor.sql`** (R-22, "baja programada de un profesor: excepción en bloque para varios
+días") — escrita y empujada a `develop` el 2026-09-16, todavía sin aplicar. Tabla nueva
+`baja_profesor` (RLS y políticas en el mismo fichero, exclusiva de lectura/escritura de
+`administrator` — a diferencia de `excepcion_slot`/`pausa_alumno`, sin ninguna política de `teacher`:
+ve el EFECTO de la baja, no la baja en sí) más columna nueva `excepcion_slot.baja_profesor_id`
+(añadida por `ALTER TABLE`, no editando `013`: ver el razonamiento completo en la cabecera del propio
+fichero) y tres RPC `SECURITY DEFINER` exclusivas de `administrator`: `declarar_baja_profesor`
+(calcula las combinaciones slot×fecha del rango y reutiliza `declarar_excepcion_slot` de R-06 tal
+cual para cada una que no tenga ya asistencia o excepción activa ese día, devolviendo una fila por
+combinación creada o excluida), `cancelar_baja_profesor` (solo si todavía no ha empezado, anula en
+bloque las excepciones que generó) y `acortar_baja_profesor` (solo sobre una baja en curso, anula las
+excepciones de los días que quedan fuera del nuevo rango). Depende de `013_excepcion_slot.sql`
+(también sin aplicar todavía — R-06 sigue `BLOQUEADA`): el runner aplica siempre en orden numérico,
+así que `013` entrará antes en la misma invocación. Qué debe ver el dueño al terminar: `git pull` +
+`npm run migrate` en local, comprobar que `esquema_version()` devuelve `18` (o más, si `010`-`012`/
+`014`-`017` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8o:
+administrator declara una baja de cancelación y otra de sustitución, teacher/student rechazados en
+las tres RPC, tipo inválido/sustituto igual al titular/motivo en sustitución rechazados, un día con
+asistencia ya registrada queda excluido sin bloquear el resto, cancelar una baja ya empezada
+rechazado, acortar una que todavía no ha empezado o que ya terminó rechazado, cancelar/acortar
+desactivan en bloque las excepciones generadas, administrator lee `baja_profesor` y teacher no).
+Fila 21 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `018` es posterior
+y no forma parte de las diez migraciones de su paso a producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

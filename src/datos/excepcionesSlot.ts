@@ -101,3 +101,21 @@ export async function listarExcepcionesDeProfesorEnRango(
 ): Promise<readonly ExcepcionSlot[]> {
   return cliente.desde<ExcepcionSlot>(TABLA).eq('activo', true).gte('fecha', desde).lte('fecha', hasta).seleccionar();
 }
+
+/** Todas las excepciones ACTIVAS de VARIOS slots a la vez cuya `fecha` cae en `[desde, hasta]` (R-22,
+ * vista previa de la baja programada de un profesor,
+ * `dominio/bajaProfesor.ts#combinacionesBajaProfesor`): a diferencia de
+ * `listarExcepcionesDeProfesorEnRango` (acotada por RLS a las del `teacher` que llama),
+ * `administrator` no tiene "las suyas" — necesita las de un profesor CONCRETO, así que este filtro es
+ * por `slot_id`, no por sesión. Con `slotIds` vacío no hace ninguna petición. */
+export async function listarExcepcionesActivasDeSlotsEnRango(
+  cliente: ClientePostgrest,
+  slotIds: readonly string[],
+  desde: string,
+  hasta: string,
+): Promise<readonly ExcepcionSlot[]> {
+  if (slotIds.length === 0) {
+    return [];
+  }
+  return cliente.desde<ExcepcionSlot>(TABLA).in('slot_id', slotIds).eq('activo', true).gte('fecha', desde).lte('fecha', hasta).seleccionar();
+}

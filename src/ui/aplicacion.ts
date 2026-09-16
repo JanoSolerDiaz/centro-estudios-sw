@@ -42,6 +42,7 @@ import {
   listarExcepcionesDeSlot,
   listarExcepcionesDelDiaParaProfesor,
   listarExcepcionesDeProfesorEnRango,
+  listarExcepcionesActivasDeSlotsEnRango,
   registrarAvisoCancelacionSlot,
 } from '../datos/excepcionesSlot.ts';
 import {
@@ -52,6 +53,7 @@ import {
   listarPausasActivasDeAlumnos,
   listarPausasActivasDeMisAlumnos,
 } from '../datos/pausasAlumno.ts';
+import { declararBajaProfesor, cancelarBajaProfesor, acortarBajaProfesor, listarBajasDeProfesor, listarExcepcionesDeBaja } from '../datos/bajasProfesor.ts';
 import {
   listarAlumnos,
   obtenerAlumno,
@@ -92,6 +94,7 @@ import {
   marcarSalidaAsistencia,
   listarRegistrosDeSlotYFecha,
   listarRegistrosDeSlotsYFecha,
+  listarRegistrosDeSlotsEnRango,
   listarHistorialDeAsistencia,
   listarHistorialDeCentro,
   listarHistoricoAsistencia,
@@ -118,6 +121,7 @@ import { mostrarPantallaInformeHorasProfesor } from './pantallaInformeHorasProfe
 import { mostrarPantallaMisHorasProfesor } from './pantallaMisHorasProfesor.ts';
 import { mostrarPantallaAsistentePrimerosPasos } from './pantallaAsistentePrimerosPasos.ts';
 import { mostrarPantallaRegistroAuditoria } from './pantallaRegistroAuditoria.ts';
+import { mostrarPantallaBajasProfesor } from './pantallaBajasProfesor.ts';
 import { crearBoton } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
@@ -232,6 +236,10 @@ function mostrarAppAdministrador(
   enlaceUsuarios.addEventListener('click', () => {
     router.navegar({ nombre: 'usuarios' });
   });
+  const enlaceBajasProfesor = crearBoton(documento, 'Bajas de profesor', 'button');
+  enlaceBajasProfesor.addEventListener('click', () => {
+    router.navegar({ nombre: 'bajas-profesor' });
+  });
   const enlaceCierres = crearBoton(documento, 'Cierres', 'button');
   enlaceCierres.addEventListener('click', () => {
     router.navegar({ nombre: 'cierres' });
@@ -260,6 +268,7 @@ function mostrarAppAdministrador(
     enlaceRegistros,
     enlaceHistorico,
     enlaceUsuarios,
+    enlaceBajasProfesor,
     enlaceCierres,
     enlaceImportacion,
     enlaceInformeHoras,
@@ -380,6 +389,27 @@ function mostrarAppAdministrador(
         rol: perfil.rol,
         listarUsuarios: (opciones) => listarUsuarios(app.postgrest, opciones),
         actualizarUsuario: (id, cambios) => actualizarUsuario(app.postgrest, id, cambios),
+        irABajaProfesor: (profesorId) => {
+          router.navegar({ nombre: 'bajas-profesor', profesorId });
+        },
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'bajas-profesor') {
+      mostrarPantallaBajasProfesor(areaPantalla, {
+        rol: perfil.rol,
+        reloj: app.reloj,
+        ...(ruta.profesorId !== undefined ? { profesorIdInicial: ruta.profesorId } : {}),
+        listarProfesoresActivos: () => listarProfesoresActivos(app.postgrest),
+        listarSlotsDeProfesor: (profesorId) => listarSlotsDeProfesores(app.postgrest, [profesorId]),
+        listarRegistrosEnRango: (slotIds, desde, hasta) => listarRegistrosDeSlotsEnRango(app.postgrest, slotIds, desde, hasta),
+        listarExcepcionesActivasEnRango: (slotIds, desde, hasta) => listarExcepcionesActivasDeSlotsEnRango(app.postgrest, slotIds, desde, hasta),
+        declararBaja: (entrada) => declararBajaProfesor(app.postgrest, entrada),
+        listarBajasDeProfesor: (profesorId) => listarBajasDeProfesor(app.postgrest, profesorId),
+        cancelarBaja: (bajaId, motivo) => cancelarBajaProfesor(app.postgrest, bajaId, motivo),
+        acortarBaja: (bajaId, nuevaFechaFin) => acortarBajaProfesor(app.postgrest, bajaId, nuevaFechaFin),
+        listarExcepcionesDeBaja: (bajaId) => listarExcepcionesDeBaja(app.postgrest, bajaId),
       });
       return;
     }

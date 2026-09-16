@@ -37,6 +37,64 @@
 
 ---
 
+### Sesión 2026-09-16 (rutina programada de programador) — R-22: baja programada de un profesor
+
+**Tarea(s):** R-22 (Oleada v8/F-13) — cuarta combinación de la matriz de excepciones (R-06/R-12/R-21),
+a nivel de profesor y varios días
+**Estado resultante:** R-22 pasa de `PENDIENTE` a `BLOQUEADA — pendiente aplicar migración 018` (fila
+21 de §3), mismo precedente que R-04/R-11/R-13/R-15/R-17/R-20/R-21: código y tests completos, contra
+dobles, solo falta que el dueño aplique la migración
+**Commits a `develop`:** este, con todo el código, la migración y la documentación de la tarea
+**Migraciones aplicadas:** ninguna en `dev`/`prod` (§0.1: el agente nunca aplica DDL). Escrita y
+empujada `db/018_baja_profesor.sql`, pendiente — depende de `013_excepcion_slot.sql` (también sin
+aplicar, R-06 sigue `BLOQUEADA`). Verificación excepcional: la migración completa se ejecutó de verdad
+contra una base PostgreSQL 16 local y desechable de esta sesión (sin ninguna credencial de Supabase,
+`auth.users`/`auth.uid()` emulados a mano, base borrada y servicio detenido al terminar) — no
+sustituye la verificación real del dueño contra `dev`, pero confirmó los cinco casos de rechazo, la
+exclusión por asistencia y por duplicado, el marcado `baja_profesor_id` y la desactivación en bloque
+de cancelar/acortar, todos con el resultado exacto esperado
+**Propagación a prod pendiente:** ninguna nueva (`018` es posterior a las diez migraciones del paso a
+producción de T-25)
+**Archivos creados/modificados:** `db/018_baja_profesor.sql` (nueva); `db/pruebas_rls.sql` (sección 8o
+nueva); `db/APLICADAS.md` (nota de pendiente); `db/MODELO.md` (sección nueva); `src/dominio/tipos.ts`
+(`BajaProfesor`/`EstadoBajaProfesor`); `src/dominio/bajaProfesor.ts` + test (nuevos); `src/dominio/permisosUi.ts`
++ test (`puedeGestionarBajasProfesor`); `src/datos/bajasProfesor.ts` + test (nuevos); `src/datos/asistencia.ts`
++ test (`listarRegistrosDeSlotsEnRango`); `src/datos/excepcionesSlot.ts` + test
+(`listarExcepcionesActivasDeSlotsEnRango`); `src/nucleo/router.ts` + test (ruta `bajas-profesor`);
+`src/ui/pantallaBajasProfesor.ts` + test (nueva pantalla); `src/ui/pantallaUsuarios.ts` + test (enlace
+`irABajaProfesor` sobre la fila de un `teacher`); `src/ui/aplicacion.ts` (ruta, nav, wiring);
+`roadmap/SEGUIMIENTO.md` (cabecera, fila R-22 en §1, fila 21 en §3); `roadmap/DECISIONES_TECNICAS.md`
+(seis filas nuevas + matriz rol×tabla×operación); `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1719/1719, antes 1678) · build ✅, tras
+`npm ci` (130 paquetes, 0 vulnerabilidades)
+**Health check post-deploy:** N/A — sin cambio de esquema aplicado, nada que comprobar en un entorno
+real
+**Decisiones tomadas:** seis filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-16, R-22): una única RPC
+orquestadora que reutiliza `declarar_excepcion_slot` en vez de una orquestación de cliente estilo R-08;
+el prefijo `out_` en las columnas de `RETURNS TABLE` para evitar la ambigüedad de columna de PL/pgSQL
+(mismo síntoma que ya tumbó `aplicar_limite_tasa()` en `005`); `ALTER TABLE` para `baja_profesor_id` en
+vez de editar `013` (la columna referencia una tabla que `013` no puede conocer, al ser numéricamente
+anterior); sin política de lectura de `teacher` sobre `baja_profesor` (el efecto ya es visible vía
+`excepcion_slot`); desactivación en bloque con `UPDATE` directo en cancelar/acortar en vez de
+`desactivar_excepcion_slot()` fila a fila (los días afectados son siempre futuros por construcción); y
+la verificación excepcional contra una base local desechable. Matriz rol×tabla×operación ampliada con
+la fila de `baja_profesor` y la mención de `018` en la de `excepcion_slot`
+**Hallazgos del auditor atendidos:** revisada `auditoriacontinua.md` (protocolo §0.3) antes de elegir
+tarea — sigue solo **#8** `ABIERTO` (dato de salud del art. 9 RGPD en R-02, esperando al dueño en la
+pregunta #16 de §6, sin ninguna vía de acción desde el código); ninguna P-XX urgente que atender antes
+de la cola normal
+**Tareas autopropuestas (P-XX):** ninguna — nada nuevo que registrar en §5 esta sesión
+**Hallazgos:** ninguno de código nuevo. Al escribir el cuerpo de `declarar_baja_profesor` se identificó
+y corrigió en el sitio, antes de empujar, un riesgo real de ambigüedad de columna en PL/pgSQL (`RETURNS
+TABLE` con columnas del mismo nombre que columnas reales consultadas dentro del cuerpo) — no llegó a
+existir en ningún commit, así que no se registra como P-XX, pero queda documentado en
+`DECISIONES_TECNICAS.md` como lección para cualquier RPC futura con la misma forma
+**Próximo paso:** cuando el dueño aplique `013` y `018` (`npm run migrate` + `npm run probar-rls`,
+filas 17 y 21 de §3) y confirme, R-22 pasa a `COMPLETADA`. Sin ninguna R-XX nueva pendiente de código
+en la Oleada v8 (F-13 solo tenía a R-22); abrir una Oleada v9 es decisión del ciclo de PM
+
+---
+
 ### Sesión 2026-09-15 (rutina programada de producto) — vigésimo segundo ciclo del PM: R-22 abre la Oleada v8
 
 **Tarea(s):** gestión de roadmap de producto (ninguna T-XX/R-XX/P-XX de código)

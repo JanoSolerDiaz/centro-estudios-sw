@@ -28,6 +28,11 @@ export interface DependenciasPantallaUsuarios {
   readonly rol: Rol;
   listarUsuarios(opciones: OpcionesListarUsuarios): Promise<readonly Perfil[]>;
   actualizarUsuario(id: string, cambios: CambiosUsuario): Promise<Perfil>;
+  /** Enlace directo a la baja programada de un profesor (R-22, requisito 1: "desde la gestión de
+   * profesores"), ofrecido solo sobre las filas de rol `teacher`. Opcional: sin ella, la fila no
+   * ofrece el botón — mismo criterio que las operaciones de escritura opcionales de
+   * `pantallaCierresCentro.ts`. */
+  irABajaProfesor?(profesorId: string): void;
 }
 
 const ROLES: readonly Rol[] = ['administrator', 'teacher', 'student'];
@@ -158,6 +163,14 @@ export function mostrarPantallaUsuarios(contenedor: HTMLElement, deps: Dependenc
       });
     });
     fila.append(selectRol);
+
+    if (usuario.rol === 'teacher' && deps.irABajaProfesor) {
+      const botonBaja = crearBoton(documento, 'Declarar baja programada', 'button');
+      botonBaja.addEventListener('click', () => {
+        deps.irABajaProfesor?.(usuario.id);
+      });
+      fila.append(botonBaja);
+    }
 
     if (idConfirmandoDesactivar === usuario.id) {
       const avisoEl = documento.createElement('span');
