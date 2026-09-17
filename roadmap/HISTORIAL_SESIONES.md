@@ -37,6 +37,38 @@
 
 ---
 
+### Sesión 2026-09-17 (rutina programada de programador, tercera pasada sin trabajo accionable tras R-23)
+
+**Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
+**Estado resultante:** sin cambio en §1 (cero `PENDIENTE`/`EN CURSO`; R-23 sigue `COMPLETADA`; el
+resto de R-XX bloqueadas por migración sin cambio) ni en §5 (las 29 filas siguen
+`RESUELTA`/`IMPLEMENTADA`, ninguna `PENDIENTE`)
+**Commits a `develop`:** ver commit de esta sesión (solo actualización de bitácora, sin código)
+**Migraciones aplicadas:** ninguna — `db/APLICADAS.md` sigue con `009` como última aplicada; las
+nueve de las filas 13 a 21 de §3 (`010` a `018`) siguen `PENDIENTE`, más la fila 12 (T-25)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera únicamente),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1734/1734, sin cambio desde R-23) · build ✅
+— tras `npm ci` (130 paquetes, 0 vulnerabilidades; el contenedor arrancó otra vez sin `node_modules`)
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva del auditor desde `229f98a`
+(2026-09-17, la misma que ya revisaron las dos sesiones anteriores de hoy). **#21** sigue `ABIERTO`
+en el registro del auditor por diseño (el programador no lo edita), pero ya quedó atendido de facto
+por P-29 (confirmado de nuevo esta sesión con `grep` directo sobre las tres listas de
+`db/pruebas_rls.sql`), pendiente de que el auditor lo confirme y cierre en su próxima pasada. **#8**
+(alta) sigue `ABIERTO`, esperando al dueño en la pregunta #16 de §6 (columna "Respuesta" verificada
+vacía)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — §5 revisada, ninguna `PENDIENTE`
+**Próximo paso:** la siguiente sesión debe repetir la comprobación de los cuatro indicadores (pasada
+del auditor, respuesta del dueño a la pregunta #16, migración nueva aplicada, ciclo de PM abriendo
+una R-24/Oleada v10) antes de asumir que sigue sin haber trabajo; abrir una R-24/Oleada v10 es
+decisión del ciclo de PM, no de esta sesión de programador
+
+---
+
 ### Sesión 2026-09-17 (rutina programada de programador, segunda pasada sin trabajo accionable tras R-23)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
