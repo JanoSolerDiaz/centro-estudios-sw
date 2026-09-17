@@ -8,29 +8,39 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-16 — vigésimo tercer ciclo del PM: **abre la Oleada v9 con
-R-23.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`c338c04`, 2026-09-16, previa a
-la implementación de R-22): confirma sin cambio, duodécimo ciclo consecutivo, que solo queda
-**ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como pregunta **#16** de
-§6, esperando al dueño). No requiere ninguna R-XX nueva: ya está reflejado como bloqueo de
-R-02/pregunta #16. Las cuatro rutinas programadas de programador posteriores a R-22 (sin trabajo
-accionable, como corresponde: nada suyo que hacer mientras la única migración pendiente relevante
-—`018`, y antes la `013`— siga esperando al dueño) dejaron dicho explícitamente que abrir una
-R-23/Oleada v9 era decisión de este ciclo, no suya.
+**Última actualización:** 2026-09-17 — vigésimo cuarto ciclo del PM: **abre la Oleada v10 con
+R-24.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`229f98a`, 2026-09-17, la misma
+que ya revisaron las cuatro rutinas programadas de programador de hoy): confirma sin cambio, décimo
+tercer ciclo consecutivo, que solo quedan **ABIERTO #8** (dato de salud del artículo 9 del RGPD en
+R-02, formalizado como pregunta **#16** de §6, esperando al dueño) y **ABIERTO #21** (cobertura de
+`db/pruebas_rls.sql` para `baja_profesor`, ya atendida de facto por P-29, pendiente solo de que el
+auditor la confirme y la cierre). Ninguno de los dos requiere ninguna R-XX nueva: ambos ya están
+reflejados donde corresponde (bloqueo de R-02/pregunta #16 el primero; P-29 en §5 de
+`SEGUIMIENTO.md` el segundo). Las cuatro rutinas programadas de programador posteriores a R-23 (sin
+trabajo accionable, como corresponde: nada suyo que hacer mientras las migraciones pendientes sigan
+esperando al dueño) dejaron dicho explícitamente que abrir una R-24/Oleada v10 nueva era decisión de
+este ciclo, no suya.
 
-**R-22 (Oleada v8/F-13) sigue `BLOQUEADA`** solo por las migraciones `013`/`018` pendientes de
-aplicar (código y tests completos desde 2026-09-16, fila 21 de §3 de `SEGUIMIENTO.md`) — con eso,
-su columna vertebral de código también queda agotada: la matriz de excepciones que su propia spec
-enumeraba (slot+día, centro+días, alumno+días, profesor+días) queda completa con las cuatro
-combinaciones resueltas, sin dejar ninguna quinta combinación pendiente. Revisado el roadmap
-completo contra la visión de producto y contra el ICP (académias de refuerzo escolar/clases
-particulares, pero también preparación de exámenes con grupos más numerosos): T-19 (pasar lista)
-sigue sin ninguna vía de cierre en bloque para el sentido contrario al de R-17 — un slot con quince
-alumnos, todos presentes, sigue costando quince toques, el mismo problema de "toques que no
-escalan con el tamaño del grupo" que R-17 ya resolvió para el caso de las ausencias, sin resolverlo
-todavía para el caso simétrico. Se abre la **Oleada v9** con **R-23** (cierre de slot en un toque:
-marcar el resto como presente en bloque, F-14) — detalle en la sección correspondiente más abajo.
+**R-23 (Oleada v9/F-14) `COMPLETADA`** desde 2026-09-17: con eso, su columna vertebral de código
+también queda agotada — pasar lista (T-19) ya cierra en bloque en los dos sentidos (R-17 para
+ausencias, R-23 para presencias), la simetría que dejó abierta R-17 queda resuelta. Revisado el
+roadmap completo contra la visión de producto, el ICP y en particular contra el principio 1
+("pasar lista en tres toques") y contra quién es el usuario de mayor frecuencia y peor atendido —el
+profesor con el móvil en clase—: releído `src/ui/pantallaPasarLista.ts` de punta a punta (T-19,
+R-01, R-03, R-07, R-17, R-23) para comprobar qué le queda costando más de lo necesario a ese
+profesor en el uso diario, no solo qué falta por especificar. Hallazgo de producto: **la pantalla no
+ofrece ninguna forma de corregir un toque equivocado sin abandonarla** (`grep -n "anular"
+src/ui/pantallaPasarLista.ts` no devuelve nada) — un alumno marcado por error (dedo torpe, dos
+alumnos con nombre parecido, "ausente" en vez de "presente") solo se corrige hoy saliendo de pasar
+lista, entrando en «Registros» (T-21), localizando el slot y la fecha exactos, y anulando ahí, un
+rodeo completo de pantalla en el momento exacto en que el profesor está de pie delante del grupo.
+El propio principio 2 del roadmap ("quien se equivoca, lo arregla") ya legitima la corrección y el
+mecanismo ya existe entero y probado (`actualizar_asistencia`, T-21, con `anular`, motivo obligatorio
+y la ventana de 7 días de `VENTANA_EDICION_TEACHER_DIAS`): falta solo el punto de entrada, no ningún
+permiso, RPC ni migración nueva — el mismo tipo de fricción de navegación, no de permiso, que R-17 y
+R-23 ya resolvieron para el cierre en bloque. Se abre la **Oleada v10** con **R-24** (corregir un
+toque equivocado sin salir de pasar lista, F-15) — detalle en la sección correspondiente más abajo.
 Añadida su fila `PENDIENTE` en §1 de `SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo
 (T-25 pendiente del paso a producción) y ninguna oleada ha llegado a desplegarse todavía, así que
 nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto,
@@ -284,6 +294,29 @@ identificó y resolvió para el sentido opuesto. No añade ningún dato personal
 `student`.
 
 - **F-14 — Cierre en bloque también para la presencia.** R-23.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v10 — Corregir sin salir de la pantalla que se usa cada día
+
+**Arranca cuando la oleada v9 (R-23) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta oleada
+queda especificada y en cola, detrás de la oleada v9, en el orden de §1.
+
+Por qué esta oleada: v1 a v9 dejan resuelto el ciclo diario completo de una clase — entrada,
+ausencia, salida, justificación, sustitución, cierre en bloque en los dos sentidos —, pero todas esas
+mejoras dan por hecho que, si el profesor se equivoca al pasar lista, sale de la pantalla y va a
+«Registros» (T-21) a corregirlo. Eso es cierto y funciona, pero es exactamente el tipo de rodeo que
+el principio 1 ("pasar lista en tres toques") pide evitar: un dedo torpe o dos alumnos con nombre
+parecido, el error más banal y más frecuente del uso diario, cuesta hoy abandonar la pantalla que se
+usa varias veces al día, en vez de resolverse donde ocurrió. El mecanismo de corrección ya existe
+entero (`actualizar_asistencia`, T-21) y ya es el que legitima el principio 2 ("quien se equivoca, lo
+arregla"); falta solo el punto de entrada en la pantalla de mayor frecuencia del producto. No añade
+ningún dato personal nuevo, ninguna RPC ni ninguna migración, ni toca al rol `student`.
+
+- **F-15 — Corrección inmediata en pasar lista.** R-24.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1270,3 +1303,56 @@ mismo slot y fecha ya no ofrece a nadie, porque todos tienen registro; un fallo 
 de los tres deja completados a los otros dos y avisa cuál falló, sin perderlo; usar «marcar el resto
 como ausente» sobre dos de los tres restantes y después «marcar el resto como presente» sobre el
 último funciona sin conflicto, sin duplicar ni sobrescribir ningún registro.
+
+---
+
+### R-24 — Corregir un toque equivocado sin salir de pasar lista
+**Oleada / Fase:** v10 / F-15 · **Migración:** No · **Depende de:** T-19, T-21
+**Origen:** roadmap
+
+**Objetivo:** hoy, si un profesor marca por error a un alumno equivocado durante pasar lista — un
+dedo torpe, dos alumnos con nombre parecido, tocar «ausente» en vez de la card correcta —, la única
+vía para corregirlo es abandonar la pantalla, entrar en «Registros» (T-21), localizar el slot y la
+fecha exactos, y anular ahí: un rodeo completo de pantalla en el momento en que el profesor está de
+pie delante del grupo con el móvil en la mano, justo la situación que el principio "pasar lista en
+tres toques" existe para evitar. La corrección ya es legítima por diseño (principio 2, "quien se
+equivoca, lo arregla") y el mecanismo ya existe entero y probado (`actualizar_asistencia`, T-21, con
+`anular`, motivo obligatorio y la ventana `VENTANA_EDICION_TEACHER_DIAS`): falta solo el punto de
+entrada en la pantalla de mayor frecuencia del producto, no ningún permiso, RPC ni migración nueva.
+
+**Requisitos:**
+1. Cualquier card ya registrada en pasar lista (presente, ausente, o con salida marcada por R-03)
+   gana un control visible para anularla sin salir de la pantalla — distinguible del resto de
+   controles de la card (el toque simple que registra, y «marcar salida» de R-03), nunca el mismo
+   gesto que ninguno de los dos, para no repetir el error de un gesto con doble significado que R-01
+   ya evitó a propósito.
+2. Ese control abre una confirmación local mínima que pide el motivo de anulación, obligatorio —
+   mismo requisito que ya exige «Registros» (T-21) — y, solo al confirmar, llama a
+   `actualizar_asistencia` con `anular: true` sobre ese registro concreto: la misma función que ya
+   usa «Registros», sin ninguna RPC nueva.
+3. Tras anular con éxito, la card vuelve a su estado "pendiente" en la misma pantalla, lista para un
+   nuevo toque correcto, sin recargar la página ni navegar a ninguna otra pantalla.
+4. Respeta exactamente la misma ventana de edición que ya aplica del lado del servidor
+   (`VENTANA_EDICION_TEACHER_DIAS`, 7 días para `teacher`, sin límite para `administrator`): fuera de
+   ventana, el control de anular no se ofrece en absoluto sobre esa card — mismo criterio preventivo
+   que ya usa T-21, nunca dejar que el profesor lo intente para recibir un error de servidor
+   sorpresa.
+5. Un fallo de red o de límite de tasa (T-06) al anular dice el motivo, la card no cambia de estado
+   (sigue mostrando el registro que no llegó a anularse) y permite reintentar — mismo criterio de
+   manejo de error que el resto de la pantalla (R-07).
+6. Un alumno con avatar en su card (T-14/T-19) conserva su avatar durante todo el ciclo (registrado
+   → anulado → pendiente): esta tarea no introduce ningún punto de exposición nuevo del avatar, ni
+   lo lleva a ninguna pantalla ni estado donde no estuviera ya.
+7. Igual que cualquier otra corrección del proyecto: la fila anulada sigue existiendo, con su
+   motivo, y con rastro completo en `asistencia_historial` (§0.2) — este requisito no cambia el
+   régimen de auditoría en absoluto, solo añade dónde se puede disparar.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un profesor que marca por error a un alumno como ausente puede, sin
+salir de pasar lista, anotar el motivo y anular ese registro, y la card vuelve a "pendiente" en la
+misma pantalla; la fila anulada sigue existiendo en el histórico con su motivo y con su rastro en
+`asistencia_historial`, sin ninguna RPC nueva (reutiliza `actualizar_asistencia` de T-21);
+intentarlo sobre un registro de hace más de 7 días como `teacher` no ofrece el control, mientras que
+`administrator` puede hacerlo sin límite; un fallo de red al anular deja la card sin cambios y
+permite reintentar sin perder el motivo ya escrito.

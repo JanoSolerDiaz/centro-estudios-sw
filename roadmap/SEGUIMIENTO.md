@@ -10,7 +10,34 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-17 (rutina programada de programador, cuarta pasada sin trabajo
+**Última actualización:** 2026-09-17 (rutina programada de producto, vigésimo cuarto ciclo del PM:
+**R-24 abre la Oleada v10**): revisadas las tres fuentes de entrada (auditor, feedback, roadmap
+contra visión de producto). `auditoriacontinua.md` con una pasada nueva desde el ciclo anterior
+(`229f98a`, 2026-09-17, la misma que ya revisaron las cuatro rutinas programadas de programador de
+hoy): confirma sin cambio, decimotercer ciclo consecutivo, que solo quedan **ABIERTO #8** (dato de
+salud del artículo 9 del RGPD en R-02, pregunta #16 de §6, esperando al dueño) y **ABIERTO #21**
+(cobertura de `db/pruebas_rls.sql` para `baja_profesor`, ya atendida de facto por P-29 en §5,
+pendiente solo de que el auditor la confirme y la cierre en su próxima pasada) — ninguno de los dos
+necesita ninguna R-XX nueva. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. Revisada §1 completa: **R-23 (Oleada v9/F-14) `COMPLETADA`** desde hoy mismo, con lo que
+su columna vertebral de código queda agotada — pasar lista (T-19) ya cierra en bloque en los dos
+sentidos (R-17/R-23), sin dejar ninguna combinación simétrica pendiente. Releído
+`src/ui/pantallaPasarLista.ts` completo contra el principio 1 ("pasar lista en tres toques") y
+contra quién es el usuario de mayor frecuencia y peor atendido (el profesor con el móvil en clase):
+la pantalla no ofrece ninguna forma de anular un toque equivocado sin abandonarla
+(`grep -n "anular" src/ui/pantallaPasarLista.ts` sin resultados) — hoy exige salir a «Registros»
+(T-21), localizar el slot y la fecha, y anular ahí, el mismo tipo de rodeo de navegación (no de
+permiso) que R-17/R-23 ya resolvieron para el cierre en bloque. El mecanismo (`actualizar_asistencia`,
+T-21, con `anular`, motivo obligatorio y `VENTANA_EDICION_TEACHER_DIAS`) ya existe entero y probado:
+falta solo el punto de entrada. Se abre la **Oleada v10** con **R-24** (corregir un toque equivocado
+sin salir de pasar lista, F-15), spec completa en `ROADMAP_PRODUCTO.md`, sin migración ni RPC nueva
+(reutiliza T-21) — fila `PENDIENTE` añadida en §1. Revisadas las 17 preguntas de §6 y las 29 filas de
+§5 (P-XX): sin cambio, ninguna acción nueva posible desde ellas. El MVP (T-25) sigue `BLOQUEADA`
+pendiente del paso a producción, y ninguna oleada ha llegado a desplegarse todavía, así que nada se
+mueve a `ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto, no de
+programador.
+
+**Sesión anterior (2026-09-17, rutina programada de programador, cuarta pasada sin trabajo
 accionable tras R-23): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada nueva
 del auditor desde `229f98a` (2026-09-17, la misma que ya revisaron las tres sesiones anteriores de
 hoy): sigue **ABIERTO** solo **#8** (alta), sin ninguna acción posible desde el código, esperando al
@@ -2905,6 +2932,7 @@ pantallas del requisito 2.
 | R-21 | Pausa programada de un alumno | BLOQUEADA — pendiente aplicar migración `017` (fila 20 de §3) | 2026-09-15 | Oleada v7 / F-12 · Código y tests completos, contra dobles. Migración `017_pausa_alumno.sql` escrita y empujada, todavía sin aplicar — mismo patrón de opacidad (RPC `SECURITY DEFINER`, sin GRANT directo a `authenticated`) que `excepcion_slot` de R-06, decisión razonada en `DECISIONES_TECNICAS.md`: a diferencia de R-06, ninguna RPC existente (`registrar_asistencia`/`registrar_ausencia`) se sustituye — la pausa es solo un filtro de cliente sobre "quién se ofrece como pendiente" |
 | R-22 | Baja programada de un profesor: excepción en bloque para varios días | BLOQUEADA — pendiente aplicar migración `018` (fila 21 de §3), y antes que ella la `013` de R-06 (el runner aplica en orden numérico) | 2026-09-16 | Oleada v8 / F-13 · Código y tests completos, contra dobles (1719 en total, antes 1678). Migración `018_baja_profesor.sql` escrita y empujada, todavía sin aplicar — depende de `013_excepcion_slot.sql` (también sin aplicar: R-06 sigue `BLOQUEADA`). `declarar_baja_profesor` reutiliza `declarar_excepcion_slot` (R-06) por cada combinación slot×fecha del rango, sin ninguna RPC nueva de escritura de excepción (requisito 2, literal). Verificación excepcional: la migración completa (tabla, RLS, tres RPC) se ejecutó de verdad contra una base PostgreSQL local desechable de esta sesión (sin ninguna credencial de Supabase, borrada al terminar) — no sustituye la verificación real del dueño contra `dev`, pero confirmó los cinco casos de rechazo, la exclusión por asistencia/duplicado, el marcado `baja_profesor_id` y la desactivación en bloque de cancelar/acortar. Detalle en `DECISIONES_TECNICAS.md` y `db/MODELO.md` |
 | R-23 | Cierre de slot en un toque: marcar el resto como presente en bloque | COMPLETADA | 2026-09-17 | Oleada v9 / F-14 · Sin migración. `pantallaPasarLista.ts`: bloque "Marcar el resto como presente" simétrico a `cierreEnBloque` de R-17, reutiliza `manejarToque` tal cual una vez por alumno pendiente (misma idempotencia/reconciliación/cola offline). `pantallaRegistrosSlot.ts`: bloque simétrico sobre el mismo `cierreCandidatos` de R-17, llama a `registrarOlvidado` sin `ocurridoEn` (registro en vivo), sin ninguna RPC nueva. Los dos controles (R-17/R-23) conviven sin interferir (requisito 7), verificado con test dedicado en cada pantalla. 15 tests nuevos (1734 en total) |
+| R-24 | Corregir un toque equivocado sin salir de pasar lista | PENDIENTE | 2026-09-17 | Oleada v10 / F-15 · Sin migración: reutiliza `actualizar_asistencia` (T-21), sin RPC nueva. Depende de T-19, T-21 (ambas `COMPLETADA`) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 
