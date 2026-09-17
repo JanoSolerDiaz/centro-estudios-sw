@@ -140,9 +140,16 @@ function botonPorTexto(contenedor: HTMLElement, texto: string): HTMLButtonElemen
 
 /** Nombres listados en la confirmación de "Marcar el resto como ausente" (R-17) — distinto de la
  * rejilla, donde un alumno NO incluido en el cierre en bloque puede aparecer igualmente (con su
- * propia card, en otra fase). */
+ * propia card, en otra fase). Acotado a su propio bloque (`data-bloque="ausente"`) para no
+ * confundirse con la lista de "Marcar el resto como presente" (R-23), que vive en el suyo. */
 function nombresEnConfirmacionCierre(contenedor: HTMLElement): readonly string[] {
-  const lista = contenedor.querySelector('ul');
+  const lista = contenedor.querySelector('[data-bloque="ausente"] ul');
+  return lista ? Array.from(lista.querySelectorAll('li')).map((li) => li.textContent) : [];
+}
+
+/** Simétrico de `nombresEnConfirmacionCierre` para "Marcar el resto como presente" (R-23). */
+function nombresEnConfirmacionPresente(contenedor: HTMLElement): readonly string[] {
+  const lista = contenedor.querySelector('[data-bloque="presente"] ul');
   return lista ? Array.from(lista.querySelectorAll('li')).map((li) => li.textContent) : [];
 }
 
@@ -913,6 +920,197 @@ void test('cierre en bloque: un fallo en uno de los dos deja al otro completado 
   assert.match(botonBruno?.textContent ?? '', /Pendiente/);
   // La card de Bruno sigue accionable para reintentar: no se perdió, solo falló.
   assert.equal(botonBruno?.disabled, false);
+});
+
+// --- Marcar el resto como presente (R-23) -------------------------------------------------------
+
+void test('marcar presente en bloque: sin ningún alumno pendiente (todos ya con registro), no se ofrece el control', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([crearAsistencia({ estado: 'valida' })]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonPorTexto(contenedor, 'Marcar el resto como presente'), undefined);
+});
+
+void test('marcar presente en bloque: sin el slot en curso (próxima clase), no se ofrece el control aunque haya pendientes', async () => {
+  const contenedor = crearContenedorDePruebas();
+  // Instante fijo: 17:30 local. Slot de 18:00-19:00 -> "próxima clase", no "en curso".
+  const slot = crearSlot({ hora_inicio: '18:00', hora_fin: '19:00' });
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.equal(botonesDeTarjeta(contenedor).length, 1); // el pendiente existe...
+  assert.equal(botonPorTexto(contenedor, 'Marcar el resto como presente'), undefined); // ...pero no en curso
+});
+
+void test('marcar presente en bloque: con dos alumnos pendientes en curso, el control abre una confirmación que los lista nominalmente', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotAna = crearSlot();
+  const slotBruno = crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' }, { nombre: 'Bruno', primer_apellido: 'Ruiz', segundo_apellido: null });
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slotAna, slotBruno]) }));
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar el resto como presente')?.click();
+
+  assert.match(contenedor.textContent, /¿Marcar como presentes a los siguientes alumnos\?/);
+  assert.deepEqual(nombresEnConfirmacionPresente(contenedor), ['Ana García López', 'Bruno Ruiz']);
+});
+
+void test('marcar presente en bloque: un alumno que ya tiene entrada queda excluido desde el principio de la confirmación', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotAna = crearSlot();
+  const slotBruno = crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' }, { nombre: 'Bruno', primer_apellido: 'Ruiz' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slotAna, slotBruno]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([crearAsistencia({ alumno_id: 'alumno-2', slot_id: 'slot-2', estado: 'valida' })]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar el resto como presente')?.click();
+
+  assert.deepEqual(nombresEnConfirmacionPresente(contenedor), ['Ana García López']);
+});
+
+void test('marcar presente en bloque: confirmar llama a registrar una vez por cada pendiente y las cards quedan marcadas', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotAna = crearSlot();
+  const slotBruno = crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' }, { nombre: 'Bruno', primer_apellido: 'Ruiz' });
+  const llamadas: string[] = [];
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slotAna, slotBruno]),
+      registrar: (entrada) => {
+        llamadas.push(entrada.alumnoId);
+        return Promise.resolve(crearAsistencia({ alumno_id: entrada.alumnoId, slot_id: entrada.slotId ?? null, estado: 'valida' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar el resto como presente')?.click();
+  botonPorTexto(contenedor, 'Confirmar')?.click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(llamadas.sort(), ['alumno-1', 'alumno-2']);
+  assert.equal(contenedor.textContent.includes('¿Marcar como presentes'), false);
+  for (const boton of botonesDeTarjeta(contenedor)) {
+    assert.match(boton.textContent, /Registrado/);
+  }
+  // Ya no quedan pendientes: el control no se vuelve a ofrecer.
+  assert.equal(botonPorTexto(contenedor, 'Marcar el resto como presente'), undefined);
+});
+
+void test('marcar presente en bloque: "Cancelar" no llama a registrar y las cards siguen pendientes', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotAna = crearSlot();
+  const slotBruno = crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' }, { nombre: 'Bruno', primer_apellido: 'Ruiz' });
+  let llamadas = 0;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slotAna, slotBruno]),
+      registrar: () => {
+        llamadas += 1;
+        return Promise.resolve(crearAsistencia({ estado: 'valida' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar el resto como presente')?.click();
+  botonPorTexto(contenedor, 'Cancelar')?.click();
+
+  assert.equal(llamadas, 0);
+  assert.ok(botonPorTexto(contenedor, 'Marcar el resto como presente'));
+  for (const boton of botonesDeTarjeta(contenedor)) {
+    assert.equal(boton.disabled, false);
+  }
+});
+
+void test('marcar presente en bloque: un fallo en uno de los dos deja al otro completado — cada card refleja su propio resultado, sin perder ninguna', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotAna = crearSlot();
+  const slotBruno = crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' }, { nombre: 'Bruno', primer_apellido: 'Ruiz' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slotAna, slotBruno]),
+      registrar: (entrada) => {
+        if (entrada.alumnoId === 'alumno-2') {
+          return Promise.reject(new Error('fallo del servidor'));
+        }
+        return Promise.resolve(crearAsistencia({ alumno_id: entrada.alumnoId, slot_id: entrada.slotId ?? null, estado: 'valida' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Marcar el resto como presente')?.click();
+  botonPorTexto(contenedor, 'Confirmar')?.click();
+  await esperarMicrotareas();
+
+  const botones = botonesDeTarjeta(contenedor);
+  const botonAna = botones.find((b) => b.getAttribute('aria-label')?.includes('Ana'));
+  const botonBruno = botones.find((b) => b.getAttribute('aria-label')?.includes('Bruno'));
+  assert.match(botonAna?.textContent ?? '', /Registrado/);
+  assert.match(botonBruno?.textContent ?? '', /Pendiente/);
+  // La card de Bruno sigue accionable para reintentar: no se perdió, solo falló.
+  assert.equal(botonBruno?.disabled, false);
+});
+
+void test('los dos controles conviven sin interferir (requisito 7): "marcar el resto como ausente" sobre uno y "marcar el resto como presente" sobre el otro funcionan sin conflicto', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotAna = crearSlot();
+  const slotBruno = crearSlot({ id: 'slot-2', alumno_id: 'alumno-2' }, { nombre: 'Bruno', primer_apellido: 'Ruiz', segundo_apellido: null });
+  const llamadasAusencia: string[] = [];
+  const llamadasPresencia: string[] = [];
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slotAna, slotBruno]),
+      registrarAusencia: (entrada) => {
+        llamadasAusencia.push(entrada.alumnoId);
+        return Promise.resolve(crearAsistencia({ alumno_id: entrada.alumnoId, slot_id: entrada.slotId, estado: 'ausente' }));
+      },
+      registrar: (entrada) => {
+        llamadasPresencia.push(entrada.alumnoId);
+        return Promise.resolve(crearAsistencia({ alumno_id: entrada.alumnoId, slot_id: entrada.slotId ?? null, estado: 'valida' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  // Ambos controles se ofrecen a la vez, cada uno en su propio bloque.
+  assert.ok(botonPorTexto(contenedor, 'Marcar el resto como ausente'));
+  assert.ok(botonPorTexto(contenedor, 'Marcar el resto como presente'));
+
+  // Se usa "presente" solo sobre Ana...
+  botonPorTexto(contenedor, 'Marcar el resto como presente')?.click();
+  assert.deepEqual(nombresEnConfirmacionPresente(contenedor), ['Ana García López', 'Bruno Ruiz']);
+  botonPorTexto(contenedor, 'Cancelar')?.click();
+
+  // ...y después "ausente" sobre Bruno, sin que uno interfiera con el otro.
+  botonPorTexto(contenedor, 'Marcar el resto como ausente')?.click();
+  assert.deepEqual(nombresEnConfirmacionCierre(contenedor), ['Ana García López', 'Bruno Ruiz']);
+  botonPorTexto(contenedor, 'Confirmar')?.click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(llamadasAusencia.sort(), ['alumno-1', 'alumno-2']);
+  assert.deepEqual(llamadasPresencia, []);
+  // Ninguno de los dos controles se vuelve a ofrecer: ya no quedan pendientes.
+  assert.equal(botonPorTexto(contenedor, 'Marcar el resto como ausente'), undefined);
+  assert.equal(botonPorTexto(contenedor, 'Marcar el resto como presente'), undefined);
 });
 
 void test('un alumno ya marcado ausente al abrir la pantalla aparece como tal, con el botón principal deshabilitado', async () => {

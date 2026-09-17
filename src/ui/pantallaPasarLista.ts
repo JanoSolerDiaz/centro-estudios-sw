@@ -223,6 +223,11 @@ interface EstadoPantalla {
    * card suelta mientras tanto: `manejarAusente` (reutilizada tal cual, requisito 3) ya es un
    * no-op seguro sobre una card que mientras tanto dejó de estar `'pendiente'`. */
   readonly cierreEnBloque: { readonly confirmando: boolean; readonly enviando: boolean; readonly claves: readonly string[] };
+  /** R-23: "Marcar el resto como presente" — simétrico a `cierreEnBloque` (R-17) para el sentido
+   * contrario. Misma disciplina de `claves` como foto fija tomada al abrir la confirmación, nunca
+   * recalculada al confirmar: `manejarToque` (reutilizada tal cual, requisito 3) ya es un no-op
+   * seguro sobre una card que mientras tanto dejó de estar `'pendiente'`. */
+  readonly marcarPresenteEnBloque: { readonly confirmando: boolean; readonly enviando: boolean; readonly claves: readonly string[] };
   /** R-21: alumnos en pausa hoy entre los slots efectivos del profesor — nunca ofrecidos como
    * pendientes (requisito 2), pero listados aparte para que no parezcan haber desaparecido
    * (requisito 6). Recalculado solo al `cargar()`, igual que `excepcionesHoyCache`: la pausa de un
@@ -316,6 +321,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     avatares: new Map(),
     conectado: deps.detectorConexion?.estaConectado() ?? true,
     cierreEnBloque: { confirmando: false, enviando: false, claves: [] },
+    marcarPresenteEnBloque: { confirmando: false, enviando: false, claves: [] },
     pausadosHoy: [],
   });
 
@@ -333,7 +339,12 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   });
   // R-17: "Marcar el resto como ausente" y su confirmación — ver `pintarCierreEnBloque`.
   const zonaCierreEnBloque = documento.createElement('div');
-  cabecera.append(horaEl, estadoConexionEl, estadoSlotEl, botonActualizar, zonaCierreEnBloque);
+  zonaCierreEnBloque.dataset.bloque = 'ausente';
+  // R-23: "Marcar el resto como presente" — bloque propio, visualmente distinguible del de arriba
+  // (requisito 1), para que los dos convivan sin interferir (requisito 7).
+  const zonaMarcarPresenteEnBloque = documento.createElement('div');
+  zonaMarcarPresenteEnBloque.dataset.bloque = 'presente';
+  cabecera.append(horaEl, estadoConexionEl, estadoSlotEl, botonActualizar, zonaCierreEnBloque, zonaMarcarPresenteEnBloque);
 
   const mensajeCargando = crearElemento(documento, 'p', { texto: 'Cargando…' });
   const rejilla = documento.createElement('div');
@@ -642,9 +653,11 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     rejilla.hidden = estado.cargando;
     if (estado.cargando) {
       zonaCierreEnBloque.textContent = '';
+      zonaMarcarPresenteEnBloque.textContent = '';
       return;
     }
     pintarCierreEnBloque(estado);
+    pintarMarcarPresenteEnBloque(estado);
 
     const foco = elementoConFoco();
     const claveEnfocada = foco?.clave ?? null;
@@ -1216,6 +1229,81 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       cancelarCierreEnBloque();
     });
     zonaCierreEnBloque.append(botonConfirmar, botonCancelar);
+  }
+
+  /** Abre la confirmación de "Marcar el resto como presente" (R-23, requisito 2): mismo criterio
+   * exacto que `abrirCierreEnBloque` — congela AHORA la lista de pendientes. */
+  function abrirMarcarPresenteEnBloque(): void {
+    const claves = clavesPendientes(almacen.obtener());
+    if (claves.length === 0) {
+      return;
+    }
+    almacen.actualizar((actual) => ({ ...actual, marcarPresenteEnBloque: { confirmando: true, enviando: false, claves } }));
+  }
+
+  function cancelarMarcarPresenteEnBloque(): void {
+    almacen.actualizar((actual) => ({ ...actual, marcarPresenteEnBloque: { confirmando: false, enviando: false, claves: [] } }));
+  }
+
+  /** Ejecuta "Marcar el resto como presente" (R-23, requisito 3): reutiliza `manejarToque` TAL
+   * CUAL, una llamada por alumno — mismo criterio exacto que `ejecutarCierreEnBloque` reutiliza
+   * `manejarAusente`, incluida la cola offline de R-07 y el límite de tasa de T-06 si aplican. Un
+   * fallo de una no detiene el resto: `manejarToque` ya deja su propia card en `'error'` (o
+   * `'pendiente_offline'`) sin lanzar. */
+  async function ejecutarMarcarPresenteEnBloque(): Promise<void> {
+    const claves = almacen.obtener().marcarPresenteEnBloque.claves;
+    almacen.actualizar((actual) => ({ ...actual, marcarPresenteEnBloque: { ...actual.marcarPresenteEnBloque, enviando: true } }));
+    for (const clave of claves) {
+      await manejarToque(clave);
+    }
+    almacen.actualizar((actual) => ({ ...actual, marcarPresenteEnBloque: { confirmando: false, enviando: false, claves: [] } }));
+  }
+
+  const protectorMarcarPresenteEnBloque = crearProtectorDobleToque(ejecutarMarcarPresenteEnBloque);
+
+  /** "Marcar el resto como presente" (R-23): mismo patrón exacto que `pintarCierreEnBloque`, en su
+   * propio bloque (requisito 1: "visualmente distinguible") para que ambos convivan sin interferir
+   * (requisito 7) — cada uno pinta y opera solo sobre su propia zona/estado. */
+  function pintarMarcarPresenteEnBloque(estado: EstadoPantalla): void {
+    zonaMarcarPresenteEnBloque.textContent = '';
+    if (estado.propuesta?.tipo !== 'en_curso') {
+      return;
+    }
+
+    if (!estado.marcarPresenteEnBloque.confirmando) {
+      if (clavesPendientes(estado).length === 0) {
+        return;
+      }
+      const boton = crearBoton(documento, 'Marcar el resto como presente', 'button');
+      boton.addEventListener('click', () => {
+        abrirMarcarPresenteEnBloque();
+      });
+      zonaMarcarPresenteEnBloque.append(boton);
+      return;
+    }
+
+    const nombres = estado.marcarPresenteEnBloque.claves
+      .map((clave) => estado.tarjetas.get(clave)?.alumno)
+      .filter((alumno): alumno is AlumnoParaPropuesta => alumno !== undefined)
+      .map((alumno) => `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`);
+    zonaMarcarPresenteEnBloque.append(crearElemento(documento, 'p', { texto: '¿Marcar como presentes a los siguientes alumnos?' }));
+    const lista = documento.createElement('ul');
+    for (const nombre of nombres) {
+      lista.append(crearElemento(documento, 'li', { texto: nombre }));
+    }
+    zonaMarcarPresenteEnBloque.append(lista);
+
+    const botonConfirmar = crearBoton(documento, 'Confirmar', 'button');
+    botonConfirmar.disabled = estado.marcarPresenteEnBloque.enviando;
+    botonConfirmar.addEventListener('click', () => {
+      void protectorMarcarPresenteEnBloque();
+    });
+    const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelar.disabled = estado.marcarPresenteEnBloque.enviando;
+    botonCancelar.addEventListener('click', () => {
+      cancelarMarcarPresenteEnBloque();
+    });
+    zonaMarcarPresenteEnBloque.append(botonConfirmar, botonCancelar);
   }
 
   /** Tercer control de R-03: marca la salida de una card ya registrada, con la hora real del

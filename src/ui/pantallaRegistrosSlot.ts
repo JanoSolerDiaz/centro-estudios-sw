@@ -243,11 +243,19 @@ interface EstadoPantalla {
   readonly ausenteError: string;
   /** R-17: alumnos de la sesión del slot elegido (`slotsDeLaMismaSesion`) que hoy no tienen ningún
    * registro ese día — recalculado en cada `cargarRegistros()` contra la verdad del servidor, nunca
-   * mantenido a mano. Vacío ⇒ "Marcar el resto como ausente" no se ofrece (requisito 1). */
+   * mantenido a mano. Vacío ⇒ "Marcar el resto como ausente" no se ofrece (requisito 1). Reutilizado
+   * tal cual por R-23 (requisito 4: mismo criterio de exclusión, "ningún registro ese día" vale para
+   * los dos sentidos) — `presenteConfirmando`/`presenteGuardando`/`presenteError` son su simétrico. */
   readonly cierreCandidatos: readonly SlotConAlumno[];
   readonly cierreConfirmando: boolean;
   readonly cierreGuardando: boolean;
   readonly cierreError: string;
+  /** R-23: "Marcar el resto como presente" — mismo `cierreCandidatos` de arriba, con su propio
+   * bloque de confirmación explícita (requisito 1: "visualmente distinguible" del de R-17) para que
+   * los dos convivan sin interferir (requisito 7). */
+  readonly presenteConfirmando: boolean;
+  readonly presenteGuardando: boolean;
+  readonly presenteError: string;
   /** R-06: excepciones ACTIVAS del slot elegido (cualquier fecha) — `excepcionDelDia` resuelve, a
    * partir de esta lista y de `fechaIso`, si el día elegido ya tiene una declarada. */
   readonly excepcionesDelSlot: readonly ExcepcionSlot[];
@@ -367,6 +375,9 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     cierreConfirmando: false,
     cierreGuardando: false,
     cierreError: '',
+    presenteConfirmando: false,
+    presenteGuardando: false,
+    presenteError: '',
     excepcionesDelSlot: [],
     excepcionFormAbierto: false,
     excepcionTipo: 'sustitucion',
@@ -406,7 +417,15 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
   async function cargarRegistros(): Promise<void> {
     const { slotSeleccionadoId, fechaIso, slots } = almacen.obtener();
     if (!slotSeleccionadoId) {
-      almacen.actualizar({ registros: [], filas: new Map(), cierreCandidatos: [], cierreConfirmando: false, cierreError: '' });
+      almacen.actualizar({
+        registros: [],
+        filas: new Map(),
+        cierreCandidatos: [],
+        cierreConfirmando: false,
+        cierreError: '',
+        presenteConfirmando: false,
+        presenteError: '',
+      });
       return;
     }
     almacen.actualizar({ cargando: true, error: '' });
@@ -444,6 +463,8 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
         cierreCandidatos,
         cierreConfirmando: false,
         cierreError: '',
+        presenteConfirmando: false,
+        presenteError: '',
         excepcionesDelSlot,
         excepcionFormAbierto: false,
         excepcionMotivo: '',
@@ -538,9 +559,11 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
   const zonaExcepcion = crearElemento(documento, 'div');
   const zonaOlvidado = crearElemento(documento, 'div');
-  const zonaCierreEnBloque = crearElemento(documento, 'div');
+  const zonaCierreEnBloque = crearElemento(documento, 'div', { atributos: { 'data-bloque': 'ausente' } });
+  // R-23: "Marcar el resto como presente" — bloque propio, visualmente distinguible del de R-17.
+  const zonaPresenteEnBloque = crearElemento(documento, 'div', { atributos: { 'data-bloque': 'presente' } });
 
-  contenedor.append(cabecera, zonaExcepcion, zonaOlvidado, zonaCierreEnBloque, listaRegistros);
+  contenedor.append(cabecera, zonaExcepcion, zonaOlvidado, zonaCierreEnBloque, zonaPresenteEnBloque, listaRegistros);
 
   // --- Panel de edición de una fila ---------------------------------------------------------------
 
@@ -1154,6 +1177,94 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     zonaCierreEnBloque.append(botonConfirmar, botonCancelar);
   }
 
+  /** Ejecuta "Marcar el resto como presente" (R-23, requisito 3): una llamada a
+   * `deps.registrarOlvidado` POR ALUMNO de `estado.cierreCandidatos`, SIN `ocurridoEn` — un registro
+   * en vivo, con la hora real del servidor en el instante de su propia llamada (nunca una hora de
+   * bloque simulada ni la del formulario de "Registro olvidado", que sí la pide) — misma RPC exacta
+   * que ya usa el registro individual "olvidado" de esta pantalla, sin ninguna nueva. Mismo criterio
+   * exacto que `ejecutarCierreEnBloque`: un fallo de uno no impide los demás, ni deshace los ya
+   * completados; los que fallan quedan en `cierreCandidatos` con su motivo, listos para reintentar
+   * sueltos (requisito 3). */
+  async function ejecutarPresenteEnBloque(): Promise<void> {
+    const estado = almacen.obtener();
+    const candidatos = estado.cierreCandidatos;
+    almacen.actualizar({ presenteGuardando: true, presenteError: '' });
+    const restantes: SlotConAlumno[] = [];
+    const fallidos: string[] = [];
+    for (const candidato of candidatos) {
+      try {
+        const fila = await deps.registrarOlvidado({
+          alumnoId: candidato.alumno_id,
+          origen: 'slot',
+          slotId: candidato.id,
+          peticionId: deps.generarPeticionId(),
+        });
+        if (candidato.id === almacen.obtener().slotSeleccionadoId) {
+          reemplazarRegistro(fila);
+          const nombresAlumno = new Map(almacen.obtener().nombresAlumno);
+          nombresAlumno.set(fila.alumno_id, nombreCompletoAlumno(candidato.alumno));
+          almacen.actualizar({ nombresAlumno });
+        }
+      } catch (error) {
+        restantes.push(candidato);
+        fallidos.push(`${nombreCompletoAlumno(candidato.alumno)}: ${mensajeAmigable(error)}`);
+      }
+    }
+    almacen.actualizar({
+      presenteGuardando: false,
+      cierreCandidatos: restantes,
+      presenteConfirmando: restantes.length > 0,
+      presenteError: fallidos.length > 0 ? `No se pudo marcar a: ${fallidos.join('; ')}.` : '',
+    });
+  }
+
+  /** "Marcar el resto como presente" (R-23): mismo patrón exacto que `pintarCierreEnBloque`, en su
+   * propio bloque (requisito 1: "visualmente distinguible") para que ambos convivan sin interferir
+   * (requisito 7) — comparten `estado.cierreCandidatos` (mismo criterio de exclusión, requisito 4),
+   * cada uno con su propia confirmación y su propio estado de envío/error. */
+  function pintarPresenteEnBloque(): void {
+    zonaPresenteEnBloque.textContent = '';
+    const estado = almacen.obtener();
+    if (estado.cierreCandidatos.length === 0) {
+      return;
+    }
+
+    if (!estado.presenteConfirmando) {
+      const boton = crearBoton(documento, 'Marcar el resto como presente', 'button');
+      boton.addEventListener('click', () => {
+        almacen.actualizar({ presenteConfirmando: true, presenteError: '' });
+      });
+      zonaPresenteEnBloque.append(boton);
+      return;
+    }
+
+    if (estado.presenteError) {
+      const mensaje = crearZonaMensaje(documento, 'alert');
+      mensaje.textContent = estado.presenteError;
+      zonaPresenteEnBloque.append(mensaje);
+    }
+    zonaPresenteEnBloque.append(
+      crearElemento(documento, 'p', { texto: `¿Marcar como presentes a los siguientes alumnos el ${estado.fechaIso}?` }),
+    );
+    const lista = documento.createElement('ul');
+    for (const candidato of estado.cierreCandidatos) {
+      lista.append(crearElemento(documento, 'li', { texto: nombreCompletoAlumno(candidato.alumno) }));
+    }
+    zonaPresenteEnBloque.append(lista);
+
+    const botonConfirmar = crearBoton(documento, 'Confirmar', 'button');
+    botonConfirmar.disabled = estado.presenteGuardando;
+    botonConfirmar.addEventListener('click', () => {
+      void ejecutarPresenteEnBloque();
+    });
+    const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelar.disabled = estado.presenteGuardando;
+    botonCancelar.addEventListener('click', () => {
+      almacen.actualizar({ presenteConfirmando: false, presenteError: '' });
+    });
+    zonaPresenteEnBloque.append(botonConfirmar, botonCancelar);
+  }
+
   function pintarOlvidado(): void {
     const estado = almacen.obtener();
     zonaOlvidado.textContent = '';
@@ -1592,12 +1703,14 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
     pintarExcepcion();
     pintarOlvidado();
     pintarCierreEnBloque();
+    pintarPresenteEnBloque();
     pintarLista();
   });
   pintarCabecera();
   pintarExcepcion();
   pintarOlvidado();
   pintarCierreEnBloque();
+  pintarPresenteEnBloque();
   pintarLista();
 
   if (puedeElegirProfesor) {

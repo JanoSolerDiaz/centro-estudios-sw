@@ -37,6 +37,38 @@
 
 ---
 
+### Sesión 2026-09-17 (programador: P-29 urgente + R-23)
+
+**Tarea(s):** P-29 (urgente, hallazgo #21) + R-23
+**Estado resultante:** P-29 IMPLEMENTADA; R-23 COMPLETADA
+**Commits a `develop`:** ver commit de esta sesión (P-29: cobertura de `baja_profesor` en los tres
+barridos genéricos de `db/pruebas_rls.sql`; R-23: "Marcar el resto como presente" en pasar lista y
+Registros)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva — sigue exactamente la misma lista de §3 (filas
+13-21, `010` a `018`, todas `PENDIENTE`; fila 12, T-25, `PENDIENTE`)
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (P-29: `'baja_profesor'` en los arrays de las
+líneas 743, 1204 y 1858); `src/ui/pantallaPasarLista.ts`/`.test.ts` y
+`src/ui/pantallaRegistrosSlot.ts`/`.test.ts` (R-23); `DEVELOPERS.md` (dos entradas actualizadas);
+`roadmap/SEGUIMIENTO.md` (§1 y §5, cabecera); `roadmap/DECISIONES_TECNICAS.md` (append)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1734/1734, antes 1719) · build ✅
+**Health check post-deploy:** N/A (sin despliegue; sin migración)
+**Decisiones tomadas:** 3 filas nuevas en `DECISIONES_TECNICAS.md` (R-23: reutilizar
+`cierreCandidatos` de R-17 en vez de una lista paralela; `registrarOlvidado` sin `ocurridoEn` para el
+registro en vivo, sin RPC nueva; zonas DOM separadas por bloque en vez de un único control con
+selector)
+**Hallazgos del auditor atendidos:** **#21** (alta, `db/018_baja_profesor.sql` sin cobertura en los
+tres barridos genéricos de `pruebas_rls.sql`, mismo patrón que #10) — atendido como P-29 urgente
+antes de la cola normal (§0.3), pendiente de que el auditor lo reevalúe en su próxima pasada. **#8**
+sigue `ABIERTO` sin cambio, esperando al dueño en la pregunta #16 de §6
+**Hallazgos:** ninguno nuevo descubierto por esta sesión
+**Tareas autopropuestas (P-XX):** P-29 registrada e implementada (§5) — ver arriba
+**Próximo paso:** siguiente tarea `PENDIENTE`/`EN CURSO` de §1 (ninguna en el momento de cerrar esta
+sesión: revisar si el ciclo de PM ha abierto una R-XX nueva de la Oleada v9, o si el auditor/el dueño
+han desbloqueado algo)
+
+---
+
 ### Sesión 2026-09-16 (PM, vigésimo tercer ciclo)
 
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap

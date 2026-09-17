@@ -740,7 +740,7 @@ begin
   perform pg_temp.impersonar('student');
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot', 'pausa_alumno'
+    'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor'
   ]
   loop
     begin
@@ -1201,7 +1201,7 @@ begin
   foreach v_tabla in array array[
     'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario',
     'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa',
-    'cierre_centro', 'excepcion_slot', 'pausa_alumno'
+    'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor'
   ]
   loop
     foreach v_rol in array array['administrator', 'teacher']
@@ -1855,7 +1855,7 @@ begin
 
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro', 'excepcion_slot', 'pausa_alumno'
+    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor'
   ]
   loop
     begin

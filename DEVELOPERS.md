@@ -698,6 +698,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     reconciliación de `Conflicto` y la misma cola offline de R-07 si está inyectada. Una card
     `'error'` (intento de PRESENCIA fallido) nunca entra en el cierre en bloque, para no convertir en
     silencio un "vino" en un "faltó" sin que el profesor lo decida para ese alumno en concreto.
+    Desde R-23: bloque simétrico "Marcar el resto como presente" (`zonaMarcarPresenteEnBloque`,
+    `marcarPresenteEnBloque` en el estado), en su propia zona junto a la de arriba, visualmente
+    distinguible (requisito 1) y sin interferir entre sí (requisito 7): ambos leen la misma
+    `clavesPendientes()` y cada uno opera solo sobre su propia foto congelada. Reutiliza `manejarToque`
+    TAL CUAL una vez por alumno — mismo criterio exacto que R-17 con `manejarAusente`, ninguna RPC
+    nueva.
   - `comboboxAlumnoExtra.ts` (T-20) — `montarComboboxAlumnoExtra(contenedor, deps)`: combobox
     accesible escrito a mano (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`,
     flechas/Enter/Escape, región `role="status"` que hace de anuncio `aria-live`). Rebote de 250 ms
@@ -802,6 +808,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     patrón local que `reemplazarRegistro`, sin volver a pedir nada al servidor) y, si es el propio
     slot elegido, además actualiza la tabla visible; cada fallo queda con su motivo y la confirmación
     se reabre solo sobre quien de verdad sigue pendiente.
+    Desde R-23: bloque simétrico "Marcar el resto como presente" (`zonaPresenteEnBloque`,
+    `presenteConfirmando`/`presenteGuardando`/`presenteError`), en su propia zona junto a la de
+    arriba, sobre el MISMO `estado.cierreCandidatos` (requisito 4: mismo criterio de exclusión sirve
+    para los dos sentidos) — mismo patrón exacto que `ejecutarCierreEnBloque`/`pintarCierreEnBloque`,
+    pero llamando a `deps.registrarOlvidado` SIN `ocurridoEn` (registro en vivo, hora real del
+    servidor en el instante de su propia llamada — requisito 3) en vez de `registrarAusencia`, misma
+    RPC exacta que ya usa "Añadir registro olvidado" para el slot elegido, ninguna nueva.
   - `pantallaHistorico.ts` (T-23) — `mostrarPantallaHistorico(contenedor, deps)`: consulta
     transversal del histórico completo (no de un solo slot, a diferencia de
     `pantallaRegistrosSlot.ts`), para `administrator` (todo el centro) y `teacher` (solo lo suyo, por
