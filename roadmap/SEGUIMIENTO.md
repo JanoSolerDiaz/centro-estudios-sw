@@ -10,7 +10,32 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-17 (rutina programada de programador, primera pasada sin trabajo
+**Última actualización:** 2026-09-17 (rutina programada de programador, segunda pasada sin trabajo
+accionable tras R-23): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada nueva
+del auditor desde `229f98a` (2026-09-17, la misma que ya revisaron las dos sesiones anteriores de
+hoy): sigue **ABIERTO** solo **#8** (alta), sin ninguna acción posible desde el código, esperando al
+dueño en la pregunta #16 de §6 (columna "Respuesta" verificada vacía por lectura directa de la fila).
+**#21** sigue `ABIERTO` en el registro del auditor por diseño (el programador no edita
+`auditoriacontinua.md`), pero ya quedó atendido de facto por **P-29** (cobertura añadida a
+`db/pruebas_rls.sql`), pendiente solo de que el auditor lo confirme y lo cierre en su próxima pasada.
+Revisada §1 completa: **cero `PENDIENTE`/`EN CURSO`** — R-23 (Oleada v9/F-14) sigue `COMPLETADA`, y
+ninguna R-24/Oleada v10 nueva en `ROADMAP_PRODUCTO.md` (el ciclo de PM no ha corrido desde el
+vigésimo tercer ciclo, el que abrió R-23; confirmado también con `grep` directo sobre el documento).
+Revisado `db/APLICADAS.md`: `009` sigue siendo la última migración aplicada en `dev`, sin cambio (las
+nueve de las filas 13 a 21 de §3, `010` a `018`, siguen `PENDIENTE`, más la fila 12 de T-25). Revisadas
+las 17 preguntas de §6: todas con la columna "Respuesta" vacía salvo las once ya respondidas, incluida
+**#16** (la única que desbloquearía trabajo real de la cola normal) y **#17**, sin cambio. Revisada
+además §5 (P-XX): las 29 filas siguen `RESUELTA`/`IMPLEMENTADA`, ninguna `PENDIENTE`. Con los cuatro
+indicadores que podrían desbloquear trabajo —pasada del auditor, respuesta del dueño, migración nueva
+aplicada o ciclo de PM abriendo tarea nueva— exactamente iguales que en la sesión anterior, esta
+sesión no ejecuta ninguna T-XX, R-XX ni P-XX — **sin ningún commit de código de producto**. El
+contenedor arrancó sin `node_modules`: `npm ci` recuperó los 130 paquetes declarados, 0
+vulnerabilidades. Verificación pre-push completa en verde como comprobación de salud: `npm run
+typecheck`, `npm run lint`, **`npm test` 1734/1734** (sin cambio desde R-23) y `npm run build`. Abrir
+una R-24/Oleada v10 nueva es decisión del ciclo de PM (rutina de producto), no de esta sesión de
+programador.
+
+**Sesión anterior (2026-09-17, rutina programada de programador, primera pasada sin trabajo
 accionable tras R-23): revisado primero `auditoriacontinua.md` (protocolo §0.3) — sin pasada nueva
 del auditor desde `229f98a` (2026-09-17, la misma que ya revisó la sesión anterior de P-29/R-23):
 sigue **ABIERTO** solo **#8** (alta), sin ninguna acción posible desde el código, esperando al dueño
