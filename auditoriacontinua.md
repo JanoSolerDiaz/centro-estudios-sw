@@ -63,6 +63,7 @@
 | #18 | 2026-09-10 | Catálogo de centros (T-11) / superficie de columnas | alta | RESUELTO (2026-09-10) | `contarAlumnosActivosDeCentro` (`src/datos/centrosEstudios.ts:109-116`, T-11, en producción desde el 2026-09-01) consulta la tabla BASE `alumno` filtrando por `.eq('centro_referencia_id', centroId)` — pero `centro_referencia_id` es precisamente una de las columnas de contacto/gestión que `003_politicas_rls.sql:107-109` **nunca** concede a `authenticated` en el `GRANT` de columna de `alumno` (solo concede `id, nombre, primer_apellido, segundo_apellido, avatar_ruta, activo`; el resto, incluida `centro_referencia_id`, exige pasar por la vista `alumno_ficha`). Es exactamente el mismo defecto que **P-22** corrigió el 2026-09-09 en `datos/asistencia.ts#idsAlumnosDeCentro` (T-23) — un `GRANT` de columna que la RLS no sustituye: filtra columnas, no filas, y se aplica por igual a cualquier rol de Postgres, incluido `administrator`. Consecuencia: contra una base de datos real, la función respondería "permission denied for column centro_referencia_id" para **cualquier** rol, no un dato filtrado sino una llamada rota — el propio `db/pruebas_rls.sql:1413` ya documenta este mismo mensaje de error en un comentario para el caso gemelo de T-23. `contarAlumnosActivosDeCentro` es el aviso de "cuántos alumnos quedarían apuntando a un centro inactivo" antes de desactivarlo (requisito 3 de T-11), invocada solo desde la pantalla de gestión de centros, exclusiva de `administrator` (`aplicacion.ts:277`) — no es una fuga de dato a `teacher` ni una vulneración de RLS, es una función que hoy no puede haberse ejecutado nunca contra Postgres real sin fallar, indetectable por la suite de tests porque corre contra dobles de `fetch` que no imponen `GRANT` de columna. Mismo patrón de fondo que P-22: "un bug real desde que la función existe, sin detectar porque los tests corren contra dobles". Severidad alta por ser bug real de funcionalidad para `administrator` (no de seguridad ni de RGPD), mismo criterio que motivó tratar P-22 como urgente. Arreglo evidente y de bajo riesgo, mismo patrón que P-22: consultar `alumno_ficha` en vez de la tabla base `alumno`. Descubierto por un subagente de investigación despachado para verificar la resolución de P-22 (buscando si quedaba algún otro lugar del código con el mismo defecto), no buscado a propósito; verificado por este auditor con lectura directa de `centrosEstudios.ts:109-116` y del `GRANT` de columna de `003_politicas_rls.sql:107-109`. | `src/datos/centrosEstudios.ts:109-116`; `db/003_politicas_rls.sql:107-147` (`GRANT` de columna y vista `alumno_ficha`); precedente: P-22 (commit `cc7e65b`, mismo defecto en `datos/asistencia.ts`); origen: auditoría 2026-09-10. **Resuelto:** el mismo día que se abrió, la sesión de R-17 (commit `9f0a377`) atendió **P-27** como urgente, antes de la cola normal (§0.3): `contarAlumnosActivosDeCentro` consulta ahora `alumno_ficha` en vez de la tabla base `alumno`, mismo patrón que P-22, filtrando además por `activo = true` como ya hacía. Verificado por este auditor con lectura directa del diff de `9f0a377` sobre `src/datos/centrosEstudios.ts`: el cambio es exactamente `.desde('alumno')` → `.desde('alumno_ficha')`, con un comentario propio que cita P-27 y P-22 por su nombre; el test de `centrosEstudios.test.ts` exige ahora `/rest/v1/alumno_ficha`. Un subagente de investigación despachado por separado, encargado de recorrer TODAS las consultas de `src/datos/*.ts` contra la tabla base `alumno` en busca de recurrencias del mismo patrón, no encontró ninguna otra ocurrencia: cada función que necesita una columna restringida (`centro_referencia_id`, `email_alumno`, `telefono_alumno`) consulta ya `alumno_ficha`, con comentarios propios que citan P-22/P-27 por su nombre; resuelto por P-27, commit `9f0a377` |
 | #19 | 2026-09-10 | Gobernanza documental | baja | RESUELTO (2026-09-10) | `roadmap/SEGUIMIENTO.md` §7 ganó dos filas el 2026-09-09 (líneas 2351-2352) para registrar que R-15 cumple sus criterios de aceptación de forma interpretada, no literal — entre ellas, que "un `teacher` recibe `SinPermiso` al intentarlo" se satisface por inaccesibilidad estructural (la pantalla vive detrás del router de `administrator`, sin ninguna llamada al servidor que devuelva un `403` real), mismo texto que ya usaba R-10 y que motivó explícitamente añadir la fila "para las dos, dado el patrón ya señalado por el auditor (hallazgos #9/#11)... esta sección debe ganar su fila sin que haga falta que lo señale una pasada de auditoría". Pero **R-16** (completada la misma tarde, commit `e901262`, después de R-15) resuelve su propio criterio idéntico ("un `teacher` recibe `SinPermiso` al intentarlo") exactamente por el mismo mecanismo de inaccesibilidad estructural — así lo reconoce la propia `DECISIONES_TECNICAS.md:297` ("Mismo razonamiento que R-15... sin una segunda comprobación de rol") — y no recibió su fila en §7. Es la reaparición exacta del patrón que las dos filas de R-15/R-10 se escribieron para dejar de repetir, dentro del mismo lote de trabajo y a las pocas horas: la lección parece haber calado para el caso que la motivó (R-15/R-10) pero no se generalizó todavía a "cualquier tarea que resuelva así este criterio", solo se corrige cuando el auditor lo señala. Sin impacto funcional ni de seguridad: R-16 es realmente exclusiva de `administrator`, impuesto por RLS (confirmado en la revisión de esta misma pasada), así que el comportamiento es correcto — es puramente un hueco de trazabilidad en el resumen de un vistazo que §7 existe para ofrecer. Verificado por un subagente de investigación despachado por separado y confirmado por este auditor releyendo directamente `SEGUIMIENTO.md:2340-2352` (última fila de §7 es la segunda de R-15, ninguna para R-16) y `DECISIONES_TECNICAS.md:297`. | `roadmap/SEGUIMIENTO.md` §7 (falta fila para R-16, compárese con las filas de R-15 en `:2351-2352`); `roadmap/DECISIONES_TECNICAS.md:297`; origen: auditoría 2026-09-10. **Resuelto:** el mismo commit que atendió P-25/P-26 (`72772aa`, 2026-09-10, "columna vertebral agotada") añadió también la fila que faltaba en §7 para R-16, con el mismo formato que las demás filas del patrón R-15/R-10 ("mismo criterio interpretado... reaparecido en la misma tarde sin ganar su fila en su momento"). Verificado por este auditor con lectura directa de `roadmap/SEGUIMIENTO.md` §7: la fila de R-16 existe ya, cita el hallazgo #19 por su número y dice explícitamente "esta fila cierra el hallazgo #19". Un subagente de investigación despachado por separado confirmó lo mismo | resuelto por commit `72772aa` |
 | #20 | 2026-09-14 | Autorización (RLS) / calidad de la batería de pruebas — bucket de avatares | media | RESUELTO (2026-09-15) | El barrido obligatorio de `student` de `db/pruebas_rls.sql` (sección 6, T-10 requisito 5: "debe fallar en todas las tablas **y en el bucket**") recorre las diez tablas de `public` pero nunca ejercita `storage.objects`/bucket `avatares`: `grep` sobre el fichero completo para `student` combinado con `avatar`/`storage`/`objects` no da ninguna coincidencia. La sección 7 (avatares) solo suplanta a `teacher` (alumno activo/inactivo) y a `administrator` (escritura); la sección 8f cubre `anon` sobre el mismo bucket — resuelto expresamente por **P-06** el 2026-09-02 ("añadir `storage.objects` a la lista de tablas barridas" del barrido de `anon`) — pero esa misma ampliación nunca se replicó para `student`, pese a que P-06 cita literalmente el mismo patrón de bucle de la sección 6. La política SQL en sí está verificada correcta por lectura directa (`003_politicas_rls.sql:247-278`): ninguna política de `storage.objects` menciona a `student`, así que hoy cualquier intento de `student` contra el bucket falla igual que contra las demás tablas — no es una fuga activa. Lo que falta es la prueba en ejecución que lo demuestre y que actúe de guarda de regresión: es la única combinación rol×recurso de todo el proyecto donde el rol más restringido (`student`) no tiene un caso negativo ejecutable contra el recurso más sensible (fotos de menores). Mismo patrón de hallazgo que **#2** (batería que no ejercita un caso obligatorio de su propia spec), pero de alcance mucho más acotado — una sola celda de la matriz, no varias operaciones sobre cuatro tablas — de ahí la severidad media y no alta. Arreglo propuesto: replicar en la sección 6 (o en una sección 6-bis) el mismo patrón que P-06 ya usó para `anon`, insertando dos filas de `storage.objects` de fixture (alumno activo e inactivo) bajo `student` y esperando `permission denied`/0 filas en ambas. **Resuelto:** **P-28** (2026-09-14, commit `8937c53`) añadió exactamente esa sección, numerada 7c (después de la 7, no dentro de la 6, para reutilizar sus fixtures de `storage.objects` en vez de duplicarlos — razonado en `DECISIONES_TECNICAS.md`), con tres casos: `student` no lee el avatar del alumno activo, no lee el del inactivo, y no puede escribir en el bucket — los tres esperando `permission denied`/RLS o 0 filas, con comprobación previa (con el rol de conexión, sin RLS) de que la fila de fixture sigue existiendo antes de exigir que `student` no la vea, mismo cuidado que el resto del fichero. Verificado por este auditor con lectura directa de `db/pruebas_rls.sql:873-967` (sección 7c completa): sigue el patrón exacto de P-06 para `anon`, sin ningún atajo. Ningún `GRANT` ni política de `003_politicas_rls.sql` menciona a `student` sobre `storage.objects` (confirmado de nuevo en esta pasada), así que no había fuga activa y ahora tampoco hay hueco de cobertura. Pendiente solo de que el dueño lo confirme con su próximo `npm run probar-rls` real (no bloquea el cierre: mismo criterio ya aplicado a P-18/hallazgo #10, cerrado por lectura del SQL antes de la ejecución real). | `db/pruebas_rls.sql` sección 6 (líneas ~722-753), sección 7 (~756 en adelante) y sección 7c (873-967, nueva); `db/003_politicas_rls.sql:247-278`; precedente `P-06` (`SEGUIMIENTO.md` §5, RESUELTA 2026-09-02, mismo patrón aplicado a `anon` sin extenderlo a `student`); origen: auditoría de este auditor, 2026-09-14; resuelto por P-28, commit `8937c53` |
+| #21 | 2026-09-17 | Autorización (RLS) / calidad de la batería de pruebas — privilegios de tabla | alta | ABIERTO | `db/018_baja_profesor.sql` (R-22, commit `a222862`) crea la tabla `baja_profesor` — la decimotercera tabla de `public` — pero ninguno de los tres barridos genéricos "todas las tablas" de `db/pruebas_rls.sql` se actualizó para incluirla: ni la sección 6 (barrido obligatorio de `student`, líneas 741-744), ni la sección 8 (`TRUNCATE` por `authenticated`/`administrator`, líneas 1201-1205 — la comprobación más grave del fichero, la que ya falló una vez de verdad con `perfil`), ni el barrido de `anon` (líneas 1856-1859). Verificado por `grep -n "'pausa_alumno'" db/pruebas_rls.sql`: las tres listas terminan en `pausa_alumno` (R-21, migración anterior), ninguna menciona `baja_profesor`. Exactamente el mismo patrón que el hallazgo **#10** (`RESUELTO`, 2026-09-08): una migración nueva añade tabla y la batería de barrido general no se actualiza en el mismo commit — la diferencia es que aquí la propia documentación del proyecto demuestra que la omisión no es un simple despiste de redacción, sino un paso real que no se ejecutó: la fila de `SEGUIMIENTO.md` §3 para la migración anterior (fila 20, `017_pausa_alumno`) afirma explícitamente que esa migración quedó "añadida a los barridos obligatorios de `student` —sección 6—, `TRUNCATE` —sección 5— y `anon` —sección 8f—", mientras que la fila equivalente para esta migración (fila 21, `018_baja_profesor`) y la entrada correspondiente de `db/APLICADAS.md` describen con detalle los 17 casos propios de la sección 8o (rechazo de rol, tipo inválido, exclusión por asistencia/duplicado, etc.) sin afirmar en ningún momento que se tocaran las tres listas genéricas — no se perdió al escribir la nota, no se hizo. Riesgo real hoy: bajo, no nulo — `018_baja_profesor.sql:182-184` sí sigue el patrón correcto (`revoke all ... from anon, authenticated, service_role` seguido solo de `grant select ... to authenticated`), confirmado por lectura directa, así que `student`/`anon` ya están bloqueados contra `baja_profesor` por el `GRANT`/RLS actual. Lo que falta es la red de regresión que se supone debe demostrarlo y que atraparía el descuido inverso en una migración futura: es precisamente la clase de fallo que el punto de control permanente "Privilegios de tabla" advierte que "se reintroduce solo" en cada tabla nueva de Supabase, y `baja_profesor` es hoy la única tabla del esquema sin un caso negativo ejecutable de `student`, de `anon` ni de `TRUNCATE` en su contra. Confirmado también en ejecución por este auditor (no solo por lectura): `npm run typecheck`, `npm run lint` y `npm test` (**1719/1719**, coincide con `SEGUIMIENTO.md`) en verde — la suite no falla por esto porque nunca llega a ejercitar esa celda de la matriz. Arreglo propuesto: añadir `'baja_profesor'` a los tres arrays (líneas 743, 1204 y 1858 de `db/pruebas_rls.sql`), mismo patrón exacto que ya usó la corrección del hallazgo #10. | `db/018_baja_profesor.sql:182-184`; `db/pruebas_rls.sql` líneas 741-744, 1201-1205 y 1856-1859; `roadmap/SEGUIMIENTO.md` fila 21 de §3 (compárese con la fila 20, que sí declara la actualización de los tres barridos); `db/APLICADAS.md` (entrada de `018_baja_profesor.sql`, mismo silencio); precedente `#10` (`RESUELTO` 2026-09-08, mismo patrón exacto sobre `cierre_centro`/`excepcion_slot`); origen: auditoría de este auditor, 2026-09-17 |
 
 ---
 
@@ -71,6 +72,107 @@
 > Cada pasada: fecha, hallazgos y conclusiones. Append, la más reciente arriba. Prestar
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
+
+### Auditoría 2026-09-17
+
+**Alcance real de esta pasada — seis commits desde la anterior (`c338c04`, 2026-09-16):** `a222862`
+(R-22, baja programada de un profesor — código y tests completos, migración `018` escrita y
+empujada, todavía sin aplicar), `a22cef9`/`d765a60`/`a1ce017`/`3ff5e30` (cuatro rutinas de programador
+sin trabajo accionable tras R-22) y `4d6fd84` (vigésimo tercer ciclo del PM, abre la Oleada v9 con
+R-23 — solo roadmap, cero código). `git checkout develop && git pull origin develop`: fast-forward
+limpio hasta `4d6fd84`. `git diff --stat c338c04..HEAD` acota el cambio real a `db/018_baja_profesor.sql`
+(nueva), `db/pruebas_rls.sql` (sección 8o), `db/APLICADAS.md`, `db/MODELO.md`, seis ficheros de
+`src/` (dominio, datos y UI de la baja de profesor, más los dos enganches de `router.ts`/`aplicacion.ts`
+y el botón de `pantallaUsuarios.ts`) y `roadmap/DECISIONES_TECNICAS.md`/`SEGUIMIENTO.md`/
+`ROADMAP_PRODUCTO.md`/`HISTORIAL_SESIONES.md`/`DEVELOPERS.md` (documentación); `roadmap/HOJA_DE_RUTA.md`
+y todo `legal/` sin tocar, confirmado por `git diff` vacío.
+
+**Registro de hallazgos:** **#8** sigue **ABIERTO** (dato de salud del artículo 9 del RGPD en R-02,
+pregunta #16 de §6), decimotercer ciclo consecutivo sin novedad de fondo — ninguno de los seis commits
+nuevos toca `db/011_justificacion_ausencia.sql` ni `legal/`, y la pregunta #16 sigue con la columna
+«Respuesta» vacía (lectura directa de la fila). Se abre **#21** (alta): ninguno de los tres barridos
+genéricos "todas las tablas" de `db/pruebas_rls.sql` (barrido de `student`, sección 6; `TRUNCATE`,
+sección 8; barrido de `anon`) se actualizó para incluir la tabla nueva `baja_profesor` que crea
+`018_baja_profesor.sql` — mismo patrón exacto que el hallazgo #10 ya resuelto (`cierre_centro`/
+`excepcion_slot` ausentes del mismo barrido `TRUNCATE`). Detalle completo, con la evidencia de que la
+propia documentación del proyecto certifica la omisión (la fila de §3 de `SEGUIMIENTO.md` de la
+migración anterior declara expresamente los tres barridos actualizados; la de esta migración, no), en
+el registro de arriba. Riesgo real hoy bajo — la migración sí revoca y concede privilegios de tabla
+correctamente por lectura directa — pero es exactamente el hueco de red de regresión que el punto de
+control "Privilegios de tabla" advierte que se reintroduce solo.
+
+**Auditoría de la migración `018_baja_profesor.sql` (R-22) contra los puntos de control permanentes,**
+leída completa junto con `roadmap/DECISIONES_TECNICAS.md` y la sección 8o de `db/pruebas_rls.sql`:
+- **RLS completa:** `alter table ... enable row level security` presente; una única política `select`
+  (`administrator` lee todas) — sin ninguna política de `teacher` ni de `student`, decisión razonada y
+  correcta: el `teacher` ve el EFECTO de la baja (sus propias filas de `excepcion_slot`, ya visibles
+  desde R-06) y no necesita leer el registro administrativo de la baja en sí.
+- **Escritura solo por RPC:** `revoke all ... from anon, authenticated, service_role` seguido de
+  `grant select ... to authenticated` únicamente — sin `insert`/`update`/`delete` a `authenticated`.
+  Las tres únicas vías de escritura (`declarar_baja_profesor`/`cancelar_baja_profesor`/
+  `acortar_baja_profesor`) son `SECURITY DEFINER`, comprueban `rol_actual() = 'administrator'` como
+  primera línea, y se conceden a `authenticated` en general (mismo patrón que `excepcion_slot`/
+  `pausa_alumno`: el `if` interno rechaza a `teacher`/`student`, no la ausencia de `GRANT`) —
+  verificado también por los seis casos negativos de la sección 8o.
+- **Privilegios de tabla:** sin ningún `TRUNCATE` ni `GRANT` de más en el propio fichero — pero ver
+  **#21** arriba: la prueba automática que debería confirmarlo sobre esta tabla en concreto no existe
+  todavía.
+- **No-retroactividad y hora del servidor:** `cancelar_baja_profesor` exige `fecha_inicio > hoy`;
+  `acortar_baja_profesor` exige que la baja esté en curso y que la nueva `fecha_fin` no sea anterior a
+  hoy ni posterior a la actual — ambas desactivan solo excepciones estrictamente futuras, que por
+  construcción no pueden tener ya un registro de asistencia real (`registrar_asistencia` rechaza
+  siempre un `ocurrido_en` futuro, T-18) — razonamiento verificado línea a línea, no solo leído de
+  `DECISIONES_TECNICAS.md`.
+- **Alcance de datos personales:** ninguna columna nueva fuera de la lista cerrada de §0.2 — `motivo`/
+  `motivo_anulacion` son texto libre sin ningún `CHECK` de categoría cerrada (mismo cuidado ya
+  verificado en R-21 para `pausa_alumno`, aplicado aquí de nuevo correctamente).
+- **Reutilización real de `declarar_excepcion_slot` (requisito 2, literal):** confirmado leyendo el
+  cuerpo de `declarar_baja_profesor` — llama a la función de R-06 tal cual, sin ningún parámetro
+  nuevo, y solo añade `baja_profesor_id` con un `UPDATE` posterior sobre la fila devuelta; ninguna
+  lógica de creación de excepción se duplica.
+- **Superficie y enrutado:** la pantalla nueva (`pantallaBajasProfesor.ts`, ruta `#/bajas-profesor`) se
+  monta exclusivamente dentro de `mostrarAppAdministrador` (`ui/aplicacion.ts`), con
+  `puedeGestionarBajasProfesor` restringida a `administrator` en `permisosUi.ts` — inaccesible para
+  `teacher`/`student` tanto por estructura de router como por RLS, sin necesidad de una comprobación
+  de rol adicional en el cliente.
+
+**Calidad real de los tests (T-03):** la sección 8o de `db/pruebas_rls.sql` (leída completa) cubre los
+seis casos de rechazo de rol/validación (`teacher`/`student` no llaman a ninguna de las tres RPC, tipo
+inválido, sustituto igual al titular, cancelación sin motivo), la exclusión por asistencia ya
+existente, el marcado `baja_profesor_id` de la excepción generada, una sustitución en curso que genera
+excepciones en varios slots a la vez, cancelar una baja ya empezada (rechazado) y una futura
+(permitido, con desactivación en bloque comprobada por `bool_and`), acortar con fecha no válida
+(rechazado) y una baja en curso (permitido, comprobando que la excepción dentro del nuevo rango sigue
+activa y la de fuera no), y el barrido de lectura `teacher`/`administrator` sobre `baja_profesor` — no
+son casos triviales, cada uno verifica una regla de negocio real con su contraejemplo. En el lado de
+dominio, `src/dominio/bajaProfesor.ts` y su test (fixtures con solapes, exclusiones y rangos límite) y
+`src/ui/pantallaBajasProfesor.test.ts` (399 líneas, incluida la navegación con profesor preseleccionado
+desde `pantallaUsuarios.ts`) se leyeron íntegros: verifican comportamiento real. Confirmado en
+ejecución por este auditor, no solo por el commit: `npm ci` (limpio), `npm run typecheck` (limpio),
+`npm run lint` (limpio) y `npm test` (**1719/1719**, coincide exactamente con lo que registra
+`SEGUIMIENTO.md`). Único hueco real de cobertura: el propio **#21** — las tres listas genéricas de
+barrido no incluyen la tabla nueva, así que ningún test ejercita hoy `student`/`anon`/`TRUNCATE` contra
+`baja_profesor` en concreto (aunque sí queda cubierta la lectura cruzada `teacher` en la sección 8o).
+
+**Coherencia documental:** `roadmap/DECISIONES_TECNICAS.md` gana seis filas para R-22 (RPC única en
+vez de orquestación cliente, prefijo `out_` de las columnas de `RETURNS TABLE` — con precedente real
+citado, la ambigüedad que ya tumbó `aplicar_limite_tasa()` en `005` —, `ALTER TABLE` en vez de editar
+`013`, ausencia deliberada de política de lectura para `teacher`, `UPDATE` directo en vez de reutilizar
+`desactivar_excepcion_slot()` fila a fila, y la verificación excepcional de la migración completa
+contra una base PostgreSQL local desechable de la propia sesión) y la matriz rol×tabla×operación gana
+su fila para `baja_profesor` — todas coherentes con el código leído. `roadmap/SEGUIMIENTO.md` §7 no
+gana ninguna fila nueva: no se ha encontrado ninguna desviación real de R-22 respecto a su spec (a
+diferencia de R-02/R-05/R-15/R-16/R-20, que sí la tuvieron) — la ausencia de fila aquí es correcta, no
+un hueco. La verificación excepcional de la migración contra una base local desechable, sin ninguna
+credencial de Supabase, respeta §0.1 (no se aplicó nada contra el proyecto del dueño) y sí encontró y
+corrigió un bug real (la ambigüedad de columna) antes de empujar el fichero — señal positiva de que el
+programador está aprendiendo de sus propios incidentes pasados (mismo síntoma que `006_arreglo_limite_
+tasa_ambiguo.sql`), no repitiéndolos ciegamente.
+
+**Conclusión:** proyecto sano, sin ninguna desviación de las reglas innegociables de §0.2 en el código
+nuevo, un único hallazgo nuevo (#21, alta, cobertura de tests — no fuga activa) que debería resolverse
+en un commit trivial (añadir `'baja_profesor'` a tres arrays), y el hallazgo #8 sigue exactamente donde
+estaba, esperando al dueño.
 
 ### Auditoría 2026-09-16
 
