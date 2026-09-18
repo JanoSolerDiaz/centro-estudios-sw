@@ -37,6 +37,43 @@
 
 ---
 
+### Sesión 2026-09-18 (rutina programada de programador)
+
+**Tarea(s):** R-24 (Oleada v10 / F-15, "Corregir un toque equivocado sin salir de pasar lista")
+**Estado resultante:** R-24 `PENDIENTE` → `COMPLETADA` en §1 de `SEGUIMIENTO.md`
+**Commits a `develop`:** ver commit de esta sesión
+**Migraciones aplicadas:** ninguna — la spec de R-24 declara "Migración: No" (reutiliza
+`actualizar_asistencia` de T-21 sin ningún cambio de esquema); `db/APLICADAS.md` sigue con `009`
+como última aplicada
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/ui/pantallaPasarLista.ts` (cuarto control "Anular"),
+`src/ui/pantallaPasarLista.test.ts` (12 tests nuevos), `src/datos/asistencia.ts`
+(`anularAsistencia`), `src/datos/asistencia.test.ts` (2 tests nuevos), `src/ui/aplicacion.ts`
+(wiring de `anular` en la composición de "pasar lista"), `roadmap/SEGUIMIENTO.md` (§1 y cabecera),
+`roadmap/DECISIONES_TECNICAS.md` (dos filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1748/1748, 14 nuevos desde R-23) · build ✅
+— el contenedor arrancó sin `node_modules`; `npm ci` (130 paquetes, 0 vulnerabilidades) antes de la
+primera verificación
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-18, R-24): (1) un fallo
+de red/límite de tasa al anular NO pasa por la cola offline de R-07 — la fila que se anula ya existe
+de verdad en el servidor, así que perder la respuesta no pierde el dato, solo la confirmación; (2) el
+control "Anular" se oculta fuera de la ventana de edición usando `puedeEditarAsistencia`
+(`dominio/asistencia.ts`), escrita desde T-03 pero sin ningún consumidor real hasta esta sesión —
+queda anotada la divergencia con `pantallaRegistrosSlot.ts` (T-21), que sigue sin ocultar su propio
+botón de anular fuera de ventana, fuera del alcance de esta tarea
+**Hallazgos del auditor atendidos:** ninguno de esta sesión — la pasada del auditor de hoy
+(`55a5e8c`) ya cerró **#21** antes de que empezara este ciclo de programador; queda solo **#8** (alta,
+RGPD, esperando al dueño en la pregunta #16 de §6), sin ninguna acción posible desde el código
+**Hallazgos:** ninguno nuevo — `grep -rn "puedeEditarAsistencia("` confirmó que la función llevaba
+sin consumidor real desde T-03 (solo su propio test la llamaba), anotado como decisión, no como bug
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** revisar §1 para la siguiente tarea pendiente (a fecha de esta sesión, ninguna R-XX
+ni T-XX queda `PENDIENTE`/`EN CURSO`: abrir una oleada nueva es decisión del ciclo de PM, no de una
+sesión de programador)
+
+---
+
 ### Sesión 2026-09-17 (rutina programada de programador, cuarta pasada sin trabajo accionable tras R-23)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar

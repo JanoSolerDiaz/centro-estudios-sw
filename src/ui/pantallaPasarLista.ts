@@ -32,6 +32,23 @@
  * ve desde la interfaz. Cualquier OTRO error (red, límite de tasa, servidor) deja la card en
  * "pendiente"/"error" con el mismo `peticionId`, lista para reintentar con un segundo toque.
  *
+ * **R-24 (corregir un toque equivocado sin salir de pasar lista)**: una card ya registrada
+ * (presente o ausente) gana un CUARTO control hermano, "Anular" — nunca el mismo gesto que ningún
+ * otro (requisito 1) —, que abre un formulario mínimo en la propia card (motivo obligatorio,
+ * `motivoAnulacionValido`) y solo al confirmar llama a `deps.anular` (`actualizar_asistencia` con
+ * `anular: true`, la MISMA RPC que ya usa «Registros» de T-21, sin ninguna nueva). Ofrecido solo
+ * dentro de la ventana de edición (`puedeEditarAsistencia`, requisito 4) — fuera de ella el control
+ * ni siquiera se pinta, mismo criterio preventivo que el resto de acciones condicionadas de esta
+ * pantalla (`puedeMarcarSalida`). Al confirmar con éxito, la card vuelve a `'pendiente'` con un
+ * `peticionId`/`peticionIdAusente` NUEVOS (requisito 3): los que llevaba quedaron consumidos por el
+ * registro ahora anulado, y `asistencia_peticion_id_unico` (T-18) es única sobre toda la tabla,
+ * anuladas incluidas. Un fallo (red, límite de tasa) deja la card sin cambiar de fase, con el
+ * motivo ya escrito y el error visible, lista para reintentar (requisito 5) — sin cola offline
+ * propia: a diferencia de registrar/marcar ausente (R-07), anular no es una escritura nueva que
+ * pueda perderse sin dejar rastro (la fila ya existe), así que un fallo de red aquí se trata como
+ * cualquier otro error de esta pantalla, nunca se encola (decisión documentada en
+ * `DECISIONES_TECNICAS.md`).
+ *
  * Limitación conocida (`HISTORIAL_SESIONES.md`, sesión de T-19): el `cada(...)` del programador no
  * se cancela al desmontar — ningún componente de `src/ui/` tiene todavía un ciclo de vida de
  * desmontaje, ni siquiera los de T-16. Inocuo en la práctica: `gestorSesion` no cambia de `perfil`
@@ -73,7 +90,13 @@ import {
   type PropuestaAsistencia,
   type SlotConAlumno,
 } from '../dominio/slots.ts';
-import { claveRegistroPorSlot, registrosDeHoyPorAlumnoSlot, puedeMarcarSalida } from '../dominio/asistencia.ts';
+import {
+  claveRegistroPorSlot,
+  registrosDeHoyPorAlumnoSlot,
+  puedeMarcarSalida,
+  puedeEditarAsistencia,
+  motivoAnulacionValido,
+} from '../dominio/asistencia.ts';
 import { compararAlumnosParaOrden } from '../dominio/alumno.ts';
 import { inicialesAlumno, colorMonograma } from '../dominio/avatarAlumno.ts';
 import { puedeUsarPasarLista } from '../dominio/permisosUi.ts';
@@ -89,7 +112,7 @@ import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 import type { AlmacenColaAsistenciaOffline, ElementoColaAsistencia } from '../nucleo/colaAsistenciaOffline.ts';
 import type { DetectorConexion } from '../nucleo/detectorConexion.ts';
 import { crearElemento } from './dom.ts';
-import { crearZonaMensaje, crearBoton } from './formularios.ts';
+import { crearZonaMensaje, crearBoton, crearCampoTexto } from './formularios.ts';
 import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import type { RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { AlumnoConRutaAvatar } from '../datos/avatarAlumno.ts';
@@ -129,6 +152,12 @@ export interface DependenciasPantallaPasarLista {
    * (`datos/asistencia.ts#marcarSalidaAsistencia`, sobre `actualizar_asistencia`). Tercer control de
    * la card, hermano de los otros dos, ofrecido solo mientras `puedeMarcarSalida`. */
   marcarSalida(asistenciaId: string): Promise<Asistencia>;
+  /** Anula una card ya registrada sin salir de pasar lista (R-24, requisito 2) — mismo mecanismo
+   * exacto que «Registros» (T-21, `actualizar_asistencia` con `anular: true` y motivo obligatorio),
+   * sin ninguna RPC nueva (`datos/asistencia.ts#anularAsistencia`). Cuarto control de la card,
+   * hermano de los otros tres, ofrecido solo dentro de la ventana de edición
+   * (`puedeEditarAsistencia`, requisito 4). */
+  anular(asistenciaId: string, motivo: string): Promise<Asistencia>;
   /** Firma en lote (§0.2) las URL de la derivada `mini` (96 px, requisito 2) de los alumnos con
    * avatar que todavía no se hayan pedido. */
   obtenerUrlsAvataresMini(alumnos: readonly AlumnoConRutaAvatar[]): Promise<ReadonlyMap<string, string>>;
@@ -176,6 +205,15 @@ interface EstadoTarjeta {
    * vuelo" y un mensaje de error propio. */
   readonly salidaEnviando?: boolean;
   readonly salidaError?: string;
+  /** Anular (R-24) — mismo criterio de independencia de `fase` que `salidaEnviando`/`salidaError`:
+   * un cuarto control con su propio formulario abierto/cerrado (`mostrandoAnular`), motivo en curso
+   * de escritura (`motivoAnulacion`), petición en vuelo (`anulando`) y error propio (`anularError`).
+   * Al confirmar con éxito, la card se reconstruye entera como `'pendiente'` (sin estos cuatro
+   * campos) en vez de limpiarlos aquí — ver `manejarAnular`. */
+  readonly mostrandoAnular?: boolean;
+  readonly motivoAnulacion?: string;
+  readonly anulando?: boolean;
+  readonly anularError?: string;
 }
 
 /** Fase terminal que corresponde a `fila` una vez el servidor la confirma — la MISMA fila puede
@@ -187,10 +225,10 @@ function faseDeAsistencia(fila: Asistencia): 'registrado' | 'ausente' {
 
 interface FocoTarjeta {
   readonly clave: string;
-  /** Qué control de la card tenía el foco — la card principal, "Marcar ausente" (R-01) o "Marcar
-   * salida" (R-03) — así el repintado lo restaura en el control correcto, nunca siempre en el
-   * principal por defecto. */
-  readonly control: 'principal' | 'ausente' | 'salida';
+  /** Qué control de la card tenía el foco — la card principal, "Marcar ausente" (R-01), "Marcar
+   * salida" (R-03) o "Anular" (R-24, cualquier elemento de su formulario) — así el repintado lo
+   * restaura en el control correcto, nunca siempre en el principal por defecto. */
+  readonly control: 'principal' | 'ausente' | 'salida' | 'anular';
 }
 
 /** "Alumno extra" (T-20): sin slot, nunca pasa por la fase 'pendiente' — seleccionarlo en el
@@ -535,6 +573,74 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       }
     }
 
+    // Cuarto control, hermano de los otros tres (R-24, requisito 1: "distinguible del resto de
+    // controles... nunca el mismo gesto") — solo ofrecido dentro de la ventana de edición
+    // (requisito 4: `puedeEditarAsistencia` sobre el registro real, mismo criterio preventivo que
+    // `puedeMarcarSalida` de arriba), y solo sobre una card ya resuelta como presente o ausente.
+    if (
+      (tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente') &&
+      tarjeta.asistencia &&
+      puedeEditarAsistencia(
+        { profesorId: tarjeta.asistencia.profesor_id, registradoEn: new Date(tarjeta.asistencia.registrado_en) },
+        { id: deps.profesorId, rol: deps.rol },
+        deps.reloj,
+      )
+    ) {
+      const nombreAlumno = `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`;
+      const bloqueAnular = documento.createElement('div');
+      if (tarjeta.mostrandoAnular) {
+        const campoMotivo = crearCampoTexto(documento, `motivo-anular-${clave}`, 'Motivo de la anulación', 'text', 'off');
+        campoMotivo.input.value = tarjeta.motivoAnulacion ?? '';
+        campoMotivo.input.dataset.anularClave = clave;
+        campoMotivo.input.disabled = tarjeta.anulando === true;
+        campoMotivo.input.addEventListener('input', () => {
+          actualizarMotivoAnular(clave, campoMotivo.input.value);
+        });
+
+        const botonConfirmarAnular = documento.createElement('button');
+        botonConfirmarAnular.type = 'button';
+        botonConfirmarAnular.dataset.anularClave = clave;
+        botonConfirmarAnular.style.minHeight = '44px';
+        botonConfirmarAnular.textContent = tarjeta.anulando ? 'Anulando…' : 'Confirmar anulación';
+        botonConfirmarAnular.disabled = tarjeta.anulando === true || !motivoAnulacionValido(tarjeta.motivoAnulacion ?? '');
+        botonConfirmarAnular.addEventListener('click', () => {
+          void obtenerProtectorAnular(clave)();
+        });
+
+        const botonCancelarAnular = documento.createElement('button');
+        botonCancelarAnular.type = 'button';
+        botonCancelarAnular.dataset.anularClave = clave;
+        botonCancelarAnular.style.minHeight = '44px';
+        botonCancelarAnular.textContent = 'Cancelar';
+        botonCancelarAnular.disabled = tarjeta.anulando === true;
+        botonCancelarAnular.addEventListener('click', () => {
+          cancelarAnular(clave);
+        });
+
+        bloqueAnular.append(campoMotivo.contenedor, botonConfirmarAnular, botonCancelarAnular);
+        if (tarjeta.anularError) {
+          bloqueAnular.append(crearElemento(documento, 'span', { texto: tarjeta.anularError }));
+        }
+      } else {
+        const botonAnular = documento.createElement('button');
+        botonAnular.type = 'button';
+        botonAnular.dataset.anularClave = clave;
+        botonAnular.style.minHeight = '44px';
+        botonAnular.style.padding = '4px 8px';
+        botonAnular.style.border = '2px dashed #991B1B';
+        botonAnular.style.borderRadius = '8px';
+        botonAnular.style.fontSize = '13px';
+        botonAnular.style.backgroundColor = '#FFFFFF';
+        botonAnular.textContent = 'Anular';
+        botonAnular.setAttribute('aria-label', `Anular el registro de ${nombreAlumno}`);
+        botonAnular.addEventListener('click', () => {
+          abrirAnular(clave);
+        });
+        bloqueAnular.append(botonAnular);
+      }
+      contenedorTarjeta.append(bloqueAnular);
+    }
+
     return contenedorTarjeta;
   }
 
@@ -612,7 +718,11 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       return { clave: claveAusente, control: 'ausente' };
     }
     const claveSalida = activo?.getAttribute('data-salida-clave');
-    return claveSalida ? { clave: claveSalida, control: 'salida' } : null;
+    if (claveSalida) {
+      return { clave: claveSalida, control: 'salida' };
+    }
+    const claveAnular = activo?.getAttribute('data-anular-clave');
+    return claveAnular ? { clave: claveAnular, control: 'anular' } : null;
   }
 
   function pintarPausados(pausadosHoy: readonly AlumnoPausadoHoy[]): void {
@@ -666,7 +776,14 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const elemento = crearTarjetaElemento(clave, tarjeta, estado.avatares);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
-        const selector = foco?.control === 'ausente' ? '[data-ausente-clave]' : foco?.control === 'salida' ? '[data-salida-clave]' : '[data-clave]';
+        const selector =
+          foco?.control === 'ausente'
+            ? '[data-ausente-clave]'
+            : foco?.control === 'salida'
+              ? '[data-salida-clave]'
+              : foco?.control === 'anular'
+                ? '[data-anular-clave]'
+                : '[data-clave]';
         elemento.querySelector<HTMLElement>(selector)?.focus();
       }
     }
@@ -1366,6 +1483,127 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     let protector = protectoresTarjeta.get(claveProtector);
     if (!protector) {
       protector = crearProtectorDobleToque(() => manejarSalida(clave));
+      protectoresTarjeta.set(claveProtector, protector);
+    }
+    return protector;
+  }
+
+  /** Abre el formulario de "Anular" (R-24, requisito 1) sobre una card ya registrada — sin tocar
+   * ningún otro campo de la tarjeta (el motivo, si ya se había empezado a escribir, se conserva). */
+  function abrirAnular(clave: string): void {
+    const tarjeta = almacen.obtener().tarjetas.get(clave);
+    if (!tarjeta) {
+      return;
+    }
+    fijarTarjeta(clave, { ...tarjeta, mostrandoAnular: true });
+  }
+
+  /** Actualiza el motivo en curso de escritura (R-24, requisito 2: "motivo obligatorio") — cada
+   * pulsación reconstruye la card entera (mismo régimen que el resto de esta pantalla, ver
+   * `crearAlmacenEstado`), así el botón "Confirmar anulación" se habilita en cuanto
+   * `motivoAnulacionValido` deja de rechazarlo, sin esperar a ningún envío. */
+  function actualizarMotivoAnular(clave: string, motivo: string): void {
+    const tarjeta = almacen.obtener().tarjetas.get(clave);
+    if (!tarjeta) {
+      return;
+    }
+    fijarTarjeta(clave, { ...tarjeta, motivoAnulacion: motivo });
+  }
+
+  /** Cierra el formulario de "Anular" sin llamar al servidor — la card sigue exactamente como
+   * estaba (requisito 5: un "Cancelar" no es un fallo, no necesita ningún mensaje). Reconstruida
+   * campo a campo (mismo criterio que `manejarSalida`) para poder OMITIR `mostrandoAnular`,
+   * `motivoAnulacion` y `anularError` en vez de fijarlos a `undefined`, que con
+   * `exactOptionalPropertyTypes` es un valor distinto de no llevar la clave. */
+  function cancelarAnular(clave: string): void {
+    const tarjeta = almacen.obtener().tarjetas.get(clave);
+    if (!tarjeta) {
+      return;
+    }
+    const { alumno, slot, fase, peticionId, peticionIdAusente, asistencia, salidaEnviando, salidaError } = tarjeta;
+    fijarTarjeta(clave, {
+      alumno,
+      slot,
+      fase,
+      peticionId,
+      peticionIdAusente,
+      ...(asistencia ? { asistencia } : {}),
+      ...(salidaEnviando !== undefined ? { salidaEnviando } : {}),
+      ...(salidaError !== undefined ? { salidaError } : {}),
+    });
+  }
+
+  /** Confirma la anulación (R-24, requisito 2): llama a `deps.anular` sobre el registro real de la
+   * card — la MISMA RPC `actualizar_asistencia` que «Registros» (T-21), sin ninguna nueva. Con
+   * éxito, la card vuelve a `'pendiente'` (requisito 3) con un `peticionId`/`peticionIdAusente`
+   * NUEVOS: los que llevaba ya quedaron consumidos por el registro ahora anulado, y
+   * `asistencia_peticion_id_unico` (T-18) es única sobre TODA la tabla, anuladas incluidas —
+   * reutilizarlos chocaría con esa restricción en el siguiente intento. También hay que retirar la
+   * clave de `registrosHoyCache`: si se dejara, el próximo recálculo (`construirTarjetas`, cada
+   * tick) la encontraría de nuevo y resucitaría la card como registrada en vez de dejarla
+   * pendiente. Un fallo NO cambia la fase de la card (requisito 5): sigue mostrando el registro que
+   * no llegó a anularse, con el motivo ya escrito, lista para reintentar — sin cola offline (ver la
+   * cabecera del módulo): anular no es una escritura que pudiera perderse sin dejar rastro, la fila
+   * ya existe de verdad en el servidor. */
+  async function manejarAnular(clave: string): Promise<void> {
+    const tarjeta = almacen.obtener().tarjetas.get(clave);
+    if (!tarjeta?.asistencia || (tarjeta.fase !== 'registrado' && tarjeta.fase !== 'ausente') || tarjeta.anulando) {
+      return;
+    }
+    if (
+      !puedeEditarAsistencia(
+        { profesorId: tarjeta.asistencia.profesor_id, registradoEn: new Date(tarjeta.asistencia.registrado_en) },
+        { id: deps.profesorId, rol: deps.rol },
+        deps.reloj,
+      )
+    ) {
+      return;
+    }
+    const motivo = tarjeta.motivoAnulacion ?? '';
+    if (!motivoAnulacionValido(motivo)) {
+      return;
+    }
+    const { alumno, slot, fase, peticionId, peticionIdAusente, asistencia } = tarjeta;
+    fijarTarjeta(clave, {
+      alumno,
+      slot,
+      fase,
+      peticionId,
+      peticionIdAusente,
+      asistencia,
+      mostrandoAnular: true,
+      motivoAnulacion: motivo,
+      anulando: true,
+    });
+    try {
+      await deps.anular(asistencia.id, motivo);
+      const nuevoCache = new Map(registrosHoyCache);
+      nuevoCache.delete(clave);
+      registrosHoyCache = nuevoCache;
+      fijarTarjeta(clave, { alumno, slot, fase: 'pendiente', peticionId: deps.generarPeticionId(), peticionIdAusente: deps.generarPeticionId() });
+    } catch (error) {
+      fijarTarjeta(clave, {
+        alumno,
+        slot,
+        fase,
+        peticionId,
+        peticionIdAusente,
+        asistencia,
+        mostrandoAnular: true,
+        motivoAnulacion: motivo,
+        anulando: false,
+        anularError: mensajeAmigable(error),
+      });
+    }
+  }
+
+  /** Protector de doble toque INDEPENDIENTE (mismo criterio que `obtenerProtectorSalida`): un doble
+   * toque en "Confirmar anulación" no comparte el `enCurso` de ningún otro control de la card. */
+  function obtenerProtectorAnular(clave: string): () => Promise<void> {
+    const claveProtector = `${clave}:anular`;
+    let protector = protectoresTarjeta.get(claveProtector);
+    if (!protector) {
+      protector = crearProtectorDobleToque(() => manejarAnular(clave));
       protectoresTarjeta.set(claveProtector, protector);
     }
     return protector;

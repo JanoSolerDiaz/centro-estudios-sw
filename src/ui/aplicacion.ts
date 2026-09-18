@@ -92,6 +92,7 @@ import {
   listarAsistenciaDeHoy,
   actualizarAsistencia,
   marcarSalidaAsistencia,
+  anularAsistencia,
   listarRegistrosDeSlotYFecha,
   listarRegistrosDeSlotsYFecha,
   listarRegistrosDeSlotsEnRango,
@@ -812,6 +813,13 @@ function mostrarAppProfesor(
           { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
           perfil.id,
           asistenciaId,
+        ),
+      anular: (asistenciaId, motivo) =>
+        anularAsistencia(
+          { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+          perfil.id,
+          asistenciaId,
+          motivo,
         ),
       obtenerUrlsAvataresMini: (alumnos) => urlsAvataresEnLote(app.almacenamiento, alumnos, 'mini'),
       generarPeticionId: () => crypto.randomUUID(),

@@ -156,6 +156,21 @@ export async function marcarSalidaAsistencia(
   return actualizarAsistencia(deps, profesorDuenoId, { asistenciaId, marcarSalida: true });
 }
 
+/** Anula un registro ya existente (R-24, requisito 2: "corregir un toque equivocado sin salir de
+ * pasar lista"), con `motivoAnulacion` obligatorio — mismo atajo de un único parámetro sobre
+ * `actualizarAsistencia` que `marcarSalidaAsistencia` (R-03), reutilizado por pasar lista (T-19)
+ * para no tener que conocer el resto de la forma de `ActualizarAsistenciaEntrada`. "Registros"
+ * (T-21) sigue construyendo la entrada completa a mano porque también ofrece las demás acciones
+ * sobre la misma llamada. */
+export async function anularAsistencia(
+  deps: DependenciasAsistencia,
+  profesorDuenoId: string,
+  asistenciaId: string,
+  motivoAnulacion: string,
+): Promise<Asistencia> {
+  return actualizarAsistencia(deps, profesorDuenoId, { asistenciaId, anular: true, motivoAnulacion });
+}
+
 /** Registros de UN slot concreto en el día natural (`limitesDiaLocal`, `dominio/slots.ts`) que
  * contiene `fecha` — CUALQUIER estado, incluidos los anulados (T-21, requisito 4: "la fila
  * permanece y se muestra tachada"), a diferencia de `listarAsistenciaDeHoy` (T-19), que siempre es

@@ -10,7 +10,34 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-17 (rutina programada de producto, vigésimo cuarto ciclo del PM:
+**Última actualización:** 2026-09-18 (rutina programada de programador): protocolo §0.3 primero —
+`auditoriacontinua.md` con una pasada nueva desde la sesión anterior (`55a5e8c`, 2026-09-18, la del
+propio auditor), que cierra **#21** (`RESUELTO`, cobertura de `db/pruebas_rls.sql` para
+`baja_profesor` ya confirmada) y deja solo **#8** (`ABIERTO`, dato de salud del artículo 9 del RGPD
+en R-02, pregunta #16 de §6, esperando al dueño — sin ninguna acción posible desde el código, ver
+`auditoriacontinua.md`). Sin ningún P-XX urgente nuevo. Siguiente tarea según §1: **R-24** (abierta
+la sesión anterior, `PENDIENTE`). Implementada por completo: cuarto control "Anular" en
+`src/ui/pantallaPasarLista.ts` (hermano de toque/ausente/salida, nunca su mismo gesto), formulario
+mínimo con motivo obligatorio (`motivoAnulacionValido`, ya existente) que solo al confirmar llama a
+la RPC `actualizar_asistencia` (`anular: true`, la misma que ya usa «Registros» de T-21) a través de
+la nueva `datos/asistencia.ts#anularAsistencia` (atajo sobre `actualizarAsistencia`, mismo patrón
+que `marcarSalidaAsistencia` de R-03). Ofrecido solo dentro de la ventana de edición: primer
+consumidor real de `puedeEditarAsistencia` (`dominio/asistencia.ts`), escrita desde T-03 pero sin
+ningún llamador hasta hoy — ni siquiera «Registros» de T-21 la usa para ocultar preventivamente su
+propio botón de anular, una divergencia entre tareas que se documenta en `DECISIONES_TECNICAS.md`
+en vez de tocar T-21 (fuera del alcance de R-24). Al confirmar con éxito la card vuelve a
+`'pendiente'` con `peticionId`/`peticionIdAusente` NUEVOS (los anteriores quedaron consumidos por el
+registro ya anulado — `asistencia_peticion_id_unico` es única sobre toda la tabla, anuladas
+incluidas) y se retira la clave de `registrosHoyCache` para que el siguiente tick del programador no
+la resucite como registrada. Sin cola offline propia para un fallo de red al anular (decisión
+documentada: anular no es una escritura que se pueda perder sin dejar rastro, a diferencia de
+registrar/marcar ausente de R-07 — la fila ya existe de verdad en el servidor). Sin migración: 14
+tests nuevos, contra dobles (1748 en total, antes 1734). `npm run typecheck && npm run lint && npm
+test && npm run build` verificados en verde antes del push (el entorno no tenía `node_modules`
+instalado al empezar la sesión; `npm ci` va primero en el protocolo de cualquier sesión futura si
+vuelve a faltar). §1 actualizada (`COMPLETADA`), sin ninguna fila nueva en §3 (sin migración).
+
+**Sesión anterior (2026-09-17, rutina programada de producto, vigésimo cuarto ciclo del PM:
 **R-24 abre la Oleada v10**): revisadas las tres fuentes de entrada (auditor, feedback, roadmap
 contra visión de producto). `auditoriacontinua.md` con una pasada nueva desde el ciclo anterior
 (`229f98a`, 2026-09-17, la misma que ya revisaron las cuatro rutinas programadas de programador de
@@ -2932,7 +2959,7 @@ pantallas del requisito 2.
 | R-21 | Pausa programada de un alumno | BLOQUEADA — pendiente aplicar migración `017` (fila 20 de §3) | 2026-09-15 | Oleada v7 / F-12 · Código y tests completos, contra dobles. Migración `017_pausa_alumno.sql` escrita y empujada, todavía sin aplicar — mismo patrón de opacidad (RPC `SECURITY DEFINER`, sin GRANT directo a `authenticated`) que `excepcion_slot` de R-06, decisión razonada en `DECISIONES_TECNICAS.md`: a diferencia de R-06, ninguna RPC existente (`registrar_asistencia`/`registrar_ausencia`) se sustituye — la pausa es solo un filtro de cliente sobre "quién se ofrece como pendiente" |
 | R-22 | Baja programada de un profesor: excepción en bloque para varios días | BLOQUEADA — pendiente aplicar migración `018` (fila 21 de §3), y antes que ella la `013` de R-06 (el runner aplica en orden numérico) | 2026-09-16 | Oleada v8 / F-13 · Código y tests completos, contra dobles (1719 en total, antes 1678). Migración `018_baja_profesor.sql` escrita y empujada, todavía sin aplicar — depende de `013_excepcion_slot.sql` (también sin aplicar: R-06 sigue `BLOQUEADA`). `declarar_baja_profesor` reutiliza `declarar_excepcion_slot` (R-06) por cada combinación slot×fecha del rango, sin ninguna RPC nueva de escritura de excepción (requisito 2, literal). Verificación excepcional: la migración completa (tabla, RLS, tres RPC) se ejecutó de verdad contra una base PostgreSQL local desechable de esta sesión (sin ninguna credencial de Supabase, borrada al terminar) — no sustituye la verificación real del dueño contra `dev`, pero confirmó los cinco casos de rechazo, la exclusión por asistencia/duplicado, el marcado `baja_profesor_id` y la desactivación en bloque de cancelar/acortar. Detalle en `DECISIONES_TECNICAS.md` y `db/MODELO.md` |
 | R-23 | Cierre de slot en un toque: marcar el resto como presente en bloque | COMPLETADA | 2026-09-17 | Oleada v9 / F-14 · Sin migración. `pantallaPasarLista.ts`: bloque "Marcar el resto como presente" simétrico a `cierreEnBloque` de R-17, reutiliza `manejarToque` tal cual una vez por alumno pendiente (misma idempotencia/reconciliación/cola offline). `pantallaRegistrosSlot.ts`: bloque simétrico sobre el mismo `cierreCandidatos` de R-17, llama a `registrarOlvidado` sin `ocurridoEn` (registro en vivo), sin ninguna RPC nueva. Los dos controles (R-17/R-23) conviven sin interferir (requisito 7), verificado con test dedicado en cada pantalla. 15 tests nuevos (1734 en total) |
-| R-24 | Corregir un toque equivocado sin salir de pasar lista | PENDIENTE | 2026-09-17 | Oleada v10 / F-15 · Sin migración: reutiliza `actualizar_asistencia` (T-21), sin RPC nueva. Depende de T-19, T-21 (ambas `COMPLETADA`) |
+| R-24 | Corregir un toque equivocado sin salir de pasar lista | COMPLETADA | 2026-09-18 | Oleada v10 / F-15 · Sin migración: reutiliza `actualizar_asistencia` (T-21), sin RPC nueva. Cuarto control de la card en `pantallaPasarLista.ts` ("Anular", hermano de toque/ausente/salida), ofrecido solo dentro de la ventana de edición (`puedeEditarAsistencia`, escrita desde T-03 pero sin ningún consumidor hasta ahora — ni siquiera «Registros» de T-21 la llama, ver DECISIONES_TECNICAS.md). Nueva `datos/asistencia.ts#anularAsistencia` (atajo sobre `actualizarAsistencia`, mismo patrón que `marcarSalidaAsistencia` de R-03). Al confirmar con éxito la card vuelve a `'pendiente'` con `peticionId`/`peticionIdAusente` NUEVOS (los anteriores quedaron consumidos por el registro ya anulado) y se retira de `registrosHoyCache` para que el siguiente tick no la resucite. Sin cola offline propia para el fallo de red (decisión documentada en DECISIONES_TECNICAS.md: anular no es una escritura que se pueda perder sin dejar rastro, la fila ya existe). 14 tests nuevos (1748 en total, antes 1734) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

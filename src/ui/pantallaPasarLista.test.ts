@@ -96,6 +96,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     registrar: overrides.registrar ?? noImplementado('registrar'),
     registrarAusencia: overrides.registrarAusencia ?? noImplementado('registrarAusencia'),
     marcarSalida: overrides.marcarSalida ?? noImplementado('marcarSalida'),
+    anular: overrides.anular ?? noImplementado('anular'),
     obtenerUrlsAvataresMini: overrides.obtenerUrlsAvataresMini ?? (() => Promise.resolve(new Map())),
     generarPeticionId:
       overrides.generarPeticionId ??
@@ -1193,6 +1194,21 @@ function botonSalidaDeTarjeta(contenedor: HTMLElement): HTMLButtonElement[] {
   return Array.from(contenedor.querySelectorAll<HTMLButtonElement>('button[data-salida-clave]'));
 }
 
+/** Botones del formulario de "Anular" (R-24) — antes de abrirlo, solo el botón "Anular"; abierto,
+ * "Confirmar anulación" y "Cancelar" comparten el mismo `data-anular-clave`, así que se distinguen
+ * por su texto. */
+function botonAnularDeTarjeta(contenedor: HTMLElement): HTMLButtonElement[] {
+  return Array.from(contenedor.querySelectorAll<HTMLButtonElement>('button[data-anular-clave]'));
+}
+
+function botonAnularPorTexto(contenedor: HTMLElement, texto: string): HTMLButtonElement | undefined {
+  return botonAnularDeTarjeta(contenedor).find((b) => b.textContent === texto);
+}
+
+function campoMotivoAnular(contenedor: HTMLElement): HTMLInputElement | null {
+  return contenedor.querySelector<HTMLInputElement>('input[data-anular-clave]');
+}
+
 void test('una card ya registrada ofrece "Marcar salida", un tercer control hermano de los otros dos', async () => {
   const contenedor = crearContenedorDePruebas();
   const slot = crearSlot();
@@ -1383,6 +1399,330 @@ void test('si la respuesta se pierde pero la salida sí llegó a marcarse, la re
   assert.doesNotMatch(contenedor.textContent, /No se ha podido conectar/);
   assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Salida a las 18:00/);
   assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
+});
+
+// --- Anular sin salir de pasar lista (R-24) -------------------------------------------------------
+
+void test('una card ya registrada ofrece "Anular", un cuarto control hermano de los otros tres', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  const botonPrincipal = botonesDeTarjeta(contenedor)[0];
+  const botonAusente = botonAusenteDeTarjeta(contenedor)[0];
+  const botonAnular = botonAnularDeTarjeta(contenedor)[0];
+  assert.ok(botonPrincipal);
+  assert.ok(botonAusente);
+  assert.ok(botonAnular);
+  assert.notEqual(botonAnular, botonPrincipal);
+  assert.notEqual(botonAnular, botonAusente);
+  assert.equal(botonPrincipal.contains(botonAnular), false);
+  assert.match(botonAnular.textContent, /Anular/);
+});
+
+void test('una card pendiente (todavía sin registrar) no ofrece "Anular"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 0);
+});
+
+void test('una card marcada ausente también ofrece "Anular"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ estado: 'ausente', registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 1);
+});
+
+void test('requisito 4: fuera de la ventana de edición de 7 días, "Anular" no se ofrece en absoluto', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  // INSTANTE_EN_CLASE es 2026-08-26T15:30 UTC; 7 días atrás son las 15:30 del 19; esta fila se
+  // registró media hora antes de ese límite, así que ya está fuera de ventana.
+  const fila = crearAsistencia({ registrado_en: '2026-08-19T15:00:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 0);
+});
+
+void test('dentro de la ventana de edición de 7 días, "Anular" sí se ofrece', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  // Exactamente en el límite (7 días atrás menos un minuto): todavía dentro de ventana.
+  const fila = crearAsistencia({ registrado_en: '2026-08-19T15:31:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 1);
+});
+
+void test('"Anular" abre un formulario con motivo obligatorio: "Confirmar anulación" empieza deshabilitado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]), cargarAsistenciaDeHoy: () => Promise.resolve([fila]) }),
+  );
+  await esperarMicrotareas();
+
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  const botonConfirmar = botonAnularPorTexto(contenedor, 'Confirmar anulación');
+  assert.ok(botonConfirmar);
+  assert.equal(botonConfirmar.disabled, true);
+
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'Alumno equivocado';
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+
+  assert.equal(botonAnularPorTexto(contenedor, 'Confirmar anulación')?.disabled, false);
+});
+
+void test('"Cancelar" cierra el formulario sin llamar a deps.anular; la card sigue igual', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  let llamadas = 0;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      anular: () => {
+        llamadas += 1;
+        return Promise.reject(new Error('no se esperaba llamar a anular'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'Alumno equivocado';
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+
+  botonAnularPorTexto(contenedor, 'Cancelar')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 0);
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 1);
+  assert.match(botonAnularDeTarjeta(contenedor)[0]?.textContent ?? '', /^Anular$/);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado a las/);
+});
+
+void test('flujo completo: confirmar anulación llama a deps.anular con el id y el motivo, y la card vuelve a pendiente', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ id: 'asistencia-1', registrado_en: '2026-08-26T15:05:00.000Z' });
+  let idRecibido: string | undefined;
+  let motivoRecibido: string | undefined;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      anular: (asistenciaId, motivo) => {
+        idRecibido = asistenciaId;
+        motivoRecibido = motivo;
+        return Promise.resolve({ ...fila, estado: 'anulada', motivo_anulacion: motivo });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'Alumno equivocado';
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+  botonAnularPorTexto(contenedor, 'Confirmar anulación')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(idRecibido, 'asistencia-1');
+  assert.equal(motivoRecibido, 'Alumno equivocado');
+  // Requisito 3: vuelve a "pendiente" en la misma pantalla, sin ningún control de los otros tres.
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 0);
+  assert.equal(botonAusenteDeTarjeta(contenedor).length, 1);
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Pendiente/);
+  assert.equal(botonesDeTarjeta(contenedor)[0]?.disabled, false);
+});
+
+void test('requisito 3: tras anular, un nuevo toque usa un peticionId distinto del que llevaba el registro anulado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ id: 'asistencia-1', peticion_id: 'peticion-servidor-vieja', registrado_en: '2026-08-26T15:05:00.000Z' });
+  const peticionesRegistrar: string[] = [];
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      anular: () => Promise.resolve({ ...fila, estado: 'anulada', motivo_anulacion: 'motivo' }),
+      registrar: (entrada) => {
+        peticionesRegistrar.push(entrada.peticionId);
+        return Promise.resolve({ ...fila, peticion_id: entrada.peticionId });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'motivo';
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+  botonAnularPorTexto(contenedor, 'Confirmar anulación')?.click();
+  await esperarMicrotareas();
+
+  botonesDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(peticionesRegistrar.length, 1);
+  assert.notEqual(peticionesRegistrar[0], 'peticion-servidor-vieja');
+});
+
+void test('un fallo al anular deja la card sin cambios, con el motivo y el mensaje visibles, lista para reintentar', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  let llamadas = 0;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      anular: () => {
+        llamadas += 1;
+        return Promise.reject(new ErrorDeRed());
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'Alumno equivocado';
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+  botonAnularPorTexto(contenedor, 'Confirmar anulación')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 1);
+  // La card sigue mostrando el registro que no llegó a anularse (requisito 5).
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado a las/);
+  assert.match(contenedor.textContent, /No se ha podido conectar/);
+  assert.equal(campoMotivoAnular(contenedor)?.value, 'Alumno equivocado');
+
+  // Reintentar sin tener que reescribir el motivo.
+  botonAnularPorTexto(contenedor, 'Confirmar anulación')?.click();
+  await esperarMicrotareas();
+  assert.equal(llamadas, 2);
+});
+
+void test('un doble toque en "Confirmar anulación" mientras está en curso no llama a deps.anular dos veces', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  let llamadas = 0;
+  let resolver: ((fila: Asistencia) => void) | undefined;
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      anular: () => {
+        llamadas += 1;
+        return new Promise((resolve) => {
+          resolver = resolve;
+        });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'Alumno equivocado';
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+
+  // Por índice (no por texto): el botón cambia a "Anulando…" tras el primer toque, mismo criterio
+  // que el doble toque de "Marcar salida" — sigue siendo el primer `button[data-anular-clave]`.
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 1);
+  assert.ok(resolver);
+  resolver({ ...fila, estado: 'anulada', motivo_anulacion: 'Alumno equivocado' });
+  await esperarMicrotareas();
+});
+
+void test('requisito 6: un alumno con avatar conserva su avatar tras anular y volver a pendiente', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({}, { avatar_ruta: 'alumno/alumno-1/uuid/' });
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      obtenerUrlsAvataresMini: () => Promise.resolve(new Map([['alumno-1', 'https://ejemplo.test/avatar.jpg']])),
+      anular: () => Promise.resolve({ ...fila, estado: 'anulada', motivo_anulacion: 'motivo' }),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.querySelector('img[src="https://ejemplo.test/avatar.jpg"]'));
+
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = 'motivo';
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+  botonAnularPorTexto(contenedor, 'Confirmar anulación')?.click();
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.querySelector('img[src="https://ejemplo.test/avatar.jpg"]'));
 });
 
 // --- Avatares: monograma primero, lote único, imagen rota deja el monograma ----------------------

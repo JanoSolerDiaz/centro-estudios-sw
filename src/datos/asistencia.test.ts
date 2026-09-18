@@ -11,6 +11,7 @@ import {
   listarAsistenciaDeHoy,
   actualizarAsistencia,
   marcarSalidaAsistencia,
+  anularAsistencia,
   listarRegistrosDeSlotYFecha,
   listarRegistrosDeSlotsYFecha,
   listarRegistrosDeSlotsEnRango,
@@ -572,6 +573,37 @@ void test('marcarSalidaAsistencia: el límite de cliente se comprueba con la cla
   const postgrest = crearCliente(() => ({ estado: 200, cuerpo: FILA }));
 
   void marcarSalidaAsistencia({ postgrest, limitador }, 'profesor-dueno', 'as1');
+
+  assert.throws(() => {
+    limitador.comprobar('asistencia:profesor-dueno');
+  }, ErrorLimiteAlcanzado);
+});
+
+void test('anularAsistencia: llama a actualizarAsistencia con anular:true y el motivo, sin tocar ningún otro campo', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: { ...FILA, estado: 'anulada', motivo_anulacion: 'Alumno equivocado' } };
+  });
+
+  const fila = await anularAsistencia({ postgrest }, 'p1', 'as1', 'Alumno equivocado');
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_asistencia_id, 'as1');
+  assert.equal(cuerpo.p_anular, true);
+  assert.equal(cuerpo.p_motivo_anulacion, 'Alumno equivocado');
+  assert.equal(cuerpo.p_marcar_salida, false);
+  assert.equal(cuerpo.p_justificar, false);
+  assert.equal(fila.estado, 'anulada');
+});
+
+void test('anularAsistencia: el límite de cliente se comprueba con la clave del profesor DUEÑO del registro', () => {
+  const reloj = crearRelojFijo(new Date('2026-08-31T09:00:00.000Z'));
+  const limitador = crearLimitadorTasa({ maximo: 1, ventanaMs: 60_000, reloj });
+  const postgrest = crearCliente(() => ({ estado: 200, cuerpo: FILA }));
+
+  void anularAsistencia({ postgrest, limitador }, 'profesor-dueno', 'as1', 'motivo');
 
   assert.throws(() => {
     limitador.comprobar('asistencia:profesor-dueno');

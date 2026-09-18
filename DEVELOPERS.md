@@ -348,7 +348,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     régimen que `entrada.ocurridoEn` sobre la entrada), mutuamente excluyentes en la misma llamada; y
     `marcarSalidaAsistencia(deps, profesorDuenoId, asistenciaId)`, un atajo de un solo parámetro sobre
     `actualizarAsistencia` para pantallas (pasar lista) que solo necesitan esa acción, sin construir
-    el resto de `ActualizarAsistenciaEntrada`. Desde R-05: "avisar a la familia" NO añade ninguna
+    el resto de `ActualizarAsistenciaEntrada`. Desde R-24: `anularAsistencia(deps, profesorDuenoId,
+    asistenciaId, motivoAnulacion)`, mismo patrón de atajo que `marcarSalidaAsistencia` pero sobre
+    `entrada.anular`/`entrada.motivoAnulacion` — usado por pasar lista (T-19) para anular sin salir de
+    la pantalla; «Registros» (T-21) sigue construyendo la entrada completa a mano porque también
+    ofrece las demás acciones sobre la misma llamada. Desde R-05: "avisar a la familia" NO añade ninguna
     acción nueva a `actualizarAsistencia` — reutiliza `entrada.nota`/`entrada.notaProvista` ya
     existente (R-05 declara `Migración: No`, sin columna propia para "aviso enviado"); ver
     `dominio/avisoAusencia.ts#notaConAvisoAusencia`, que compone el nuevo valor de `nota` SUMANDO la
@@ -704,6 +708,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `clavesPendientes()` y cada uno opera solo sobre su propia foto congelada. Reutiliza `manejarToque`
     TAL CUAL una vez por alumno — mismo criterio exacto que R-17 con `manejarAusente`, ninguna RPC
     nueva.
+    Desde R-24: una card ya registrada (presente o ausente) gana un CUARTO control hermano, "Anular"
+    (`deps.anular(asistenciaId, motivo)`, sobre `datos/asistencia.ts#anularAsistencia`, la MISMA RPC
+    `actualizar_asistencia` que ya usa «Registros» de T-21), ofrecido solo dentro de la ventana de
+    edición (`puedeEditarAsistencia`, `dominio/asistencia.ts` — primer consumidor real de esa función
+    desde que T-03 la escribió). Un toque abre un formulario mínimo en la propia card (motivo
+    obligatorio, `motivoAnulacionValido`); solo al confirmar llama al servidor. Con éxito, la card
+    vuelve a `'pendiente'` con `peticionId`/`peticionIdAusente` NUEVOS (los anteriores quedaron
+    consumidos por el registro ya anulado — `asistencia_peticion_id_unico` es única sobre toda la
+    tabla) y se retira la clave de `registrosHoyCache` para que el siguiente tick no la resucite. Un
+    fallo (red o límite de tasa) deja la card sin cambiar de fase, con el motivo escrito y el error
+    visible, lista para reintentar — sin pasar por la cola offline de R-07: a diferencia de
+    registrar/marcar ausente, anular no es una escritura que se pueda perder sin dejar rastro (la fila
+    ya existe de verdad en el servidor), decisión documentada en `DECISIONES_TECNICAS.md`.
   - `comboboxAlumnoExtra.ts` (T-20) — `montarComboboxAlumnoExtra(contenedor, deps)`: combobox
     accesible escrito a mano (`role="combobox"`/`"listbox"`/`"option"`, `aria-activedescendant`,
     flechas/Enter/Escape, región `role="status"` que hace de anuncio `aria-live`). Rebote de 250 ms
