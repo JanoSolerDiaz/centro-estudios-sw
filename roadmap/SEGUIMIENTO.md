@@ -10,8 +10,32 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-18 (rutina programada de programador, segunda pasada sin trabajo
+**Última actualización:** 2026-09-18 (rutina programada de programador, tercera pasada sin trabajo
 accionable tras R-24): protocolo §0.3 primero — `auditoriacontinua.md` sin pasada nueva desde
+`55a5e8c` (2026-09-18, la misma ya consumida por las dos pasadas anteriores de esta misma rutina):
+confirmado con `grep -n "ABIERTO"` sobre la tabla de hallazgos que solo queda **#8** (`ABIERTO`, dato
+de salud del artículo 9 del RGPD en R-02, pregunta #16 de §6, esperando al dueño — sin ninguna acción
+posible desde el código). Sin ningún P-XX urgente nuevo. Revisada §1 completa: **cero
+`PENDIENTE`/`EN CURSO`** — R-24 (Oleada v10/F-15) sigue `COMPLETADA` desde la pasada anterior, y
+ninguna R-25/Oleada v11 nueva en `ROADMAP_PRODUCTO.md` (su último commit sigue siendo `d61898a`, el
+que abrió R-24; confirmado con `git log` directo sobre el documento). Revisado `db/APLICADAS.md`:
+`009` sigue siendo la última migración aplicada en `dev`, sin cambio (las nueve de las filas 13 a 21
+de §3, `010` a `018`, siguen `PENDIENTE`, más la fila 12 de T-25). Revisadas las 17 preguntas de §6
+con lectura directa de las filas #16 y #17: ambas siguen con la columna "Respuesta" vacía, sin
+cambio. Revisada además §5 (P-XX): ninguna fila `PENDIENTE`. Confirmado además que el HEAD de
+`develop` en el remoto es exactamente el mismo commit (`96a9a3c`) con el que cerró la pasada
+anterior — cero commits nuevos de ningún tipo (PM, auditor, dueño o programador) desde entonces. Con
+los cuatro indicadores que podrían desbloquear trabajo —pasada del auditor, respuesta del dueño,
+migración nueva aplicada o ciclo de PM abriendo tarea nueva— sin cambio desde la pasada anterior,
+esta sesión no ejecuta ninguna T-XX, R-XX ni P-XX — **sin ningún commit de código de producto**. El
+contenedor arrancó sin `node_modules`: `npm ci` recuperó los 130 paquetes declarados, 0
+vulnerabilidades. Verificación pre-push completa en verde como comprobación de salud: `npm run
+typecheck`, `npm run lint`, **`npm test` 1748/1748** (sin cambio desde R-24) y `npm run build`. Abrir
+una R-25/Oleada v11 nueva es decisión del ciclo de PM (rutina de producto), no de esta sesión de
+programador.
+
+**Sesión anterior (2026-09-18, rutina programada de programador, segunda pasada sin trabajo
+accionable tras R-24):** protocolo §0.3 primero — `auditoriacontinua.md` sin pasada nueva desde
 `55a5e8c` (2026-09-18, la misma consumida por la pasada anterior de esta misma rutina, cerrando
 **#21**): confirmado con `grep -n "ABIERTO"` sobre la tabla de hallazgos que solo queda **#8**
 (`ABIERTO`, dato de salud del artículo 9 del RGPD en R-02, pregunta #16 de §6, esperando al dueño —
