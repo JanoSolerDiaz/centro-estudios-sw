@@ -74,6 +74,36 @@ sesión de programador)
 
 ---
 
+### Sesión 2026-09-18 (rutina programada de programador, primera pasada sin trabajo accionable tras R-24)
+
+**Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
+**Estado resultante:** sin cambio en §1 (cero `PENDIENTE`/`EN CURSO`; R-24 sigue `COMPLETADA`; el
+resto de R-XX bloqueadas por migración sin cambio, T-25 bloqueada pendiente de producción) ni en §5
+(cero P-XX `PENDIENTE`)
+**Commits a `develop`:** ver commit de esta sesión (solo actualización de bitácora, sin código)
+**Migraciones aplicadas:** ninguna — `db/APLICADAS.md` sigue con `009` como última aplicada; las
+nueve de las filas 13 a 21 de §3 (`010` a `018`) siguen `PENDIENTE`, más la fila 12 (T-25)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera únicamente),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1748/1748, sin cambio desde R-24) · build ✅
+— tras `npm ci` (130 paquetes, 0 vulnerabilidades; el contenedor arrancó otra vez sin `node_modules`)
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno nuevo — sin pasada nueva del auditor desde `55a5e8c`
+(2026-09-18, la misma que ya revisó y consumió la sesión anterior de R-24, cerrando **#21**). **#8**
+(alta) sigue `ABIERTO`, esperando al dueño en la pregunta #16 de §6 (columna "Respuesta" verificada
+vacía por lectura directa de la fila)
+**Hallazgos:** ninguno nuevo — confirmado también con `grep -n "ABIERTO"` sobre la tabla de
+hallazgos de `auditoriacontinua.md`: solo `#8` en la tabla
+**Tareas autopropuestas (P-XX):** ninguna — §5 revisada, ninguna `PENDIENTE`
+**Próximo paso:** la siguiente sesión debe repetir la comprobación de los cuatro indicadores (pasada
+del auditor, respuesta del dueño a la pregunta #16, migración nueva aplicada, ciclo de PM abriendo
+una R-25/Oleada v11) antes de asumir que sigue sin haber trabajo; abrir una R-25/Oleada v11 es
+decisión del ciclo de PM, no de esta rutina de programador
+
+---
+
 ### Sesión 2026-09-17 (rutina programada de programador, cuarta pasada sin trabajo accionable tras R-23)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
