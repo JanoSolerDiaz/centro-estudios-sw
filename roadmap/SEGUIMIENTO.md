@@ -10,8 +10,51 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-18 (rutina programada de programador, cuarta pasada sin trabajo
-accionable tras R-24): protocolo §0.3 primero — `auditoriacontinua.md` sin pasada nueva desde
+**Última actualización:** 2026-09-18 (vigésimo quinto ciclo del PM: **abre la Oleada v11 con
+R-25**): revisadas las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila plantilla
+vacía: nada que convertir. `auditoriacontinua.md` sin pasada nueva desde `55a5e8c` (2026-09-18, la
+misma que ya consumieron las cuatro rutinas programadas de programador posteriores a R-24):
+confirmado con `grep -n "ABIERTO"` sobre la tabla de hallazgos que solo queda **#8** (`ABIERTO`,
+dato de salud del artículo 9 del RGPD en R-02, ya formalizado como pregunta #16 de §6, esperando al
+dueño — sin ninguna acción posible desde el código ni ninguna R-XX que lo resuelva) — **#21** sigue
+`RESUELTO` desde la sesión de R-24. Ninguno de los dos necesita trabajo de este ciclo. Revisada §1
+completa: **R-24 (Oleada v10/F-15) `COMPLETADA`**, sin ninguna fila `PENDIENTE`/`EN CURSO` antes de
+esta sesión. Revisadas las 17 preguntas de §6 (todas con "Respuesta" vacía salvo las once ya
+respondidas, sin cambio) y §5 (P-XX): ninguna fila `PENDIENTE`, nada que atender antes de la cola
+normal. Revisado el MVP (T-00 a T-25): T-25 sigue `BLOQUEADA` a falta del paso a producción (fila 12
+de §3), así que ninguna oleada ha llegado todavía a "100% desplegada" — nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez (documento que, de hecho, todavía no existe: se crea la primera vez
+que haya algo que archivar).
+
+Revisado el roadmap completo contra la visión de producto y el ICP, con el foco puesto esta vez en
+el **segundo** segmento prioritario (`administrator`) en vez del profesor que pasa lista —oleadas v1
+a v10 ya cerraron su ciclo diario completo—, y en particular en el segmento de "preparación de
+exámenes" del propio ICP (clases de grupo, no solo refuerzo individual de uno o dos alumnos). Releído
+`src/dominio/slotHorario.ts`, `src/datos/slotsHorario.ts` y el bloque de horario de
+`src/ui/pantallaFichaAlumno.ts` (`montarBloqueHorario`) contra ese segmento: en este modelo de datos
+`slot_horario` es siempre por alumno (documentado desde R-17: "una clase con varios alumnos son
+varias filas que comparten profesor, día, hora y asignatura, nunca una sola fila con una lista de
+alumnos"). R-08 ya resuelve el alta masiva de ese horario por importación, pero nada resuelve lo
+posterior: **`grep -n "horario" src/nucleo/router.ts`** confirma que la única vista de horario que
+existe es `#/horario`, "Mi horario" del propio profesor (T-22) — el administrador no tiene ninguna
+pantalla que junte esas filas por alumno y se las muestre agrupadas como la clase que son, y mover
+una clase de grupo a otro día u hora, o cambiar de profesor, exige hoy repetir la misma edición en la
+ficha de cada alumno del grupo, una por una. Es el mismo tipo de fricción de navegación —no de
+permiso ni de dato nuevo— que ya resolvieron R-17/R-23 (cerrar pasar lista en bloque) y R-21/R-22
+(pausar o dar de baja en bloque), aplicada esta vez a la gestión del horario en sí, y encaja además
+con "facilitar la adopción" (mandato de este ciclo): es fricción que golpea justo al preparar el
+alta y los reajustes de un centro nuevo con clases de grupo, el momento de mayor riesgo de abandono.
+`slotsDeLaMismaSesion` (`src/dominio/asistencia.ts`, ya usada por R-17/R-23 para agrupar "quiénes son
+de la misma sesión") y `modificarSlot`/`cesarSlot`/`listarTodosLosSlots`
+(`src/datos/slotsHorario.ts`, esta última ya usada por R-18) dan toda la base para resolverlo sin
+ninguna RPC nueva ni ninguna migración. Se abre la **Oleada v11** con **R-25** (vista de horario del
+centro y gestión en bloque de una sesión completa, F-16) — detalle en la sección correspondiente de
+`ROADMAP_PRODUCTO.md`. Añadida su fila `PENDIENTE` en §1 (más abajo). Sin ningún commit de código de
+producto — sesión de producto, no de programador. Mergeado a `develop` al cierre de este ciclo, sin
+tocar `master` en ningún momento.
+
+**Sesión anterior (2026-09-18, rutina programada de programador, cuarta pasada sin trabajo
+accionable tras R-24):** protocolo §0.3 primero — `auditoriacontinua.md` sin pasada nueva desde
 `55a5e8c` (2026-09-18, la misma ya consumida por las tres pasadas anteriores de esta misma rutina):
 confirmado con `grep -n "ABIERTO"` sobre la tabla de hallazgos que solo queda **#8** (`ABIERTO`, dato
 de salud del artículo 9 del RGPD en R-02, pregunta #16 de §6, esperando al dueño — sin ninguna acción
@@ -3054,6 +3097,7 @@ pantallas del requisito 2.
 | R-22 | Baja programada de un profesor: excepción en bloque para varios días | BLOQUEADA — pendiente aplicar migración `018` (fila 21 de §3), y antes que ella la `013` de R-06 (el runner aplica en orden numérico) | 2026-09-16 | Oleada v8 / F-13 · Código y tests completos, contra dobles (1719 en total, antes 1678). Migración `018_baja_profesor.sql` escrita y empujada, todavía sin aplicar — depende de `013_excepcion_slot.sql` (también sin aplicar: R-06 sigue `BLOQUEADA`). `declarar_baja_profesor` reutiliza `declarar_excepcion_slot` (R-06) por cada combinación slot×fecha del rango, sin ninguna RPC nueva de escritura de excepción (requisito 2, literal). Verificación excepcional: la migración completa (tabla, RLS, tres RPC) se ejecutó de verdad contra una base PostgreSQL local desechable de esta sesión (sin ninguna credencial de Supabase, borrada al terminar) — no sustituye la verificación real del dueño contra `dev`, pero confirmó los cinco casos de rechazo, la exclusión por asistencia/duplicado, el marcado `baja_profesor_id` y la desactivación en bloque de cancelar/acortar. Detalle en `DECISIONES_TECNICAS.md` y `db/MODELO.md` |
 | R-23 | Cierre de slot en un toque: marcar el resto como presente en bloque | COMPLETADA | 2026-09-17 | Oleada v9 / F-14 · Sin migración. `pantallaPasarLista.ts`: bloque "Marcar el resto como presente" simétrico a `cierreEnBloque` de R-17, reutiliza `manejarToque` tal cual una vez por alumno pendiente (misma idempotencia/reconciliación/cola offline). `pantallaRegistrosSlot.ts`: bloque simétrico sobre el mismo `cierreCandidatos` de R-17, llama a `registrarOlvidado` sin `ocurridoEn` (registro en vivo), sin ninguna RPC nueva. Los dos controles (R-17/R-23) conviven sin interferir (requisito 7), verificado con test dedicado en cada pantalla. 15 tests nuevos (1734 en total) |
 | R-24 | Corregir un toque equivocado sin salir de pasar lista | COMPLETADA | 2026-09-18 | Oleada v10 / F-15 · Sin migración: reutiliza `actualizar_asistencia` (T-21), sin RPC nueva. Cuarto control de la card en `pantallaPasarLista.ts` ("Anular", hermano de toque/ausente/salida), ofrecido solo dentro de la ventana de edición (`puedeEditarAsistencia`, escrita desde T-03 pero sin ningún consumidor hasta ahora — ni siquiera «Registros» de T-21 la llama, ver DECISIONES_TECNICAS.md). Nueva `datos/asistencia.ts#anularAsistencia` (atajo sobre `actualizarAsistencia`, mismo patrón que `marcarSalidaAsistencia` de R-03). Al confirmar con éxito la card vuelve a `'pendiente'` con `peticionId`/`peticionIdAusente` NUEVOS (los anteriores quedaron consumidos por el registro ya anulado) y se retira de `registrosHoyCache` para que el siguiente tick no la resucite. Sin cola offline propia para el fallo de red (decisión documentada en DECISIONES_TECNICAS.md: anular no es una escritura que se pueda perder sin dejar rastro, la fila ya existe). 14 tests nuevos (1748 en total, antes 1734) |
+| R-25 | Vista de horario del centro y gestión en bloque de una sesión completa | PENDIENTE | 2026-09-18 | Oleada v11 / F-16 · Spec en `ROADMAP_PRODUCTO.md`. Sin migración: reutiliza `modificarSlot`/`cesarSlot`/`listarTodosLosSlots` (T-15/T-18) y el criterio de agrupación de `slotsDeLaMismaSesion` (T-15, ya usada por R-17/R-23), sin ninguna RPC nueva |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

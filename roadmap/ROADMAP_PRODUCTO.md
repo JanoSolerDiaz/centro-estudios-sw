@@ -8,43 +8,41 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-17 — vigésimo cuarto ciclo del PM: **abre la Oleada v10 con
-R-24.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`229f98a`, 2026-09-17, la misma
-que ya revisaron las cuatro rutinas programadas de programador de hoy): confirma sin cambio, décimo
-tercer ciclo consecutivo, que solo quedan **ABIERTO #8** (dato de salud del artículo 9 del RGPD en
-R-02, formalizado como pregunta **#16** de §6, esperando al dueño) y **ABIERTO #21** (cobertura de
-`db/pruebas_rls.sql` para `baja_profesor`, ya atendida de facto por P-29, pendiente solo de que el
-auditor la confirme y la cierre). Ninguno de los dos requiere ninguna R-XX nueva: ambos ya están
-reflejados donde corresponde (bloqueo de R-02/pregunta #16 el primero; P-29 en §5 de
-`SEGUIMIENTO.md` el segundo). Las cuatro rutinas programadas de programador posteriores a R-23 (sin
-trabajo accionable, como corresponde: nada suyo que hacer mientras las migraciones pendientes sigan
-esperando al dueño) dejaron dicho explícitamente que abrir una R-24/Oleada v10 nueva era decisión de
-este ciclo, no suya.
+**Última actualización:** 2026-09-18 — vigésimo quinto ciclo del PM: **abre la Oleada v11 con
+R-25.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` sin pasada nueva desde el ciclo anterior (`55a5e8c`, 2026-09-18): confirma sin
+cambio que solo queda **ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como
+pregunta **#16** de §6, esperando al dueño — sin ninguna R-XX que lo resuelva); **#21** ya cerró
+`RESUELTO` en la propia sesión de R-24. Ninguno de los dos necesita trabajo de este ciclo.
 
-**R-23 (Oleada v9/F-14) `COMPLETADA`** desde 2026-09-17: con eso, su columna vertebral de código
-también queda agotada — pasar lista (T-19) ya cierra en bloque en los dos sentidos (R-17 para
-ausencias, R-23 para presencias), la simetría que dejó abierta R-17 queda resuelta. Revisado el
-roadmap completo contra la visión de producto, el ICP y en particular contra el principio 1
-("pasar lista en tres toques") y contra quién es el usuario de mayor frecuencia y peor atendido —el
-profesor con el móvil en clase—: releído `src/ui/pantallaPasarLista.ts` de punta a punta (T-19,
-R-01, R-03, R-07, R-17, R-23) para comprobar qué le queda costando más de lo necesario a ese
-profesor en el uso diario, no solo qué falta por especificar. Hallazgo de producto: **la pantalla no
-ofrece ninguna forma de corregir un toque equivocado sin abandonarla** (`grep -n "anular"
-src/ui/pantallaPasarLista.ts` no devuelve nada) — un alumno marcado por error (dedo torpe, dos
-alumnos con nombre parecido, "ausente" en vez de "presente") solo se corrige hoy saliendo de pasar
-lista, entrando en «Registros» (T-21), localizando el slot y la fecha exactos, y anulando ahí, un
-rodeo completo de pantalla en el momento exacto en que el profesor está de pie delante del grupo.
-El propio principio 2 del roadmap ("quien se equivoca, lo arregla") ya legitima la corrección y el
-mecanismo ya existe entero y probado (`actualizar_asistencia`, T-21, con `anular`, motivo obligatorio
-y la ventana de 7 días de `VENTANA_EDICION_TEACHER_DIAS`): falta solo el punto de entrada, no ningún
-permiso, RPC ni migración nueva — el mismo tipo de fricción de navegación, no de permiso, que R-17 y
-R-23 ya resolvieron para el cierre en bloque. Se abre la **Oleada v10** con **R-24** (corregir un
-toque equivocado sin salir de pasar lista, F-15) — detalle en la sección correspondiente más abajo.
-Añadida su fila `PENDIENTE` en §1 de `SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo
-(T-25 pendiente del paso a producción) y ninguna oleada ha llegado a desplegarse todavía, así que
-nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto,
-no de programador.
+**R-24 (Oleada v10/F-15) `COMPLETADA`** desde 2026-09-18: con eso, pasar lista (T-19) tiene ya
+entrada, ausencia, salida, cierre en bloque en los dos sentidos y corrección sin salir de la
+pantalla — el ciclo diario del profesor, usuario de mayor frecuencia, queda cerrado por diez oleadas
+seguidas (v1 a v10). Revisado el roadmap completo contra la visión de producto y el ICP, esta vez con
+el foco en el **segundo** segmento prioritario, `administrator`, y en particular en el segmento de
+"preparación de exámenes" (clases de grupo, no solo refuerzo individual): releídos
+`src/dominio/slotHorario.ts`, `src/datos/slotsHorario.ts` y el bloque de horario de
+`src/ui/pantallaFichaAlumno.ts`. En este modelo de datos `slot_horario` es siempre por alumno (mismo
+hecho que ya documentó R-17 para pasar lista: "una clase con varios alumnos son varias filas que
+comparten profesor, día, hora y asignatura, nunca una sola fila con una lista de alumnos"). R-08 ya
+resuelve el alta masiva de ese horario por importación, pero nada resuelve lo posterior: `grep -n
+"horario" src/nucleo/router.ts` confirma que la única vista de horario que existe es `#/horario`,
+"Mi horario" del propio profesor (T-22) — el administrador no tiene ninguna pantalla que junte esas
+filas agrupadas como la clase que son, y mover una clase de grupo a otro día u hora, o cambiar de
+profesor, exige hoy repetir la misma edición en la ficha de cada alumno del grupo, uno por uno (ocho
+ediciones idénticas para un solo cambio real, en una clase de ocho). Es el mismo tipo de fricción de
+navegación —no de permiso ni de dato nuevo— que ya resolvieron R-17/R-23 (cerrar pasar lista en
+bloque) y R-21/R-22 (pausar o dar de baja en bloque), aplicada esta vez a la gestión del horario en
+sí, y golpea justo el momento de mayor riesgo de abandono: el alta y los reajustes de un centro
+nuevo con clases de grupo. `slotsDeLaMismaSesion` (`dominio/asistencia.ts`, ya usada por R-17/R-23) y
+`modificarSlot`/`cesarSlot`/`listarTodosLosSlots` (`datos/slotsHorario.ts`, esta última ya usada por
+R-18) dan toda la base para resolverlo sin ninguna RPC nueva ni ninguna migración. Se abre la
+**Oleada v11** con **R-25** (vista de horario del centro y gestión en bloque de una sesión completa,
+F-16) — detalle en la sección correspondiente más abajo. Añadida su fila `PENDIENTE` en §1 de
+`SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
+producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto, no de
+programador.
 
 ---
 
@@ -317,6 +315,30 @@ arregla"); falta solo el punto de entrada en la pantalla de mayor frecuencia del
 ningún dato personal nuevo, ninguna RPC ni ninguna migración, ni toca al rol `student`.
 
 - **F-15 — Corrección inmediata en pasar lista.** R-24.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v11 — Horario de grupo sin fricción: ver y mover una clase entera en un paso
+
+**Arranca cuando la oleada v10 (R-24) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta oleada
+queda especificada y en cola, detrás de la oleada v10, en el orden de §1.
+
+Por qué esta oleada: en este modelo de datos `slot_horario` es siempre por alumno, así que una clase
+de grupo —el segmento de preparación de exámenes del ICP, no solo el refuerzo individual— son en
+realidad tantas filas como alumnos tiene esa clase, sin ningún concepto de "la clase" como entidad
+propia. R-08 ya resuelve el alta masiva de ese horario (importación CSV). Lo que queda sin resolver
+es todo lo posterior: hoy el administrador no tiene ninguna vista que junte esas filas y se las
+muestre como lo que son —una clase—, y mover una clase entera a otro día u hora, o cambiar quién la
+imparte, exige abrir la ficha de cada alumno uno por uno y repetir la misma edición tantas veces
+como alumnos tenga el grupo. Es el mismo tipo de fricción de navegación —no de permiso ni de dato—
+que ya resolvieron R-17/R-23 (cerrar pasar lista en bloque) y R-21/R-22 (pausar o dar de baja en
+bloque), aplicado esta vez a la gestión del horario en sí. No añade ningún dato personal nuevo,
+ninguna RPC ni ninguna migración, ni toca al rol `student`.
+
+- **F-16 — Horario del centro y edición de una sesión completa.** R-25.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1356,3 +1378,61 @@ misma pantalla; la fila anulada sigue existiendo en el histórico con su motivo 
 intentarlo sobre un registro de hace más de 7 días como `teacher` no ofrece el control, mientras que
 `administrator` puede hacerlo sin límite; un fallo de red al anular deja la card sin cambios y
 permite reintentar sin perder el motivo ya escrito.
+
+---
+
+### R-25 — Vista de horario del centro y gestión en bloque de una sesión completa
+**Oleada / Fase:** v11 / F-16 · **Migración:** No · **Depende de:** T-15, T-16, T-17
+**Origen:** roadmap
+
+**Objetivo:** en este modelo de datos `slot_horario` es por alumno, así que una clase de grupo son
+varias filas que comparten profesor, día, hora y asignatura/grupo (mismo criterio que
+`slotsDeLaMismaSesion`, ya usado por R-17/R-23 para agrupar "quiénes son de la misma sesión"). El
+administrador no tiene hoy ninguna pantalla que muestre esas filas agrupadas como la clase que son:
+para ver el horario completo del centro tiene que ir alumno por alumno, y para mover una clase de
+grupo a otro día u hora, o cambiar de profesor, tiene que repetir la misma edición en la ficha de
+cada alumno del grupo — en una clase de ocho, ocho ediciones idénticas para un solo cambio real. Da
+al administrador una vista del horario del centro agrupada por sesión y una acción para editar o
+cesar una sesión completa de una vez, reutilizando el mismo mecanismo de versionado por vigencia que
+ya usa la edición individual (T-15): sin RPC nueva, sin dato nuevo, sin tocar el histórico pasado.
+
+**Requisitos:**
+1. Pantalla nueva, exclusiva de `administrator`, con el horario semanal completo del centro: todas
+   las sesiones vigentes, agrupadas por día de la semana, hora de inicio/fin, profesor y
+   asignatura/grupo — mismo criterio de agrupación que `slotsDeLaMismaSesion` (T-15/dominio de
+   asistencia), aplicado aquí a la vigencia de hoy en vez de a un día de asistencia concreto. Cada
+   sesión muestra el profesor, la asignatura/grupo y el nombre de cada alumno del grupo; **nunca su
+   fotografía** — la regla del avatar (ficha del alumno y cards del propio slot del profesor en
+   pasar lista, y solo ahí) no gana aquí ninguna excepción nueva, exactamente el mismo criterio que
+   ya respetó R-24 (requisito 6).
+2. Desde una sesión, `administrator` puede **editar la sesión completa**: nuevo día, hora de
+   inicio/fin, profesor y/o asignatura, con una fecha de efecto (por defecto hoy). Al confirmar, se
+   aplica el mismo versionado por vigencia de T-15 (`modificarSlot`, cierra la versión vigente de
+   cada alumno y abre una nueva desde la fecha de efecto) a cada alumno del grupo, uno por uno, sin
+   ninguna RPC nueva.
+3. Desde una sesión, `administrator` puede también **cesar la sesión completa** (la clase termina
+   para todo el grupo) con una fecha de efecto, aplicando `cesarSlot` a cada alumno del grupo — mismo
+   mecanismo que ya existe para un alumno suelto, sin ninguna tabla ni columna nueva.
+4. Ambas acciones en bloque son **por alumno, con reintento local sin round-trip completo**: si el
+   nuevo horario de un alumno concreto solapa con otro horario suyo ya vigente, esa edición se
+   rechaza igual que hoy rechaza `modificarSlot` para ese alumno, mostrando de quién y por qué,
+   mientras el resto del grupo se aplica con normalidad — mismo patrón ya usado por el cierre en
+   bloque de R-17/R-23 (sin bloquear el conjunto por el fallo de una fila). El solape con el horario
+   de OTRO profesor sigue siendo aviso, nunca bloqueo, igual que en la edición individual.
+5. Cambiar el horario de una sesión, o cesarla, **no altera ningún registro de asistencia ya
+   existente**: cada fila de `asistencia` conserva su propio snapshot del slot en el momento en que
+   se registró (T-18), tal como ya garantiza T-15 para la edición individual — este requisito no
+   cambia esa garantía, solo el punto desde el que se dispara.
+6. La vista no ofrece ningún control para editar el horario de un solo alumno del grupo de forma
+   distinta al resto: para eso ya existe la ficha del alumno (T-16), que sigue disponible sin
+   cambios — esta pantalla es solo para el caso de grupo, no sustituye a la individual.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** el administrador ve el horario completo del centro agrupado por sesión
+(día, hora, profesor, asignatura/grupo y alumnos por nombre, nunca por foto); mover una sesión de
+ocho alumnos a otro día u hora es una sola acción que aplica el cambio a los ocho, con cualquier
+solape individual rechazado por alumno sin impedir que el resto del grupo se mueva; cesar una sesión
+completa da de baja el horario de todos sus alumnos con una sola fecha de efecto; ningún registro de
+asistencia ya existente cambia de valor tras cualquiera de las dos acciones; ni la pantalla ni la
+acción en bloque usan ninguna RPC ni migración nueva.

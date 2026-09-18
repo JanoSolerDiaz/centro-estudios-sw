@@ -37,6 +37,42 @@
 
 ---
 
+### Sesión 2026-09-18 (rutina programada de producto) — vigésimo quinto ciclo del PM: R-25 abre la Oleada v11
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión (roadmap: abre R-25/Oleada v11)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna (sin cambio: T-25 sigue `BLOQUEADA`, fila 12 de §3)
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera; Oleada v11/F-16; detalle
+de R-25), `roadmap/SEGUIMIENTO.md` (cabecera; §1: fila R-25 `PENDIENTE`), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna decisión técnica nueva (eso es del programador); alcance de producto
+documentado en R-25 de `ROADMAP_PRODUCTO.md`
+**Hallazgos del auditor atendidos:** ninguno nuevo que atender — `auditoriacontinua.md` sin pasada
+nueva desde `55a5e8c` (2026-09-18): solo sigue **#8** `ABIERTO` (dato de salud del artículo 9 del
+RGPD en R-02, ya formalizado como pregunta #16 de §6, esperando al dueño, sin ninguna R-XX posible);
+**#21** sigue `RESUELTO` desde la sesión de R-24
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que
+convertir. Revisión de producto centrada en el segundo segmento prioritario (`administrator`) y en
+el segmento de clases de grupo del ICP: `slot_horario` es por alumno, así que el administrador no
+tiene ninguna vista que agrupe esas filas como la clase que son (`grep -n "horario"
+src/nucleo/router.ts` solo encuentra `#/horario`, "Mi horario" del profesor, T-22), y mover una clase
+de grupo a otro día/hora exige repetir la misma edición en la ficha de cada alumno del grupo, uno por
+uno — misma clase de fricción de navegación que ya resolvieron R-17/R-23/R-21/R-22 para otros flujos,
+aplicada aquí a la gestión del horario
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la siguiente sesión de desarrollo debe implementar **R-25** (vista de horario del
+centro y gestión en bloque de una sesión completa, Oleada v11/F-16, spec completa en
+`ROADMAP_PRODUCTO.md`) en cuanto le toque en el orden de §1 de `SEGUIMIENTO.md` — sin migración, sin
+RPC nueva, reutilizando `modificarSlot`/`cesarSlot`/`listarTodosLosSlots` y el criterio de
+`slotsDeLaMismaSesion`. El siguiente ciclo de PM debe seguir revisando `auditoriacontinua.md` y
+`FEEDBACK.md` en cada pasada, y retomar la pregunta #16 de §6 (dato de salud de R-02) en cuanto el
+dueño responda.
+
+---
+
 ### Sesión 2026-09-18 (rutina programada de programador, cuarta pasada sin trabajo accionable tras R-24)
 
 **Tarea(s):** ninguna — sin T-XX/R-XX/P-XX que ejecutar
