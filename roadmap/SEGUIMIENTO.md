@@ -10,21 +10,50 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-18 (vigésimo quinto ciclo del PM: **abre la Oleada v11 con
-R-25**): revisadas las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila plantilla
-vacía: nada que convertir. `auditoriacontinua.md` sin pasada nueva desde `55a5e8c` (2026-09-18, la
-misma que ya consumieron las cuatro rutinas programadas de programador posteriores a R-24):
-confirmado con `grep -n "ABIERTO"` sobre la tabla de hallazgos que solo queda **#8** (`ABIERTO`,
-dato de salud del artículo 9 del RGPD en R-02, ya formalizado como pregunta #16 de §6, esperando al
-dueño — sin ninguna acción posible desde el código ni ninguna R-XX que lo resuelva) — **#21** sigue
-`RESUELTO` desde la sesión de R-24. Ninguno de los dos necesita trabajo de este ciclo. Revisada §1
-completa: **R-24 (Oleada v10/F-15) `COMPLETADA`**, sin ninguna fila `PENDIENTE`/`EN CURSO` antes de
-esta sesión. Revisadas las 17 preguntas de §6 (todas con "Respuesta" vacía salvo las once ya
-respondidas, sin cambio) y §5 (P-XX): ninguna fila `PENDIENTE`, nada que atender antes de la cola
-normal. Revisado el MVP (T-00 a T-25): T-25 sigue `BLOQUEADA` a falta del paso a producción (fila 12
-de §3), así que ninguna oleada ha llegado todavía a "100% desplegada" — nada se mueve a
-`ROADMAP_HISTORICO.md` esta vez (documento que, de hecho, todavía no existe: se crea la primera vez
-que haya algo que archivar).
+**Última actualización:** 2026-09-19 (vigésimo sexto ciclo del PM: **sin R-XX nueva**): revisadas
+las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila plantilla vacía: nada que
+convertir. `auditoriacontinua.md` trae una pasada nueva desde el ciclo anterior (commit `f998218`,
+2026-09-19): **#8** (RGPD/dato de salud en R-02) sigue `ABIERTO` sin cambio, todavía esperando al
+dueño en la pregunta #16 de §6. Se abre **#22** (severidad **alta**, `ABIERTO`): el propio commit de
+R-24 (2026-09-18) reveló que `src/datos/asistencia.ts#actualizarAsistencia` envía ya, en **todas**
+sus llamadas, los 13 parámetros de la firma completa que añadirán `011`/`012` (justificación y
+salida), pero la función realmente desplegada en `dev` sigue siendo la de 8 parámetros de `008` —
+`011`/`012` siguen sin aplicar, la primera bloqueada precisamente por la pregunta #16. Consecuencia:
+**hoy, contra la base de datos real de `dev`, ninguna llamada a `actualizar_asistencia` puede tener
+éxito** (PostgREST rechaza la llamada entera si el nombre de un parámetro no existe en el servidor),
+lo que afecta tanto a «Registros» (T-21, `COMPLETADA` y verificada en ejecución en su día) como a
+«Anular» en pasar lista (R-24, recién fusionada) — ninguna de las dos es una fuga de dato ni una
+decisión de producto: es un bug de coherencia código/esquema entre sesiones sucesivas, exactamente el
+tipo de hallazgo que el protocolo (§0.3 de `HOJA_DE_RUTA.md`) reserva al programador como P-XX
+urgente ("bugs en producción... procedentes de un hallazgo `ABIERTO` de severidad alta del auditor se
+atienden de inmediato"), no al PM: no genera ninguna R-XX ni ninguna entrada de backlog de este
+ciclo, queda anotado aquí solo para que no se pierda hasta que una sesión de programador lo tome.
+Revisada §1 completa: **R-25 (Oleada v11/F-16) sigue `PENDIENTE`** desde ayer, sin que ninguna sesión
+de programador la haya tomado todavía (`git log` confirma que el único commit posterior a `184ad55`
+es la propia pasada del auditor) — la cola de trabajo no está vacía, así que no hay base para abrir
+la Oleada v12 este ciclo. Revisadas las 17 preguntas de §6 (todas con "Respuesta" vacía salvo las
+once ya respondidas, sin cambio) y §5 (P-XX): ninguna fila `PENDIENTE`, nada que atender antes de la
+cola normal. Revisado el MVP (T-00 a T-25): T-25 sigue `BLOQUEADA` a falta del paso a producción
+(fila 12 de §3), así que ninguna oleada ha llegado todavía a "100% desplegada" — nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez. Revisado el resto del roadmap contra la visión de producto y el
+ICP: sin ningún hueco nuevo que añadir mientras R-25 siga sin implementar. Sin ningún commit de
+código — sesión de producto, no de programador. Mergeado a `develop` al cierre de este ciclo, sin
+tocar `master` en ningún momento.
+
+**Sesión anterior (2026-09-18, vigésimo quinto ciclo del PM: abre la Oleada v11 con R-25):**
+revisadas las tres fuentes de entrada. `FEEDBACK.md` seguía con su única fila plantilla vacía: nada
+que convertir. `auditoriacontinua.md` sin pasada nueva desde `55a5e8c` (2026-09-18, la misma que ya
+consumieron las cuatro rutinas programadas de programador posteriores a R-24): confirmado con
+`grep -n "ABIERTO"` sobre la tabla de hallazgos que solo quedaba **#8** (`ABIERTO`, dato de salud del
+artículo 9 del RGPD en R-02, ya formalizado como pregunta #16 de §6, esperando al dueño — sin
+ninguna acción posible desde el código ni ninguna R-XX que lo resuelva) — **#21** seguía `RESUELTO`
+desde la sesión de R-24. Ninguno de los dos necesitaba trabajo de ese ciclo. Revisada §1 completa:
+**R-24 (Oleada v10/F-15) `COMPLETADA`**, sin ninguna fila `PENDIENTE`/`EN CURSO` antes de esa sesión.
+Revisadas las 17 preguntas de §6 (todas con "Respuesta" vacía salvo las once ya respondidas, sin
+cambio) y §5 (P-XX): ninguna fila `PENDIENTE`, nada que atender antes de la cola normal. Revisado el
+MVP (T-00 a T-25): T-25 seguía `BLOQUEADA` a falta del paso a producción (fila 12 de §3), así que
+ninguna oleada había llegado todavía a "100% desplegada" — nada se movió a `ROADMAP_HISTORICO.md` esa
+vez (documento que, de hecho, todavía no existe: se crea la primera vez que haya algo que archivar).
 
 Revisado el roadmap completo contra la visión de producto y el ICP, con el foco puesto esta vez en
 el **segundo** segmento prioritario (`administrator`) en vez del profesor que pasa lista —oleadas v1
@@ -42,15 +71,15 @@ una clase de grupo a otro día u hora, o cambiar de profesor, exige hoy repetir 
 ficha de cada alumno del grupo, una por una. Es el mismo tipo de fricción de navegación —no de
 permiso ni de dato nuevo— que ya resolvieron R-17/R-23 (cerrar pasar lista en bloque) y R-21/R-22
 (pausar o dar de baja en bloque), aplicada esta vez a la gestión del horario en sí, y encaja además
-con "facilitar la adopción" (mandato de este ciclo): es fricción que golpea justo al preparar el
+con "facilitar la adopción" (mandato de ese ciclo): es fricción que golpea justo al preparar el
 alta y los reajustes de un centro nuevo con clases de grupo, el momento de mayor riesgo de abandono.
 `slotsDeLaMismaSesion` (`src/dominio/asistencia.ts`, ya usada por R-17/R-23 para agrupar "quiénes son
 de la misma sesión") y `modificarSlot`/`cesarSlot`/`listarTodosLosSlots`
-(`src/datos/slotsHorario.ts`, esta última ya usada por R-18) dan toda la base para resolverlo sin
-ninguna RPC nueva ni ninguna migración. Se abre la **Oleada v11** con **R-25** (vista de horario del
+(`src/datos/slotsHorario.ts`, esta última ya usada por R-18) daban toda la base para resolverlo sin
+ninguna RPC nueva ni ninguna migración. Se abrió la **Oleada v11** con **R-25** (vista de horario del
 centro y gestión en bloque de una sesión completa, F-16) — detalle en la sección correspondiente de
 `ROADMAP_PRODUCTO.md`. Añadida su fila `PENDIENTE` en §1 (más abajo). Sin ningún commit de código de
-producto — sesión de producto, no de programador. Mergeado a `develop` al cierre de este ciclo, sin
+producto — sesión de producto, no de programador. Mergeado a `develop` al cierre de ese ciclo, sin
 tocar `master` en ningún momento.
 
 **Sesión anterior (2026-09-18, rutina programada de programador, cuarta pasada sin trabajo

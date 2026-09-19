@@ -8,41 +8,31 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-18 — vigésimo quinto ciclo del PM: **abre la Oleada v11 con
-R-25.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` sin pasada nueva desde el ciclo anterior (`55a5e8c`, 2026-09-18): confirma sin
-cambio que solo queda **ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como
-pregunta **#16** de §6, esperando al dueño — sin ninguna R-XX que lo resuelva); **#21** ya cerró
-`RESUELTO` en la propia sesión de R-24. Ninguno de los dos necesita trabajo de este ciclo.
+**Última actualización:** 2026-09-19 — vigésimo sexto ciclo del PM: **sin R-XX nueva.**
+`FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` trae una pasada nueva desde el ciclo anterior (`f998218`, 2026-09-19):
+**ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02) sigue sin cambio, todavía esperando al
+dueño en la pregunta **#16** de §6. Se abre **ABIERTO #22** (severidad **alta**): el cliente
+(`src/datos/asistencia.ts#actualizarAsistencia`) ya envía en todas sus llamadas los 13 parámetros de
+la firma ampliada que traerán `011`/`012` (justificación y salida), pero la función desplegada en
+`dev` sigue siendo la de 8 parámetros de `008` — `011` sigue sin poder aplicarse, bloqueada
+precisamente por la pregunta #16 (`ABIERTO #8`) — con lo que **ninguna llamada real a
+`actualizar_asistencia` puede tener éxito hoy contra `dev`**, afectando tanto a «Registros» (T-21)
+como a «Anular» en pasar lista (R-24). No es un hallazgo de producto ni de arquitectura: es un bug de
+coherencia código/esquema entre sesiones sucesivas, del tipo que el protocolo (§0.3 de
+`HOJA_DE_RUTA.md`) reserva al programador como P-XX urgente — no genera ninguna R-XX de este ciclo,
+solo queda anotado en la cabecera de `SEGUIMIENTO.md` para que no se pierda hasta que una sesión de
+programador lo tome.
 
-**R-24 (Oleada v10/F-15) `COMPLETADA`** desde 2026-09-18: con eso, pasar lista (T-19) tiene ya
-entrada, ausencia, salida, cierre en bloque en los dos sentidos y corrección sin salir de la
-pantalla — el ciclo diario del profesor, usuario de mayor frecuencia, queda cerrado por diez oleadas
-seguidas (v1 a v10). Revisado el roadmap completo contra la visión de producto y el ICP, esta vez con
-el foco en el **segundo** segmento prioritario, `administrator`, y en particular en el segmento de
-"preparación de exámenes" (clases de grupo, no solo refuerzo individual): releídos
-`src/dominio/slotHorario.ts`, `src/datos/slotsHorario.ts` y el bloque de horario de
-`src/ui/pantallaFichaAlumno.ts`. En este modelo de datos `slot_horario` es siempre por alumno (mismo
-hecho que ya documentó R-17 para pasar lista: "una clase con varios alumnos son varias filas que
-comparten profesor, día, hora y asignatura, nunca una sola fila con una lista de alumnos"). R-08 ya
-resuelve el alta masiva de ese horario por importación, pero nada resuelve lo posterior: `grep -n
-"horario" src/nucleo/router.ts` confirma que la única vista de horario que existe es `#/horario`,
-"Mi horario" del propio profesor (T-22) — el administrador no tiene ninguna pantalla que junte esas
-filas agrupadas como la clase que son, y mover una clase de grupo a otro día u hora, o cambiar de
-profesor, exige hoy repetir la misma edición en la ficha de cada alumno del grupo, uno por uno (ocho
-ediciones idénticas para un solo cambio real, en una clase de ocho). Es el mismo tipo de fricción de
-navegación —no de permiso ni de dato nuevo— que ya resolvieron R-17/R-23 (cerrar pasar lista en
-bloque) y R-21/R-22 (pausar o dar de baja en bloque), aplicada esta vez a la gestión del horario en
-sí, y golpea justo el momento de mayor riesgo de abandono: el alta y los reajustes de un centro
-nuevo con clases de grupo. `slotsDeLaMismaSesion` (`dominio/asistencia.ts`, ya usada por R-17/R-23) y
-`modificarSlot`/`cesarSlot`/`listarTodosLosSlots` (`datos/slotsHorario.ts`, esta última ya usada por
-R-18) dan toda la base para resolverlo sin ninguna RPC nueva ni ninguna migración. Se abre la
-**Oleada v11** con **R-25** (vista de horario del centro y gestión en bloque de una sesión completa,
-F-16) — detalle en la sección correspondiente más abajo. Añadida su fila `PENDIENTE` en §1 de
-`SEGUIMIENTO.md`. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a
-producción) y ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a
-`ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código — sesión de producto, no de
-programador.
+**R-25 (Oleada v11/F-16) sigue `PENDIENTE`** desde que se abrió ayer (2026-09-18): ninguna sesión de
+programador la ha tomado todavía — el único commit posterior es la propia pasada del auditor, sin
+tocar código. Con la cola de trabajo sin vaciar, no hay base para abrir una Oleada v12 este ciclo:
+sería anticipar trabajo sin que el anterior haya siquiera empezado a implementarse, exactamente el
+vicio que ciclos previos (por ejemplo el vigésimo, 2026-09-13) ya identificaron y evitaron. Revisado
+igualmente el resto del roadmap contra la visión de producto y el ICP: sin ningún hueco nuevo que
+añadir. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y
+ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta
+vez. Sin ningún commit de código — sesión de producto, no de programador.
 
 ---
 

@@ -37,6 +37,58 @@
 
 ---
 
+### Sesión 2026-09-19 (rutina programada de producto) — vigésimo sexto ciclo del PM: sin R-XX nueva
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **vigésimo sexto ciclo del PM: ninguna R-XX
+nueva; ningún hallazgo de `auditoriacontinua.md` que dé lugar a una R-XX ni entrada `nuevo` de
+`FEEDBACK.md` que convertir; sin cambios de estado de T-XX/R-XX en §1 (R-25 sigue `PENDIENTE`, 40
+`COMPLETADA`, 10 `BLOQUEADA`).**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: vigésimo sexto ciclo del PM — sin R-XX
+nueva, R-25 sigue pendiente de que un programador la tome)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010` a `018` siguen pendientes de que
+el dueño las aplique — la `011` sigue condicionada además a la pregunta #16 de §6)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera actualizada),
+`roadmap/SEGUIMIENTO.md` (cabecera; nueva entrada de sesión), `roadmap/HISTORIAL_SESIONES.md` (esta
+entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código. Comprobación de salud
+igualmente ejecutada: `npm ci` · `npm run typecheck`/`npm run lint` limpios · `npm test`
+**1748/1748** sin cambio
+**Health check post-deploy:** N/A — sin cambios de código desplegado
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — esta sesión no decide ningún mecanismo
+nuevo
+**Hallazgos del auditor atendidos:** ninguno resuelto por el PM. `auditoriacontinua.md` trae una
+pasada nueva desde el ciclo anterior (commit `f998218`, 2026-09-19): confirma sin cambio que **#8**
+(severidad alta, RGPD/dato de salud en R-02) sigue `ABIERTO`, ya correctamente formalizado como
+pregunta #16 de §6. Abre **#22** (severidad alta, `ABIERTO`, nuevo): `actualizarAsistencia`
+(`src/datos/asistencia.ts`) envía ya, sin condicional, los 13 parámetros de la firma ampliada que
+traerán `011`/`012`, pero la función desplegada en `dev` sigue teniendo 8 (`008`) — ninguna llamada
+real a `actualizar_asistencia` puede tener éxito hoy contra `dev`, afectando a T-21 («Registros») y a
+R-24 («Anular» en pasar lista). Evaluado y descartado como R-XX: no es un hallazgo de producto ni de
+arquitectura, es un bug de coherencia código/esquema — el propio protocolo (§0.3 de
+`HOJA_DE_RUTA.md`) lo reserva al programador como P-XX urgente por ser severidad alta del auditor;
+queda anotado en la cabecera de `SEGUIMIENTO.md`/`ROADMAP_PRODUCTO.md` para que no se pierda hasta
+que una sesión de programador lo tome
+**Tareas autopropuestas (P-XX):** ninguna registrada ni ejecutada este ciclo — el hallazgo #22, pese
+a su severidad, es trabajo de programador, no del PM (§0.3: la P-XX urgente la registra y ejecuta
+quien la implementa)
+**Hallazgos:** ninguno de producto. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. **R-25** (Oleada v11/F-16, especificada ayer) sigue `PENDIENTE`: ninguna sesión de
+programador la ha tomado todavía — el único commit desde que se abrió es la propia pasada del
+auditor, que no toca código. La cola de trabajo sigue sin estar vacía, así que no hay base para abrir
+una Oleada v12 este ciclo — sería el mismo vicio que ciclos previos (p. ej. el vigésimo, 2026-09-13)
+ya identificaron y evitaron. Revisado el resto del roadmap contra el estado actual y la visión de
+producto: sin ningún hueco nuevo que añadir
+**Próximo paso:** una sesión de programador implementa R-25 (spec completa en `ROADMAP_PRODUCTO.md`)
+y, en cuanto tenga hueco, atiende el hallazgo #22 como P-XX urgente (§0.3) para devolver
+`actualizar_asistencia` a un estado funcional contra `dev` sin esperar a la resolución del RGPD de
+R-02/pregunta #16 (una de las tres opciones que el propio hallazgo ya deja escritas). La siguiente
+sesión de producto vuelve a revisar `auditoriacontinua.md` y `FEEDBACK.md` en busca de hallazgos/
+entradas nuevas, y si R-25 ya está `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`, valora si toca abrir la
+Oleada v12
+
+---
+
 ### Sesión 2026-09-18 (rutina programada de producto) — vigésimo quinto ciclo del PM: R-25 abre la Oleada v11
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
 **Estado resultante:** N/A (documento vivo, no código)
