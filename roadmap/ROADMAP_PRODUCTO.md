@@ -8,31 +8,29 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-19 — vigésimo sexto ciclo del PM: **sin R-XX nueva.**
-`FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` trae una pasada nueva desde el ciclo anterior (`f998218`, 2026-09-19):
-**ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02) sigue sin cambio, todavía esperando al
-dueño en la pregunta **#16** de §6. Se abre **ABIERTO #22** (severidad **alta**): el cliente
-(`src/datos/asistencia.ts#actualizarAsistencia`) ya envía en todas sus llamadas los 13 parámetros de
-la firma ampliada que traerán `011`/`012` (justificación y salida), pero la función desplegada en
-`dev` sigue siendo la de 8 parámetros de `008` — `011` sigue sin poder aplicarse, bloqueada
-precisamente por la pregunta #16 (`ABIERTO #8`) — con lo que **ninguna llamada real a
-`actualizar_asistencia` puede tener éxito hoy contra `dev`**, afectando tanto a «Registros» (T-21)
-como a «Anular» en pasar lista (R-24). No es un hallazgo de producto ni de arquitectura: es un bug de
-coherencia código/esquema entre sesiones sucesivas, del tipo que el protocolo (§0.3 de
-`HOJA_DE_RUTA.md`) reserva al programador como P-XX urgente — no genera ninguna R-XX de este ciclo,
-solo queda anotado en la cabecera de `SEGUIMIENTO.md` para que no se pierda hasta que una sesión de
-programador lo tome.
+**Última actualización:** 2026-09-20 — vigésimo séptimo ciclo del PM: **sin R-XX nueva, tercer
+ciclo consecutivo.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada
+que convertir. `auditoriacontinua.md` trae una pasada de confirmación desde el ciclo anterior
+(`e57e4af`, 2026-09-20, sobre un único commit de por medio: el propio ciclo de PM anterior,
+`53c8a60`). Los dos hallazgos `ABIERTO` heredados siguen exactamente igual, sin ningún hallazgo
+nuevo: **#8** (dato de salud del artículo 9 del RGPD en R-02) sigue esperando al dueño en la
+pregunta **#16** de §6, decimotercer ciclo consecutivo sin novedad de fondo. **#22** (severidad
+alta: **ninguna llamada real a `actualizar_asistencia` puede tener éxito hoy contra `dev`**,
+afectando tanto a «Registros», T-21, como a «Anular» en pasar lista, R-24) sigue `ABIERTO`, sin que
+ninguna sesión de programador lo haya atendido todavía como la P-XX urgente que le corresponde
+(§0.3 de `HOJA_DE_RUTA.md`) — no genera ninguna R-XX este ciclo tampoco, sigue anotado en la
+cabecera de `SEGUIMIENTO.md` para que no se pierda.
 
-**R-25 (Oleada v11/F-16) sigue `PENDIENTE`** desde que se abrió ayer (2026-09-18): ninguna sesión de
-programador la ha tomado todavía — el único commit posterior es la propia pasada del auditor, sin
-tocar código. Con la cola de trabajo sin vaciar, no hay base para abrir una Oleada v12 este ciclo:
-sería anticipar trabajo sin que el anterior haya siquiera empezado a implementarse, exactamente el
-vicio que ciclos previos (por ejemplo el vigésimo, 2026-09-13) ya identificaron y evitaron. Revisado
-igualmente el resto del roadmap contra la visión de producto y el ICP: sin ningún hueco nuevo que
-añadir. El MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y
-ninguna oleada ha llegado a desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta
-vez. Sin ningún commit de código — sesión de producto, no de programador.
+**R-25 (Oleada v11/F-16) sigue `PENDIENTE`**: `git log 184ad55..HEAD` confirma que los tres únicos
+commits desde que se abrió (2026-09-18) son el ciclo de PM del día siguiente y las dos pasadas del
+auditor, ninguno de código ni de SQL — ninguna sesión de programador la ha tomado todavía. Con la
+cola de trabajo sin vaciar, sigue sin haber base para abrir una Oleada v12 este ciclo: sería
+anticipar trabajo sin que el anterior haya siquiera empezado a implementarse, el mismo criterio de
+los dos ciclos anteriores (2026-09-18, 2026-09-19) y del vigésimo (2026-09-13). Revisado igualmente
+el resto del roadmap contra la visión de producto y el ICP: sin ningún hueco nuevo que añadir. El
+MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada
+ha llegado a desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Sin
+ningún commit de código — sesión de producto, no de programador.
 
 ---
 

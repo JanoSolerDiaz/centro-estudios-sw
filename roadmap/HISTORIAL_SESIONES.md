@@ -37,6 +37,52 @@
 
 ---
 
+### Sesión 2026-09-20 (rutina programada de producto) — vigésimo séptimo ciclo del PM: sin R-XX nueva, tercer ciclo consecutivo
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **vigésimo séptimo ciclo del PM: ninguna
+R-XX nueva; ningún hallazgo nuevo de `auditoriacontinua.md` que dé lugar a una R-XX ni entrada
+`nuevo` de `FEEDBACK.md` que convertir; sin cambios de estado de T-XX/R-XX en §1 (R-25 sigue
+`PENDIENTE`, sin que ninguna sesión de programador la haya tomado todavía).**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: vigésimo séptimo ciclo del PM — sin
+R-XX nueva, R-25 sigue pendiente de que un programador la tome)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010` a `018` siguen pendientes de
+que el dueño las aplique — la `011` sigue condicionada además a la pregunta #16 de §6)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera; nueva entrada de sesión),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código
+**Health check post-deploy:** N/A — sin cambios de código desplegado
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — esta sesión no decide ningún mecanismo
+nuevo
+**Hallazgos del auditor atendidos:** ninguno resuelto por el PM. `auditoriacontinua.md` trae una
+pasada de confirmación desde el ciclo anterior (commit `e57e4af`, 2026-09-20, sobre un único commit
+de por medio: el propio `53c8a60` de este PM). Los dos hallazgos `ABIERTO` heredados siguen
+exactamente igual: **#8** (severidad alta, RGPD/dato de salud en R-02) sigue esperando al dueño en
+la pregunta #16 de §6, decimotercer ciclo consecutivo sin novedad de fondo. **#22** (severidad alta,
+rotura de `actualizar_asistencia` contra la firma real de `dev`) sigue `ABIERTO`, confirmado que
+sigue siendo correcto no generarle ninguna R-XX (es P-XX urgente de programador, §0.3) — el auditor
+avisa de que, si la siguiente sesión de programador retoma la cola normal sin pasar antes por él,
+sí sería una desviación de proceso a escalar
+**Tareas autopropuestas (P-XX):** ninguna registrada ni ejecutada este ciclo — el hallazgo #22, pese
+a su severidad, sigue siendo trabajo de programador, no del PM
+**Hallazgos:** ninguno de producto. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. **R-25** (Oleada v11/F-16) sigue `PENDIENTE`: `git log 184ad55..HEAD` confirma que los
+tres únicos commits desde que se abrió son el ciclo de PM del 2026-09-19 y las dos pasadas del
+auditor (2026-09-19 y 2026-09-20), ninguno de código ni de SQL. La cola de trabajo sigue sin estar
+vacía, así que no hay base para abrir la Oleada v12 este ciclo — mismo criterio que los dos ciclos
+anteriores (2026-09-18, 2026-09-19). Revisado el MVP: T-25 sigue `BLOQUEADA` a falta del paso a
+producción, así que ninguna oleada ha llegado todavía a "100% desplegada" — nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez. Revisado el resto del roadmap contra la visión de producto y el
+ICP: sin ningún hueco nuevo que añadir mientras R-25 siga sin implementar
+**Próximo paso:** una sesión de programador implementa R-25 (spec completa en `ROADMAP_PRODUCTO.md`)
+y, en cuanto tenga hueco, atiende el hallazgo #22 como P-XX urgente (§0.3) para devolver
+`actualizar_asistencia` a un estado funcional contra `dev` sin esperar a la resolución del RGPD de
+R-02/pregunta #16. La siguiente sesión de producto vuelve a revisar `auditoriacontinua.md` y
+`FEEDBACK.md` en busca de hallazgos/entradas nuevas, y si R-25 ya está
+`COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`, valora si toca abrir la Oleada v12
+
+---
+
 ### Sesión 2026-09-19 (rutina programada de producto) — vigésimo sexto ciclo del PM: sin R-XX nueva
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
 **Estado resultante:** N/A (documento vivo, no código) — **vigésimo sexto ciclo del PM: ninguna R-XX

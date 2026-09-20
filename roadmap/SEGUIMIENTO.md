@@ -10,35 +10,50 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-19 (vigésimo sexto ciclo del PM: **sin R-XX nueva**): revisadas
-las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila plantilla vacía: nada que
-convertir. `auditoriacontinua.md` trae una pasada nueva desde el ciclo anterior (commit `f998218`,
-2026-09-19): **#8** (RGPD/dato de salud en R-02) sigue `ABIERTO` sin cambio, todavía esperando al
-dueño en la pregunta #16 de §6. Se abre **#22** (severidad **alta**, `ABIERTO`): el propio commit de
-R-24 (2026-09-18) reveló que `src/datos/asistencia.ts#actualizarAsistencia` envía ya, en **todas**
-sus llamadas, los 13 parámetros de la firma completa que añadirán `011`/`012` (justificación y
-salida), pero la función realmente desplegada en `dev` sigue siendo la de 8 parámetros de `008` —
-`011`/`012` siguen sin aplicar, la primera bloqueada precisamente por la pregunta #16. Consecuencia:
-**hoy, contra la base de datos real de `dev`, ninguna llamada a `actualizar_asistencia` puede tener
-éxito** (PostgREST rechaza la llamada entera si el nombre de un parámetro no existe en el servidor),
-lo que afecta tanto a «Registros» (T-21, `COMPLETADA` y verificada en ejecución en su día) como a
-«Anular» en pasar lista (R-24, recién fusionada) — ninguna de las dos es una fuga de dato ni una
-decisión de producto: es un bug de coherencia código/esquema entre sesiones sucesivas, exactamente el
-tipo de hallazgo que el protocolo (§0.3 de `HOJA_DE_RUTA.md`) reserva al programador como P-XX
-urgente ("bugs en producción... procedentes de un hallazgo `ABIERTO` de severidad alta del auditor se
-atienden de inmediato"), no al PM: no genera ninguna R-XX ni ninguna entrada de backlog de este
-ciclo, queda anotado aquí solo para que no se pierda hasta que una sesión de programador lo tome.
-Revisada §1 completa: **R-25 (Oleada v11/F-16) sigue `PENDIENTE`** desde ayer, sin que ninguna sesión
-de programador la haya tomado todavía (`git log` confirma que el único commit posterior a `184ad55`
-es la propia pasada del auditor) — la cola de trabajo no está vacía, así que no hay base para abrir
-la Oleada v12 este ciclo. Revisadas las 17 preguntas de §6 (todas con "Respuesta" vacía salvo las
-once ya respondidas, sin cambio) y §5 (P-XX): ninguna fila `PENDIENTE`, nada que atender antes de la
-cola normal. Revisado el MVP (T-00 a T-25): T-25 sigue `BLOQUEADA` a falta del paso a producción
-(fila 12 de §3), así que ninguna oleada ha llegado todavía a "100% desplegada" — nada se mueve a
+**Última actualización:** 2026-09-20 (vigésimo séptimo ciclo del PM: **sin R-XX nueva, tercer ciclo
+consecutivo**): revisadas las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila
+plantilla vacía: nada que convertir. `auditoriacontinua.md` trae una pasada nueva desde el ciclo
+anterior (commit `e57e4af`, 2026-09-20, "pasada de confirmación, no de descubrimiento" sobre un
+único commit de por medio, el `53c8a60` de este mismo PM): los dos únicos hallazgos siguen
+exactamente igual, sin ningún hallazgo nuevo. **#8** (RGPD/dato de salud en R-02, alta) sigue
+`ABIERTO`, decimotercer ciclo consecutivo sin novedad de fondo, todavía esperando al dueño en la
+pregunta #16 de §6 — nada que el PM pueda mover sin esa respuesta. **#22** (rotura de
+`actualizar_asistencia` contra la firma real de `dev`, alta) sigue `ABIERTO` sin cambio: el propio
+auditor confirma que es correcto que este ciclo no generara ninguna R-XX ni entrada de backlog para
+él (protocolo §0.3 de `HOJA_DE_RUTA.md`: bug de coherencia código/esquema procedente de un hallazgo
+`ABIERTO` de severidad alta, se atiende como P-XX urgente por el programador, no por el PM) y avisa
+de que, si la siguiente sesión de programador retoma la cola normal sin pasar antes por él, eso sí
+sería una desviación de proceso a escalar — quede anotado aquí para que ninguna sesión de programador
+lo pierda de vista. Revisada §1 completa: **R-25 (Oleada v11/F-16) sigue `PENDIENTE`**, sin que
+ninguna sesión de programador la haya tomado todavía — `git log 184ad55..HEAD` confirma que los tres
+únicos commits desde que se abrió son el ciclo de PM anterior y las dos pasadas del auditor, ningún
+commit de código ni de SQL — la cola de trabajo no está vacía, así que sigue sin haber base para
+abrir la Oleada v12 este ciclo (mismo criterio que los dos ciclos anteriores, 2026-09-18 y
+2026-09-19). Revisadas las 17 preguntas de §6 (todas con "Respuesta" vacía salvo las once ya
+respondidas, sin cambio) y §5 (P-XX): ninguna fila `PENDIENTE`, nada que atender antes de la cola
+normal. Revisado el MVP (T-00 a T-25): T-25 sigue `BLOQUEADA` a falta del paso a producción (fila 12
+de §3, sin cambio), así que ninguna oleada ha llegado todavía a "100% desplegada" — nada se mueve a
 `ROADMAP_HISTORICO.md` esta vez. Revisado el resto del roadmap contra la visión de producto y el
 ICP: sin ningún hueco nuevo que añadir mientras R-25 siga sin implementar. Sin ningún commit de
 código — sesión de producto, no de programador. Mergeado a `develop` al cierre de este ciclo, sin
 tocar `master` en ningún momento.
+
+**Sesión anterior (2026-09-19, vigésimo sexto ciclo del PM: sin R-XX nueva):** revisadas las tres
+fuentes de entrada. `FEEDBACK.md` seguía con su única fila plantilla vacía: nada que convertir.
+`auditoriacontinua.md` trajo una pasada nueva desde el ciclo anterior (commit `f998218`, 2026-09-19):
+**#8** (RGPD/dato de salud en R-02) seguía `ABIERTO` sin cambio, todavía esperando al dueño en la
+pregunta #16 de §6. Se abrió **#22** (severidad **alta**, `ABIERTO`): el propio commit de R-24
+(2026-09-18) reveló que `src/datos/asistencia.ts#actualizarAsistencia` enviaba ya, en **todas** sus
+llamadas, los 13 parámetros de la firma completa que añadirán `011`/`012` (justificación y salida),
+pero la función realmente desplegada en `dev` seguía siendo la de 8 parámetros de `008` — no genera
+ninguna R-XX ni ninguna entrada de backlog de ese ciclo, quedó anotado solo para que no se perdiera
+hasta que una sesión de programador lo tomara. Revisada §1 completa: **R-25 (Oleada v11/F-16) seguía
+`PENDIENTE`** desde el día anterior, sin que ninguna sesión de programador la hubiera tomado todavía
+— la cola de trabajo no estaba vacía, así que no había base para abrir la Oleada v12 ese ciclo.
+Revisadas las 17 preguntas de §6 y §5 (P-XX): ninguna fila `PENDIENTE`. Revisado el MVP (T-00 a
+T-25): T-25 seguía `BLOQUEADA` a falta del paso a producción, así que ninguna oleada había llegado
+todavía a "100% desplegada" — nada se movió a `ROADMAP_HISTORICO.md` esa vez. Sin ningún commit de
+código. Mergeado a `develop` al cierre de ese ciclo, sin tocar `master`.
 
 **Sesión anterior (2026-09-18, vigésimo quinto ciclo del PM: abre la Oleada v11 con R-25):**
 revisadas las tres fuentes de entrada. `FEEDBACK.md` seguía con su única fila plantilla vacía: nada
