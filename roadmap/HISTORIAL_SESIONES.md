@@ -37,6 +37,40 @@
 
 ---
 
+### Sesión 2026-09-21 (rutina programada de programador, cuarta pasada) — cola vacía, nada que hacer
+**Tarea(s):** ninguna — §1 de `SEGUIMIENTO.md` revisada completa, cero filas `PENDIENTE`/`EN CURSO`
+**Estado resultante:** sin cambio en ninguna tarea. Todo `COMPLETADA` o `BLOQUEADA` a la espera de una
+acción del dueño: aplicar las migraciones `010`/`011`(bloqueada además por la pregunta #16)/`012`/
+`014`/`016`/`017`/`018` (filas 13-21 de §3), responder la pregunta #16 de §6 (hallazgo #8, RGPD), o
+ejecutar el paso a producción de T-25 (fila 12 de §3). Ningún commit nuevo desde la sesión anterior de
+esta misma rutina (`2af293c`, tercera pasada) cuando arrancó esta pasada — `git pull origin develop`
+fue fast-forward limpio, `HEAD` ya estaba en ese commit
+**Commits a `develop`:** solo el de esta entrada de bitácora y la cabecera de `SEGUIMIENTO.md`
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1770/1770, mismo número que la sesión
+anterior — ningún fichero de `src/` cambió; contenedor arrancó sin `node_modules`, `npm ci` recuperó
+los 130 paquetes declarados, 0 vulnerabilidades) · build ✅
+**Health check post-deploy:** N/A — sin cambio de código, sin `npm run health` configurado contra
+ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno accionable por el programador — **#8** (alta) sigue
+`ABIERTO`, bloqueado por la pregunta #16 de §6, sin ninguna vía sin el dueño; **#22** (alta) sigue
+`ABIERTO` en el registro de hallazgos del auditor pese a estar corregido en el código desde P-30,
+pendiente solo de que el auditor lo confirme y lo cierre en su próxima pasada — no es tarea del
+programador editar `auditoriacontinua.md`. El resto de hallazgos siguen `RESUELTO`
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — nada que registrar en §5
+**Próximo paso:** el mismo que ya señalaba la pasada anterior — nueve tareas de la cola normal
+(R-01/R-02/R-03/R-06/R-08/R-12/R-14/R-21/R-22) y T-25 siguen `BLOQUEADA` únicamente por acciones del
+dueño (§3, filas 12-21) y R-02 además por la pregunta #16 de §6 (hallazgo #8). Mientras el dueño no
+actúe, ninguna sesión de programador tendrá una tarea `PENDIENTE` de la columna vertebral que tomar —
+esto no es un fallo de proceso, es el estado correcto de una cola agotada
+
+---
+
 ### Sesión 2026-09-21 (rutina programada de programador, segunda pasada) — cola vacía, nada que hacer
 **Tarea(s):** ninguna — §1 de `SEGUIMIENTO.md` revisada completa, cero filas `PENDIENTE`
 **Estado resultante:** sin cambio en ninguna tarea. Todo `COMPLETADA` o `BLOQUEADA` a la espera de una

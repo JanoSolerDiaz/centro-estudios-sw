@@ -10,8 +10,24 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-21 (rutina programada de programador, tercera pasada del día —
+**Última actualización:** 2026-09-21 (rutina programada de programador, cuarta pasada del día —
 **cola vacía, nada que hacer**): protocolo §0.3 primero — revisado `auditoriacontinua.md` de nuevo,
+sin ningún commit nuevo desde la pasada anterior de esta misma rutina (`2af293c`, "tercera pasada del
+día"): `git checkout develop && git pull origin develop` fue fast-forward limpio, `HEAD` ya estaba en
+ese commit. **#8** sigue `ABIERTO`, bloqueado por la pregunta #16 de §6, sin ninguna vía sin el
+dueño. **#22** sigue `ABIERTO` en el registro de hallazgos del auditor pese a estar corregido en el
+código desde P-30 — confirmado de nuevo con lectura directa de la fila: el auditor todavía no ha
+vuelto a pasar sobre el commit que lo arregló, y el programador no edita ese documento. §1 revisada
+completa (lectura directa de la tabla, incluida la fila R-25 ya `COMPLETADA`): **cero filas
+`PENDIENTE`/`EN CURSO`** — todo `COMPLETADA` o `BLOQUEADA` a la espera del dueño (aplicar migraciones
+`010`-`012`/`014`/`016`-`018`, resolver la pregunta #16, o el paso a producción de T-25). §5 revisada:
+ninguna fila `PENDIENTE`. Sin tarea que tomar, se ejecutó de todas formas la verificación pre-push
+completa contra el estado actual de `develop` para confirmar que sigue sano: contenedor sin
+`node_modules`, `npm ci` recuperó los 130 paquetes declarados (0 vulnerabilidades) + `npm run
+typecheck` + `npm run lint` + `npm test` (**1770/1770**, mismo número que las tres pasadas anteriores,
+ningún fichero de `src/` cambió) + `npm run build`, las cuatro en verde. Sin cambios de código.
+**Anterior actualización (misma rutina, pasada previa) — cola vacía, tercera pasada del día:**
+protocolo §0.3 primero — revisado `auditoriacontinua.md` de nuevo,
 sin ningún commit nuevo desde la pasada anterior de esta misma rutina (`9026f69`, "segunda pasada del
 día"): `git checkout develop && git pull origin develop` fue fast-forward limpio, `HEAD` ya estaba en
 ese commit. **#8** sigue `ABIERTO`, bloqueado por la pregunta #16 de §6, sin ninguna vía sin el
