@@ -10,19 +10,32 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-21 (rutina programada de programador, segunda pasada del día —
+**Última actualización:** 2026-09-21 (rutina programada de programador, tercera pasada del día —
 **cola vacía, nada que hacer**): protocolo §0.3 primero — revisado `auditoriacontinua.md` de nuevo,
-sin ningún commit nuevo desde la sesión anterior de esta misma rutina (R-25). **#8** sigue `ABIERTO`,
-bloqueado por la pregunta #16 de §6, sin ninguna vía sin el dueño. **#22** sigue corregido en el
-código desde P-30, pendiente solo de que el auditor lo confirme (no es tarea del programador). §1
-revisada completa: **cero filas `PENDIENTE`** — todo `COMPLETADA` o `BLOQUEADA` a la espera del
-dueño (aplicar migraciones `010`-`012`/`014`/`016`-`018`, resolver la pregunta #16, o el paso a
-producción de T-25). §5 revisada: ninguna fila `PENDIENTE`. Sin tarea que tomar, se ejecutó de todas
-formas la verificación pre-push completa contra el estado actual de `develop` para confirmar que
-sigue sano: `npm ci` + `npm run typecheck` + `npm run lint` + `npm test` (**1770/1770**, mismo número
-que la sesión anterior, ningún fichero de `src/` cambió) + `npm run build`, las cuatro en verde. Sin
-cambios de código. **Anterior actualización (misma rutina, pasada previa) — R-25 completada, Oleada
-v11 cerrada:** protocolo §0.3 primero — revisado `auditoriacontinua.md` antes de elegir tarea.
+sin ningún commit nuevo desde la pasada anterior de esta misma rutina (`9026f69`, "segunda pasada del
+día"): `git checkout develop && git pull origin develop` fue fast-forward limpio, `HEAD` ya estaba en
+ese commit. **#8** sigue `ABIERTO`, bloqueado por la pregunta #16 de §6, sin ninguna vía sin el
+dueño. **#22** sigue corregido en el código desde P-30, pendiente solo de que el auditor lo confirme
+(no es tarea del programador). §1 revisada completa: **cero filas `PENDIENTE`** — todo `COMPLETADA` o
+`BLOQUEADA` a la espera del dueño (aplicar migraciones `010`-`012`/`014`/`016`-`018`, resolver la
+pregunta #16, o el paso a producción de T-25). §5 revisada: ninguna fila `PENDIENTE`. Sin tarea que
+tomar, se ejecutó de todas formas la verificación pre-push completa contra el estado actual de
+`develop` para confirmar que sigue sano: `npm ci` + `npm run typecheck` + `npm run lint` + `npm test`
+(**1770/1770**, mismo número que las dos pasadas anteriores, ningún fichero de `src/` cambió) +
+`npm run build`, las cuatro en verde. Sin cambios de código. **Anterior actualización (misma rutina,
+pasada previa) — cola vacía, segunda pasada del día:** protocolo §0.3 primero — revisado
+`auditoriacontinua.md` de nuevo, sin ningún commit nuevo desde la sesión anterior de esta misma
+rutina (R-25). **#8** sigue `ABIERTO`, bloqueado por la pregunta #16 de §6, sin ninguna vía sin el
+dueño. **#22** sigue corregido en el código desde P-30, pendiente solo de que el auditor lo confirme
+(no es tarea del programador). §1 revisada completa: **cero filas `PENDIENTE`** — todo `COMPLETADA` o
+`BLOQUEADA` a la espera del dueño (aplicar migraciones `010`-`012`/`014`/`016`-`018`, resolver la
+pregunta #16, o el paso a producción de T-25). §5 revisada: ninguna fila `PENDIENTE`. Sin tarea que
+tomar, se ejecutó de todas formas la verificación pre-push completa contra el estado actual de
+`develop` para confirmar que sigue sano: `npm ci` + `npm run typecheck` + `npm run lint` + `npm test`
+(**1770/1770**, mismo número que la sesión anterior, ningún fichero de `src/` cambió) +
+`npm run build`, las cuatro en verde. Sin cambios de código. **Anterior actualización (misma rutina,
+pasada previa) — R-25 completada, Oleada v11 cerrada:** protocolo §0.3 primero — revisado
+`auditoriacontinua.md` antes de elegir tarea.
 **#8** (RGPD/dato de salud en R-02, alta) sigue `ABIERTO`, sin ninguna vía para moverlo sin respuesta
 del dueño a la pregunta #16 de §6 — no es de esta sesión. **#22** (rotura de `actualizar_asistencia`,
 alta) quedó corregido en el código por la pasada anterior de esta misma rutina (P-30, ver abajo);
