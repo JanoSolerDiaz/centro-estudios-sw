@@ -10,7 +10,42 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-21 (rutina programada de programador, cuarta pasada del día —
+**Última actualización:** 2026-09-21 (vigésimo octavo ciclo del PM: **abre la Oleada v12 con R-26 y
+R-27**): revisadas las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila plantilla
+vacía: nada que convertir. `auditoriacontinua.md` con una pasada nueva desde el ciclo anterior
+(`5a34ae0`, 2026-09-21, ya revisada por la sesión de programador de hoy antes de tomar P-30/R-25):
+confirma que solo quedan **#8** (`ABIERTO`, dato de salud del artículo 9 del RGPD en R-02, ya
+formalizado como pregunta #16 de §6, esperando al dueño — decimocuarto ciclo consecutivo sin
+novedad de fondo) y **#22** (`ABIERTO`, rotura de `actualizar_asistencia` contra la firma real de
+`dev` — ya corregida en el código por **P-30**, la propia sesión de programador de hoy, pendiente
+solo de que el auditor lo confirme y lo cierre en su próxima pasada). Ninguno de los dos necesita
+trabajo de este ciclo. Revisada §1 completa: **R-25 (Oleada v11/F-16) `COMPLETADA`** desde hoy
+(2026-09-21), sin ninguna fila `PENDIENTE`/`EN CURSO` antes de esta sesión — el resto sigue
+`COMPLETADA` o `BLOQUEADA` a la espera del dueño (migraciones `010`-`012`/`014`/`016`-`018`,
+pregunta #16, o el paso a producción de T-25). Revisadas las 17 preguntas de §6 y §5 (P-XX): sin
+ninguna fila `PENDIENTE`, nada que atender antes de la cola normal. Revisado el MVP: T-25 sigue
+`BLOQUEADA` a falta del paso a producción (fila 12 de §3), así que ninguna oleada ha llegado
+todavía a "100% desplegada" — nada se mueve a `ROADMAP_HISTORICO.md` esta vez.
+
+Con R-25/Oleada v11 cerrada (código-completa) y sin que ninguna oleada anterior siguiera code-
+incompleta, hay base real para abrir la siguiente — a diferencia de los tres ciclos anteriores
+(2026-09-18 a 2026-09-20), que correctamente no la abrieron mientras R-25 seguía sin implementar.
+Revisado el roadmap completo contra la visión de producto y el ICP, volviendo esta vez al **primer**
+segmento prioritario, el profesor: las diez oleadas v1 a v10 ya cierran el ciclo de una sesión que
+YA está en curso o YA pasó (entrada, ausencia, salida, corrección, y el propio R-13 avisando DESPUÉS
+de que una sesión se quedó sin pasar lista), pero ninguna avisa ANTES de que empiece — el profesor
+sigue dependiendo de acordarse solo, con el móvil guardado. `grep -rln "Notification" src/` no
+devuelve nada: no existe ningún uso de la API de notificaciones del navegador en el proyecto, pese a
+que el Service Worker de R-09 y el cálculo de "próxima sesión" de T-17/T-22 (`vistaSemanalProfesor`,
+`TOLERANCIA_MINUTOS_POR_DEFECTO`) ya dan toda la base, sin servidor de notificaciones ni cuenta
+externa. Se abre la **Oleada v12** con **R-26** (recordatorio local antes de que empiece una sesión,
+F-17) y **R-27** (alta de una sesión de grupo completa, F-18 — cierra el ciclo crear/editar/cesar que
+R-25 dejó a medias, mismo patrón de R-17/R-21/R-22/R-23/R-25). Detalle completo de ambas en
+`ROADMAP_PRODUCTO.md`. Añadidas sus dos filas `PENDIENTE` en §1 (más abajo). Sin ningún commit de
+código de producto — sesión de producto, no de programador. Mergeado a `develop` al cierre de este
+ciclo, sin tocar `master` en ningún momento.
+
+**Sesión anterior (2026-09-21, rutina programada de programador, cuarta pasada del día —
 **cola vacía, nada que hacer**): protocolo §0.3 primero — revisado `auditoriacontinua.md` de nuevo,
 sin ningún commit nuevo desde la pasada anterior de esta misma rutina (`2af293c`, "tercera pasada del
 día"): `git checkout develop && git pull origin develop` fue fast-forward limpio, `HEAD` ya estaba en
@@ -3234,6 +3269,8 @@ pantallas del requisito 2.
 | R-23 | Cierre de slot en un toque: marcar el resto como presente en bloque | COMPLETADA | 2026-09-17 | Oleada v9 / F-14 · Sin migración. `pantallaPasarLista.ts`: bloque "Marcar el resto como presente" simétrico a `cierreEnBloque` de R-17, reutiliza `manejarToque` tal cual una vez por alumno pendiente (misma idempotencia/reconciliación/cola offline). `pantallaRegistrosSlot.ts`: bloque simétrico sobre el mismo `cierreCandidatos` de R-17, llama a `registrarOlvidado` sin `ocurridoEn` (registro en vivo), sin ninguna RPC nueva. Los dos controles (R-17/R-23) conviven sin interferir (requisito 7), verificado con test dedicado en cada pantalla. 15 tests nuevos (1734 en total) |
 | R-24 | Corregir un toque equivocado sin salir de pasar lista | COMPLETADA | 2026-09-18 | Oleada v10 / F-15 · Sin migración: reutiliza `actualizar_asistencia` (T-21), sin RPC nueva. Cuarto control de la card en `pantallaPasarLista.ts` ("Anular", hermano de toque/ausente/salida), ofrecido solo dentro de la ventana de edición (`puedeEditarAsistencia`, escrita desde T-03 pero sin ningún consumidor hasta ahora — ni siquiera «Registros» de T-21 la llama, ver DECISIONES_TECNICAS.md). Nueva `datos/asistencia.ts#anularAsistencia` (atajo sobre `actualizarAsistencia`, mismo patrón que `marcarSalidaAsistencia` de R-03). Al confirmar con éxito la card vuelve a `'pendiente'` con `peticionId`/`peticionIdAusente` NUEVOS (los anteriores quedaron consumidos por el registro ya anulado) y se retira de `registrosHoyCache` para que el siguiente tick no la resucite. Sin cola offline propia para el fallo de red (decisión documentada en DECISIONES_TECNICAS.md: anular no es una escritura que se pueda perder sin dejar rastro, la fila ya existe). 14 tests nuevos (1748 en total, antes 1734). **P-30 (2026-09-21, hallazgo #22):** "Anular" quedó rota en `dev` en cuanto R-02/R-03 ampliaron el payload compartido de `actualizarAsistencia` (mismo motivo que T-21) — corregida en la misma sesión |
 | R-25 | Vista de horario del centro y gestión en bloque de una sesión completa | COMPLETADA | 2026-09-21 | Oleada v11 / F-16 · Sin migración: reutiliza `modificarSlot`/`cesarSlot` (T-15) y el criterio de agrupación de `slotsDeLaMismaSesion` (T-15, ya usada por R-17/R-23), sin ninguna RPC nueva. Nueva `dominio/horarioCentro.ts`, `datos/slotsHorario.ts#listarTodosLosSlotsConAlumno` y `ui/pantallaHorarioCentro.ts` (`#/horario-centro`). 24 tests nuevos (1770 en total, antes 1746) |
+| R-26 | Recordatorio local antes de que empiece una sesión | PENDIENTE | 2026-09-21 | Oleada v12 / F-17 · Spec en `ROADMAP_PRODUCTO.md`. Sin migración: interruptor nuevo en «Mi horario» (T-22) que, con permiso del navegador concedido, dispara una notificación de mejor esfuerzo (`ServiceWorkerRegistration#showNotification`, mismo Service Worker de R-09) unos minutos antes de cada sesión, calculado sobre `vistaSemanalProfesor` (T-17/T-22) — sin RPC ni dato personal nuevo |
+| R-27 | Alta de una sesión de grupo completa | PENDIENTE | 2026-09-21 | Oleada v12 / F-18 · Spec en `ROADMAP_PRODUCTO.md`. Sin migración: nueva acción en la pantalla de horario del centro (R-25) que llama a `crearSlot` (T-15) una vez por cada alumno elegido con el buscador de T-20, mismo día/hora/profesor/asignatura para todos — sin ninguna RPC nueva |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

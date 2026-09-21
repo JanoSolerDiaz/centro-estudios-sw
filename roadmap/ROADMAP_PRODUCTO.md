@@ -8,29 +8,42 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-20 — vigésimo séptimo ciclo del PM: **sin R-XX nueva, tercer
-ciclo consecutivo.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada
-que convertir. `auditoriacontinua.md` trae una pasada de confirmación desde el ciclo anterior
-(`e57e4af`, 2026-09-20, sobre un único commit de por medio: el propio ciclo de PM anterior,
-`53c8a60`). Los dos hallazgos `ABIERTO` heredados siguen exactamente igual, sin ningún hallazgo
-nuevo: **#8** (dato de salud del artículo 9 del RGPD en R-02) sigue esperando al dueño en la
-pregunta **#16** de §6, decimotercer ciclo consecutivo sin novedad de fondo. **#22** (severidad
-alta: **ninguna llamada real a `actualizar_asistencia` puede tener éxito hoy contra `dev`**,
-afectando tanto a «Registros», T-21, como a «Anular» en pasar lista, R-24) sigue `ABIERTO`, sin que
-ninguna sesión de programador lo haya atendido todavía como la P-XX urgente que le corresponde
-(§0.3 de `HOJA_DE_RUTA.md`) — no genera ninguna R-XX este ciclo tampoco, sigue anotado en la
-cabecera de `SEGUIMIENTO.md` para que no se pierda.
+**Última actualización:** 2026-09-21 — vigésimo octavo ciclo del PM: **abre la Oleada v12 con R-26 y
+R-27.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`5a34ae0`, 2026-09-21, ya
+revisada por el ciclo de programador de hoy antes de tomar P-30/R-25): confirma sin cambio
+que solo quedan **ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como
+pregunta **#16** de §6, esperando al dueño, decimocuarto ciclo consecutivo sin novedad de fondo) y
+**ABIERTO #22** (rotura de `actualizar_asistencia` contra la firma real de `dev`) — este último ya
+corregido en el código por **P-30**, la propia sesión de programador de hoy, y pendiente solo de que
+el auditor lo confirme y lo cierre en su próxima pasada, no de ninguna R-XX.
 
-**R-25 (Oleada v11/F-16) sigue `PENDIENTE`**: `git log 184ad55..HEAD` confirma que los tres únicos
-commits desde que se abrió (2026-09-18) son el ciclo de PM del día siguiente y las dos pasadas del
-auditor, ninguno de código ni de SQL — ninguna sesión de programador la ha tomado todavía. Con la
-cola de trabajo sin vaciar, sigue sin haber base para abrir una Oleada v12 este ciclo: sería
-anticipar trabajo sin que el anterior haya siquiera empezado a implementarse, el mismo criterio de
-los dos ciclos anteriores (2026-09-18, 2026-09-19) y del vigésimo (2026-09-13). Revisado igualmente
-el resto del roadmap contra la visión de producto y el ICP: sin ningún hueco nuevo que añadir. El
-MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada
-ha llegado a desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Sin
-ningún commit de código — sesión de producto, no de programador.
+**R-25 (Oleada v11/F-16) `COMPLETADA`** desde hoy (2026-09-21, misma sesión de programador que
+implementó P-30 y R-25 en turnos consecutivos): con eso, la Oleada v11 queda cerrada — código
+completo, sin ninguna migración pendiente de esta oleada en concreto — y hay base real para abrir la
+siguiente, a diferencia de los tres ciclos anteriores (2026-09-18 a 2026-09-20), que correctamente no
+la abrieron mientras R-25 seguía sin implementar. Revisado el roadmap completo contra la visión de
+producto y el ICP, esta vez volviendo al **primer** segmento prioritario, el profesor: releído
+`src/ui/pantallaMiHorario.ts` (T-22) y `src/dominio/avisosPasarLista.ts` (R-13) — las diez oleadas v1
+a v10 ya cierran el ciclo de una sesión que YA está en curso o YA pasó (entrada, ausencia, salida,
+corrección, y el propio R-13 avisando DESPUÉS de que una sesión se quedó sin pasar lista), pero
+ninguna avisa ANTES de que empiece: el profesor, usuario de mayor frecuencia y peor atendido, sigue
+dependiendo de acordarse solo con el móvil guardado. `grep -rln "Notification" src/` no devuelve
+nada: no existe ningún uso de la API de notificaciones del navegador en todo el proyecto, pese a que
+el Service Worker de R-09 (`sw.js`, ya con su propio canal `message`) y el cálculo de "próxima sesión"
+de T-17/T-22 (`vistaSemanalProfesor`, `TOLERANCIA_MINUTOS_POR_DEFECTO`) ya dan toda la base necesaria,
+sin servidor de notificaciones ni cuenta externa. Se abre la Oleada v12 con **R-26** (recordatorio
+local antes de que empiece una sesión, F-17) como primera pieza — la primera de todo el roadmap que
+le da al profesor algo genuinamente nuevo, no solo una forma más rápida de lo que ya hacía. Segunda
+pieza, sobre el administrador: R-25 dejó ver, editar y cesar una sesión de grupo como una unidad, pero
+no crearla como una unidad — `grep -n "crearSlot" src/ui/pantallaFichaAlumno.ts` confirma que sigue
+siendo una alta por alumno, uno a uno, incluso para un grupo nuevo que comparte un único horario. Se
+añade **R-27** (alta de una sesión de grupo completa, F-18), mismo patrón que R-17/R-21/R-22/R-23/R-25
+ya resolvieron cada uno en su propio flujo. Ninguna de las dos R-XX añade dato personal nuevo, RPC ni
+migración, ni toca al rol `student`. Añadidas sus dos filas `PENDIENTE` en §1 de `SEGUIMIENTO.md`. El
+MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada ha
+llegado a desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Sin ningún
+commit de código — sesión de producto, no de programador.
 
 ---
 
@@ -331,6 +344,34 @@ ninguna RPC ni ninguna migración, ni toca al rol `student`.
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
 > histórico, y el multi-centro.
+
+### Oleada v12 — Avisar antes de que empiece la clase, y cerrar el ciclo del horario de grupo
+
+**Arranca cuando la oleada v11 (R-25) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces las R-XX de esta oleada
+quedan especificadas y en cola, detrás de la oleada v11, en el orden de §1.
+
+Por qué esta oleada y en este orden: las diez oleadas anteriores (v1 a v10) ya cierran el ciclo del
+profesor sobre una sesión que YA está en curso o YA pasó — entrada, ausencia, salida, corrección, y
+el aviso de R-13 cuando una sesión se quedó sin pasar lista —, pero ninguna avisa ANTES de que
+empiece: el profesor, usuario de mayor frecuencia y peor atendido por el papel o una hoja de cálculo,
+sigue dependiendo de acordarse solo, con el móvil guardado, de que en unos minutos le toca clase.
+F-17 es la primera pieza de todo el roadmap que le da al profesor algo genuinamente nuevo, no solo
+una forma más rápida de lo que ya hacía, y por eso abre la oleada. F-18 vuelve después sobre el
+administrador para terminar lo que dejó a medias R-25 (v11): hoy se puede ver, editar y cesar una
+sesión de grupo como una sola unidad, pero crearla sigue exigiendo repetir la misma alta alumno por
+alumno — el mismo tipo de fricción de navegación que R-17/R-21/R-22/R-23/R-25 ya resolvieron cada uno
+en su propio flujo, ahora aplicado al último hueco que le quedaba a la gestión del horario. Ninguna de
+las dos añade ningún dato personal nuevo, ninguna RPC ni ninguna migración, ni toca al rol `student`.
+
+- **F-17 — Recordatorio local antes de que empiece una sesión.** R-26.
+- **F-18 — Alta de una sesión de grupo completa.** R-27.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro. Se añade una cuarta: un aviso push real capaz de llegar con la
+> aplicación totalmente cerrada exigiría un servidor de notificaciones (infraestructura nueva, fuera
+> del stack fijado) — R-26 se entrega en su versión de mejor esfuerzo, solo con la aplicación abierta.
 
 ---
 
@@ -1424,3 +1465,100 @@ solape individual rechazado por alumno sin impedir que el resto del grupo se mue
 completa da de baja el horario de todos sus alumnos con una sola fecha de efecto; ningún registro de
 asistencia ya existente cambia de valor tras cualquiera de las dos acciones; ni la pantalla ni la
 acción en bloque usan ninguna RPC ni migración nueva.
+
+---
+
+### R-26 — Recordatorio local antes de que empiece una sesión
+**Oleada / Fase:** v12 / F-17 · **Migración:** No · **Depende de:** T-17, T-22, R-09
+**Origen:** roadmap
+
+**Objetivo:** el profesor —usuario de mayor frecuencia y peor atendido por el papel o una hoja de
+cálculo— sigue dependiendo hoy de acordarse solo de que dentro de unos minutos le toca una clase:
+R-13 ya avisa DESPUÉS de que una sesión se quedó sin pasar lista, dentro de «Mi horario» (T-22), pero
+nada avisa ANTES de que empiece, cuando todavía se puede evitar el olvido. Da un recordatorio del
+propio navegador, unos minutos antes de la hora de inicio de cada sesión del profesor, calculado
+enteramente en el cliente sobre el horario que «Mi horario» ya carga — sin servidor de notificaciones,
+sin cuenta externa y sin ningún dato personal nuevo.
+
+**Requisitos:**
+1. En «Mi horario» (T-22), un interruptor explícito y apagado por defecto — "Avisarme antes de cada
+   clase" — visible junto a la cabecera. Activarlo es el gesto del usuario que exige el navegador
+   antes de pedir permiso de notificaciones (`Notification.requestPermission()` nunca se dispara sin
+   una acción explícita); si el profesor lo deniega, el interruptor vuelve a apagarse solo y no se
+   vuelve a pedir el permiso hasta que el profesor lo reactive a mano.
+2. La preferencia (activado/denegado) se guarda por dispositivo, mismo patrón de almacenamiento local
+   que ya usa `nucleo/almacenSesion.ts` — no viaja al servidor, no es un dato del perfil.
+3. Con el recordatorio activo y el permiso concedido, la propia pantalla recalcula en cada tick de
+   `programadorIntervalo.ts#cada` (mismo mecanismo que T-19/T-22 ya usan para "en curso"/"siguiente")
+   cuántos minutos faltan para el inicio de cada sesión de `vistaSemanalProfesor` (`dominio/slots.ts`)
+   y dispara una notificación del navegador (`ServiceWorkerRegistration#showNotification`, mismo
+   Service Worker de R-09) `MINUTOS_AVISO_RECORDATORIO_POR_DEFECTO` minutos antes — valor
+   conservador, 5, coherente con los 10 minutos de tolerancia ya fijados en T-17
+   (`TOLERANCIA_MINUTOS_POR_DEFECTO`): avisa a tiempo de llegar dentro de la ventana en la que el
+   slot ya se ofrece como propuesta.
+4. Un toque en la notificación abre o enfoca la aplicación (`notificationclick` en `sw.js`, mismo
+   fichero de R-09) y navega a pasar lista si la sesión ya está en curso, o a «Mi horario» si aún
+   faltan minutos — mismo mecanismo de navegación profunda que ya usan R-13/R-20.
+5. Cada combinación sesión (slot) + día avisa una sola vez: una vez disparada, no vuelve a repetirse
+   aunque el temporizador siga corriendo el resto del día — mismo tipo de guarda que ya usa R-13 para
+   no repetir su propio aviso en cada tick.
+6. El recordatorio es de mejor esfuerzo, no un push real: solo se dispara mientras el navegador tiene
+   la aplicación abierta, en primer o segundo plano (pestaña o PWA instalada, R-09) — un aviso capaz
+   de llegar con la aplicación totalmente cerrada exigiría un servidor de notificaciones push
+   (infraestructura nueva y una cuenta de servicio, fuera del stack fijado, §0.2) y queda fuera de
+   esta tarea. El propio interruptor lo deja dicho ("mientras tengas la aplicación abierta"), para no
+   generar una expectativa que no cumple.
+7. La notificación muestra la hora, el día y la asignatura/grupo — nunca el nombre de ningún alumno:
+   una notificación del sistema operativo es visible incluso con el móvil bloqueado, una superficie
+   más expuesta que la propia aplicación, y la regla de "solo los datos imprescindibles" (principio 5)
+   se aplica también aquí.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** con el recordatorio activo y el permiso concedido, una sesión que empieza
+dentro de exactamente `MINUTOS_AVISO_RECORDATORIO_POR_DEFECTO` minutos dispara una notificación del
+navegador con su hora, día y asignatura, sin ningún nombre de alumno; tocarla abre la aplicación en
+pasar lista o en «Mi horario» según corresponda; la misma sesión no repite el aviso el mismo día; con
+el interruptor apagado, con el permiso denegado, o con la aplicación completamente cerrada, no se
+dispara ninguna notificación ni se solicita el permiso sin una acción explícita del profesor; sin
+ninguna petición de red nueva ni ningún dato personal nuevo.
+
+---
+
+### R-27 — Alta de una sesión de grupo completa
+**Oleada / Fase:** v12 / F-18 · **Migración:** No · **Depende de:** T-15, T-16, T-20, R-25
+**Origen:** roadmap
+
+**Objetivo:** R-25 ya deja ver, editar y cesar una sesión de grupo como una sola unidad, pero crearla
+sigue exigiendo repetir la misma alta (T-15, desde la ficha de cada alumno) una vez por alumno — en
+un grupo nuevo de ocho, ocho altas idénticas de día, hora, profesor y asignatura, cuando de antemano
+se sabe que es un único horario compartido. R-08 (importación masiva) ya resuelve migrar un horario
+completo desde una hoja de cálculo al arrancar, pero no el caso, igual de habitual a mitad de curso,
+de abrir un grupo nuevo con alumnos que ya existen en el sistema. Cierra el ciclo que abrió R-25 —ver,
+editar, cesar y ahora también crear una sesión como una sola unidad— sin ninguna diferencia de coste
+según cuántos alumnos tenga el grupo.
+
+**Requisitos:**
+1. Desde la pantalla de horario del centro (R-25), nueva acción «Nueva sesión de grupo», exclusiva de
+   `administrator`.
+2. El administrador elige día de la semana, hora de inicio/fin, profesor y asignatura/grupo una sola
+   vez, y selecciona a continuación varios alumnos ya existentes con el mismo buscador de T-20
+   (`buscar_alumnos_activos`), en modo de selección múltiple en vez de uno solo.
+3. Al confirmar, se llama a `crearSlot` (`datos/slotsHorario.ts`, T-15) una vez por cada alumno
+   elegido, con el mismo día/hora/profesor/asignatura — sin ninguna RPC nueva.
+4. Por alumno, con reintento local sin round-trip completo: si el horario nuevo solapa con otro
+   horario YA vigente de ESE alumno, esa alta se rechaza igual que hoy rechaza `crearSlot` para una
+   ficha individual, mostrando de quién y por qué, mientras el resto del grupo se crea con
+   normalidad — mismo patrón que el cierre/edición en bloque de R-17/R-23/R-25. El solape con el
+   horario de OTRO profesor sigue siendo aviso, nunca bloqueo, igual que en el alta individual.
+5. Un alumno ya elegido no puede repetirse en la misma selección.
+6. Sin ningún control para dar de alta, dentro de esta misma acción, a un alumno con un horario
+   distinto al resto del grupo: para eso sigue la ficha del alumno (T-16), sin cambios — esta acción
+   es solo para el caso de un grupo nuevo que comparte un único horario.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** el administrador crea el horario de un grupo de N alumnos ya existentes
+con una sola elección de día, hora, profesor y asignatura, aplicada a los N alumnos sin repetirla; un
+alumno con solape de horario propio queda excluido del alta con su motivo, sin impedir que el resto
+del grupo se cree; ni la pantalla ni la acción usan ninguna RPC ni migración nueva.

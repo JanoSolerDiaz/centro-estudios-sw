@@ -37,6 +37,45 @@
 
 ---
 
+### Sesión 2026-09-21 (rutina programada de producto) — vigésimo octavo ciclo del PM: abre la Oleada v12 con R-26 y R-27
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión (roadmap: abre Oleada v12 con R-26/R-27)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010` a `018` siguen pendientes de
+que el dueño las aplique — la `011` sigue condicionada además a la pregunta #16 de §6)
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue `BLOQUEADA`, fila 12 de §3)
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera; Oleada v12/F-17/F-18;
+detalle de R-26 y R-27), `roadmap/SEGUIMIENTO.md` (cabecera; §1: filas R-26/R-27 `PENDIENTE`),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación, no toca código
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** ninguna decisión técnica nueva (eso es del programador); alcance de producto
+documentado en R-26/R-27 de `ROADMAP_PRODUCTO.md`
+**Hallazgos del auditor atendidos:** ninguno nuevo que atender — `auditoriacontinua.md` con una
+pasada nueva desde el ciclo anterior (`5a34ae0`, 2026-09-21, ya revisada por la sesión de
+programador de hoy antes de tomar P-30/R-25): solo siguen **#8** (`ABIERTO`, dato de salud del
+artículo 9 del RGPD en R-02, pregunta #16 de §6, esperando al dueño, sin ninguna R-XX posible) y
+**#22** (`ABIERTO`, rotura de `actualizar_asistencia`, ya corregida en el código por P-30 de la
+sesión de programador de hoy, pendiente solo de que el auditor la confirme y la cierre)
+**Hallazgos:** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que
+convertir. Revisión de producto centrada de nuevo en el profesor, primer segmento prioritario: las
+oleadas v1 a v10 ya cierran el ciclo de una sesión que YA está en curso o YA pasó, pero ninguna
+avisa ANTES de que empiece (`grep -rln "Notification" src/` no devuelve nada: no existe ningún uso
+de la API de notificaciones del navegador en el proyecto, pese a que el Service Worker de R-09 y el
+cálculo de "próxima sesión" de T-17/T-22 ya dan toda la base). Segunda revisión sobre el
+administrador: R-25 (v11) dejó ver/editar/cesar una sesión de grupo como una unidad, pero no
+crearla como una unidad (`grep -n "crearSlot" src/ui/pantallaFichaAlumno.ts` confirma que sigue
+siendo una alta por alumno, uno a uno)
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la siguiente sesión de desarrollo debe implementar, en el orden de §1 de
+`SEGUIMIENTO.md`, **R-26** (recordatorio local antes de que empiece una sesión, Oleada v12/F-17,
+spec completa en `ROADMAP_PRODUCTO.md`) y después **R-27** (alta de una sesión de grupo completa,
+F-18) — ninguna de las dos necesita RPC ni migración nueva. El siguiente ciclo de PM debe seguir
+revisando `auditoriacontinua.md` y `FEEDBACK.md` en cada pasada, y retomar la pregunta #16 de §6
+(dato de salud de R-02) en cuanto el dueño responda.
+
+---
+
 ### Sesión 2026-09-21 (rutina programada de programador, cuarta pasada) — cola vacía, nada que hacer
 **Tarea(s):** ninguna — §1 de `SEGUIMIENTO.md` revisada completa, cero filas `PENDIENTE`/`EN CURSO`
 **Estado resultante:** sin cambio en ninguna tarea. Todo `COMPLETADA` o `BLOQUEADA` a la espera de una
