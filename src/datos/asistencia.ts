@@ -18,6 +18,7 @@ import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import type { Asistencia, AsistenciaHistorial, MotivoJustificacionAusencia, OrigenAsistencia } from '../dominio/tipos.ts';
 import { limitesDiaLocal, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
 import { logger, type Logger } from '../nucleo/registro.ts';
+import { AccionNoDisponibleTodavia } from './erroresDominio.ts';
 
 const TABLA = 'asistencia';
 
@@ -112,19 +113,44 @@ export interface ActualizarAsistenciaEntrada {
   readonly ocurridoEnSalida?: Date | null;
 }
 
-/** Modifica un registro de asistencia ya existente (T-21, con la acción "justificar" de R-02
- * añadida en `db/011_justificacion_ausencia.sql` y "marcar/ajustar salida" de R-03 añadida en
- * `db/012_registro_salida.sql`), vía la RPC `SECURITY DEFINER` `actualizar_asistencia` — el UPDATE
- * directo sobre `asistencia` está revocado, igual que el INSERT (T-18): esta es la ÚNICA puerta de
- * modificación. `profesorDuenoId` es el `profesor_id` DUEÑO del registro (no necesariamente quien
- * llama: un `administrator` edita registros de cualquier profesor) — es la clave del límite de
- * cliente de T-06, defensa en profundidad; el límite autoritativo lo aplica la RPC sobre el mismo
- * dueño. */
+/** La RPC real desplegada en `dev` sigue siendo la de `db/008_rpc_actualizar_asistencia.sql` (8
+ * parámetros): `011_justificacion_ausencia.sql` (R-02, "justificar") y `012_registro_salida.sql`
+ * (R-03, "marcar/ajustar salida") están escritas y empujadas pero todavía sin aplicar
+ * (`db/APLICADAS.md`) — `011` en concreto bloqueada por el hallazgo #8 (RGPD artículo 9,
+ * `auditoriacontinua.md`). PostgREST resuelve una llamada RPC por coincidencia EXACTA de nombres de
+ * parámetro contra la función real: enviar un parámetro que la función no declara no lo ignora,
+ * hace fallar la resolución completa de la llamada, incluidas las demás acciones (nota, hora, slot,
+ * alumno, anular) que sí existen en `008` — así es como se rompió T-21/R-24 en su día (hallazgo #22
+ * de `auditoriacontinua.md`, P-30 aquí). Devuelve al 8-parámetro real y corta ANTES de la red
+ * cualquier intento de "justificar"/"marcar o ajustar salida": ver `accionPendienteDeMigracion`. */
+function accionPendienteDeMigracion(entrada: ActualizarAsistenciaEntrada): string | null {
+  if (entrada.justificar) {
+    return 'Justificar una ausencia todavía no está disponible en este centro.';
+  }
+  if (entrada.marcarSalida || entrada.ocurridoEnSalida != null) {
+    return 'Registrar la hora de salida todavía no está disponible en este centro.';
+  }
+  return null;
+}
+
+/** Modifica un registro de asistencia ya existente (T-21), vía la RPC `SECURITY DEFINER`
+ * `actualizar_asistencia` — el UPDATE directo sobre `asistencia` está revocado, igual que el
+ * INSERT (T-18): esta es la ÚNICA puerta de modificación. `profesorDuenoId` es el `profesor_id`
+ * DUEÑO del registro (no necesariamente quien llama: un `administrator` edita registros de
+ * cualquier profesor) — es la clave del límite de cliente de T-06, defensa en profundidad; el
+ * límite autoritativo lo aplica la RPC sobre el mismo dueño. Lanza `AccionNoDisponibleTodavia`
+ * (sin tocar la red ni el límite de tasa) para "justificar"/"marcar o ajustar salida" — ver
+ * `accionPendienteDeMigracion`. */
 export async function actualizarAsistencia(
   deps: DependenciasAsistencia,
   profesorDuenoId: string,
   entrada: ActualizarAsistenciaEntrada,
 ): Promise<Asistencia> {
+  const motivoBloqueo = accionPendienteDeMigracion(entrada);
+  if (motivoBloqueo !== null) {
+    throw new AccionNoDisponibleTodavia(motivoBloqueo);
+  }
+
   deps.limitador?.comprobar(`asistencia:${profesorDuenoId}`);
 
   return deps.postgrest.rpc<Asistencia>('actualizar_asistencia', {
@@ -136,18 +162,14 @@ export async function actualizarAsistencia(
     p_motivo_anulacion: entrada.motivoAnulacion ?? null,
     p_nota: entrada.nota ?? null,
     p_nota_provista: entrada.notaProvista ?? false,
-    p_justificar: entrada.justificar ?? false,
-    p_motivo_justificacion: entrada.motivoJustificacion ?? null,
-    p_nota_justificacion: entrada.notaJustificacion ?? null,
-    p_marcar_salida: entrada.marcarSalida ?? false,
-    p_ocurrido_en_salida: entrada.ocurridoEnSalida ? entrada.ocurridoEnSalida.toISOString() : null,
   });
 }
 
 /** Marca la salida de un registro YA presente (R-03, requisito 1), con la hora real del servidor —
  * atajo de un único parámetro sobre `actualizarAsistencia` para pantallas que solo necesitan esta
  * acción (pasar lista, T-19: "un segundo toque sobre la card ya registrada"), sin tener que conocer
- * el resto de la forma de `ActualizarAsistenciaEntrada`. */
+ * el resto de la forma de `ActualizarAsistenciaEntrada`. Lanza `AccionNoDisponibleTodavia` mientras
+ * `012_registro_salida.sql` no esté aplicada (R-03 sigue `BLOQUEADA`, ver `accionPendienteDeMigracion`). */
 export async function marcarSalidaAsistencia(
   deps: DependenciasAsistencia,
   profesorDuenoId: string,

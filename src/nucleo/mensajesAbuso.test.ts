@@ -12,6 +12,7 @@ import {
   ErrorDelServidor,
   FicheroDemasiadoGrande,
   TipoDeFicheroNoPermitido,
+  AccionNoDisponibleTodavia,
 } from '../datos/erroresDominio.ts';
 import { CredencialesInvalidas } from '../datos/autenticacion.ts';
 
@@ -98,4 +99,10 @@ void test('PerfilInactivo produce un mensaje que orienta a hablar con el adminis
 
 void test('CuentaBloqueada produce un mensaje que orienta a hablar con el administrador (P-01)', () => {
   assert.match(mensajeAmigable(new CuentaBloqueada()), /bloquead|administrador/i);
+});
+
+void test('AccionNoDisponibleTodavia produce un mensaje claro, sin exponer que es una migración pendiente', () => {
+  const mensaje = mensajeAmigable(new AccionNoDisponibleTodavia());
+  assert.match(mensaje, /no está disponible/i);
+  assert.doesNotMatch(mensaje, /migraci[oó]n|011|012/i);
 });

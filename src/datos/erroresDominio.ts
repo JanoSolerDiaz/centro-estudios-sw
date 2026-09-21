@@ -74,6 +74,20 @@ export class TipoDeFicheroNoPermitido extends Error {
   }
 }
 
+/** Guardián de CLIENTE, nunca traducido de una respuesta de Supabase — por eso queda fuera de
+ * `ErrorDeDominioSupabase` (la taxonomía cerrada de ocho de T-08, requisito 4). Se lanza ANTES de
+ * cualquier llamada de red cuando quien llama pide una acción cuya migración todavía no está
+ * aplicada en `dev` (`db/APLICADAS.md`): enviar ese parámetro igualmente no lo ignora, hace fallar
+ * la resolución COMPLETA de la llamada RPC (PostgREST exige coincidencia exacta de nombres de
+ * parámetro con la función real), lo que además rompería silenciosamente otras acciones que sí
+ * existen en la firma desplegada (hallazgo #22 de `auditoriacontinua.md`). */
+export class AccionNoDisponibleTodavia extends Error {
+  constructor(mensaje = 'Esta función todavía no está disponible en este centro.') {
+    super(mensaje);
+    this.name = 'AccionNoDisponibleTodavia';
+  }
+}
+
 /** Cota superior conservadora para `ErrorLimiteAlcanzado.reintentarEnMs` cuando el `429` viene del
  * servidor: el tamaño íntegro de la ventana del contrato de T-06/T-18 (60 operaciones por profesor
  * y MINUTO), no el resto exacto de la ventana — este módulo no tiene forma de conocerlo sin que la

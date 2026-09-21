@@ -37,6 +37,55 @@
 
 ---
 
+### Sesión 2026-09-21 (rutina programada de programador) — P-30 urgente: hallazgo #22 atendido
+**Tarea(s):** P-30 (urgente, §0.3, hallazgo #22 de `auditoriacontinua.md`) — ninguna T-XX/R-XX de la
+cola normal esta sesión
+**Estado resultante:** P-30 IMPLEMENTADA. T-21 y R-24 (ambas ya `COMPLETADA`) vuelven a funcionar de
+verdad contra la firma real de `dev`; R-02 y R-03 siguen exactamente igual de `BLOQUEADA` en §1 —
+nada se ha desbloqueado, ninguna migración se ha tocado. R-25 (Oleada v11/F-16) sigue `PENDIENTE`,
+sin tomar esta sesión: el protocolo (§0.2 de `HOJA_DE_RUTA.md`, paso 2) exige atender primero
+cualquier hallazgo `ABIERTO` de severidad alta antes de la cola, y esta sesión se cierra aquí en vez
+de encadenar R-25 en el mismo turno
+**Commits a `develop`:** ver commit de esta sesión ("P-30: `actualizarAsistencia` vuelve a la firma
+real de 8 parámetros de `dev`, guardián `AccionNoDisponibleTodavia` para R-02/R-03 — hallazgo #22")
+**Migraciones aplicadas:** ninguna — el arreglo es enteramente de cliente, no toca ninguna tabla ni
+política. `010` a `018` siguen pendientes de que el dueño las aplique (`011` condicionada además a
+la pregunta #16 de §6)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/datos/asistencia.ts` (`actualizarAsistencia` vuelve a la firma
+de 8 parámetros de `008`; nueva `accionPendienteDeMigracion`), `src/datos/asistencia.test.ts`
+(tests actualizados: la firma real, y `justificar`/`marcarSalida`/`ocurridoEnSalida` lanzando sin
+tocar la red), `src/datos/erroresDominio.ts` (nueva `AccionNoDisponibleTodavia`),
+`src/nucleo/mensajesAbuso.ts` + `.test.ts` (mensaje propio para el error nuevo),
+`roadmap/SEGUIMIENTO.md` (cabecera; fila P-30 en §5; notas en las filas T-21/R-24/R-02/R-03 de §1),
+`roadmap/DECISIONES_TECNICAS.md` (cuatro filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1746/1746) · build ✅
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-21, P-30): por qué
+la opción (c) del hallazgo y no (a)/(b); por qué `AccionNoDisponibleTodavia` es una clase nueva fuera
+de la taxonomía cerrada de ocho de T-08; por qué corta antes del límite de tasa de cliente
+**Hallazgos del auditor atendidos:** **#22** (severidad alta, `ABIERTO` desde 2026-09-19, tres ciclos
+de PM consecutivos sin que ningún programador lo tomara) — implementada la opción (c) que el propio
+hallazgo proponía. No se marca `RESUELTO` en `auditoriacontinua.md`: ese documento lo modifica solo
+el auditor (cabecera del fichero), que lo reevaluará y cerrará en su próxima pasada. **#8** (RGPD/dato
+de salud en R-02, alta) sigue `ABIERTO`, sin ninguna vía para moverlo sin respuesta del dueño a la
+pregunta #16 de §6 — no era de esta sesión
+**Tareas autopropuestas (P-XX):** **P-30** registrada e implementada en la misma sesión (§5 de
+SEGUIMIENTO.md), urgente por hallazgo #22 de severidad alta
+**Hallazgos:** ninguno nuevo. Se confirma en el camino que "Anular" (R-24) y las acciones base de
+"Registros" (T-21: nota, hora, slot, alumno, anular) estaban rotas en `dev` desde que R-02 (2026-09-04)
+amplió por primera vez el payload compartido — nadie lo había detectado porque el doble de
+`ClientePostgrest` que usa toda la batería de tests nunca valida nombres de parámetro contra una
+firma real de PostgreSQL, exactamente como ya señalaba el hallazgo #22
+**Próximo paso:** la siguiente sesión de programador retoma la cola normal e implementa R-25 (Oleada
+v11/F-16, spec completa en `ROADMAP_PRODUCTO.md`, sin ningún hallazgo `ABIERTO` de severidad alta que
+la anteceda ya). Cuando el dueño responda la pregunta #16 y aplique `011`/`012`, la sesión que
+reactive R-02/R-03 debe retirar `accionPendienteDeMigracion`/`AccionNoDisponibleTodavia` de
+`actualizarAsistencia` y volver a enviar los 13 parámetros completos — es una guarda temporal,
+documentada como tal en el propio código y en `DECISIONES_TECNICAS.md`
+
+---
+
 ### Sesión 2026-09-20 (rutina programada de producto) — vigésimo séptimo ciclo del PM: sin R-XX nueva, tercer ciclo consecutivo
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
 **Estado resultante:** N/A (documento vivo, no código) — **vigésimo séptimo ciclo del PM: ninguna

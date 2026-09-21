@@ -202,7 +202,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `FicheroDemasiadoGrande`, `TipoDeFicheroNoPermitido`) y `errorDeRespuesta(respuesta)`, que
     traduce una `Response` HTTP no exitosa a una de ellas por código de estado. Sus mensajes por
     defecto **no** se muestran nunca directamente al usuario — esa traducción vive en
-    `src/nucleo/mensajesAbuso.ts` (T-06), que los amplió.
+    `src/nucleo/mensajesAbuso.ts` (T-06), que los amplió. **`AccionNoDisponibleTodavia`** (P-30,
+    2026-09-21) es una novena clase FUERA de esa taxonomía cerrada: nunca se traduce de una
+    respuesta HTTP, la lanza `datos/asistencia.ts#actualizarAsistencia` antes de tocar la red
+    cuando se pide una acción cuya migración todavía no está aplicada (ver más abajo).
   - `codificadorValores.ts` (T-08) — `codificarValorFiltro`/`codificarListaFiltro`: el único sitio
     permitido para convertir un valor de filtro en texto de URL de PostgREST (escapado sintáctico
     + `encodeURIComponent`). Nunca se construye un filtro por concatenación de texto sin pasar por
@@ -336,16 +339,24 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `usuarioId`), nunca sobre quien llama. `entrada.origen = 'manual'`/`slotId: null`/`nota` es el
     camino de "alumno extra" (T-20): la misma RPC, sin ningún cambio. Desde T-21:
     `actualizarAsistencia(deps, profesorDuenoId, entrada)` — llama a `actualizar_asistencia`
-    (`db/008_rpc_actualizar_asistencia.sql`, ampliada por `db/011_justificacion_ausencia.sql` R-02 y
-    `db/012_registro_salida.sql` R-03), la única vía de modificación de un registro ya existente;
-    `entrada.nota`/`entrada.notaProvista` es el único par tri-estado del módulo (sin
-    `notaProvista: true`, `nota` se ignora, para poder vaciarla sin confundirlo con "no tocarla`").
-    Desde R-02: `entrada.justificar` + `entrada.motivoJustificacion` (de
-    `MotivoJustificacionAusencia`, lista corta cerrada) + `entrada.notaJustificacion` — justificar
-    solo tiene efecto sobre un registro `estado === 'ausente'`, la RPC lo rechaza si no. Desde R-03:
-    `entrada.marcarSalida` (cierra con la hora real del servidor, `clock_timestamp()` en la RPC —
-    nunca un valor del cliente) y `entrada.ocurridoEnSalida` (ajusta una salida YA marcada, mismo
-    régimen que `entrada.ocurridoEn` sobre la entrada), mutuamente excluyentes en la misma llamada; y
+    (`db/008_rpc_actualizar_asistencia.sql`, 8 parámetros — la que de verdad está desplegada en
+    `dev` hoy; `db/011_justificacion_ausencia.sql` R-02 y `db/012_registro_salida.sql` R-03 la
+    ampliarían a 13, pero ninguna de las dos está aplicada, ver `db/APLICADAS.md`), la única vía de
+    modificación de un registro ya existente; `entrada.nota`/`entrada.notaProvista` es el único par
+    tri-estado del módulo (sin `notaProvista: true`, `nota` se ignora, para poder vaciarla sin
+    confundirlo con "no tocarla`"). Desde R-02: `entrada.justificar` + `entrada.motivoJustificacion`
+    (de `MotivoJustificacionAusencia`, lista corta cerrada) + `entrada.notaJustificacion` —
+    justificar solo tiene efecto sobre un registro `estado === 'ausente'`, la RPC lo rechazaría si
+    no. Desde R-03: `entrada.marcarSalida` (cierra con la hora real del servidor,
+    `clock_timestamp()` en la RPC — nunca un valor del cliente) y `entrada.ocurridoEnSalida` (ajusta
+    una salida YA marcada, mismo régimen que `entrada.ocurridoEn` sobre la entrada), mutuamente
+    excluyentes en la misma llamada. **P-30 (2026-09-21, hallazgo #22):** PostgREST resuelve una RPC
+    por coincidencia EXACTA de nombres de parámetro — enviar los cinco de R-02/R-03 a la función real
+    de 8 rompía la resolución COMPLETA de la llamada, incluidas nota/hora/slot/alumno/anular, que sí
+    existen en `008`. `actualizarAsistencia` vuelve a construir solo esos 8; pedir
+    `justificar`/`marcarSalida`/`ocurridoEnSalida` lanza `AccionNoDisponibleTodavia`
+    (`erroresDominio.ts`) ANTES de la red — retirar este guardián (`accionPendienteDeMigracion`) en
+    la misma sesión que aplique `011`/`012` y reactive R-02/R-03. Y
     `marcarSalidaAsistencia(deps, profesorDuenoId, asistenciaId)`, un atajo de un solo parámetro sobre
     `actualizarAsistencia` para pantallas (pasar lista) que solo necesitan esa acción, sin construir
     el resto de `ActualizarAsistenciaEntrada`. Desde R-24: `anularAsistencia(deps, profesorDuenoId,

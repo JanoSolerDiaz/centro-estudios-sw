@@ -23,6 +23,7 @@ import {
   ErrorDelServidor,
   FicheroDemasiadoGrande,
   TipoDeFicheroNoPermitido,
+  AccionNoDisponibleTodavia,
 } from '../datos/erroresDominio.ts';
 import { CredencialesInvalidas } from '../datos/autenticacion.ts';
 
@@ -67,6 +68,9 @@ export function mensajeAmigable(error: unknown): string {
   }
   if (error instanceof TipoDeFicheroNoPermitido) {
     return 'Ese tipo de fichero no está permitido.';
+  }
+  if (error instanceof AccionNoDisponibleTodavia) {
+    return 'Esta función todavía no está disponible en este centro. Inténtalo más adelante o contacta con el administrador.';
   }
   if (error instanceof ErrorDeRed) {
     return 'No se ha podido conectar. Comprueba tu conexión a internet e inténtalo de nuevo.';
