@@ -189,6 +189,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   real (crear las excepciones de verdad) no es cliente: es la RPC `declarar_baja_profesor`
   (`db/018_baja_profesor.sql`), que reutiliza `declarar_excepcion_slot` (R-06) internamente por cada
   combinación — ver `datos/bajasProfesor.ts` más abajo.
+  Desde R-25: `horarioCentro.ts` (nuevo) — `sesionesVigentesDelCentro(slots, fecha)` agrupa los slots
+  vigentes del centro en sesiones (profesor/día/hora/asignatura compartidos), reutilizando tal cual
+  `slotsDeLaMismaSesion` de `asistencia.ts` (T-15/R-17/R-23) en vez de duplicar el criterio de "misma
+  sesión" — aplicado aquí a la vigencia de HOY en vez de a un día de asistencia. `claveSesionHorarioCentro`
+  da la clave estable que la pantalla usa para volver a encontrar una sesión tras recargar los datos
+  (los alumnos que no se movieron conservan la misma clave antes y después de un intento fallido).
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -1010,6 +1016,22 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     visual del botón deshabilitado (defensa en profundidad, mismo criterio que el resto del proyecto).
     Exclusiva de `administrator` (`puedeGestionarBajasProfesor`). Enrutada como
     `#/bajas-profesor[/<profesorId>]`, con botón "Bajas de profesor" en la barra de navegación.
+  - `pantallaHorarioCentro.ts` (R-25, nuevo) — `mostrarPantallaHorarioCentro(contenedor, deps)`:
+    horario semanal completo del centro, agrupado por sesión (`dominio/horarioCentro.ts`) y por día,
+    con cada alumno por NOMBRE, nunca por fotografía (mismo criterio que R-24). "Editar sesión
+    completa"/"Cesar sesión completa" aplican `modificarSlot`/`cesarSlot` (T-15) a CADA slot del
+    grupo, sin ninguna RPC nueva — un fallo de un alumno concreto (solape con otro horario suyo) no
+    impide los demás: se retira de la lista de pendientes y el resto sigue; con reintento local sobre
+    los datos ya elegidos en el primer envío (`campos`/`fechaEfecto` quedan fijados, nunca se
+    reabre el formulario), mismo patrón que el cierre en bloque de R-17/R-23. El aviso de solape con
+    OTRO profesor (no bloqueante) se conserva aunque la edición se cierre entera con éxito
+    (`avisoGlobal`, para no perderlo solo porque `accion` vuelve a `null`). Sin ningún control para
+    editar el horario de un solo alumno del grupo (requisito 6): para eso sigue la ficha del alumno
+    (T-16). Nueva `datos/slotsHorario.ts#listarTodosLosSlotsConAlumno` (todo el centro con el alumno
+    embebido en una única petición, mismo patrón que `listarSlotsDeProfesorConAlumno` de T-17 sin
+    acotar por profesor). Reutiliza `puedeGestionarHorarios` (T-15/T-16) — misma capacidad, aplicada
+    a un grupo entero. Enrutada como `#/horario-centro`, con botón "Horario del centro" en la barra
+    de navegación.
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
-import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, listarTodosLosSlots, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, listarTodosLosSlots, listarTodosLosSlotsConAlumno, crearSlot, modificarSlot, cesarSlot } from './slotsHorario.ts';
 import { ErrorDeValidacion } from './erroresDominio.ts';
 import type { SlotHorario } from '../dominio/tipos.ts';
 
@@ -373,5 +373,33 @@ void test('listarSlotsDeProfesorConAlumno hace una única petición, filtrada po
   assert.match(select, /^\*,alumno:alumno\(/);
   // Nunca las columnas de contacto: un teacher no puede leerlas ni con esta consulta directa
   // (003_politicas_rls.sql, requisito 4 de T-10, punto de control permanente de auditoriacontinua.md).
+  assert.doesNotMatch(select, /email_alumno|telefono_alumno|centro_referencia_id/);
+});
+
+void test('listarTodosLosSlotsConAlumno: pide TODOS los slots del centro en una única petición, con el alumno embebido (R-25)', async () => {
+  const alumnoEmbebido = {
+    id: 'alumno-1',
+    nombre: 'Ana',
+    primer_apellido: 'García',
+    segundo_apellido: null,
+    avatar_ruta: null,
+    activo: true,
+  };
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((peticion) => {
+    peticiones.push(peticion);
+    return { estado: 200, cuerpo: [{ ...SLOT_VIGENTE, alumno: alumnoEmbebido }] };
+  });
+
+  const slots = await listarTodosLosSlotsConAlumno(cliente);
+
+  assert.equal(peticiones.length, 1);
+  assert.deepEqual(slots, [{ ...SLOT_VIGENTE, alumno: alumnoEmbebido }]);
+  const url = new URL(peticiones[0]?.url ?? '');
+  assert.equal(url.pathname, '/rest/v1/slot_horario');
+  assert.equal(url.searchParams.get('alumno_id'), null);
+  assert.equal(url.searchParams.get('profesor_id'), null);
+  const select = url.searchParams.get('select') ?? '';
+  assert.match(select, /^\*,alumno:alumno\(/);
   assert.doesNotMatch(select, /email_alumno|telefono_alumno|centro_referencia_id/);
 });

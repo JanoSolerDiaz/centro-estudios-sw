@@ -37,6 +37,46 @@
 
 ---
 
+### Sesión 2026-09-21 (rutina programada de programador) — R-25 completada, Oleada v11 cerrada
+**Tarea(s):** R-25 (Oleada v11/F-16, única fila `PENDIENTE` de la cola normal en §1)
+**Estado resultante:** R-25 `COMPLETADA`. Vista de horario del centro (`#/horario-centro`) con
+edición y cese en bloque de una sesión completa, exclusiva de `administrator`. Sin ninguna migración
+nueva ni RPC nueva: reutiliza `modificarSlot`/`cesarSlot` (T-15) aplicados a cada slot del grupo
+**Commits a `develop`:** ver commit de esta sesión ("R-25: vista de horario del centro y gestión en
+bloque de una sesión completa")
+**Migraciones aplicadas:** ninguna — R-25 tiene `Migración: No` en su spec
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/dominio/horarioCentro.ts` + `.test.ts` (nuevos,
+`sesionesVigentesDelCentro`/`claveSesionHorarioCentro`), `src/datos/slotsHorario.ts` + `.test.ts`
+(nueva `listarTodosLosSlotsConAlumno`), `src/ui/pantallaHorarioCentro.ts` + `.test.ts` (nueva
+pantalla), `src/nucleo/router.ts` + `.test.ts` (ruta `horario-centro`), `src/ui/aplicacion.ts`
+(import, botón "Horario del centro" en la barra de navegación, dependencias de la ruta),
+`src/dominio/permisosUi.ts` (comentario de `puedeGestionarHorarios` ampliado, sin cambio de
+comportamiento), `roadmap/SEGUIMIENTO.md` (cabecera; fila R-25 en §1), `roadmap/DECISIONES_TECNICAS.md`
+(cuatro filas nuevas), `DEVELOPERS.md` (dos párrafos nuevos, dominio y ui), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1770/1770, 24 nuevos) · build ✅
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-21, R-25): reutilizar
+`slotsDeLaMismaSesion` en vez de reimplementar el criterio de agrupación; recargar todo el horario
+(`cargar()`) tras cada intento de edición/cese en bloque en vez de parchear la lista local a mano
+(el versionado de T-15 no transforma la fila, crea una NUEVA); el aviso de solape de OTRO profesor
+vive en `avisoGlobal` (pantalla), no en `accion`, para que sobreviva al cierre de una edición que
+tuvo éxito para todo el grupo
+**Hallazgos del auditor atendidos:** ninguno — `auditoriacontinua.md` sin pasada nueva desde antes de
+la sesión de P-30; **#8** sigue `ABIERTO` esperando al dueño, **#22** ya corregido en el código por
+P-30 pero pendiente de que el auditor lo confirme y lo cierre en su próxima pasada (no es tarea del
+programador editar ese documento)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — sin ningún hallazgo `ABIERTO` de severidad alta nuevo que
+atender antes de la cola
+**Próximo paso:** con R-25 completada, la Oleada v11 queda cerrada (código-completa; sin ninguna
+migración pendiente de esa oleada). Siguiente ciclo de PM decide si abre la Oleada v12; siguiente
+sesión de programador revisa primero `auditoriacontinua.md` (pendiente confirmar el cierre de #22) y
+§5/§1 antes de tomar cualquier tarea nueva
+
+---
+
 ### Sesión 2026-09-21 (rutina programada de programador) — P-30 urgente: hallazgo #22 atendido
 **Tarea(s):** P-30 (urgente, §0.3, hallazgo #22 de `auditoriacontinua.md`) — ninguna T-XX/R-XX de la
 cola normal esta sesión

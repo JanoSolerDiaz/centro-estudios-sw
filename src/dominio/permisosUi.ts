@@ -31,7 +31,9 @@ export function puedeVerPersonasReferencia(rol: Rol): boolean {
   return rol === 'administrator';
 }
 
-/** Horarios: alta y edición de slots de cualquier alumno/profesor (T-15/T-16). */
+/** Horarios: alta y edición de slots de cualquier alumno/profesor (T-15/T-16); también la vista de
+ * horario del centro y la edición/cese en bloque de una sesión completa (R-25) — misma capacidad,
+ * aplicada a un alumno o a un grupo entero. */
 export function puedeGestionarHorarios(rol: Rol): boolean {
   return rol === 'administrator';
 }

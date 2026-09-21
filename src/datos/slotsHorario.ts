@@ -147,6 +147,15 @@ export async function listarTodosLosSlots(cliente: ClientePostgrest): Promise<re
   return cliente.desde<SlotHorario>(TABLA).seleccionar();
 }
 
+/** TODOS los slots del centro (cualquier vigencia) con su alumno embebido, en una única petición —
+ * R-25, vista de horario del centro: necesita cruzar TODOS los slots con su alumno (nombre y
+ * `activo`, para agrupar por sesión con `dominio/horarioCentro.ts`) sin acotar por profesor, a
+ * diferencia de `listarSlotsDeProfesorConAlumno` (T-17). Mismas columnas restringidas del embebido
+ * (`SELECT_CON_ALUMNO`) que el resto de este módulo. */
+export async function listarTodosLosSlotsConAlumno(cliente: ClientePostgrest): Promise<readonly SlotConAlumno[]> {
+  return cliente.desde<SlotConAlumno>(TABLA).seleccionar(SELECT_CON_ALUMNO);
+}
+
 async function slotsAbiertosDe(cliente: ClientePostgrest, columna: 'alumno_id' | 'profesor_id', id: string) {
   return cliente.desde<SlotHorario>(TABLA).eq(columna, id).eq('vigente_hasta', null).seleccionar();
 }

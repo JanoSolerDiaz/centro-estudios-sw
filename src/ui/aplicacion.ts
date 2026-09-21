@@ -80,7 +80,7 @@ import {
   listarPersonasReferenciaDeAlumnos,
 } from '../datos/personasReferencia.ts';
 import { subirAvatarAlumno, eliminarAvatarAlumno, urlsAvataresEnLote, SEGUNDOS_VALIDEZ_URL_AVATAR_POR_DEFECTO } from '../datos/avatarAlumno.ts';
-import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, listarTodosLosSlots, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
+import { listarSlotsDeAlumno, listarSlotsDeAlumnos, listarSlotsDeProfesores, listarSlotsDeProfesorConAlumno, listarTodosLosSlots, listarTodosLosSlotsConAlumno, crearSlot, modificarSlot, cesarSlot } from '../datos/slotsHorario.ts';
 import { slotsVigentesEn } from '../dominio/slotHorario.ts';
 import { calcularPasosAsistentePrimerosPasos, asistentePrimerosPasosCompleto } from '../dominio/asistentePrimerosPasos.ts';
 import { listarProfesoresActivos, resolverNombresProfesores, resolverProfesorPorEmail } from '../datos/profesores.ts';
@@ -118,6 +118,7 @@ import { mostrarPantallaUsuarios } from './pantallaUsuarios.ts';
 import { mostrarPantallaCierresCentro } from './pantallaCierresCentro.ts';
 import { mostrarPantallaImportacionMasiva } from './pantallaImportacionMasiva.ts';
 import { mostrarPantallaPanelCentro } from './pantallaPanelCentro.ts';
+import { mostrarPantallaHorarioCentro } from './pantallaHorarioCentro.ts';
 import { mostrarPantallaInformeHorasProfesor } from './pantallaInformeHorasProfesor.ts';
 import { mostrarPantallaMisHorasProfesor } from './pantallaMisHorasProfesor.ts';
 import { mostrarPantallaAsistentePrimerosPasos } from './pantallaAsistentePrimerosPasos.ts';
@@ -225,6 +226,10 @@ function mostrarAppAdministrador(
   enlaceAlumnos.addEventListener('click', () => {
     router.navegar({ nombre: 'alumnos' });
   });
+  const enlaceHorarioCentro = crearBoton(documento, 'Horario del centro', 'button');
+  enlaceHorarioCentro.addEventListener('click', () => {
+    router.navegar({ nombre: 'horario-centro' });
+  });
   const enlaceRegistros = crearBoton(documento, 'Registros', 'button');
   enlaceRegistros.addEventListener('click', () => {
     router.navegar({ nombre: 'registros' });
@@ -266,6 +271,7 @@ function mostrarAppAdministrador(
     enlacePanel,
     enlaceCentros,
     enlaceAlumnos,
+    enlaceHorarioCentro,
     enlaceRegistros,
     enlaceHistorico,
     enlaceUsuarios,
@@ -327,6 +333,19 @@ function mostrarAppAdministrador(
         irANuevoAlumno: () => {
           router.navegar({ nombre: 'alumno-nuevo' });
         },
+      });
+      return;
+    }
+
+    if (ruta.nombre === 'horario-centro') {
+      mostrarPantallaHorarioCentro(areaPantalla, {
+        rol: perfil.rol,
+        reloj: app.reloj,
+        listarSlots: () => listarTodosLosSlotsConAlumno(app.postgrest),
+        listarProfesoresParaSelector: () => listarProfesoresActivos(app.postgrest),
+        resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
+        modificarSlot: (slotId, cambios, fechaEfecto) => modificarSlot(app.postgrest, slotId, cambios, fechaEfecto),
+        cesarSlot: (slotId, fechaEfecto) => cesarSlot(app.postgrest, slotId, fechaEfecto),
       });
       return;
     }

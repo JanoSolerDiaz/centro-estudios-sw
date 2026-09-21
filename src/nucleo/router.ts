@@ -81,6 +81,7 @@ export type Ruta =
   | { readonly nombre: 'cierres' }
   | { readonly nombre: 'importacion' }
   | { readonly nombre: 'panel' }
+  | { readonly nombre: 'horario-centro' }
   | { readonly nombre: 'informe-horas' }
   | { readonly nombre: 'primeros-pasos' }
   | { readonly nombre: 'auditoria' }
@@ -141,6 +142,9 @@ export function analizarRuta(hash: string): Ruta {
   if (primero === 'panel') {
     return { nombre: 'panel' };
   }
+  if (primero === 'horario-centro') {
+    return { nombre: 'horario-centro' };
+  }
   if (primero === 'informe-horas') {
     return { nombre: 'informe-horas' };
   }
@@ -191,6 +195,8 @@ export function hashDeRuta(ruta: Ruta): string {
       return '#/importacion';
     case 'panel':
       return '#/panel';
+    case 'horario-centro':
+      return '#/horario-centro';
     case 'informe-horas':
       return '#/informe-horas';
     case 'primeros-pasos':

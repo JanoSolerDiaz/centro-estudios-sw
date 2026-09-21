@@ -117,6 +117,10 @@ void test('analizarRuta: "#/informe-horas" es el informe de horas por profesor (
   assert.deepEqual(analizarRuta('#/informe-horas'), { nombre: 'informe-horas' });
 });
 
+void test('analizarRuta: "#/horario-centro" es la vista de horario del centro (R-25)', () => {
+  assert.deepEqual(analizarRuta('#/horario-centro'), { nombre: 'horario-centro' });
+});
+
 void test('analizarRuta: "#/primeros-pasos" es el asistente de primeros pasos (R-18)', () => {
   assert.deepEqual(analizarRuta('#/primeros-pasos'), { nombre: 'primeros-pasos' });
 });
@@ -141,6 +145,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'cierres' },
     { nombre: 'importacion' },
     { nombre: 'panel' },
+    { nombre: 'horario-centro' },
     { nombre: 'informe-horas' },
     { nombre: 'primeros-pasos' },
     { nombre: 'auditoria' },
