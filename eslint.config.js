@@ -223,6 +223,7 @@ export default tseslint.config(
         fetch: 'readonly',
         Response: 'readonly',
         URL: 'readonly',
+        clients: 'readonly',
       },
     },
   },

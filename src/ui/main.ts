@@ -8,6 +8,8 @@ import { crearEnviadorEventoError } from '../datos/eventoError.ts';
 import { crearClienteAutenticacion } from '../datos/autenticacion.ts';
 import { crearGestorSesion, type GestorSesion } from '../nucleo/gestorSesion.ts';
 import { crearAlmacenSesionWebStorage } from '../nucleo/almacenSesion.ts';
+import { crearAlmacenPreferenciaRecordatorioWebStorage } from '../nucleo/preferenciaRecordatorio.ts';
+import { crearNotificadorRecordatorioNavegador, type NotificadorRecordatorio } from '../nucleo/notificadorRecordatorio.ts';
 import { crearClientePostgrest } from '../datos/postgrest.ts';
 import { crearClienteAlmacenamiento } from '../datos/almacenamiento.ts';
 import { crearFabricaProcesadoImagenNavegador } from '../datos/avatarAlumno.ts';
@@ -93,6 +95,16 @@ function crearAppAdministradorSiHayConfiguracion(): DependenciasAppAdministrador
   };
 }
 
+// R-26: solo existe en un navegador con soporte de `Notification` y de Service Worker (el mismo
+// que registra R-09, `navigator.serviceWorker.ready` resuelve en cuanto lo hay activo) — sin las
+// dos, `notificadorRecordatorio` queda `undefined` y «Mi horario» no ofrece ningún interruptor,
+// mismo criterio de "opcional, sin ella funciona exactamente como antes" que el resto de piezas de
+// plataforma de este módulo (`colaAsistenciaOffline`, `detectorConexion` en `aplicacion.ts`).
+const notificadorRecordatorio: NotificadorRecordatorio | undefined =
+  'Notification' in window && 'serviceWorker' in navigator
+    ? crearNotificadorRecordatorioNavegador(Notification, navigator.serviceWorker.ready)
+    : undefined;
+
 // La aplicación real de teacher (T-19) necesita el mismo par de clientes, sobre el mismo criterio
 // de disponibilidad que `crearAppAdministradorSiHayConfiguracion`.
 function crearAppProfesorSiHayConfiguracion(): DependenciasAppProfesor | undefined {
@@ -108,6 +120,11 @@ function crearAppProfesorSiHayConfiguracion(): DependenciasAppProfesor | undefin
     programador: programadorIntervaloReal,
     // Contrato de T-06 (ver DECISIONES_TECNICAS.md): 60 operaciones de asistencia por profesor y minuto.
     limitadorAsistencia: crearLimitadorTasa({ maximo: 60, ventanaMs: 60 * 1000, reloj: relojDelSistema }),
+    // R-26: preferencia por dispositivo, siempre disponible (`localStorage` no depende de
+    // `config.js` ni de sesión, mismo criterio que `crearAlmacenSesionWebStorage(sessionStorage)`
+    // más arriba); el notificador solo si el navegador lo soporta.
+    preferenciaRecordatorio: crearAlmacenPreferenciaRecordatorioWebStorage(localStorage),
+    ...(notificadorRecordatorio ? { notificadorRecordatorio } : {}),
   };
 }
 

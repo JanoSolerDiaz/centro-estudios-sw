@@ -6,9 +6,45 @@ import type { AlumnoParaPropuesta, SlotConAlumno } from '../dominio/slots.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { crearProgramadorIntervaloDePrueba, type ProgramadorIntervaloDePrueba } from '../nucleo/programadorIntervalo.ts';
 import { ErrorDeRed } from '../datos/erroresDominio.ts';
+import { crearAlmacenPreferenciaRecordatorioEnMemoria } from '../nucleo/preferenciaRecordatorio.ts';
+import type { NotificadorRecordatorio, OpcionesRecordatorioSesion } from '../nucleo/notificadorRecordatorio.ts';
 
 // Miércoles 2026-08-26, 17:30 CEST (15:30 UTC): dentro del slot 17:00-18:00 local de dia_semana 3.
 const INSTANTE_EN_CLASE = new Date('2026-08-26T15:30:00.000Z');
+
+// Mismo miércoles, 16:55 CEST (14:55 UTC): 5 minutos antes del inicio del slot 17:00-18:00 — dentro
+// de la ventana de aviso por defecto de R-26 (`MINUTOS_AVISO_RECORDATORIO_POR_DEFECTO`, 5 min).
+const INSTANTE_ANTES_DE_CLASE = new Date('2026-08-26T14:55:00.000Z');
+
+interface NotificadorDePrueba extends NotificadorRecordatorio {
+  readonly llamadas: readonly { titulo: string; opciones: OpcionesRecordatorioSesion }[];
+  fijarPermiso(permiso: NotificationPermission): void;
+  fijarResultadoPeticion(permiso: NotificationPermission): void;
+}
+
+function crearNotificadorDePrueba(permisoInicial: NotificationPermission = 'default'): NotificadorDePrueba {
+  let permiso = permisoInicial;
+  let resultadoPeticion: NotificationPermission = 'granted';
+  const llamadas: { titulo: string; opciones: OpcionesRecordatorioSesion }[] = [];
+  return {
+    llamadas,
+    fijarPermiso: (nuevo) => {
+      permiso = nuevo;
+    },
+    fijarResultadoPeticion: (nuevo) => {
+      resultadoPeticion = nuevo;
+    },
+    permiso: () => permiso,
+    pedirPermiso: () => {
+      permiso = resultadoPeticion;
+      return Promise.resolve(permiso);
+    },
+    mostrar: (titulo, opciones) => {
+      llamadas.push({ titulo, opciones });
+      return Promise.resolve();
+    },
+  };
+}
 
 function crearContenedorDePruebas(): HTMLElement {
   const dom = new JSDOM('<!doctype html><body><div id="app"></div></body>');
@@ -51,6 +87,12 @@ async function esperarMicrotareas(veces = 5): Promise<void> {
   for (let i = 0; i < veces; i += 1) {
     await new Promise((resolver) => setTimeout(resolver, 0));
   }
+}
+
+function disparar(elemento: Element, tipo: string): void {
+  const ventana = elemento.ownerDocument.defaultView;
+  assert.ok(ventana);
+  elemento.dispatchEvent(new ventana.Event(tipo));
 }
 
 function crearDepsFalsas(overrides: Partial<DependenciasPantallaMiHorario> = {}): DependenciasPantallaMiHorario {
@@ -598,4 +640,197 @@ void test('un tick del programador recalcula la vista sin volver a pedir datos a
   await esperarMicrotareas();
 
   assert.equal(llamadas, 1);
+});
+
+// --- R-26: recordatorio local antes de que empiece una sesión ------------------------------------
+
+void test('sin notificador ni preferenciaRecordatorio, no aparece ningún interruptor', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]) }));
+  await esperarMicrotareas();
+
+  assert.equal(contenedor.querySelector('input[type="checkbox"]'), null);
+  assert.doesNotMatch(contenedor.textContent, /Avisarme antes de cada clase/);
+});
+
+void test('con las dos dependencias y la preferencia apagada por defecto, el interruptor aparece sin marcar', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const notificador = crearNotificadorDePrueba('default');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]), notificador, preferenciaRecordatorio }));
+  await esperarMicrotareas();
+
+  const casilla = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casilla, 'debe aparecer el interruptor');
+  assert.equal(casilla.checked, false);
+  assert.match(contenedor.textContent, /Avisarme antes de cada clase/);
+});
+
+void test('con la preferencia ya "activado" y el permiso ya "granted", el interruptor aparece marcado desde el principio', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const notificador = crearNotificadorDePrueba('granted');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  preferenciaRecordatorio.guardar('activado');
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]), notificador, preferenciaRecordatorio }));
+  await esperarMicrotareas();
+
+  const casilla = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casilla);
+  assert.equal(casilla.checked, true);
+});
+
+void test('con la preferencia "activado" guardada pero el permiso YA NO concedido (revocado fuera de la aplicación), el interruptor aparece apagado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const notificador = crearNotificadorDePrueba('denied');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  preferenciaRecordatorio.guardar('activado');
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]), notificador, preferenciaRecordatorio }));
+  await esperarMicrotareas();
+
+  const casilla = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casilla);
+  assert.equal(casilla.checked, false);
+});
+
+void test('activar el interruptor pide permiso; concedido, guarda "activado" y el interruptor queda marcado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const notificador = crearNotificadorDePrueba('default');
+  notificador.fijarResultadoPeticion('granted');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]), notificador, preferenciaRecordatorio }));
+  await esperarMicrotareas();
+
+  const casilla = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casilla);
+  casilla.checked = true;
+  disparar(casilla, 'change');
+  await esperarMicrotareas();
+
+  assert.equal(preferenciaRecordatorio.leer(), 'activado');
+  const casillaTrasPintar = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casillaTrasPintar);
+  assert.equal(casillaTrasPintar.checked, true);
+});
+
+void test('activar el interruptor pide permiso; denegado, guarda "apagado", el interruptor vuelve a apagarse solo y avisa del permiso denegado', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const notificador = crearNotificadorDePrueba('default');
+  notificador.fijarResultadoPeticion('denied');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]), notificador, preferenciaRecordatorio }));
+  await esperarMicrotareas();
+
+  const casilla = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casilla);
+  casilla.checked = true;
+  disparar(casilla, 'change');
+  await esperarMicrotareas();
+
+  assert.equal(preferenciaRecordatorio.leer(), 'apagado');
+  const casillaTrasPintar = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casillaTrasPintar);
+  assert.equal(casillaTrasPintar.checked, false);
+  assert.match(contenedor.textContent, /Permiso de notificaciones denegado/);
+});
+
+void test('desactivar el interruptor guarda "apagado"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const notificador = crearNotificadorDePrueba('granted');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  preferenciaRecordatorio.guardar('activado');
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]), notificador, preferenciaRecordatorio }));
+  await esperarMicrotareas();
+
+  const casilla = contenedor.querySelector<HTMLInputElement>('input[type="checkbox"]');
+  assert.ok(casilla);
+  assert.equal(casilla.checked, true);
+  casilla.checked = false;
+  disparar(casilla, 'change');
+
+  assert.equal(preferenciaRecordatorio.leer(), 'apagado');
+});
+
+void test('con el recordatorio activo, una sesión dentro de la ventana de aviso dispara una notificación con hora/día/asignatura, sin el nombre del alumno', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const programador = crearProgramadorIntervaloDePrueba();
+  const notificador = crearNotificadorDePrueba('granted');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  preferenciaRecordatorio.guardar('activado');
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      reloj: crearRelojFijo(INSTANTE_ANTES_DE_CLASE),
+      programador,
+      cargarSlots: () => Promise.resolve([slot]),
+      notificador,
+      preferenciaRecordatorio,
+    }),
+  );
+  await esperarMicrotareas();
+
+  programador.disparar();
+  await esperarMicrotareas();
+
+  assert.equal(notificador.llamadas.length, 1);
+  const [llamada] = notificador.llamadas;
+  assert.ok(llamada);
+  assert.doesNotMatch(llamada.opciones.cuerpo, /Ana|García/);
+  assert.match(llamada.opciones.cuerpo, /Miércoles/);
+  assert.match(llamada.opciones.cuerpo, /17:00/);
+  assert.match(llamada.opciones.cuerpo, /Matemáticas/);
+  assert.equal(llamada.opciones.etiqueta, `${slot.id}|2026-08-26`);
+  assert.equal(llamada.opciones.datos.inicioUtcMs, new Date('2026-08-26T15:00:00.000Z').getTime());
+});
+
+void test('la misma sesión no repite el aviso en un segundo tick (requisito 5)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const programador = crearProgramadorIntervaloDePrueba();
+  const notificador = crearNotificadorDePrueba('granted');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  preferenciaRecordatorio.guardar('activado');
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      reloj: crearRelojFijo(INSTANTE_ANTES_DE_CLASE),
+      programador,
+      cargarSlots: () => Promise.resolve([slot]),
+      notificador,
+      preferenciaRecordatorio,
+    }),
+  );
+  await esperarMicrotareas();
+
+  programador.disparar();
+  await esperarMicrotareas();
+  programador.disparar();
+  await esperarMicrotareas();
+
+  assert.equal(notificador.llamadas.length, 1);
+});
+
+void test('con el recordatorio apagado, un tick dentro de la ventana no dispara ninguna notificación', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const programador = crearProgramadorIntervaloDePrueba();
+  const notificador = crearNotificadorDePrueba('granted');
+  const preferenciaRecordatorio = crearAlmacenPreferenciaRecordatorioEnMemoria();
+  // Preferencia deliberadamente NO activada.
+  const slot = crearSlot({});
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      reloj: crearRelojFijo(INSTANTE_ANTES_DE_CLASE),
+      programador,
+      cargarSlots: () => Promise.resolve([slot]),
+      notificador,
+      preferenciaRecordatorio,
+    }),
+  );
+  await esperarMicrotareas();
+
+  programador.disparar();
+  await esperarMicrotareas();
+
+  assert.equal(notificador.llamadas.length, 0);
 });

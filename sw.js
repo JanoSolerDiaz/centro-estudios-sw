@@ -75,6 +75,32 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Recordatorio de sesión (R-26, requisito 4): `nucleo/notificadorRecordatorio.ts` dispara la
+// notificación con `data: { inicioUtcMs }` — el instante (época, milisegundos) en que empieza la
+// sesión avisada. Al tocarla, si ya ha llegado esa hora (la persona tardó en tocar el aviso, o lo
+// tocó después de que la clase ya empezara), se navega a "pasar lista"; si todavía faltan minutos,
+// a "mi horario". Simple comparación de épocas — sin ninguna lógica de calendario ni de zona
+// horaria, que ya resolvió `dominio/recordatorioSesion.ts` al construir `inicioUtcMs`.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const inicioUtcMs = event.notification.data && event.notification.data.inicioUtcMs;
+  const hash = typeof inicioUtcMs === 'number' && Date.now() >= inicioUtcMs ? '#/pasar-lista' : '#/horario';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((listaClientes) => {
+      const clienteExistente = listaClientes.find((cliente) => 'focus' in cliente);
+      if (clienteExistente) {
+        return clienteExistente.focus().then((clienteEnfocado) => {
+          if (clienteEnfocado && 'navigate' in clienteEnfocado) {
+            return clienteEnfocado.navigate(`./${hash}`);
+          }
+          return undefined;
+        });
+      }
+      return clients.openWindow(`./${hash}`);
+    }),
+  );
+});
+
 async function responderRedPrimeroConCache(peticion) {
   const cache = await caches.open(NOMBRE_CACHE);
   try {

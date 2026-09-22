@@ -34,6 +34,8 @@ import type { FabricaProcesadoImagen, ArchivoOrigenAvatar } from '../datos/avata
 import type { LimitadorTasa } from '../nucleo/limitadorTasa.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
+import type { NotificadorRecordatorio } from '../nucleo/notificadorRecordatorio.ts';
+import type { AlmacenPreferenciaRecordatorio } from '../nucleo/preferenciaRecordatorio.ts';
 import { listarCentros, crearCentro, editarNombreCentro, contarAlumnosActivosDeCentro, desactivarCentro, reactivarCentro } from '../datos/centrosEstudios.ts';
 import { listarCierres, crearCierre, editarCierre, desactivarCierre, reactivarCierre } from '../datos/cierresCentro.ts';
 import {
@@ -153,6 +155,12 @@ export interface DependenciasAppProfesor {
   /** Límite de cliente de T-06 para `registrar_asistencia` (contrato: 60 operaciones por profesor y
    * minuto, ver `DECISIONES_TECNICAS.md`); opcional, sin él no se limita en el cliente. */
   readonly limitadorAsistencia?: LimitadorTasa;
+  /** R-26: capacidad de notificación del navegador — opcional junto a `preferenciaRecordatorio`
+   * (sin `config.js` desplegado, o en un navegador sin `Notification`/`serviceWorker`, ninguna de
+   * las dos existe y "Mi horario" no ofrece el interruptor). */
+  readonly notificadorRecordatorio?: NotificadorRecordatorio;
+  /** R-26: preferencia persistida por dispositivo — opcional junto a `notificadorRecordatorio`. */
+  readonly preferenciaRecordatorio?: AlmacenPreferenciaRecordatorio;
 }
 
 export interface DependenciasAplicacion {
@@ -706,6 +714,8 @@ function mostrarAppProfesor(
         irARegistros: (slotId, fecha) => {
           router.navegar({ nombre: 'registros', slotId, ...(fecha !== undefined ? { fecha } : {}) });
         },
+        ...(app.notificadorRecordatorio ? { notificador: app.notificadorRecordatorio } : {}),
+        ...(app.preferenciaRecordatorio ? { preferenciaRecordatorio: app.preferenciaRecordatorio } : {}),
       });
       return;
     }

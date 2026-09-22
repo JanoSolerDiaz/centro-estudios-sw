@@ -33,6 +33,21 @@
  * tres a la vez, el bloque simplemente no aparece — "Mi horario" funciona exactamente como antes de
  * R-13, mismo criterio que el resto de dependencias opcionales de este módulo. Un toque en el aviso
  * navega a «Registros» de ese slot Y esa fecha (`deps.irARegistros(slotId, fecha)`, requisito 2).
+ *
+ * Interruptor "Avisarme antes de cada clase" (R-26): `deps.notificador`/`deps.preferenciaRecordatorio`
+ * son opcionales JUNTOS (mismo criterio que el bloque de R-13) — sin las dos, no aparece ningún
+ * interruptor y "Mi horario" funciona exactamente como antes de R-26. Activarlo pide permiso de
+ * notificaciones (`deps.notificador.pedirPermiso()`, solo tras este gesto explícito, nunca antes);
+ * denegado, el interruptor vuelve a apagarse solo sin volver a pedirlo hasta la próxima vez que se
+ * active a mano. Con el permiso concedido, el MISMO tick de `deps.programador` que ya refresca
+ * "en curso"/"siguiente" recalcula `dominio/recordatorioSesion.ts#sesionesParaRecordatorio` sobre
+ * `slotsCache` y dispara `deps.notificador.mostrar(...)` — de mejor esfuerzo (requisito 6: solo
+ * mientras la pestaña sigue abierta, ni siquiera en el mismo `programador.cada(...)` de "mi
+ * horario" que T-22 ya documenta como no cancelable al cambiar de pantalla). `sesionesAvisadasHoy`
+ * (una clave `slotId|fecha` por sesión ya notificada, en memoria, sin persistir) es lo que garantiza
+ * el requisito 5 ("una sola vez por sesión y día"); un recargo de página la reinicia, aceptado como
+ * límite conocido — mismo tipo de ventana ya aceptada en otras piezas de "mejor esfuerzo" del
+ * proyecto (R-07, R-09).
  */
 
 import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro, PausaAlumno } from '../dominio/tipos.ts';
@@ -51,9 +66,12 @@ import { etiquetaExcepcion, excepcionDelDia } from '../dominio/excepcionSlot.ts'
 import { pausaDeAlumnoEnFecha } from '../dominio/pausaAlumno.ts';
 import { VENTANA_EDICION_TEACHER_DIAS } from '../dominio/asistencia.ts';
 import { sesionesSinPasarLista, type RegistroParaAvisoPasarLista, type SesionSinPasarLista } from '../dominio/avisosPasarLista.ts';
+import { sesionesParaRecordatorio } from '../dominio/recordatorioSesion.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
+import type { AlmacenPreferenciaRecordatorio } from '../nucleo/preferenciaRecordatorio.ts';
+import type { NotificadorRecordatorio } from '../nucleo/notificadorRecordatorio.ts';
 import { crearElemento } from './dom.ts';
 import { crearZonaMensaje, crearBoton } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
@@ -102,6 +120,12 @@ export interface DependenciasPantallaMiHorario {
    * preselecciona también el día — omitida, el enlace de "Ver registros" de la vista semanal sigue
    * yendo al día de hoy, igual que antes de R-13. */
   irARegistros(slotId: string, fecha?: string): void;
+  /** R-26: capacidad del navegador para pedir permiso y disparar el recordatorio. Opcional JUNTO a
+   * `preferenciaRecordatorio` — sin las dos, no aparece ningún interruptor. */
+  notificador?: NotificadorRecordatorio;
+  /** R-26: preferencia persistida por dispositivo (activado/apagado). Opcional junto a
+   * `notificador`. */
+  preferenciaRecordatorio?: AlmacenPreferenciaRecordatorio;
 }
 
 interface EstadoPantalla {
@@ -109,6 +133,11 @@ interface EstadoPantalla {
   readonly error: string;
   readonly instante: Date;
   readonly avisos: readonly SesionSinPasarLista[];
+  /** R-26: reflejo de "preferencia guardada === 'activado' Y permiso del navegador === 'granted'" —
+   * nunca solo la preferencia, para que un permiso revocado desde fuera de la aplicación (ajustes
+   * del navegador) apague el interruptor en la propia pantalla sin esperar a que la persona lo
+   * toque. */
+  readonly recordatorioActivado: boolean;
 }
 
 export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: DependenciasPantallaMiHorario): void {
@@ -134,14 +163,120 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     error: '',
     instante: deps.reloj.ahora(),
     avisos: [],
+    recordatorioActivado: false,
   });
 
+  // R-26: claves (`slotId|fecha`) de sesiones que ya dispararon su recordatorio — en memoria, sin
+  // persistir (ver cabecera del módulo). No forma parte de `EstadoPantalla`: no se pinta nunca, solo
+  // decide qué dispara `comprobarRecordatorios` en el siguiente tick.
+  const sesionesAvisadasHoy = new Set<string>();
+
   const tituloPantalla = crearElemento(documento, 'h2', { texto: 'Mi horario' });
+  const zonaRecordatorio = documento.createElement('div');
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaEstado = documento.createElement('div');
   const zonaResumen = documento.createElement('div');
   const zonaAvisos = documento.createElement('div');
   const listaDias = documento.createElement('div');
+
+  function recordatorioDisponible(): boolean {
+    return deps.notificador !== undefined && deps.preferenciaRecordatorio !== undefined;
+  }
+
+  /** ¿Está el recordatorio realmente activo ahora mismo? Preferencia guardada Y permiso concedido
+   * — ver el comentario de `EstadoPantalla.recordatorioActivado`. */
+  function calcularRecordatorioActivado(): boolean {
+    if (!deps.notificador || !deps.preferenciaRecordatorio) {
+      return false;
+    }
+    return deps.preferenciaRecordatorio.leer() === 'activado' && deps.notificador.permiso() === 'granted';
+  }
+
+  /** Activar el interruptor (requisito 1): pide permiso SOLO aquí, en respuesta directa al gesto
+   * de la persona. Concedido, se guarda `'activado'`; denegado (o cualquier otro valor que no sea
+   * `'granted'`), se guarda `'apagado'` y el interruptor vuelve a apagarse solo, sin volver a pedir
+   * el permiso hasta la próxima vez que se active a mano — que es justo lo que hace el navegador
+   * por su cuenta si el permiso ya quedó `'denied'` (no vuelve a mostrar el diálogo). */
+  async function activarRecordatorio(): Promise<void> {
+    if (!deps.notificador || !deps.preferenciaRecordatorio) {
+      return;
+    }
+    const permiso = await deps.notificador.pedirPermiso();
+    deps.preferenciaRecordatorio.guardar(permiso === 'granted' ? 'activado' : 'apagado');
+    almacen.actualizar({ recordatorioActivado: permiso === 'granted' });
+  }
+
+  function desactivarRecordatorio(): void {
+    deps.preferenciaRecordatorio?.guardar('apagado');
+    almacen.actualizar({ recordatorioActivado: false });
+  }
+
+  /** Llamada en cada tick del programador (requisito 3): recalcula qué sesiones de hoy entran en la
+   * ventana de aviso y dispara una notificación por cada una, de mejor esfuerzo (requisito 6: un
+   * fallo al mostrarla —permiso revocado entre medias, Service Worker no listo todavía— no rompe
+   * nada más de la pantalla). */
+  async function comprobarRecordatorios(instante: Date): Promise<void> {
+    if (!deps.notificador || !almacen.obtener().recordatorioActivado) {
+      return;
+    }
+    const sesiones = sesionesParaRecordatorio({
+      profesorId: deps.profesorId,
+      instante,
+      slots: slotsCache,
+      yaAvisadas: sesionesAvisadasHoy,
+    });
+    for (const sesion of sesiones) {
+      // Marcada ANTES del `await` (requisito 5): si `mostrar()` tarda, el siguiente tick no debe
+      // volver a intentar la misma sesión mientras la primera notificación sigue en curso.
+      sesionesAvisadasHoy.add(sesion.clave);
+      const tramo = `${ETIQUETA_DIA_SEMANA[sesion.slot.dia_semana]} ${sesion.slot.hora_inicio}`;
+      const asignatura = sesion.slot.asignatura_o_grupo ?? 'Clase';
+      try {
+        await deps.notificador.mostrar('Clase en unos minutos', {
+          cuerpo: `${tramo} — ${asignatura}`,
+          etiqueta: sesion.clave,
+          datos: { inicioUtcMs: sesion.inicioUtc.getTime() },
+        });
+      } catch {
+        // Mejor esfuerzo (requisito 6): sin notificación, la pantalla sigue funcionando igual.
+      }
+    }
+  }
+
+  function pintarInterruptorRecordatorio(): void {
+    zonaRecordatorio.textContent = '';
+    if (!recordatorioDisponible()) {
+      return;
+    }
+    const { recordatorioActivado } = almacen.obtener();
+    const idInterruptor = 'mi-horario-recordatorio-sesion';
+    const casilla = documento.createElement('input');
+    casilla.type = 'checkbox';
+    casilla.id = idInterruptor;
+    casilla.checked = recordatorioActivado;
+    casilla.addEventListener('change', () => {
+      if (casilla.checked) {
+        void activarRecordatorio();
+      } else {
+        desactivarRecordatorio();
+      }
+    });
+    const etiqueta = crearElemento(documento, 'label', {
+      texto: 'Avisarme antes de cada clase',
+      atributos: { for: idInterruptor },
+    });
+    zonaRecordatorio.append(casilla, etiqueta);
+    zonaRecordatorio.append(
+      crearElemento(documento, 'p', {
+        texto: 'Aviso de mejor esfuerzo, solo mientras tengas la aplicación abierta en este dispositivo.',
+      }),
+    );
+    if (!recordatorioActivado && deps.notificador?.permiso() === 'denied') {
+      zonaRecordatorio.append(
+        crearElemento(documento, 'p', { texto: 'Permiso de notificaciones denegado por el navegador.' }),
+      );
+    }
+  }
 
   /** R-13: las tres dependencias del bloque de avisos vienen juntas o no vienen — así se decide una
    * sola vez si hace falta pedir nada. */
@@ -184,7 +319,7 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
       excepcionesHoyCache = excepciones;
       pausasHoyCache = pausas;
       const avisos = puedeCalcularAvisos() ? await cargarAvisos(instante) : [];
-      almacen.actualizar({ cargando: false, instante: deps.reloj.ahora(), avisos });
+      almacen.actualizar({ cargando: false, instante: deps.reloj.ahora(), avisos, recordatorioActivado: calcularRecordatorioActivado() });
     } catch (error) {
       almacen.actualizar({ cargando: false, error: mensajeAmigable(error) });
     }
@@ -315,6 +450,7 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
 
   function pintar(): void {
     const estado = almacen.obtener();
+    pintarInterruptorRecordatorio();
     zonaError.textContent = estado.error;
     zonaEstado.textContent = estado.cargando ? 'Cargando…' : '';
     if (estado.cargando) {
@@ -332,10 +468,12 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
   almacen.suscribir(pintar);
   pintar();
 
-  contenedor.append(tituloPantalla, zonaError, zonaEstado, zonaResumen, zonaAvisos, listaDias);
+  contenedor.append(tituloPantalla, zonaRecordatorio, zonaError, zonaEstado, zonaResumen, zonaAvisos, listaDias);
 
   deps.programador.cada(INTERVALO_TICK_MS, () => {
-    almacen.actualizar({ instante: deps.reloj.ahora() });
+    const instante = deps.reloj.ahora();
+    almacen.actualizar({ instante });
+    void comprobarRecordatorios(instante);
   });
 
   void cargar();

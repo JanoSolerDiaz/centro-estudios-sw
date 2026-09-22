@@ -37,6 +37,52 @@
 
 ---
 
+### Sesión 2026-09-22 (rutina programada de programador) — R-26 completada
+**Tarea(s):** R-26 (Oleada v12/F-17, única fila `PENDIENTE` de la cola normal en §1)
+**Estado resultante:** R-26 `COMPLETADA`. Interruptor "Avisarme antes de cada clase" en «Mi horario»
+(T-22): con permiso de notificaciones concedido, dispara un aviso local unos minutos antes de cada
+sesión del profesor, calculado en el cliente sobre `vistaSemanalProfesor`, sin servidor de
+notificaciones ni cuenta externa. Sin ninguna migración ni RPC nueva
+**Commits a `develop`:** ver commit de esta sesión ("R-26: recordatorio local antes de que empiece
+una sesión")
+**Migraciones aplicadas:** ninguna — R-26 tiene `Migración: No` en su spec
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/dominio/recordatorioSesion.ts` + `.test.ts` (nuevos,
+`sesionesParaRecordatorio`/`claveRecordatorioSesion`/`MINUTOS_AVISO_RECORDATORIO_POR_DEFECTO`),
+`src/nucleo/preferenciaRecordatorio.ts` + `.test.ts` (nuevos, interruptor persistido en
+`localStorage` por dispositivo), `src/nucleo/notificadorRecordatorio.ts` + `.test.ts` (nuevos,
+envoltorio inyectable sobre `Notification`/`ServiceWorkerRegistration#showNotification`),
+`src/ui/pantallaMiHorario.ts` + `.test.ts` (interruptor, gesto de permiso, disparo en el tick ya
+existente), `src/ui/aplicacion.ts` (dependencias opcionales nuevas en `DependenciasAppProfesor`,
+conectadas en `mostrarPantallaMiHorario`), `src/ui/main.ts` (construcción real de las dos piezas de
+plataforma, condicionada a soporte del navegador), `sw.js` (primer `notificationclick`),
+`eslint.config.js` (global `clients` para el bloque de `sw.js`), `roadmap/SEGUIMIENTO.md` (cabecera;
+fila R-26 en §1), `roadmap/DECISIONES_TECNICAS.md` (cuatro filas nuevas), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1801/1801, 31 nuevos) · build ✅
+**Health check post-deploy:** N/A — sin `npm run health` configurado contra ningún hosting real (T-25)
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-22, R-26):
+`localStorage` en vez de `sessionStorage` para la preferencia (ajuste de dispositivo, no dato de
+sesión sensible); el interruptor recalcula preferencia Y permiso en cada carga, nunca solo la
+preferencia guardada; el recordatorio vive dentro de `pantallaMiHorario.ts`, no en `aplicacion.ts`,
+apoyándose en la misma limitación conocida de T-19/T-22 (el tick no se cancela al cambiar de
+pantalla); `sw.js#notificationclick` compara épocas en vez de repetir lógica de calendario ya
+resuelta en `dominio/recordatorioSesion.ts`
+**Hallazgos del auditor atendidos:** ninguno — la pasada del auditor de hoy (`8b2f7f4`, previa a esta
+sesión) ya cerró **#22** (`RESUELTO`) y dejó **#8** (alta, `ABIERTO`, bloqueado en el dueño) como
+único hallazgo de severidad alta; **#23** (media) y **#24** (baja), abiertos en esa misma pasada, no
+alcanzan el umbral de tratamiento urgente (§0.3: solo alta) y no se han tomado en esta sesión —
+quedan disponibles para una sesión futura como P-XX no urgente o como tarea
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — sin ningún hallazgo `ABIERTO` de severidad alta nuevo que
+atender antes de la cola
+**Próximo paso:** con R-26 completada, la siguiente tarea de la cola normal (§1) es **R-27** (alta de
+una sesión de grupo completa, Oleada v12/F-18, spec completa en `ROADMAP_PRODUCTO.md`) — tampoco
+necesita RPC ni migración nueva. La siguiente sesión debe revisar primero `auditoriacontinua.md`
+(hallazgos **#23**/**#24** siguen `ABIERTO`, ninguno urgente) y §5/§1 antes de tomarla
+
+---
+
 ### Sesión 2026-09-21 (rutina programada de producto) — vigésimo octavo ciclo del PM: abre la Oleada v12 con R-26 y R-27
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
 **Estado resultante:** N/A (documento vivo, no código)

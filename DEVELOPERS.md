@@ -195,6 +195,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   sesión" — aplicado aquí a la vigencia de HOY en vez de a un día de asistencia. `claveSesionHorarioCentro`
   da la clave estable que la pantalla usa para volver a encontrar una sesión tras recargar los datos
   (los alumnos que no se movieron conservan la misma clave antes y después de un intento fallido).
+  Desde R-26: `recordatorioSesion.ts` (nuevo) — `sesionesParaRecordatorio(parametros)`: sesiones de
+  HOY del profesor que empiezan dentro de `[0, MINUTOS_AVISO_RECORDATORIO_POR_DEFECTO]` (5) minutos
+  y no están ya en el conjunto `yaAvisadas` (claves `slotId|fecha`, `claveRecordatorioSesion`) que le
+  pasa quien llama — el propio módulo no recuerda nada entre llamadas, eso es cosa de la pantalla.
+  Nunca expone el nombre del alumno como parte del resultado pensado para mostrarse en una
+  notificación: solo sirve para comprobar que sigue activo.
 - `src/datos/` — capa de acceso a Supabase (PostgREST, GoTrue, Storage) por `fetch` nativo. Es la
   única capa autorizada a usar `fetch` (T-08). `src/datos/pruebas/dobleHttp.ts` es el doble de
   `fetch` para tests (T-03): simula respuestas (incluidos `401`, `403`, `409`, cuerpo vacío) y
@@ -553,6 +559,19 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     aviso de versión nueva sobre una interfaz mínima que envuelve `navigator.serviceWorker`/
     `ServiceWorkerRegistration` (mismo criterio que `ObjetivoRouter` con `window`). Detalle completo
     en la sección "Aplicación instalable y arranque sin red (R-09)" más abajo.
+  - `preferenciaRecordatorio.ts` (R-26) — `AlmacenPreferenciaRecordatorio` (`leer`/`guardar`, valor
+    `'activado'`/`'apagado'`, `'apagado'` por defecto): mismo patrón de inyección que
+    `almacenSesion.ts` (interfaz + `crearAlmacenPreferenciaRecordatorioWebStorage(storage)` +
+    `crearAlmacenPreferenciaRecordatorioEnMemoria()` para tests) pero sobre `localStorage`, no
+    `sessionStorage` — es un ajuste de dispositivo, no un dato de sesión que deba borrarse al cerrar
+    la pestaña.
+  - `notificadorRecordatorio.ts` (R-26) — `NotificadorRecordatorio` (`permiso`/`pedirPermiso`/
+    `mostrar`): envoltorio mínimo e inyectable sobre `Notification` (el objeto global) y
+    `ServiceWorkerRegistration#showNotification`, mismo criterio exacto que
+    `registroServiceWorker.ts`. Sin test de la implementación real (`jsdom` no implementa
+    `Notification`), pero `crearNotificadorRecordatorioNavegador` sí se testea con una fábrica y un
+    registro de mentira, porque a diferencia de otras piezas de plataforma no envuelve ningún evento
+    del navegador que haya que simular — solo delega llamadas.
 - `src/ui/` — DOM nativo. `src/ui/main.ts` es el punto de entrada que carga `index.html`; delega en
   funciones puras sobre un `HTMLElement` ya obtenido para que se puedan testear montando un
   contenedor con `jsdom`. Ninguna función de pantalla toca el `document` global directamente: reciben
@@ -773,6 +792,21 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     cancelados para ese slot, R-06 — una sustitución NO excluye, ver el propio fichero de dominio).
     Un botón "Completar registro" por aviso llama a `deps.irARegistros(slotId, fecha)`, que el router
     de `teacher` traduce a `#/registros/<slotId>/<fecha>` (segmento de fecha nuevo de R-13).
+    Desde R-26: interruptor "Avisarme antes de cada clase" junto al título, sobre dos dependencias
+    opcionales JUNTAS (`deps.notificador`/`deps.preferenciaRecordatorio`, `nucleo/notificadorRecordatorio.ts`/
+    `nucleo/preferenciaRecordatorio.ts`) — sin las dos, ningún interruptor, "Mi horario" funciona
+    exactamente como antes de R-26. Activarlo pide permiso SOLO en ese gesto
+    (`deps.notificador.pedirPermiso()`); denegado, se apaga solo y guarda `'apagado'`, sin volver a
+    pedirlo hasta la próxima activación manual — el propio navegador tampoco vuelve a mostrar el
+    diálogo una vez denegado. El estado visible del interruptor es SIEMPRE "preferencia guardada
+    `'activado'` Y permiso `'granted'`", nunca solo la preferencia (un permiso revocado desde los
+    ajustes del navegador apaga el interruptor solo con reabrir la pantalla). El MISMO
+    `deps.programador.cada(...)` que ya recalcula "en curso"/"siguiente" llama también a
+    `dominio/recordatorioSesion.ts#sesionesParaRecordatorio` sobre `slotsCache` y dispara
+    `deps.notificador.mostrar(...)` por cada sesión que entra en la ventana de aviso — de mejor
+    esfuerzo, un fallo no rompe nada más de la pantalla. `sesionesAvisadasHoy` (un `Set` en memoria,
+    sin persistir) evita repetir el aviso de la misma sesión en el siguiente tick. El cuerpo de la
+    notificación lleva hora, día y asignatura — nunca el nombre del alumno.
   - `pantallaRegistrosSlot.ts` (T-21, ampliada en T-22 y R-20) — `mostrarPantallaRegistrosSlot(contenedor,
     deps)`: consulta y modificación de los registros de UN slot en UN día, para `teacher` (solo lo
     suyo, sin selector de profesor) y `administrator` (elige profesor,
@@ -1212,7 +1246,12 @@ Sin migración, solo cliente. Cuatro piezas nuevas:
   online, las ~90 peticiones del grafo de módulos quedan en caché, y una recarga con
   `context.setOffline(true)` sirve la aplicación completa (mismo título, mismo contenido) sin red.
   Las peticiones a Supabase (otro origen) nunca se interceptan: los datos siguen exigiendo red o la
-  cola de R-07, sin cambio.
+  cola de R-07, sin cambio. Desde R-26: gana su primer `notificationclick` — al tocar el recordatorio
+  de sesión (`src/nucleo/notificadorRecordatorio.ts`), abre/enfoca la aplicación y navega a
+  `#/pasar-lista` o `#/horario` según si la sesión avisada ya empezó, decidido comparando `Date.now()`
+  contra el `inicioUtcMs` que la propia notificación trae en `data` — sin ninguna lógica de calendario
+  ni de zona horaria dentro del Service Worker, ese cálculo ya lo resolvió
+  `src/dominio/recordatorioSesion.ts` en el cliente.
 - **`src/nucleo/registroServiceWorker.ts`** + **`src/ui/avisoNuevaVersion.ts`**: el aviso de
   versión nueva (requisito 4). El primero envuelve `navigator.serviceWorker`/
   `ServiceWorkerRegistration` tras una interfaz mínima (mismo criterio que `ObjetivoRouter` con

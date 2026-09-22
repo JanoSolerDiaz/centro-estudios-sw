@@ -10,8 +10,36 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-21 (vigésimo octavo ciclo del PM: **abre la Oleada v12 con R-26 y
-R-27**): revisadas las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila plantilla
+**Última actualización:** 2026-09-22 (rutina programada de programador — **R-26 completada, Oleada
+v12 abierta a medio cerrar**): protocolo §0.3 primero — revisado `auditoriacontinua.md`: pasada
+nueva del auditor desde la sesión de PM anterior (`8b2f7f4`, 2026-09-22), que cierra **#22**
+(`RESUELTO`, confirmando la corrección de P-30) y deja **#8** (`ABIERTO`, alta, RGPD artículo 9 en
+R-02, esperando al dueño — decimoquinto ciclo consecutivo sin novedad) como único hallazgo de
+severidad alta, bloqueado en el dueño y sin ninguna vía de esta sesión. Abre además **#23** (media,
+UX: "Justificar"/"Marcar salida" se siguen ofreciendo en pantalla aunque la llamada real vaya a
+fallar mientras `011`/`012` no estén aplicadas) y **#24** (baja, higiene documental: falta la fila
+de `pausa_alumno` en la matriz de `DECISIONES_TECNICAS.md`) — ninguno de los dos alcanza la
+severidad que exige tratamiento urgente antes de la cola (§0.3: solo alta), así que no bloquean esta
+sesión; quedan anotados para que una sesión futura los recoja como P-XX no urgentes o los convierta
+en tarea. Revisada §1: única fila `PENDIENTE` de la cola normal, **R-26** (Oleada v12/F-17, spec en
+`ROADMAP_PRODUCTO.md`). Implementada por completo: `dominio/recordatorioSesion.ts` (nuevo, puro,
+`sesionesParaRecordatorio`, 13 tests), `nucleo/preferenciaRecordatorio.ts` (nuevo, interruptor
+persistido en `localStorage` por dispositivo, 4 tests), `nucleo/notificadorRecordatorio.ts` (nuevo,
+envoltorio inyectable sobre `Notification`/`ServiceWorkerRegistration#showNotification`, mismo
+criterio que `registroServiceWorker.ts`, 4 tests), `ui/pantallaMiHorario.ts` (interruptor "Avisarme
+antes de cada clase", pide permiso solo tras el gesto explícito, se apaga solo si se deniega, dispara
+la notificación en el mismo tick que ya refresca "en curso"/"siguiente", 10 tests nuevos), `sw.js`
+(primer `notificationclick`: abre/enfoca la aplicación y navega a `#/pasar-lista` o `#/horario` según
+si la sesión ya empezó). `aplicacion.ts`/`main.ts` conectan las piezas reales, ambas opcionales
+juntas (sin `Notification`/`serviceWorker` en el navegador, "Mi horario" sigue exactamente igual que
+antes de R-26). 31 tests nuevos (1801 en total, antes 1770). Sin migración (`Migración: No` en su
+spec, confirmado: ninguna tabla ni RPC nueva). `npm run typecheck`, `npm run lint`, `npm test`,
+`npm run build` verificados en verde antes del push. **R-27** (Oleada v12/F-18, alta de una sesión de
+grupo completa) sigue `PENDIENTE`, sin tomar en esta sesión — es la siguiente de la cola. Mergeado a
+`develop` al cierre de esta sesión, sin tocar `master` en ningún momento.
+
+**Sesión anterior (2026-09-21, vigésimo octavo ciclo del PM: abre la Oleada v12 con R-26 y
+R-27):** revisadas las tres fuentes de entrada. `FEEDBACK.md` sigue con su única fila plantilla
 vacía: nada que convertir. `auditoriacontinua.md` con una pasada nueva desde el ciclo anterior
 (`5a34ae0`, 2026-09-21, ya revisada por la sesión de programador de hoy antes de tomar P-30/R-25):
 confirma que solo quedan **#8** (`ABIERTO`, dato de salud del artículo 9 del RGPD en R-02, ya
@@ -3269,7 +3297,7 @@ pantallas del requisito 2.
 | R-23 | Cierre de slot en un toque: marcar el resto como presente en bloque | COMPLETADA | 2026-09-17 | Oleada v9 / F-14 · Sin migración. `pantallaPasarLista.ts`: bloque "Marcar el resto como presente" simétrico a `cierreEnBloque` de R-17, reutiliza `manejarToque` tal cual una vez por alumno pendiente (misma idempotencia/reconciliación/cola offline). `pantallaRegistrosSlot.ts`: bloque simétrico sobre el mismo `cierreCandidatos` de R-17, llama a `registrarOlvidado` sin `ocurridoEn` (registro en vivo), sin ninguna RPC nueva. Los dos controles (R-17/R-23) conviven sin interferir (requisito 7), verificado con test dedicado en cada pantalla. 15 tests nuevos (1734 en total) |
 | R-24 | Corregir un toque equivocado sin salir de pasar lista | COMPLETADA | 2026-09-18 | Oleada v10 / F-15 · Sin migración: reutiliza `actualizar_asistencia` (T-21), sin RPC nueva. Cuarto control de la card en `pantallaPasarLista.ts` ("Anular", hermano de toque/ausente/salida), ofrecido solo dentro de la ventana de edición (`puedeEditarAsistencia`, escrita desde T-03 pero sin ningún consumidor hasta ahora — ni siquiera «Registros» de T-21 la llama, ver DECISIONES_TECNICAS.md). Nueva `datos/asistencia.ts#anularAsistencia` (atajo sobre `actualizarAsistencia`, mismo patrón que `marcarSalidaAsistencia` de R-03). Al confirmar con éxito la card vuelve a `'pendiente'` con `peticionId`/`peticionIdAusente` NUEVOS (los anteriores quedaron consumidos por el registro ya anulado) y se retira de `registrosHoyCache` para que el siguiente tick no la resucite. Sin cola offline propia para el fallo de red (decisión documentada en DECISIONES_TECNICAS.md: anular no es una escritura que se pueda perder sin dejar rastro, la fila ya existe). 14 tests nuevos (1748 en total, antes 1734). **P-30 (2026-09-21, hallazgo #22):** "Anular" quedó rota en `dev` en cuanto R-02/R-03 ampliaron el payload compartido de `actualizarAsistencia` (mismo motivo que T-21) — corregida en la misma sesión |
 | R-25 | Vista de horario del centro y gestión en bloque de una sesión completa | COMPLETADA | 2026-09-21 | Oleada v11 / F-16 · Sin migración: reutiliza `modificarSlot`/`cesarSlot` (T-15) y el criterio de agrupación de `slotsDeLaMismaSesion` (T-15, ya usada por R-17/R-23), sin ninguna RPC nueva. Nueva `dominio/horarioCentro.ts`, `datos/slotsHorario.ts#listarTodosLosSlotsConAlumno` y `ui/pantallaHorarioCentro.ts` (`#/horario-centro`). 24 tests nuevos (1770 en total, antes 1746) |
-| R-26 | Recordatorio local antes de que empiece una sesión | PENDIENTE | 2026-09-21 | Oleada v12 / F-17 · Spec en `ROADMAP_PRODUCTO.md`. Sin migración: interruptor nuevo en «Mi horario» (T-22) que, con permiso del navegador concedido, dispara una notificación de mejor esfuerzo (`ServiceWorkerRegistration#showNotification`, mismo Service Worker de R-09) unos minutos antes de cada sesión, calculado sobre `vistaSemanalProfesor` (T-17/T-22) — sin RPC ni dato personal nuevo |
+| R-26 | Recordatorio local antes de que empiece una sesión | COMPLETADA | 2026-09-22 | Oleada v12 / F-17 · Sin migración: depende solo de T-17/T-22/R-09, las tres `COMPLETADA`. `dominio/recordatorioSesion.ts` (nuevo, puro, 13 tests): `sesionesParaRecordatorio` — sesiones de hoy del profesor que empiezan dentro de `MINUTOS_AVISO_RECORDATORIO_POR_DEFECTO` (5) minutos y no están ya en el conjunto `yaAvisadas` que le pasa quien llama. `nucleo/preferenciaRecordatorio.ts` (nuevo, 4 tests): interruptor persistido por dispositivo sobre `localStorage` (no `sessionStorage`: es un ajuste de dispositivo, no debe borrarse al cerrar la pestaña, mismo patrón de inyección que `almacenSesion.ts` pero con la implementación de `Storage` distinta que le corresponde). `nucleo/notificadorRecordatorio.ts` (nuevo, 4 tests): envoltorio mínimo e inyectable sobre `Notification`/`ServiceWorkerRegistration#showNotification`, mismo criterio que `registroServiceWorker.ts`. `ui/pantallaMiHorario.ts` (T-22): interruptor "Avisarme antes de cada clase" junto al título, pide permiso solo tras el gesto explícito de activarlo, se apaga solo si se deniega, y el mismo `programador.cada(...)` que ya refresca "en curso"/"siguiente" dispara la notificación (10 tests nuevos). `sw.js` gana su primer `notificationclick`: abre/enfoca la aplicación y navega a `#/pasar-lista` o `#/horario` según si la sesión ya empezó, comparando épocas — sin lógica de calendario en el Service Worker. 31 tests nuevos en total (1801 en total, antes 1770) |
 | R-27 | Alta de una sesión de grupo completa | PENDIENTE | 2026-09-21 | Oleada v12 / F-18 · Spec en `ROADMAP_PRODUCTO.md`. Sin migración: nueva acción en la pantalla de horario del centro (R-25) que llama a `crearSlot` (T-15) una vez por cada alumno elegido con el buscador de T-20, mismo día/hora/profesor/asignatura para todos — sin ninguna RPC nueva |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
