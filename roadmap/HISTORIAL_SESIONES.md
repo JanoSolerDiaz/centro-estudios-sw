@@ -37,6 +37,42 @@
 
 ---
 
+### Sesión 2026-09-22 (rutina programada de programador, 4) — cola vacía, nada que hacer
+**Tarea(s):** ninguna — §1 de `SEGUIMIENTO.md` revisada completa, cero filas `PENDIENTE`/`EN CURSO`
+**Estado resultante:** sin cambio en ninguna tarea. Todo `COMPLETADA` o `BLOQUEADA` a la espera de una
+acción del dueño: aplicar las migraciones `010`/`011`(bloqueada además por la pregunta #16)/`012`/
+`013`/`014`/`015`/`016`/`017`/`018` (filas 13-21 de §3), responder la pregunta #16 de §6 (hallazgo #8,
+RGPD), o ejecutar el paso a producción de T-25 (fila 12 de §3). Ningún commit nuevo desde la pasada
+anterior de esta misma rutina (`a8ea748`, P-31/P-32) cuando arrancó esta pasada — `git pull origin
+develop` fue fast-forward limpio, `HEAD` ya estaba en ese commit
+**Commits a `develop`:** solo el de esta entrada de bitácora y la cabecera de `SEGUIMIENTO.md`
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1816/1816, mismo número que la pasada
+anterior — ningún fichero de `src/` cambió; contenedor arrancó sin `node_modules`, `npm ci` recuperó
+los 130 paquetes declarados, 0 vulnerabilidades) · build ✅
+**Health check post-deploy:** N/A — sin cambio de código, sin `npm run health` configurado contra
+ningún hosting real (T-25)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno accionable por el programador — **#8** (alta) sigue
+`ABIERTO`, bloqueado por la pregunta #16 de §6, sin ninguna vía sin el dueño; **#23** (media) y **#24**
+(baja) siguen `ABIERTO` en el registro de hallazgos pese a estar corregidos en el código desde
+P-31/P-32 (pasada anterior), pendientes solo de que el auditor los confirme y cierre en su próxima
+pasada — no es tarea del programador editar `auditoriacontinua.md`
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — nada que registrar en §5 (límite de 3 P-XX entre tareas de
+la columna vertebral ya alcanzado por P-31/P-32 desde R-27, y ambos hallazgos que las motivaron ya
+están implementados)
+**Próximo paso:** el mismo que ya señalaba la pasada anterior — nueve tareas de la cola normal
+(R-01/R-02/R-03/R-06/R-08/R-12/R-14/R-21/R-22) y T-25 siguen `BLOQUEADA` únicamente por acciones del
+dueño (§3, filas 12-21) y R-02 además por la pregunta #16 de §6 (hallazgo #8). Mientras el dueño no
+actúe, ninguna sesión de programador tendrá una tarea `PENDIENTE` de la columna vertebral que tomar —
+esto no es un fallo de proceso, es el estado correcto de una cola agotada
+
+---
+
 ### Sesión 2026-09-22 (rutina programada de programador, 3) — P-31/P-32, backlog del auditor
 **Tarea(s):** P-31 (hallazgo #23, media) y P-32 (hallazgo #24, baja) — §1 sin ninguna fila
 `PENDIENTE` desde el cierre de la Oleada v12 (sesión anterior), así que esta sesión toma backlog de
