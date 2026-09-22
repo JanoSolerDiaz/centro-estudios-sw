@@ -37,6 +37,43 @@
 
 ---
 
+### Sesión 2026-09-22 (ciclo programado del Product Manager, 29) — cierra Oleada v12, abre Oleada v13 (R-28, R-29)
+**Tarea(s):** ninguna T-XX/P-XX de código — ciclo de producto. Añadidas **R-28** y **R-29** (spec
+completa) a `roadmap/ROADMAP_PRODUCTO.md`
+**Estado resultante:** R-28 y R-29 pasan a `PENDIENTE` en §1 de `SEGUIMIENTO.md` (Oleada v13, F-19/F-20).
+Ninguna otra fila cambia de estado — la Oleada v12 (R-26, R-27) ya estaba `COMPLETADA` desde la sesión
+de programador de hoy, antes de que arrancara este ciclo
+**Commits a `develop`:** el de esta entrada de bitácora, la cabecera de `SEGUIMIENTO.md` y el nuevo
+contenido de `roadmap/ROADMAP_PRODUCTO.md` (Oleada v13 + detalle de R-28/R-29)
+**Migraciones aplicadas:** ninguna (R-29 especifica una migración futura, `019_aviso_ausencia_profesor.sql`,
+que escribirá la sesión de programador que la implemente — no esta sesión)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v13, detalle R-28/R-29),
+`roadmap/SEGUIMIENTO.md` (cabecera, §1 con dos filas nuevas, §6 con la pregunta #18),
+`roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — solo documentación de roadmap, sin cambio de código (`src/`, `db/`
+sin tocar)
+**Health check post-deploy:** N/A — sin cambio de código
+**Decisiones tomadas:** ninguna de `DECISIONES_TECNICAS.md` (documento de decisiones técnicas de
+implementación, no de alcance de producto)
+**Hallazgos del auditor atendidos:** ninguno por esta sesión — revisadas las 24 filas del registro:
+**#8** (alta, RGPD artículo 9 en R-02) sigue `ABIERTO`, decisión reservada al dueño (pregunta #16 de
+§6), no genera R-XX; **#23**/**#24** (media/baja) son bug de interfaz y deuda documental ya corregidos
+en código por P-31/P-32 del programador, pendientes solo de que el auditor los cierre en su próxima
+pasada — no son hallazgos de producto/arquitectura, así que no le corresponden al PM
+**Hallazgos:** ninguno nuevo. `FEEDBACK.md` revisado: sigue con su única fila plantilla vacía, nada
+que convertir
+**Tareas autopropuestas (P-XX):** ninguna — es trabajo del programador, no de este ciclo
+**Próximo paso:** la siguiente sesión de programador puede tomar R-28 (sin dependencia de migración
+propia, aunque sin ausencias que mostrar hasta que se aplique `010`) o R-29 (escribe y empuja
+`019_aviso_ausencia_profesor.sql`, abre fila nueva en §3 a la espera de que el dueño la aplique) en
+cuanto la cola normal lo permita — hoy sigue vacía de T-XX/R-XX ejecutables sin acción previa del
+dueño, así que la R-XX recién especificada es precisamente lo que la reabre. Sigue pendiente que el
+dueño aplique las migraciones `010` a `018` (filas 13-21 de §3), responda la pregunta #16 de §6
+(hallazgo #8) y, cuando corresponda, la nueva pregunta #18 (umbral/ventana de R-28, no bloqueante)
+
+---
+
 ### Sesión 2026-09-22 (rutina programada de programador, 5) — cola vacía, nada que hacer
 **Tarea(s):** ninguna — §1 de `SEGUIMIENTO.md` revisada completa, cero filas `PENDIENTE`/`EN CURSO`
 **Estado resultante:** sin cambio en ninguna tarea. Todo `COMPLETADA` o `BLOQUEADA` a la espera de una

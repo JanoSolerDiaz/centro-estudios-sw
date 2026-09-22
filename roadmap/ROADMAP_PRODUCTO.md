@@ -8,42 +8,52 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-21 — vigésimo octavo ciclo del PM: **abre la Oleada v12 con R-26 y
-R-27.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` con una pasada nueva desde el ciclo anterior (`5a34ae0`, 2026-09-21, ya
-revisada por el ciclo de programador de hoy antes de tomar P-30/R-25): confirma sin cambio
-que solo quedan **ABIERTO #8** (dato de salud del artículo 9 del RGPD en R-02, formalizado como
-pregunta **#16** de §6, esperando al dueño, decimocuarto ciclo consecutivo sin novedad de fondo) y
-**ABIERTO #22** (rotura de `actualizar_asistencia` contra la firma real de `dev`) — este último ya
-corregido en el código por **P-30**, la propia sesión de programador de hoy, y pendiente solo de que
-el auditor lo confirme y lo cierre en su próxima pasada, no de ninguna R-XX.
+**Última actualización:** 2026-09-22 — vigésimo noveno ciclo del PM: **cierra la Oleada v12 (R-26 y
+R-27, ambas `COMPLETADA` hoy) y abre la Oleada v13 con R-28 y R-29.** `FEEDBACK.md` sigue sin entradas
+`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` con una pasada nueva
+de hoy mismo (commit `8b2f7f4`): de los hallazgos que quedaban, **ABIERTO #8** sigue esperando al
+dueño (pregunta #16 de §6, decimoquinto ciclo consecutivo sin novedad de fondo — no es una decisión
+que el PM pueda tomar) y **ABIERTO #22** ya lo cerró el ciclo de programador de hoy (P-30). Hay dos
+hallazgos nuevos de hoy, **#23** (control "Marcar salida"/"Justificar" sin ocultar mientras `011`/`012`
+siguen bloqueadas — bug de UX ya corregible con la señal `accionPendienteDeMigracion` que el propio
+código expone) y **#24** (fila de `pausa_alumno` que falta en la matriz de `DECISIONES_TECNICAS.md`):
+ninguno de los dos es un hallazgo de producto o arquitectura — el primero es un bug de interfaz y el
+segundo es deuda documental, así que ambos quedan para que el programador los tome como P-XX urgente/
+backlog en su próximo ciclo (§0.3), no como R-XX de este documento.
 
-**R-25 (Oleada v11/F-16) `COMPLETADA`** desde hoy (2026-09-21, misma sesión de programador que
-implementó P-30 y R-25 en turnos consecutivos): con eso, la Oleada v11 queda cerrada — código
-completo, sin ninguna migración pendiente de esta oleada en concreto — y hay base real para abrir la
-siguiente, a diferencia de los tres ciclos anteriores (2026-09-18 a 2026-09-20), que correctamente no
-la abrieron mientras R-25 seguía sin implementar. Revisado el roadmap completo contra la visión de
-producto y el ICP, esta vez volviendo al **primer** segmento prioritario, el profesor: releído
-`src/ui/pantallaMiHorario.ts` (T-22) y `src/dominio/avisosPasarLista.ts` (R-13) — las diez oleadas v1
-a v10 ya cierran el ciclo de una sesión que YA está en curso o YA pasó (entrada, ausencia, salida,
-corrección, y el propio R-13 avisando DESPUÉS de que una sesión se quedó sin pasar lista), pero
-ninguna avisa ANTES de que empiece: el profesor, usuario de mayor frecuencia y peor atendido, sigue
-dependiendo de acordarse solo con el móvil guardado. `grep -rln "Notification" src/` no devuelve
-nada: no existe ningún uso de la API de notificaciones del navegador en todo el proyecto, pese a que
-el Service Worker de R-09 (`sw.js`, ya con su propio canal `message`) y el cálculo de "próxima sesión"
-de T-17/T-22 (`vistaSemanalProfesor`, `TOLERANCIA_MINUTOS_POR_DEFECTO`) ya dan toda la base necesaria,
-sin servidor de notificaciones ni cuenta externa. Se abre la Oleada v12 con **R-26** (recordatorio
-local antes de que empiece una sesión, F-17) como primera pieza — la primera de todo el roadmap que
-le da al profesor algo genuinamente nuevo, no solo una forma más rápida de lo que ya hacía. Segunda
-pieza, sobre el administrador: R-25 dejó ver, editar y cesar una sesión de grupo como una unidad, pero
-no crearla como una unidad — `grep -n "crearSlot" src/ui/pantallaFichaAlumno.ts` confirma que sigue
-siendo una alta por alumno, uno a uno, incluso para un grupo nuevo que comparte un único horario. Se
-añade **R-27** (alta de una sesión de grupo completa, F-18), mismo patrón que R-17/R-21/R-22/R-23/R-25
-ya resolvieron cada uno en su propio flujo. Ninguna de las dos R-XX añade dato personal nuevo, RPC ni
-migración, ni toca al rol `student`. Añadidas sus dos filas `PENDIENTE` en §1 de `SEGUIMIENTO.md`. El
-MVP (T-00 a T-25) sigue sin estar completo (T-25 pendiente del paso a producción) y ninguna oleada ha
-llegado a desplegarse todavía, así que nada se mueve a `ROADMAP_HISTORICO.md` esta vez. Sin ningún
-commit de código — sesión de producto, no de programador.
+**R-26 y R-27 (Oleada v12) `COMPLETADA`** desde hoy (2026-09-22, misma sesión de programador que las
+implementó una detrás de otra): con eso, la Oleada v12 queda cerrada en código — sin ninguna migración
+propia pendiente — y hay base real para abrir la v13. El MVP (T-00 a T-25) sigue sin estar completo
+(T-25 bloqueada por el paso a producción) y ninguna oleada ha llegado a desplegarse todavía, así que,
+como en cada ciclo anterior, nada se mueve todavía a `ROADMAP_HISTORICO.md`.
+
+Revisado el roadmap completo contra la visión de producto y el ICP, esta vez el hueco no está en una
+pantalla nueva sino en una que **ya existe pero solo la ve el administrador**: `dominio/panelCentro.ts`
+(R-11) calcula desde 2026-09-09 qué alumnos acumulan más ausencias sin justificar, y esa señal vive
+únicamente en el Panel de centro (`#/panel`, exclusivo de `administrator`) — un profesor que pasa lista
+a diario no tiene, en su propia pantalla, ningún indicio de que un alumno suyo concreto lleva ya varias
+faltas seguidas sin justificar; se entera, si se entera, porque el administrador lo mira aparte y se lo
+dice por fuera de la aplicación. Es exactamente el mismo patrón de "dato que ya existe, pero solo lo ve
+quien no lo necesita a diario" que motivó R-13 y R-19 en oleadas anteriores. Se abre la Oleada v13 con
+**R-28** (aviso de ausencias repetidas, reutilizando sin duplicar `rankingAusenciasSinJustificarPanelCentro`
+de R-11, mostrado donde el profesor ya mira — pasar lista y Mi horario, F-19) como primera pieza.
+
+Segunda pieza, sobre el sentido contrario del mismo problema: cuando es el **profesor** quien sabe de
+antemano que va a faltar, hoy el único camino que existe es avisar al administrador por teléfono o
+WhatsApp, fuera de la aplicación, para que luego, si procede, declare la sustitución o cancelación con
+R-06 — `grep -rn "aviso_ausencia_profesor\|avisar.*falta" src/` no devuelve nada: no existe ningún
+registro de ese aviso dentro de la aplicación, ni ninguna cola de "profesores que ya han avisado,
+pendientes de resolver". Se añade **R-29** (el profesor avisa desde «Mi horario», sin salir de la
+aplicación; el aviso llega como pendiente al Panel de centro, F-20) — no sustituye a R-06, que sigue
+siendo quien declara la excepción real, es el paso previo que hoy ocurre por fuera y no deja rastro.
+
+Ninguna de las dos R-XX añade ningún dato personal nuevo del alumno o de sus personas de referencia,
+ni amplía el alcance del rol `student` (sigue sin ningún acceso), ni convierte el producto en
+multi-centro. R-28 no necesita migración (reutiliza cálculo y datos ya leíbles por `teacher`); R-29 sí
+(`019_aviso_ausencia_profesor.sql`, tabla nueva sobre datos del propio profesor, no del alumno).
+Añadidas sus dos filas `PENDIENTE` en §1 de `SEGUIMIENTO.md`, y la pregunta #18 en §6 (umbral y
+ventana del aviso de R-28, con valor conservador ya en la spec, sin bloquear). Sin ningún commit de
+código — sesión de producto, no de programador.
 
 ---
 
@@ -372,6 +382,32 @@ las dos añade ningún dato personal nuevo, ninguna RPC ni ninguna migración, n
 > histórico, y el multi-centro. Se añade una cuarta: un aviso push real capaz de llegar con la
 > aplicación totalmente cerrada exigiría un servidor de notificaciones (infraestructura nueva, fuera
 > del stack fijado) — R-26 se entrega en su versión de mejor esfuerzo, solo con la aplicación abierta.
+
+### Oleada v13 — De registrar a anticipar: la misma señal, donde cada rol la necesita a diario
+
+**Arranca cuando la oleada v12 (R-26, R-27) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado
+real de esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces las R-XX de esta
+oleada quedan especificadas y en cola, detrás de la oleada v12, en el orden de §1.
+
+Por qué esta oleada: R-11 (oleada v2) ya calcula, desde 2026-09-09, qué alumnos acumulan más
+ausencias sin justificar — pero esa señal vive solo en el Panel de centro, una pantalla exclusiva de
+`administrator` que el profesor no ve y no debe ver (junta datos de todo el centro). El profesor que
+pasa lista a diario sigue sin ningún indicio, en su propia pantalla, de que un alumno suyo lleva ya
+varias faltas seguidas sin justificar: se entera si el administrador lo mira aparte y se lo dice por
+fuera de la aplicación. Es el mismo problema en sentido contrario cuando es el profesor quien sabe de
+antemano que va a faltar un día: hoy el único camino es avisar al administrador por teléfono o
+WhatsApp, para que luego declare la sustitución o cancelación con R-06 (oleada v1) — sin ningún
+registro de ese aviso ni ninguna cola de "profesores que ya han avisado, pendientes de resolver".
+Las dos piezas cierran el mismo tipo de hueco — un dato que ya existe, o una comunicación que ya
+ocurre, pero fuera del sitio donde cada rol mira a diario — sin añadir ningún dato personal nuevo del
+alumno, sin ampliar el rol `student` y sin convertir el producto en multi-centro.
+
+- **F-19 — Detectar antes: la señal de ausencias repetidas, donde el profesor ya mira.** R-28.
+- **F-20 — Avisar sin salir de la aplicación: el profesor comunica que falta.** R-29.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
 
 ---
 
@@ -1562,3 +1598,93 @@ según cuántos alumnos tenga el grupo.
 con una sola elección de día, hora, profesor y asignatura, aplicada a los N alumnos sin repetirla; un
 alumno con solape de horario propio queda excluido del alta con su motivo, sin impedir que el resto
 del grupo se cree; ni la pantalla ni la acción usan ninguna RPC ni migración nueva.
+
+### R-28 — Aviso de ausencias repetidas, donde el profesor ya mira
+**Oleada / Fase:** v13 / F-19 · **Migración:** No · **Depende de:** R-01 (código-completa, bloqueada
+solo por migración `010` — mismo precedente que R-04/R-11/R-13/R-15/R-17), R-11 (`COMPLETADA`), T-17,
+T-19, T-22
+**Origen:** roadmap
+
+**Objetivo:** `dominio/panelCentro.ts#rankingAusenciasSinJustificarPanelCentro` (R-11) ya calcula, desde
+2026-09-09, qué alumnos acumulan más ausencias sin justificar — pero esa señal vive únicamente en el
+Panel de centro (`#/panel`), exclusivo de `administrator`. El profesor que pasa lista a diario, el
+usuario de mayor frecuencia del producto, no tiene en su propia pantalla ningún indicio de que un
+alumno suyo lleva ya varias faltas seguidas sin justificar: hoy se entera, si se entera, porque el
+administrador lo mira aparte y se lo dice por fuera de la aplicación. Reutiliza el mismo cálculo ya
+existente, sin duplicarlo, acotado a los propios alumnos del profesor, como una señal discreta en las
+dos pantallas donde ya mira a diario — sin añadir ninguna pantalla ni ningún toque nuevo.
+
+**Requisitos:**
+1. En `pantallaPasarLista.ts` (T-19), cada card de un alumno con `ausenciasSinJustificar >=
+   UMBRAL_AVISO_AUSENCIAS_REPETIDAS` (constante de dominio, valor por defecto 3) en los últimos
+   `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` (constante de dominio, valor por defecto 30) días
+   naturales muestra un indicador visual discreto (p. ej. una etiqueta corta junto al nombre) — no
+   añade ningún toque ni pantalla al flujo de pasar lista (principio 1 de este documento).
+2. Mismo indicador, con el mismo umbral y ventana, sobre cada alumno de la vista semanal propia del
+   profesor en `pantallaMiHorario.ts` (T-22).
+3. El cálculo reutiliza `rankingAusenciasSinJustificarPanelCentro` (`dominio/panelCentro.ts`, R-11)
+   tal cual, incluido su filtro de días pausados (R-21): sin ninguna función nueva de conteo. Los
+   datos de entrada (asistencias y alumnos) se acotan a los slots propios del profesor, con el mismo
+   alcance que ya usa `listarSlotsDeProfesorConAlumno` (T-17) — nunca a todo el centro.
+4. El indicador muestra solo el número de ausencias sin justificar recientes: no añade ningún dato
+   nuevo del alumno (ni contacto, ni persona de referencia, ni motivo de la ausencia).
+5. Sin ninguna RPC ni columna nueva: el `SELECT` de asistencia que ya lee el profesor (T-17/T-23) es
+   suficiente: el ranking se calcula en el cliente, igual que ya hace R-11 para el administrador.
+
+**Bloqueo humano:** ninguno directo. Como R-04/R-11/R-13/R-15/R-17, el indicador queda sin ninguna
+ausencia que contar mientras la migración `010` (R-01) siga sin aplicarse (fila 13 de §3 de
+`SEGUIMIENTO.md`) — no bloquea escribir ni desplegar esta tarea.
+
+**Criterio de aceptación:** un alumno con 3 o más ausencias sin justificar en los últimos 30 días
+muestra el indicador en su card de pasar lista y en Mi horario del profesor que lo imparte; un alumno
+con menos no muestra nada; ningún profesor ve el indicador de un alumno fuera de sus propios slots; el
+administrador sigue viendo el ranking completo del centro en el Panel de centro (R-11), sin cambios.
+
+### R-29 — El profesor avisa de que falta un día, sin salir de la aplicación
+**Oleada / Fase:** v13 / F-20 · **Migración:** Sí (`019_aviso_ausencia_profesor.sql`) · **Depende
+de:** T-09, T-17, T-22 (`COMPLETADA`) · relacionado con R-06 (excepción puntual de un slot,
+`BLOQUEADA` — pendiente aplicar migración `013`) pero sin depender de ella para escribirse
+**Origen:** roadmap
+
+**Objetivo:** cuando un profesor sabe de antemano que no podrá dar una clase (enfermedad, imprevisto),
+el único camino que existe hoy es avisar al administrador por teléfono o WhatsApp, fuera de la
+aplicación, para que luego, si procede, declare la sustitución o cancelación con R-06. No queda ningún
+registro de ese aviso dentro de GestorAcademia, ni ninguna cola de "profesores que ya han avisado,
+pendientes de resolver": el administrador solo se entera si el profesor consigue localizarlo. Esta
+tarea no sustituye a R-06 —el administrador sigue siendo quien declara la excepción real, con todas
+sus reglas de negocio (retroactividad, registros existentes, etc.)—; es el paso previo de comunicación
+que hoy ocurre por fuera de la aplicación y no deja ningún rastro.
+
+**Requisitos:**
+1. Migración `019_aviso_ausencia_profesor.sql`: tabla nueva `aviso_ausencia_profesor` (profesor que
+   avisa, slot o slots afectados —mismo criterio de agrupación de sesión que `slotsDeLaMismaSesion`,
+   T-15/R-17—, fecha de la sesión que falta, motivo breve en texto libre y opcional, `registrado_en`
+   fijado por el servidor, `estado` `pendiente`/`atendido`, quién y cuándo lo marcó atendido). RPC
+   `SECURITY DEFINER` para el alta (`avisar_ausencia_profesor`) y para marcarlo atendido
+   (`marcar_aviso_ausencia_atendido`), mismo patrón que el resto de RPC del proyecto: el cliente no
+   fija `profesor_id` ni `registrado_en`. RLS: `teacher` inserta y lee solo sus propios avisos;
+   `administrator` lee todos y marca cualquiera como atendido; `student` sin ningún acceso. Revoca
+   todo por defecto en la tabla nueva y concede solo lo necesario (mismo patrón que toda tabla nueva
+   del proyecto, §0.2 de `HOJA_DE_RUTA.md`).
+2. En `pantallaMiHorario.ts` (T-22), un botón «Avisar que no puedo dar esta clase» sobre una sesión
+   futura propia (nunca sobre una de hoy ya en curso ni sobre una pasada), que pide el motivo (opcional)
+   y confirma en dos toques.
+3. En `pantallaPanelCentro.ts` (R-11), un bloque nuevo con los avisos `pendiente` de todo el centro,
+   ordenados por fecha de la sesión afectada, con un botón «Marcar atendido» sin más acción asociada
+   (cubre el caso, igual de real, de que ya se resolvió por teléfono antes de que exista esta pantalla).
+4. Un aviso no crea, modifica ni cancela ningún `slot_horario` ni `excepcion_slot` por sí mismo: es
+   solo una señal de comunicación. Declarar la sustitución o cancelación real sigue siendo R-06,
+   inalterada por esta tarea.
+5. Un profesor no puede avisar dos veces de la misma sesión mientras el primer aviso siga `pendiente`
+   (evita duplicados en la cola del administrador); sí puede avisar de nuevo si el anterior ya quedó
+   `atendido`.
+
+**Bloqueo humano:** aplicar la migración `019_aviso_ausencia_profesor.sql` en `dev`, mismo
+procedimiento que el resto de migraciones (fila nueva en §3 de `SEGUIMIENTO.md`, §0.1 de
+`HOJA_DE_RUTA.md`).
+
+**Criterio de aceptación:** un profesor avisa de que falta a una sesión futura propia en dos toques,
+sin salir de «Mi horario»; el aviso aparece en el Panel de centro como `pendiente` hasta que el
+administrador lo marca `atendido`; ningún profesor ve ni puede marcar atendido un aviso ajeno;
+`student` no tiene ningún acceso a la tabla ni a ninguna de las dos RPC; el aviso, por sí solo, no
+cambia ningún horario ni ningún registro de asistencia.
