@@ -123,7 +123,9 @@ export interface ActualizarAsistenciaEntrada {
  * alumno, anular) que sí existen en `008` — así es como se rompió T-21/R-24 en su día (hallazgo #22
  * de `auditoriacontinua.md`, P-30 aquí). Devuelve al 8-parámetro real y corta ANTES de la red
  * cualquier intento de "justificar"/"marcar o ajustar salida": ver `accionPendienteDeMigracion`. */
-function accionPendienteDeMigracion(entrada: ActualizarAsistenciaEntrada): string | null {
+type AccionSujetaAMigracionPendiente = Pick<ActualizarAsistenciaEntrada, 'justificar' | 'marcarSalida' | 'ocurridoEnSalida'>;
+
+function accionPendienteDeMigracion(entrada: AccionSujetaAMigracionPendiente): string | null {
   if (entrada.justificar) {
     return 'Justificar una ausencia todavía no está disponible en este centro.';
   }
@@ -131,6 +133,23 @@ function accionPendienteDeMigracion(entrada: ActualizarAsistenciaEntrada): strin
     return 'Registrar la hora de salida todavía no está disponible en este centro.';
   }
   return null;
+}
+
+/** Señal que una pantalla puede consultar ANTES de pintar el bloque de "Justificar" (R-02), no solo
+ * al enviar — `accionPendienteDeMigracion` ya cortaba la llamada de red desde P-30, pero ninguna
+ * pantalla la consultaba para decidir si ofrecer el control en primer lugar (hallazgo #23 de
+ * `auditoriacontinua.md`): un profesor o `administrator` podía rellenar el formulario entero para
+ * recibir, solo al pulsar el botón, el mensaje de "todavía no disponible". Cambia a `true` el mismo
+ * día en que `011_justificacion_ausencia.sql` se aplique — sin esta función habría que recordar
+ * tocar dos sitios (aquí y cada pantalla) en vez de uno solo. */
+export function justificarAusenciaDisponible(): boolean {
+  return accionPendienteDeMigracion({ justificar: true }) === null;
+}
+
+/** Mismo criterio que `justificarAusenciaDisponible`, para "marcar/ajustar salida" (R-03,
+ * `012_registro_salida.sql`). */
+export function marcarSalidaDisponible(): boolean {
+  return accionPendienteDeMigracion({ marcarSalida: true }) === null;
 }
 
 /** Modifica un registro de asistencia ya existente (T-21), vía la RPC `SECURITY DEFINER`

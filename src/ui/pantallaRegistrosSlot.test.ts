@@ -114,6 +114,8 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaRegistrosSlot> =
     ...(overrides.declararExcepcionSlot ? { declararExcepcionSlot: overrides.declararExcepcionSlot } : {}),
     ...(overrides.desactivarExcepcionSlot ? { desactivarExcepcionSlot: overrides.desactivarExcepcionSlot } : {}),
     ...(overrides.registrarAvisoCancelacionSlot ? { registrarAvisoCancelacionSlot: overrides.registrarAvisoCancelacionSlot } : {}),
+    ...(overrides.justificarAusenciaDisponible ? { justificarAusenciaDisponible: overrides.justificarAusenciaDisponible } : {}),
+    ...(overrides.marcarSalidaDisponible ? { marcarSalidaDisponible: overrides.marcarSalidaDisponible } : {}),
     generarPeticionId:
       overrides.generarPeticionId ??
       (() => {
@@ -627,6 +629,15 @@ void test('una ausencia ya justificada se muestra como "(ausente, justificada)" 
   assert.match(contenedor.textContent, /\(ausente, justificada\)/);
 });
 
+void test('con justificarAusenciaDisponible: () => false, "Justificar" no se ofrece aunque el registro esté ausente (hallazgo #23)', async () => {
+  const contenedor = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'ausente' })]),
+    justificarAusenciaDisponible: () => false,
+  });
+
+  assert.equal(contenedor.textContent.includes('Guardar justificación'), false);
+});
+
 // --- Avisar a la familia (R-05) --------------------------------------------------------------
 
 function crearPersonaReferenciaFalsa(sobrescribir: Partial<PersonaReferencia> = {}): PersonaReferencia {
@@ -871,6 +882,20 @@ void test('marcar salida no se ofrece sobre una ausencia ni sobre un registro an
     listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'anulada', motivo_anulacion: 'x', ocurrido_en_salida: null })]),
   });
   assert.equal(contenedorAnulada.textContent.includes('Marcar salida'), false);
+});
+
+void test('con marcarSalidaDisponible: () => false, ni "Marcar salida" ni "Guardar salida" se ofrecen (hallazgo #23)', async () => {
+  const contenedorSinSalida = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida', ocurrido_en_salida: null })]),
+    marcarSalidaDisponible: () => false,
+  });
+  assert.equal(contenedorSinSalida.textContent.includes('Marcar salida'), false);
+
+  const contenedorConSalida = await montarConUnRegistro({
+    listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida', ocurrido_en_salida: '2026-08-26T16:30:00.000Z' })]),
+    marcarSalidaDisponible: () => false,
+  });
+  assert.equal(contenedorConSalida.textContent.includes('Guardar salida'), false);
 });
 
 void test('marcar salida: llama a actualizar con marcarSalida: true, sin ningún otro campo', async () => {

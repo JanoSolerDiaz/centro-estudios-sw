@@ -37,6 +37,47 @@
 
 ---
 
+### Sesión 2026-09-22 (rutina programada de programador, 3) — P-31/P-32, backlog del auditor
+**Tarea(s):** P-31 (hallazgo #23, media) y P-32 (hallazgo #24, baja) — §1 sin ninguna fila
+`PENDIENTE` desde el cierre de la Oleada v12 (sesión anterior), así que esta sesión toma backlog de
+auditoría (§0.3: "las P-XX se ejecutan cuando la tarea en curso está terminada o bloqueada") en vez
+de abrir una R-XX nueva (trabajo del PM)
+**Estado resultante:** P-31 y P-32 `IMPLEMENTADA`. El hallazgo #8 (alta, RGPD artículo 9 en R-02)
+sigue `ABIERTO`, bloqueado en una decisión del dueño sin ninguna vía de esta sesión — no bloquea ni
+se toca
+**Commits a `develop`:** ver commit de esta sesión ("P-31/P-32: ocultar controles bloqueados por
+migración pendiente + matriz de pausa_alumno")
+**Migraciones aplicadas:** ninguna — las dos son cambios de cliente/documentación, sin tocar ningún
+esquema
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/datos/asistencia.ts` (nuevas `justificarAusenciaDisponible`/
+`marcarSalidaDisponible`, exportadas, sobre el mismo `accionPendienteDeMigracion` ya existente, con
+su tipo de entrada estrechado); `src/ui/pantallaRegistrosSlot.ts` (nuevas dependencias opcionales
+`justificarAusenciaDisponible?`/`marcarSalidaDisponible?`, ocultan "Justificar" y "Marcar/ajustar
+salida" mientras devuelvan `false`) + `.test.ts` (2 tests nuevos); `src/ui/pantallaPasarLista.ts`
+(nueva dependencia opcional `marcarSalidaDisponible?`, oculta el tercer control de la card) +
+`.test.ts` (1 test nuevo); `src/ui/aplicacion.ts` (wireadas las dos funciones reales en los tres
+puntos de montaje: `registros` de `administrator`/`teacher`, `pasar-lista`); `src/datos/
+asistencia.test.ts` (2 tests nuevos sobre las funciones exportadas); `roadmap/DECISIONES_TECNICAS.md`
+(fila de `pausa_alumno` en la matriz rol × tabla × operación, hallazgo #24)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1816 en total, antes 1811) · build ✅
+**Health check post-deploy:** no aplica (sin servidor propio, sin migración que verificar)
+**Decisiones tomadas:** 2 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-22, P-31/P-32): por qué
+las dos señales de disponibilidad se inyectan como dependencia opcional en vez de importarse
+directamente (preserva la cobertura de tests del flujo completo, latente hasta que `011`/`012` se
+apliquen); la fila de `pausa_alumno` añadida a la matriz (P-32)
+**Hallazgos del auditor atendidos:** #23 (media) y #24 (baja) implementados como P-31/P-32,
+pendientes de que el auditor los confirme y cierre en su próxima pasada. #8 (alta) sigue `ABIERTO`,
+sin ninguna vía de esta sesión (bloqueado en el dueño)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** P-31 y P-32 registradas e implementadas en la misma sesión, ver §5
+de `SEGUIMIENTO.md`
+**Próximo paso:** §1 sigue sin ninguna fila `PENDIENTE` — la siguiente sesión de programador sigue
+sin cola normal propia hasta que el PM abra la próxima oleada; el hallazgo #8 (bloqueado en el
+dueño) sigue disponible para convertirse en tarea si el dueño responde la pregunta #16 de §6
+
+---
+
 ### Sesión 2026-09-22 (rutina programada de programador, 2) — R-27 completada, Oleada v12 cerrada
 **Tarea(s):** R-27 (Oleada v12/F-18, única fila `PENDIENTE` de la cola normal en §1)
 **Estado resultante:** R-27 `COMPLETADA`. Botón "Nueva sesión de grupo" en `pantallaHorarioCentro.ts`

@@ -19,6 +19,8 @@ import {
   listarHistorialDeCentro,
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
+  justificarAusenciaDisponible,
+  marcarSalidaDisponible,
 } from './asistencia.ts';
 import { AccionNoDisponibleTodavia, Conflicto, ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { Asistencia, AsistenciaHistorial } from '../dominio/tipos.ts';
@@ -538,6 +540,20 @@ void test('marcarSalidaAsistencia: lanza AccionNoDisponibleTodavia SIN llamar a 
   assert.equal(llamadas, 0);
   // No consumió el límite: el profesor conserva su cuota íntegra.
   limitador.comprobar('asistencia:profesor-dueno');
+});
+
+// --- Señales de disponibilidad, hallazgo #23 de auditoriacontinua.md ------------------------------
+// P-30 ya cortaba la llamada de red; ninguna pantalla consultaba estas señales ANTES de pintar el
+// control (`pantallaRegistrosSlot.ts`/`pantallaPasarLista.ts`, que las reciben inyectadas y
+// consultan por su cuenta, ver sus propios tests). Aquí solo se fija que, mientras `011`/`012`
+// sigan sin aplicar, ambas devuelven `false` — mismo motivo exacto que `accionPendienteDeMigracion`.
+
+void test('justificarAusenciaDisponible: false mientras 011_justificacion_ausencia.sql no esté aplicada', () => {
+  assert.equal(justificarAusenciaDisponible(), false);
+});
+
+void test('marcarSalidaDisponible: false mientras 012_registro_salida.sql no esté aplicada', () => {
+  assert.equal(marcarSalidaDisponible(), false);
 });
 
 void test('anularAsistencia: llama a actualizarAsistencia con anular:true y el motivo, sin tocar ningún otro campo', async () => {

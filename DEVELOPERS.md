@@ -368,7 +368,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     existen en `008`. `actualizarAsistencia` vuelve a construir solo esos 8; pedir
     `justificar`/`marcarSalida`/`ocurridoEnSalida` lanza `AccionNoDisponibleTodavia`
     (`erroresDominio.ts`) ANTES de la red — retirar este guardián (`accionPendienteDeMigracion`) en
-    la misma sesión que aplique `011`/`012` y reactive R-02/R-03. Y
+    la misma sesión que aplique `011`/`012` y reactive R-02/R-03. **P-31 (2026-09-22, hallazgo
+    #23):** el mismo módulo expone `justificarAusenciaDisponible()`/`marcarSalidaDisponible()`
+    (sobre `accionPendienteDeMigracion`) para que la PANTALLA también pueda ocultar el control antes
+    de pintarlo, no solo el guardián de red — `pantallaRegistrosSlot.ts`/`pantallaPasarLista.ts` las
+    reciben como dependencia OPCIONAL (`deps.justificarAusenciaDisponible?()`/
+    `deps.marcarSalidaDisponible?()`, `?? true` si se omiten) en vez de importarlas directamente,
+    para no tener que fingir la migración aplicada en cada test del flujo completo — solo
+    `aplicacion.ts` las wirea a las funciones reales. Al retirar el guardián de red arriba, retirar
+    también estas dos dependencias (o dejarlas devolviendo `true` sin más). Y
     `marcarSalidaAsistencia(deps, profesorDuenoId, asistenciaId)`, un atajo de un solo parámetro sobre
     `actualizarAsistencia` para pantallas (pasar lista) que solo necesitan esa acción, sin construir
     el resto de `ActualizarAsistenciaEntrada`. Desde R-24: `anularAsistencia(deps, profesorDuenoId,

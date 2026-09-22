@@ -152,6 +152,13 @@ export interface DependenciasPantallaPasarLista {
    * (`datos/asistencia.ts#marcarSalidaAsistencia`, sobre `actualizar_asistencia`). Tercer control de
    * la card, hermano de los otros dos, ofrecido solo mientras `puedeMarcarSalida`. */
   marcarSalida(asistenciaId: string): Promise<Asistencia>;
+  /** Señal de si "Marcar salida" está disponible de verdad hoy (R-03, `012_registro_salida.sql`
+   * sin aplicar) — wireada en `aplicacion.ts` a `datos/asistencia.ts#marcarSalidaDisponible`.
+   * Opcional: sin ella, el control se ofrece igual que antes del hallazgo #23 de
+   * `auditoriacontinua.md` (comportamiento por defecto en los tests, que fijan el reloj y el resto
+   * de dependencias, no el estado de una migración). Mientras sea `false`, el control ni se pinta
+   * — antes, solo fallaba al pulsarlo con el mensaje de `AccionNoDisponibleTodavia`. */
+  marcarSalidaDisponible?(): boolean;
   /** Anula una card ya registrada sin salir de pasar lista (R-24, requisito 2) — mismo mecanismo
    * exacto que «Registros» (T-21, `actualizar_asistencia` con `anular: true` y motivo obligatorio),
    * sin ninguna RPC nueva (`datos/asistencia.ts#anularAsistencia`). Cuarto control de la card,
@@ -547,8 +554,16 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
     // Tercer control, hermano de los otros dos (R-03, requisito 1: "un segundo toque sobre la card
     // ya registrada") — solo ofrecido mientras `puedeMarcarSalida`, nunca sobre una ausencia ni
-    // antes de que exista un registro de presencia real que cerrar.
-    if (tarjeta.fase === 'registrado' && tarjeta.asistencia && puedeMarcarSalida(tarjeta.asistencia)) {
+    // antes de que exista un registro de presencia real que cerrar. También oculto mientras
+    // `deps.marcarSalidaDisponible?.()` sea `false` (012 sin aplicar, hallazgo #23 de
+    // `auditoriacontinua.md`): sin esto, el botón se pintaba en el flujo diario principal de cada
+    // profesor y solo fallaba al pulsarlo.
+    if (
+      (deps.marcarSalidaDisponible?.() ?? true) &&
+      tarjeta.fase === 'registrado' &&
+      tarjeta.asistencia &&
+      puedeMarcarSalida(tarjeta.asistencia)
+    ) {
       const botonSalida = documento.createElement('button');
       botonSalida.type = 'button';
       botonSalida.dataset.salidaClave = clave;

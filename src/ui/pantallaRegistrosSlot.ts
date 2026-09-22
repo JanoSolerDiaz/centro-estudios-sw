@@ -122,6 +122,14 @@ export interface DependenciasPantallaRegistrosSlot {
   /** `profesorDuenoId` es el `profesor_id` del registro que se edita — quien llama ya lo conoce
    * (es el mismo para todas las filas de la pantalla: el dueño del slot elegido). */
   actualizar(profesorDuenoId: string, entrada: ActualizarAsistenciaEntrada): Promise<Asistencia>;
+  /** Señales de si "Justificar" (R-02) y "Marcar/ajustar salida" (R-03) están disponibles de verdad
+   * hoy (`011`/`012` sin aplicar) — wireadas en `aplicacion.ts` a
+   * `datos/asistencia.ts#justificarAusenciaDisponible`/`marcarSalidaDisponible`. Opcionales: sin
+   * ellas, los controles se ofrecen igual que antes del hallazgo #23 de `auditoriacontinua.md`
+   * (comportamiento por defecto en los tests). Mientras sean `false`, el control ni se pinta —
+   * antes, solo fallaba al pulsarlo con el mensaje de `AccionNoDisponibleTodavia`. */
+  justificarAusenciaDisponible?(): boolean;
+  marcarSalidaDisponible?(): boolean;
   registrarOlvidado(entrada: RegistrarAsistenciaEntrada): Promise<Asistencia>;
   /** Marca ausente al alumno del slot elegido (R-01, requisito 1: "o desde «Registros»") — solo
    * tiene sentido cuando ese alumno todavía no tiene ningún registro ese día, igual que "Añadir
@@ -636,16 +644,19 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
     // Salida (R-03): "marcar" (primer toque, un único botón, hora real del servidor — sin campo que
     // rellenar) o "ajustar" (una salida ya marcada, mismo patrón que "Ajustar la hora" de arriba)
-    // — nunca las dos cosas ofrecidas a la vez, ver puedeMarcarSalida.
+    // — nunca las dos cosas ofrecidas a la vez, ver puedeMarcarSalida. Todo el bloque, oculto
+    // mientras `deps.marcarSalidaDisponible?.()` sea `false` (012 sin aplicar, hallazgo #23 de
+    // `auditoriacontinua.md`): sin esto, el control se pintaba igual y solo fallaba al pulsar.
+    const salidaDisponible = deps.marcarSalidaDisponible?.() ?? true;
     const bloqueSalida = crearElemento(documento, 'div');
-    if (puedeMarcarSalida(registro)) {
+    if (salidaDisponible && puedeMarcarSalida(registro)) {
       const botonMarcarSalida = crearBoton(documento, 'Marcar salida', 'button');
       botonMarcarSalida.disabled = filaEstado.guardando;
       botonMarcarSalida.addEventListener('click', () => {
         void ejecutar({ asistenciaId: registro.id, marcarSalida: true });
       });
       bloqueSalida.append(botonMarcarSalida);
-    } else if (registro.ocurrido_en_salida) {
+    } else if (salidaDisponible && registro.ocurrido_en_salida) {
       const etiquetaSalida = crearElemento(documento, 'label', { texto: 'Salida', atributos: { for: `salida-${registro.id}` } });
       const campoSalida = documento.createElement('input');
       campoSalida.type = 'time';
@@ -774,7 +785,9 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
     // Justificar (R-02): solo tiene sentido sobre una ausencia. Sin confirmación explícita — un
     // único campo obligatorio (motivo) más uno opcional (nota), como el bloque de "Editar la nota".
-    if (puedeJustificarAusencia(registro)) {
+    // Oculto mientras `deps.justificarAusenciaDisponible?.()` sea `false` (011 sin aplicar,
+    // bloqueada además por el hallazgo #8 de RGPD — hallazgo #23 de `auditoriacontinua.md`).
+    if ((deps.justificarAusenciaDisponible?.() ?? true) && puedeJustificarAusencia(registro)) {
       const bloqueJustificar = crearElemento(documento, 'div');
       const motivoActual = filaEstado.motivoJustificacion || (registro.motivo_justificacion ?? '');
       const etiquetaMotivo = crearElemento(documento, 'label', {

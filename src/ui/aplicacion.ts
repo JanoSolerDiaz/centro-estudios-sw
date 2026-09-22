@@ -102,6 +102,8 @@ import {
   listarHistorialDeCentro,
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
+  justificarAusenciaDisponible,
+  marcarSalidaDisponible,
 } from '../datos/asistencia.ts';
 import { crearDescargadorNavegador, crearAbridorVentanaImpresionNavegador, crearLectorFicheroNavegador } from './dom.ts';
 import { copiarAlPortapapelesDelNavegador } from './portapapeles.ts';
@@ -386,6 +388,8 @@ function mostrarAppAdministrador(
         declararExcepcionSlot: (entrada) => declararExcepcionSlot(app.postgrest, entrada),
         desactivarExcepcionSlot: (excepcionId) => desactivarExcepcionSlot(app.postgrest, excepcionId),
         registrarAvisoCancelacionSlot: (excepcionId, quien) => registrarAvisoCancelacionSlot(app.postgrest, excepcionId, quien),
+        justificarAusenciaDisponible,
+        marcarSalidaDisponible,
       });
       return;
     }
@@ -762,6 +766,8 @@ function mostrarAppProfesor(
             entrada,
           ),
         generarPeticionId: () => crypto.randomUUID(),
+        justificarAusenciaDisponible,
+        marcarSalidaDisponible,
       });
       return;
     }
@@ -859,6 +865,7 @@ function mostrarAppProfesor(
       buscarAlumnosExtra: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
       obtenerAlumnoParaTarjeta: (alumnoId) => obtenerAlumnoParaTarjeta(app.postgrest, alumnoId),
       rebote: crearRebote(),
+      marcarSalidaDisponible,
       ...(colaAsistenciaOffline ? { colaOffline: colaAsistenciaOffline } : {}),
       ...(detectorConexion ? { detectorConexion } : {}),
     });

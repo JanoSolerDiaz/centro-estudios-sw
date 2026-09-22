@@ -114,6 +114,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     ...(overrides.listarPausasDeHoy !== undefined ? { listarPausasDeHoy: overrides.listarPausasDeHoy } : {}),
     ...(overrides.colaOffline !== undefined ? { colaOffline: overrides.colaOffline } : {}),
     ...(overrides.detectorConexion !== undefined ? { detectorConexion: overrides.detectorConexion } : {}),
+    ...(overrides.marcarSalidaDisponible !== undefined ? { marcarSalidaDisponible: overrides.marcarSalidaDisponible } : {}),
   };
 }
 
@@ -1229,6 +1230,23 @@ void test('una card ya registrada ofrece "Marcar salida", un tercer control herm
   assert.notEqual(botonSalida, botonAusente);
   assert.equal(botonPrincipal.contains(botonSalida), false);
   assert.match(botonSalida.textContent, /Marcar salida/);
+});
+
+void test('con marcarSalidaDisponible: () => false, una card ya registrada NO ofrece "Marcar salida" (hallazgo #23)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      marcarSalidaDisponible: () => false,
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0);
 });
 
 void test('una card pendiente (todavía sin registrar) no ofrece "Marcar salida"', async () => {
