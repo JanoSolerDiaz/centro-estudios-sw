@@ -10,11 +10,35 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-22 (rutina programada de programador, cuarta pasada del día — cola
-vacía, nada que hacer): protocolo §0.3 primero — `git pull origin develop` fast-forward limpio,
+**Última actualización:** 2026-09-22 (rutina programada de programador, quinta pasada del día — cola
+vacía, nada que hacer): protocolo §0.3 primero — `git checkout develop && git pull origin develop`
+fast-forward limpio desde una sesión anterior con `HEAD` en detached (38 commits detrás, sin
+conmitear nada ahí), a `2e61129` (cuarta pasada del día, esta misma rutina): ningún commit nuevo entre
+medias. Revisado `auditoriacontinua.md` con lectura directa de la columna `Estado` de las 24 filas del
+registro: **#8** (alta, RGPD artículo 9 en R-02) sigue `ABIERTO`, bloqueado en la pregunta #16 de §6
+sin ninguna vía de esta sesión, y sigue siendo el único de severidad alta — no hay urgencia que tratar
+antes de la cola. **#23** y **#24** (media/baja) siguen `ABIERTO` en el registro del auditor pese a
+estar corregidos en el código desde P-31/P-32 — pendientes solo de que el auditor los confirme y
+cierre en su próxima pasada; no es tarea del programador editar `auditoriacontinua.md`. Revisada §1
+completa con `grep` de las filas de la tabla (no solo la bitácora): **ninguna fila `PENDIENTE`** —
+todo `COMPLETADA` o `BLOQUEADA` por migración (§3, filas 13-21, más T-25 en la fila 12, las diez
+confirmadas `PENDIENTE` de nuevo). Revisado también `FEEDBACK.md`: sigue con su única fila plantilla
+vacía, nada que convertir. Sin ninguna R-XX nueva abierta por el PM y sin backlog de auditoría nuevo
+que tomar como P-XX, esta sesión no tiene ningún trabajo de código que hacer. Verificación pre-push
+completa igualmente ejecutada para confirmar que el estado sigue verde: contenedor sin `node_modules`,
+`npm ci` recuperó los 130 paquetes declarados (0 vulnerabilidades) + `npm run typecheck` + `npm run
+lint` + `npm test` (**1816/1816**, mismo número que la pasada anterior — ningún fichero de `src/`
+cambió) + `npm run build`, los cuatro en verde. Commit solo de esta entrada de bitácora y esta
+cabecera, empujado a `develop`, sin tocar `master` en ningún momento. La siguiente sesión de
+programador seguirá sin cola normal propia hasta que el dueño aplique alguna de las migraciones
+pendientes, responda la pregunta #16, o el PM abra la próxima oleada — esto no es un fallo de
+proceso, es el estado correcto de una cola agotada.
+
+**Sesión anterior (2026-09-22, rutina programada de programador, cuarta pasada del día — cola
+vacía, nada que hacer):** protocolo §0.3 primero — `git pull origin develop` fast-forward limpio,
 `HEAD` ya estaba en `a8ea748` (P-31/P-32, pasada anterior de esta misma rutina, hace ~2 horas): ningún
 commit nuevo entre medias. Revisado `auditoriacontinua.md`: el hallazgo #8 (alta, RGPD artículo 9 en
-R-02) sigue `ABIERTO`, bloqueado en la pregunta #16 de §6 sin ninguna vía de esta sesión, y sigue
+R-02) sigue `ABIERTO`, bloqueado en la pregunta #16 de §6 sin ninguna vía de esa sesión, y sigue
 siendo el único de severidad alta — no hay urgencia que tratar antes de la cola. #23 y #24 (media/baja)
 siguen `ABIERTO` en el registro del auditor pese a estar corregidos en el código desde P-31/P-32 —
 pendientes solo de que el auditor los confirme y cierre en su próxima pasada; no es tarea del
@@ -22,14 +46,11 @@ programador editar `auditoriacontinua.md`. Revisada §1 completa: **ninguna fila
 todo `COMPLETADA` o `BLOQUEADA` por migración (§3, filas 13-21, más T-25 en la fila 12). Sin ninguna
 R-XX nueva abierta por el PM y sin backlog de auditoría nuevo que tomar como P-XX (límite de 3 entre
 tareas de la columna vertebral ya alcanzado por P-31/P-32 desde R-27, y ambos hallazgos que las
-motivaron ya están implementados), esta sesión no tiene ningún trabajo de código que hacer. Verificación
-pre-push completa igualmente ejecutada para confirmar que el estado sigue verde: `npm run typecheck`,
+motivaron ya están implementados), esa sesión no tuvo ningún trabajo de código que hacer. Verificación
+pre-push completa igualmente ejecutada para confirmar que el estado seguía verde: `npm run typecheck`,
 `npm run lint`, `npm test` (1816/1816, mismo número que la pasada anterior — ningún fichero de `src/`
-cambió) y `npm run build`, los cuatro en verde. Commit solo de esta entrada de bitácora y esta
-cabecera, empujado a `develop`, sin tocar `master` en ningún momento. La siguiente sesión de
-programador seguirá sin cola normal propia hasta que el dueño aplique alguna de las migraciones
-pendientes, responda la pregunta #16, o el PM abra la próxima oleada — esto no es un fallo de
-proceso, es el estado correcto de una cola agotada.
+cambió) y `npm run build`, los cuatro en verde. Commit solo de esa entrada de bitácora y esa
+cabecera, empujado a `develop`, sin tocar `master` en ningún momento.
 
 **Sesión anterior (2026-09-22, rutina programada de programador — P-31/P-32, backlog del
 auditor, §0.3):** protocolo §0.3 primero — revisado `auditoriacontinua.md`: el hallazgo #8 (alta,
