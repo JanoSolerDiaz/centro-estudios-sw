@@ -37,6 +37,42 @@
 
 ---
 
+### Sesión 2026-09-22 (rutina programada de programador, 2) — R-27 completada, Oleada v12 cerrada
+**Tarea(s):** R-27 (Oleada v12/F-18, única fila `PENDIENTE` de la cola normal en §1)
+**Estado resultante:** R-27 `COMPLETADA`. Botón "Nueva sesión de grupo" en `pantallaHorarioCentro.ts`
+(R-25): el administrador elige día/hora/profesor/asignatura una sola vez y varios alumnos ya
+existentes con el buscador de T-20 en modo de selección múltiple, y confirma una alta que llama a
+`crearSlot` (T-15) por cada alumno, con el mismo patrón de reintento parcial que "Editar/Cesar sesión
+completa". Sin ninguna migración ni RPC nueva. Con esto, la Oleada v12 (R-26/R-27) queda cerrada por
+completo
+**Commits a `develop`:** ver commit de esta sesión ("R-27: alta de una sesión de grupo completa")
+**Migraciones aplicadas:** ninguna — R-27 tiene `Migración: No` en su spec
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/ui/comboboxAlumnoExtra.ts` (nuevo `deps.mostrarNota?:
+boolean`, por defecto `true`, sin cambio de comportamiento para `pantallaPasarLista.ts`);
+`src/ui/pantallaHorarioCentro.ts` (nuevo tipo `AccionCrear`, botón de página "Nueva sesión de
+grupo", `pintarFormularioCrear`, `ejecutarAltaGrupoEnBloque`, `agregarAlGrupo`/`quitarDelGrupo`,
+nuevas dependencias `crearSlot`/`buscarAlumnos`/`rebote`) + `.test.ts` (10 tests nuevos);
+`src/ui/aplicacion.ts` (conecta las tres dependencias nuevas de la ruta `#/horario-centro` a
+`crearSlot`/`buscarAlumnosParaExtra`/`crearRebote()`, ya importados desde antes); `DEVELOPERS.md`
+(ambas entradas actualizadas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1811 en total, antes 1801) · build ✅
+**Health check post-deploy:** no aplica (sin servidor propio, sin migración que verificar)
+**Decisiones tomadas:** 4 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-22, R-27): reutilizar
+`comboboxAlumnoExtra.ts` con `mostrarNota: false` en vez de un segundo componente; "Nueva sesión de
+grupo" como acción de página, no anclada a un día existente; el aviso de duplicado (requisito 5) como
+no bloqueante en vez de filtrar los resultados del buscador
+**Hallazgos del auditor atendidos:** ninguno — los tres abiertos (#8 alta/bloqueado en el dueño, #23
+media, #24 baja) no alcanzan la severidad que exige tratamiento urgente antes de la cola (§0.3)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la Oleada v12 queda cerrada (R-26/R-27 ambas `COMPLETADA`) y §1 no tiene ninguna
+fila `PENDIENTE` — la siguiente sesión abre cola en el PM (nueva oleada) antes de que el programador
+tenga algo que tomar; los hallazgos #8 (bloqueado en el dueño), #23 y #24 siguen disponibles para
+convertirse en tarea si una sesión de PM lo decide
+
+---
+
 ### Sesión 2026-09-22 (rutina programada de programador) — R-26 completada
 **Tarea(s):** R-26 (Oleada v12/F-17, única fila `PENDIENTE` de la cola normal en §1)
 **Estado resultante:** R-26 `COMPLETADA`. Interruptor "Avisarme antes de cada clase" en «Mi horario»

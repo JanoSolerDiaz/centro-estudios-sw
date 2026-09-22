@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { mostrarPantallaHorarioCentro, type DependenciasPantallaHorarioCentro } from './pantallaHorarioCentro.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
+import { crearReboteDePrueba } from '../nucleo/rebote.ts';
 import { ErrorDeValidacion, SinPermiso } from '../datos/erroresDominio.ts';
 import type { SlotConAlumno } from '../dominio/slots.ts';
+import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 
 const ALUMNO_1 = { id: 'alumno-1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, avatar_ruta: null, activo: true };
 const ALUMNO_2 = { id: 'alumno-2', nombre: 'Luis', primer_apellido: 'Pérez', segundo_apellido: null, avatar_ruta: null, activo: true };
@@ -46,6 +48,9 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaHorarioCentro> =
     resolverNombresProfesores: overrides.resolverNombresProfesores ?? (() => Promise.resolve(new Map([['prof-1', 'Pedro Profesor']]))),
     modificarSlot: overrides.modificarSlot ?? noImplementado('modificarSlot'),
     cesarSlot: overrides.cesarSlot ?? noImplementado('cesarSlot'),
+    crearSlot: overrides.crearSlot ?? noImplementado('crearSlot'),
+    buscarAlumnos: overrides.buscarAlumnos ?? (() => Promise.resolve([])),
+    rebote: overrides.rebote ?? crearReboteDePrueba(),
     ...overrides,
   };
 }
@@ -67,6 +72,410 @@ function boton(contenedor: HTMLElement, texto: string): HTMLButtonElement {
   assert.ok(encontrado, `no se encontró un botón con el texto exacto "${texto}"`);
   return encontrado;
 }
+
+// --- Combobox de alumnos (R-27, comboboxAlumnoExtra.ts con mostrarNota: false) -----------------
+
+const ANA_RESULTADO: ResultadoBusquedaAlumno = {
+  id: 'alumno-1',
+  nombre: 'Ana',
+  primer_apellido: 'García',
+  segundo_apellido: null,
+  centro_nombre: 'IES Cervantes',
+};
+const LUIS_RESULTADO: ResultadoBusquedaAlumno = {
+  id: 'alumno-2',
+  nombre: 'Luis',
+  primer_apellido: 'Pérez',
+  segundo_apellido: null,
+  centro_nombre: 'IES Cervantes',
+};
+
+function escribirEnCombobox(contenedor: HTMLElement, texto: string): void {
+  const input = contenedor.querySelector<HTMLInputElement>('input[role="combobox"]');
+  assert.ok(input, 'no se encuentra el combobox de alumnos');
+  const ventana = input.ownerDocument.defaultView;
+  assert.ok(ventana);
+  input.value = texto;
+  input.dispatchEvent(new ventana.Event('input', { bubbles: true }));
+}
+
+/** Selecciona la PRIMERA opción del combobox de alumnos ya abierto (ArrowDown + Enter). */
+function seleccionarPrimeraOpcionCombobox(contenedor: HTMLElement): void {
+  const input = contenedor.querySelector<HTMLInputElement>('input[role="combobox"]');
+  assert.ok(input);
+  const ventana = input.ownerDocument.defaultView;
+  assert.ok(ventana);
+  input.dispatchEvent(new ventana.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+  input.dispatchEvent(new ventana.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+}
+
+// --- Requisitos 1, 2 y 3: "Nueva sesión de grupo" -----------------------------------------------
+
+void test('"Nueva sesión de grupo" es un botón de la propia pantalla, disponible incluso sin ningún horario vigente', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHorarioCentro(contenedor, crearDepsFalsas({ listarSlots: () => Promise.resolve([]) }));
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Este centro no tiene ningún horario vigente/);
+  boton(contenedor, 'Nueva sesión de grupo'); // no lanza si existe
+});
+
+void test('abre un formulario con día/hora/profesor/asignatura y fecha de efecto por defecto hoy, sin campo de motivo', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHorarioCentro(contenedor, crearDepsFalsas({ listarSlots: () => Promise.resolve([]) }));
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  const campoFechaEfecto = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fecha-efecto');
+  assert.ok(campoFechaEfecto);
+  assert.equal(campoFechaEfecto.value, '2026-09-08');
+  assert.ok(contenedor.querySelector('#horario-centro-crear-profesor'));
+  assert.ok(contenedor.querySelector('#horario-centro-crear-dia'));
+  assert.ok(contenedor.querySelector('#horario-centro-crear-inicio'));
+  assert.ok(contenedor.querySelector('#horario-centro-crear-fin'));
+  assert.ok(contenedor.querySelector('#horario-centro-crear-asignatura'));
+  // A diferencia del combobox de "alumno extra" (T-20), aquí no hay campo de motivo (mostrarNota: false).
+  assert.equal(contenedor.querySelectorAll('input').length, 5); // inicio, fin, asignatura, fecha, buscador — sin nota
+});
+
+void test('elegir un alumno lo añade a la lista del grupo, y "Quitar" lo retira', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({ listarSlots: () => Promise.resolve([]), buscarAlumnos: () => Promise.resolve([ANA_RESULTADO]), rebote }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+
+  assert.match(contenedor.textContent, /Ana García/);
+
+  boton(contenedor, 'Quitar').click();
+  assert.doesNotMatch(contenedor.textContent, /Ana García/);
+});
+
+void test('requisito 5: seleccionar dos veces al mismo alumno avisa sin duplicarlo en la lista', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({ listarSlots: () => Promise.resolve([]), buscarAlumnos: () => Promise.resolve([ANA_RESULTADO]), rebote }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+
+  const items = contenedor.querySelectorAll('li');
+  assert.equal(items.length, 1, 'Ana no debe aparecer dos veces en la lista del grupo');
+  assert.match(contenedor.textContent, /ya está en la selección/);
+});
+
+void test('confirmar sin ningún alumno seleccionado no llama a crearSlot y muestra el error', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let llamadas = 0;
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarSlots: () => Promise.resolve([]),
+      crearSlot: () => {
+        llamadas += 1;
+        return Promise.reject(new Error('no debería llamarse'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  const campoInicio = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-inicio');
+  const campoFin = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fin');
+  assert.ok(campoInicio && campoFin);
+  campoInicio.value = '10:00';
+  campoFin.value = '11:00';
+  boton(contenedor, 'Crear sesión de grupo').click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 0);
+  assert.match(contenedor.textContent, /Selecciona al menos un alumno/);
+});
+
+void test('la hora de fin debe ser posterior a la de inicio, sin llamar a crearSlot', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  let llamadas = 0;
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarSlots: () => Promise.resolve([]),
+      buscarAlumnos: () => Promise.resolve([ANA_RESULTADO]),
+      rebote,
+      crearSlot: () => {
+        llamadas += 1;
+        return Promise.reject(new Error('no debería llamarse'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+
+  const campoInicio = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-inicio');
+  const campoFin = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fin');
+  assert.ok(campoInicio && campoFin);
+  campoFin.value = campoInicio.value;
+  boton(contenedor, 'Crear sesión de grupo').click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 0);
+  assert.match(contenedor.textContent, /La hora de fin debe ser posterior a la de inicio/);
+});
+
+// --- Requisitos 2, 3 y 4: alta en bloque -----------------------------------------------------
+
+void test('crea un slot por cada alumno elegido, con el mismo día/hora/profesor/asignatura/fecha de efecto', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  const llamadas: { alumnoId: string; diaSemana: number; horaFin: string; fechaEfecto: string; asignatura: string | null }[] = [];
+  let recargas = 0;
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarSlots: () => {
+        recargas += 1;
+        return Promise.resolve([]);
+      },
+      buscarAlumnos: (texto) => Promise.resolve(texto === 'ana' ? [ANA_RESULTADO] : texto === 'luis' ? [LUIS_RESULTADO] : []),
+      rebote,
+      crearSlot: (datos) => {
+        llamadas.push({
+          alumnoId: datos.alumno_id,
+          diaSemana: datos.dia_semana,
+          horaFin: datos.hora_fin,
+          fechaEfecto: datos.vigente_desde.toISOString().slice(0, 10),
+          asignatura: datos.asignatura_o_grupo ?? null,
+        });
+        return Promise.resolve({
+          slot: {
+            id: `slot-nuevo-${datos.alumno_id}`,
+            alumno_id: datos.alumno_id,
+            profesor_id: datos.profesor_id,
+            dia_semana: datos.dia_semana,
+            hora_inicio: datos.hora_inicio,
+            hora_fin: datos.hora_fin,
+            asignatura_o_grupo: datos.asignatura_o_grupo ?? null,
+            vigente_desde: datos.vigente_desde.toISOString().slice(0, 10),
+            vigente_hasta: null,
+            creado_en: '2026-01-01T00:00:00Z',
+            actualizado_en: '2026-01-01T00:00:00Z',
+          },
+          avisoSolapeProfesor: false,
+        });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor); // Ana
+  escribirEnCombobox(contenedor, 'luis');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor); // Luis
+
+  const selectDia = contenedor.querySelector<HTMLSelectElement>('#horario-centro-crear-dia');
+  const campoInicio = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-inicio');
+  const campoFin = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fin');
+  const campoAsignatura = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-asignatura');
+  const campoFechaEfecto = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fecha-efecto');
+  assert.ok(selectDia && campoInicio && campoFin && campoAsignatura && campoFechaEfecto);
+  selectDia.value = '2';
+  campoInicio.value = '16:00';
+  campoFin.value = '17:00';
+  campoAsignatura.value = 'Física';
+  campoFechaEfecto.value = '2026-09-15';
+  boton(contenedor, 'Crear sesión de grupo').click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas.length, 2);
+  assert.deepEqual(
+    llamadas.map((l) => l.alumnoId).sort(),
+    ['alumno-1', 'alumno-2'],
+  );
+  for (const llamada of llamadas) {
+    assert.equal(llamada.diaSemana, 2);
+    assert.equal(llamada.horaFin, '17:00');
+    assert.equal(llamada.fechaEfecto, '2026-09-15');
+    assert.equal(llamada.asignatura, 'Física');
+  }
+  assert.ok(recargas >= 2, 'debe recargar el horario tras el alta en bloque');
+  assert.doesNotMatch(contenedor.textContent, /Todavía no se pudo crear la sesión/);
+});
+
+void test('requisito 4: un solape del propio alumno no impide crear al resto, y se reintenta solo con quien falló', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  const llamadas: string[] = [];
+  const intentos: Record<string, number> = {};
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarSlots: () => Promise.resolve([]),
+      buscarAlumnos: (texto) => Promise.resolve(texto === 'ana' ? [ANA_RESULTADO] : texto === 'luis' ? [LUIS_RESULTADO] : []),
+      rebote,
+      crearSlot: (datos) => {
+        llamadas.push(datos.alumno_id);
+        intentos[datos.alumno_id] = (intentos[datos.alumno_id] ?? 0) + 1;
+        if (datos.alumno_id === 'alumno-2' && intentos[datos.alumno_id] === 1) {
+          return Promise.reject(new ErrorDeValidacion('Este alumno ya tiene un horario que se solapa en ese día y hora.'));
+        }
+        return Promise.resolve({
+          slot: {
+            id: `slot-nuevo-${datos.alumno_id}`,
+            alumno_id: datos.alumno_id,
+            profesor_id: datos.profesor_id,
+            dia_semana: datos.dia_semana,
+            hora_inicio: datos.hora_inicio,
+            hora_fin: datos.hora_fin,
+            asignatura_o_grupo: datos.asignatura_o_grupo ?? null,
+            vigente_desde: datos.vigente_desde.toISOString().slice(0, 10),
+            vigente_hasta: null,
+            creado_en: '2026-01-01T00:00:00Z',
+            actualizado_en: '2026-01-01T00:00:00Z',
+          },
+          avisoSolapeProfesor: false,
+        });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+  escribirEnCombobox(contenedor, 'luis');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+
+  const campoInicio = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-inicio');
+  const campoFin = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fin');
+  assert.ok(campoInicio && campoFin);
+  campoInicio.value = '16:00';
+  campoFin.value = '17:00';
+  boton(contenedor, 'Crear sesión de grupo').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(llamadas, ['alumno-1', 'alumno-2']);
+  assert.match(contenedor.textContent, /Todavía no se pudo crear la sesión para:/);
+  assert.match(contenedor.textContent, /Luis Pérez/);
+  assert.match(contenedor.textContent, /Revisa los datos introducidos/);
+
+  boton(contenedor, 'Reintentar').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(llamadas, ['alumno-1', 'alumno-2', 'alumno-2']); // solo se reintenta quien falló
+  assert.doesNotMatch(contenedor.textContent, /Todavía no se pudo crear la sesión/);
+});
+
+void test('un aviso de solape de profesor se muestra sin bloquear el alta', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarSlots: () => Promise.resolve([]),
+      buscarAlumnos: () => Promise.resolve([ANA_RESULTADO]),
+      rebote,
+      crearSlot: (datos) =>
+        Promise.resolve({
+          slot: {
+            id: 'slot-nuevo',
+            alumno_id: datos.alumno_id,
+            profesor_id: datos.profesor_id,
+            dia_semana: datos.dia_semana,
+            hora_inicio: datos.hora_inicio,
+            hora_fin: datos.hora_fin,
+            asignatura_o_grupo: datos.asignatura_o_grupo ?? null,
+            vigente_desde: datos.vigente_desde.toISOString().slice(0, 10),
+            vigente_hasta: null,
+            creado_en: '2026-01-01T00:00:00Z',
+            actualizado_en: '2026-01-01T00:00:00Z',
+          },
+          avisoSolapeProfesor: true,
+        }),
+    }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+
+  const campoInicio = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-inicio');
+  const campoFin = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fin');
+  assert.ok(campoInicio && campoFin);
+  campoInicio.value = '16:00';
+  campoFin.value = '17:00';
+  boton(contenedor, 'Crear sesión de grupo').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /ya tenía otro alumno en este mismo día y hora/);
+});
+
+void test('"Cancelar" cierra el formulario sin llamar a crearSlot', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  let llamadas = 0;
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarSlots: () => Promise.resolve([]),
+      buscarAlumnos: () => Promise.resolve([ANA_RESULTADO]),
+      rebote,
+      crearSlot: () => {
+        llamadas += 1;
+        return Promise.reject(new Error('no debería llamarse'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  boton(contenedor, 'Nueva sesión de grupo').click();
+  escribirEnCombobox(contenedor, 'ana');
+  rebote.disparar();
+  await esperarMicrotareas();
+  seleccionarPrimeraOpcionCombobox(contenedor);
+
+  boton(contenedor, 'Cancelar').click();
+
+  assert.equal(llamadas, 0);
+  assert.doesNotMatch(contenedor.textContent, /Ana García/);
+  boton(contenedor, 'Nueva sesión de grupo'); // vuelve a estar disponible
+});
 
 // --- Acceso ---
 
@@ -139,7 +548,7 @@ void test('no ofrece ningún control de edición por alumno suelto, solo por ses
   await esperarMicrotareas();
 
   const botones = Array.from(contenedor.querySelectorAll('button')).map((b) => b.textContent);
-  assert.deepEqual(botones, ['Editar sesión completa', 'Cesar sesión completa']);
+  assert.deepEqual(botones, ['Nueva sesión de grupo', 'Editar sesión completa', 'Cesar sesión completa']);
 });
 
 // --- Requisito 2 y 4: edición en bloque de una sesión completa ---

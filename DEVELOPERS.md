@@ -767,6 +767,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     el aborto de "empezar una nueva" surta efecto sin necesitar un `AbortController` propio. Una
     respuesta abortada (`esErrorDeCancelacion`) se ignora en silencio, nunca se pinta como error.
     Nunca pide avatar (requisito 3 de T-20): el tipo `ResultadoBusquedaAlumno` no lo tiene.
+    `deps.mostrarNota?: boolean` (R-27, por defecto `true`): `false` quita el campo "Motivo
+    (opcional)" del DOM entero sin tocar el resto del componente — `onSeleccionar` recibe `nota: null`
+    siempre. Segundo consumidor real desde T-20: `pantallaHorarioCentro.ts` lo monta en modo selección
+    múltiple para elegir varios alumnos de una sesión de grupo nueva, donde un motivo por alumno no
+    tiene sentido.
   - `pantallaMiHorario.ts` (T-22) — `mostrarPantallaMiHorario(contenedor, deps)`: vista semanal de
     solo lectura, exclusiva de `teacher` (`puedeVerMiHorario`, `permisosUi.ts`). `deps.cargarSlots()`
     trae todos los slots del profesor en una única petición y se cachea en cierre;
@@ -1065,7 +1070,16 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     embebido en una única petición, mismo patrón que `listarSlotsDeProfesorConAlumno` de T-17 sin
     acotar por profesor). Reutiliza `puedeGestionarHorarios` (T-15/T-16) — misma capacidad, aplicada
     a un grupo entero. Enrutada como `#/horario-centro`, con botón "Horario del centro" en la barra
-    de navegación.
+    de navegación. **R-27 (alta de una sesión de grupo completa), misma pantalla:** botón "Nueva
+    sesión de grupo" de nivel de página (no de una sesión existente — visible incluso con el centro
+    vacío), que abre un formulario con día/hora/profesor/asignatura una sola vez y el mismo buscador
+    de T-20 (`comboboxAlumnoExtra.ts`, `mostrarNota: false`) en modo de selección múltiple: cada
+    alumno elegido se añade a una lista con su propio "Quitar", sin duplicados (un alumno ya elegido
+    solo avisa, no se añade dos veces). Al confirmar, `crearSlot` (T-15) una vez por alumno de la
+    lista — mismo patrón exacto de reintento parcial que "Editar sesión completa"/"Cesar sesión
+    completa": un solape del propio alumno rechaza SOLO su alta y queda listo para reintentar, el
+    resto del grupo se crea igual; el aviso de solape con OTRO profesor (no bloqueante) también pasa
+    por `avisoGlobal`. Sin ninguna RPC nueva.
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

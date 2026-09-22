@@ -17,6 +17,14 @@
  * pasar lista, y solo ahí) no gana aquí ninguna excepción — mismo criterio que ya respetó R-24.
  * Tampoco ofrece ningún control para editar el horario de un solo alumno del grupo (requisito 6):
  * para eso sigue existiendo la ficha del alumno (T-16), sin cambios.
+ *
+ * **Alta de una sesión de grupo (R-27):** acción de nivel de pantalla, no de una sesión existente —
+ * el administrador elige día/hora/profesor/asignatura una sola vez y selecciona varios alumnos ya
+ * existentes con el mismo buscador de T-20 (`comboboxAlumnoExtra.ts`, con `mostrarNota: false`: un
+ * motivo por alumno no tiene sentido aquí). Al confirmar, llama a `crearSlot` (T-15) una vez por
+ * alumno elegido — mismo patrón de "reintento solo con quien falló" que la edición/cese en bloque de
+ * arriba: un solape del propio alumno rechaza SOLO su alta (requisito 4), el resto del grupo se crea
+ * con normalidad. Un alumno ya elegido no puede repetirse en la selección (requisito 5).
  */
 
 import { ETIQUETA_DIA_SEMANA, type Rol, type DiaSemana } from '../dominio/tipos.ts';
@@ -26,11 +34,14 @@ import { sesionesVigentesDelCentro, claveSesionHorarioCentro, type SesionHorario
 import { fechaLocalISO, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
 import type { SlotConAlumno } from '../dominio/slots.ts';
 import type { ProfesorParaSelector } from '../datos/profesores.ts';
-import type { CambiosSlot, ResultadoEscrituraSlot } from '../datos/slotsHorario.ts';
+import type { CambiosSlot, DatosNuevoSlot, ResultadoEscrituraSlot } from '../datos/slotsHorario.ts';
 import type { SlotHorario } from '../dominio/tipos.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
+import type { Rebote } from '../nucleo/rebote.ts';
+import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import { crearCampoTexto, crearZonaMensaje, crearBoton, crearMensajeErrorCampo } from './formularios.ts';
 import { crearElemento } from './dom.ts';
+import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
 export interface DependenciasPantallaHorarioCentro {
@@ -42,6 +53,15 @@ export interface DependenciasPantallaHorarioCentro {
   resolverNombresProfesores(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
   modificarSlot(slotId: string, cambios: CambiosSlot, fechaEfecto: Date): Promise<ResultadoEscrituraSlot>;
   cesarSlot(slotId: string, fechaEfecto: Date): Promise<SlotHorario>;
+  /** Alta de sesión de grupo (R-27): `crearSlot` (T-15), llamada una vez por alumno elegido, sin
+   * ninguna RPC nueva. */
+  crearSlot(datos: DatosNuevoSlot): Promise<ResultadoEscrituraSlot>;
+  /** Mismo buscador de T-20 (`buscar_alumnos_activos`), reutilizado aquí en modo de selección
+   * múltiple (R-27, requisito 2). */
+  buscarAlumnos(texto: string, señal?: AbortSignal): Promise<readonly ResultadoBusquedaAlumno[]>;
+  /** Fábrica NUEVA por montaje de pantalla (`crearRebote()`), nunca compartida con otra pantalla —
+   * mismo criterio que el resto de consumidores de `comboboxAlumnoExtra.ts`. */
+  readonly rebote: Rebote;
 }
 
 const AVISO_SOLAPE_PROFESOR = 'Aviso: algún profesor ya tenía otro alumno en este mismo día y hora.';
@@ -68,7 +88,38 @@ interface AccionCesar {
   readonly error: string;
 }
 
-type AccionEnCurso = AccionEditar | AccionCesar;
+/** Un alumno ya elegido para la sesión de grupo nueva (R-27) — solo lo necesario para pintar la
+ * lista y para volver a llamar a `crearSlot` si hace falta reintentar. */
+interface CandidatoAltaGrupo {
+  readonly id: string;
+  readonly nombre: string;
+}
+
+interface CamposSesionGrupo {
+  readonly profesor_id: string;
+  readonly dia_semana: DiaSemana;
+  readonly hora_inicio: string;
+  readonly hora_fin: string;
+  readonly asignatura_o_grupo: string | null;
+}
+
+interface AccionCrear {
+  readonly tipo: 'crear';
+  /** Antes de `intentado`: el grupo elegido en el buscador. Después: solo quienes todavía no se
+   * pudieron dar de alta — mismo papel que `pendientes` en `AccionEditar`/`AccionCesar`. */
+  readonly seleccionados: readonly CandidatoAltaGrupo[];
+  readonly campos: CamposSesionGrupo | null;
+  readonly fechaEfecto: Date | null;
+  readonly intentado: boolean;
+  readonly guardando: boolean;
+  readonly error: string;
+  readonly aviso: string;
+  /** Mensaje de "ese alumno ya está en la selección" (requisito 5) — se limpia en la siguiente
+   * selección válida, nunca sobrevive a un envío. */
+  readonly avisoDuplicado: string;
+}
+
+type AccionEnCurso = AccionEditar | AccionCesar | AccionCrear;
 
 function fechaUtcDeCampo(valorFecha: string): Date {
   return new Date(`${valorFecha}T00:00:00Z`);
@@ -181,8 +232,52 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     pintar();
   }
 
+  function abrirCrear(): void {
+    avisoGlobal = '';
+    accion = {
+      tipo: 'crear',
+      seleccionados: [],
+      campos: null,
+      fechaEfecto: null,
+      intentado: false,
+      guardando: false,
+      error: '',
+      aviso: '',
+      avisoDuplicado: '',
+    };
+    pintar();
+  }
+
   function cancelarAccion(): void {
     accion = null;
+    pintar();
+  }
+
+  /** Añade `resultado` al grupo en formación, o avisa sin añadir si ya estaba (requisito 5) — el
+   * combobox se encarga de limpiar su propio campo de texto tras cada selección, así que este
+   * re-pintado nunca pierde nada que el usuario estuviera tecleando. */
+  function agregarAlGrupo(resultado: ResultadoBusquedaAlumno): void {
+    if (accion?.tipo !== 'crear') {
+      return;
+    }
+    if (accion.seleccionados.some((seleccionado) => seleccionado.id === resultado.id)) {
+      accion = { ...accion, avisoDuplicado: `${nombreCompletoAlumno(resultado)} ya está en la selección.` };
+      pintar();
+      return;
+    }
+    accion = {
+      ...accion,
+      seleccionados: [...accion.seleccionados, { id: resultado.id, nombre: nombreCompletoAlumno(resultado) }],
+      avisoDuplicado: '',
+    };
+    pintar();
+  }
+
+  function quitarDelGrupo(alumnoId: string): void {
+    if (accion?.tipo !== 'crear') {
+      return;
+    }
+    accion = { ...accion, seleccionados: accion.seleccionados.filter((seleccionado) => seleccionado.id !== alumnoId) };
     pintar();
   }
 
@@ -247,6 +342,54 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
       restantes.length === 0
         ? null
         : { ...accion, pendientes: restantes, guardando: false, error: `No se pudo cesar a: ${fallidos.join('; ')}.` };
+    await cargar();
+  }
+
+  /** Alta en bloque de la sesión de grupo nueva (R-27, requisitos 3 y 4): `crearSlot` una vez por
+   * alumno de `accion.seleccionados`, mismo día/hora/profesor/asignatura para todos. Un solape del
+   * propio alumno rechaza SOLO su alta (el resto sigue) y queda en `seleccionados` para reintentar —
+   * mismo patrón exacto que `ejecutarEdicionEnBloque`/`ejecutarCeseEnBloque`. */
+  async function ejecutarAltaGrupoEnBloque(): Promise<void> {
+    if (accion?.tipo !== 'crear' || accion.campos === null || accion.fechaEfecto === null) {
+      return;
+    }
+    const candidatos = accion.seleccionados;
+    const campos = accion.campos;
+    const fechaEfecto = accion.fechaEfecto;
+    const restantes: CandidatoAltaGrupo[] = [];
+    const fallidos: string[] = [];
+    let avisoSolape = false;
+    for (const candidato of candidatos) {
+      try {
+        const resultado = await deps.crearSlot({
+          alumno_id: candidato.id,
+          profesor_id: campos.profesor_id,
+          dia_semana: campos.dia_semana,
+          hora_inicio: campos.hora_inicio,
+          hora_fin: campos.hora_fin,
+          asignatura_o_grupo: campos.asignatura_o_grupo,
+          vigente_desde: fechaEfecto,
+        });
+        if (resultado.avisoSolapeProfesor) {
+          avisoSolape = true;
+        }
+      } catch (error) {
+        restantes.push(candidato);
+        fallidos.push(`${candidato.nombre}: ${mensajeAmigable(error)}`);
+      }
+    }
+    if (restantes.length === 0) {
+      accion = null;
+      avisoGlobal = avisoSolape ? AVISO_SOLAPE_PROFESOR : '';
+    } else {
+      accion = {
+        ...accion,
+        seleccionados: restantes,
+        guardando: false,
+        error: `No se pudo crear la sesión para: ${fallidos.join('; ')}.`,
+        aviso: avisoSolape ? AVISO_SOLAPE_PROFESOR : '',
+      };
+    }
     await cargar();
   }
 
@@ -430,6 +573,160 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     return contenedorAccion;
   }
 
+  /** Formulario de "Nueva sesión de grupo" (R-27) — a diferencia de `pintarFormularioEdicion`/
+   * `pintarFormularioCese`, no parte de ninguna `sesion` existente: día/hora/profesor/asignatura
+   * nacen vacíos y el grupo se construye alumno a alumno con el buscador de T-20. */
+  function pintarFormularioCrear(): HTMLElement {
+    const contenedorAccion = documento.createElement('div');
+    if (accion?.tipo !== 'crear') {
+      return contenedorAccion;
+    }
+    const enCurso = accion;
+
+    if (enCurso.intentado) {
+      if (enCurso.error) {
+        const mensaje = crearZonaMensaje(documento, 'alert');
+        mensaje.textContent = enCurso.error;
+        contenedorAccion.append(mensaje);
+      }
+      if (enCurso.aviso) {
+        const mensaje = crearZonaMensaje(documento, 'status');
+        mensaje.textContent = enCurso.aviso;
+        contenedorAccion.append(mensaje);
+      }
+      const lista = documento.createElement('ul');
+      for (const pendiente of enCurso.seleccionados) {
+        lista.append(crearElemento(documento, 'li', { texto: pendiente.nombre }));
+      }
+      contenedorAccion.append(crearElemento(documento, 'p', { texto: 'Todavía no se pudo crear la sesión para:' }), lista);
+
+      const botonReintentar = crearBoton(documento, 'Reintentar', 'button');
+      botonReintentar.disabled = enCurso.guardando;
+      botonReintentar.addEventListener('click', () => {
+        accion = { ...enCurso, guardando: true, error: '' };
+        pintar();
+        void ejecutarAltaGrupoEnBloque();
+      });
+      const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+      botonCancelar.disabled = enCurso.guardando;
+      botonCancelar.addEventListener('click', cancelarAccion);
+      contenedorAccion.append(botonReintentar, botonCancelar);
+      return contenedorAccion;
+    }
+
+    const idProfesor = 'horario-centro-crear-profesor';
+    const selectProfesor = crearSelectorProfesor(documento, idProfesor, profesores);
+    const etiquetaProfesor = crearElemento(documento, 'label', { texto: 'Profesor', atributos: { for: idProfesor } });
+
+    const idDia = 'horario-centro-crear-dia';
+    const selectDia = crearSelectorDiaSemana(documento, idDia);
+    const etiquetaDia = crearElemento(documento, 'label', { texto: 'Día de la semana', atributos: { for: idDia } });
+
+    const idInicio = 'horario-centro-crear-inicio';
+    const campoInicio = documento.createElement('input');
+    campoInicio.type = 'time';
+    campoInicio.id = idInicio;
+    campoInicio.required = true;
+    const etiquetaInicio = crearElemento(documento, 'label', { texto: 'Hora de inicio', atributos: { for: idInicio } });
+
+    const idFin = 'horario-centro-crear-fin';
+    const campoFin = documento.createElement('input');
+    campoFin.type = 'time';
+    campoFin.id = idFin;
+    campoFin.required = true;
+    const etiquetaFin = crearElemento(documento, 'label', { texto: 'Hora de fin', atributos: { for: idFin } });
+
+    const campoAsignatura = crearCampoTexto(documento, 'horario-centro-crear-asignatura', 'Asignatura o grupo (opcional)', 'text', 'off');
+    campoAsignatura.input.required = false;
+
+    const idFechaEfecto = 'horario-centro-crear-fecha-efecto';
+    const campoFechaEfecto = documento.createElement('input');
+    campoFechaEfecto.type = 'date';
+    campoFechaEfecto.id = idFechaEfecto;
+    campoFechaEfecto.required = true;
+    campoFechaEfecto.value = fechaLocalISO(deps.reloj.ahora(), zonaHoraria);
+    const etiquetaFechaEfecto = crearElemento(documento, 'label', { texto: 'Fecha de efecto', atributos: { for: idFechaEfecto } });
+
+    const errorHora = crearMensajeErrorCampo(documento, campoFin, 'horario-centro-crear-fin-error');
+
+    const zonaAvisoDuplicado = crearZonaMensaje(documento, 'status');
+    zonaAvisoDuplicado.textContent = enCurso.avisoDuplicado;
+
+    const listaSeleccionados = documento.createElement('ul');
+    for (const seleccionado of enCurso.seleccionados) {
+      const item = documento.createElement('li');
+      item.append(documento.createTextNode(`${seleccionado.nombre} `));
+      const botonQuitar = crearBoton(documento, 'Quitar', 'button');
+      botonQuitar.addEventListener('click', () => {
+        quitarDelGrupo(seleccionado.id);
+      });
+      item.append(botonQuitar);
+      listaSeleccionados.append(item);
+    }
+
+    const contenedorBuscador = documento.createElement('div');
+    montarComboboxAlumnoExtra(contenedorBuscador, {
+      buscar: (texto, señal) => deps.buscarAlumnos(texto, señal),
+      onSeleccionar: (resultado) => {
+        agregarAlGrupo(resultado);
+      },
+      rebote: deps.rebote,
+      mostrarNota: false,
+    });
+
+    const errorSeleccion = crearZonaMensaje(documento, 'alert');
+
+    const botonConfirmar = crearBoton(documento, 'Crear sesión de grupo', 'button');
+    const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelar.addEventListener('click', cancelarAccion);
+
+    botonConfirmar.addEventListener('click', () => {
+      if (campoFin.value <= campoInicio.value) {
+        errorHora.establecer('La hora de fin debe ser posterior a la de inicio.');
+        return;
+      }
+      errorHora.limpiar();
+      if (enCurso.seleccionados.length === 0) {
+        errorSeleccion.textContent = 'Selecciona al menos un alumno para el grupo.';
+        return;
+      }
+      errorSeleccion.textContent = '';
+      const campos: CamposSesionGrupo = {
+        profesor_id: selectProfesor.value,
+        dia_semana: Number(selectDia.value) as DiaSemana,
+        hora_inicio: campoInicio.value,
+        hora_fin: campoFin.value,
+        asignatura_o_grupo: campoAsignatura.input.value.trim().length > 0 ? campoAsignatura.input.value.trim() : null,
+      };
+      accion = { ...enCurso, campos, fechaEfecto: fechaUtcDeCampo(campoFechaEfecto.value), intentado: true, guardando: true };
+      pintar();
+      void ejecutarAltaGrupoEnBloque();
+    });
+
+    contenedorAccion.append(
+      etiquetaProfesor,
+      selectProfesor,
+      etiquetaDia,
+      selectDia,
+      etiquetaInicio,
+      campoInicio,
+      etiquetaFin,
+      campoFin,
+      errorHora.elemento,
+      campoAsignatura.contenedor,
+      etiquetaFechaEfecto,
+      campoFechaEfecto,
+      crearElemento(documento, 'h4', { texto: 'Alumnos del grupo' }),
+      contenedorBuscador,
+      zonaAvisoDuplicado,
+      listaSeleccionados,
+      errorSeleccion,
+      botonConfirmar,
+      botonCancelar,
+    );
+    return contenedorAccion;
+  }
+
   function pintarSesion(sesion: SesionHorarioCentro<SlotConAlumno>): HTMLElement {
     const clave = claveSesionHorarioCentro(sesion);
     const tarjeta = documento.createElement('article');
@@ -445,7 +742,7 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     }
     tarjeta.append(listaAlumnos);
 
-    if (accion !== null && accion.claveSesion === clave) {
+    if (accion !== null && accion.tipo !== 'crear' && accion.claveSesion === clave) {
       tarjeta.append(accion.tipo === 'editar' ? pintarFormularioEdicion(sesion) : pintarFormularioCese());
       return tarjeta;
     }
@@ -472,6 +769,18 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     if (cargando) {
       listaEl.append(crearElemento(documento, 'p', { texto: 'Cargando horario…' }));
       return;
+    }
+    // Nivel de pantalla, no de una sesión existente (R-27) — visible incluso con el centro vacío
+    // (requisito 1: primer grupo de todos), oculto mientras cualquier otra acción está en curso,
+    // igual que el resto de botones de esta pantalla.
+    if (accion === null) {
+      const botonCrear = crearBoton(documento, 'Nueva sesión de grupo', 'button');
+      botonCrear.addEventListener('click', () => {
+        abrirCrear();
+      });
+      listaEl.append(botonCrear);
+    } else if (accion.tipo === 'crear') {
+      listaEl.append(pintarFormularioCrear());
     }
     if (sesiones.length === 0) {
       listaEl.append(crearElemento(documento, 'p', { texto: 'Este centro no tiene ningún horario vigente.' }));

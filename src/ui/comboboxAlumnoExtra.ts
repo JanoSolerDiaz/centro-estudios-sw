@@ -19,6 +19,12 @@
  * traen columnas de identificación y el nombre del centro; el avatar solo aparece más tarde, en la
  * card de la pantalla que llama, una vez que el alumno YA es parte de la sesión (T-20: "avatar
  * donde el conjunto es estable, texto donde el conjunto es transitorio").
+ *
+ * **`mostrarNota: false`** (R-27, `pantallaHorarioCentro.ts`): quita el campo "Motivo (opcional)"
+ * del DOM por completo, sin tocar el resto del componente — mismo buscador, mismo teclado, mismo
+ * `aria-live`, `onSeleccionar` recibe `nota: null` siempre. Un segundo llamador con un propósito
+ * distinto (elegir varios alumnos para un horario nuevo, no anotar por qué uno asiste a una clase
+ * puntual) no justifica una copia entera del combobox accesible.
  */
 
 import { debeBuscar, resultadosParaMostrar, type ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
@@ -47,6 +53,12 @@ export interface DependenciasComboboxAlumnoExtra {
    * `ProgramadorIntervalo` en T-19. Fábrica NUEVA por combobox (`crearRebote()`), nunca compartida
    * entre dos instancias. */
   readonly rebote: Rebote;
+  /** `false` oculta el campo "Motivo (opcional)" — R-27 (alta de sesión de grupo) reutiliza este
+   * mismo combobox para elegir varios alumnos ya existentes, donde un motivo por selección no tiene
+   * ningún sentido (no es una clase extra puntual). `onSeleccionar` sigue recibiendo `nota` para no
+   * bifurcar la firma según el llamador; con el campo oculto siempre llega `null`. Por defecto
+   * `true` (comportamiento de T-20, sin cambio para el resto de consumidores). */
+  readonly mostrarNota?: boolean;
 }
 
 interface EstadoCombobox {
@@ -85,6 +97,7 @@ export function montarComboboxAlumnoExtra(contenedor: HTMLElement, deps: Depende
   campoBusqueda.input.setAttribute('aria-controls', idListbox);
   campoBusqueda.input.setAttribute('aria-expanded', 'false');
 
+  const mostrarNota = deps.mostrarNota ?? true;
   const campoNota = crearCampoTexto(documento, `${idBase}-nota`, 'Motivo (opcional)', 'text', 'off');
   campoNota.input.required = false;
 
@@ -150,7 +163,7 @@ export function montarComboboxAlumnoExtra(contenedor: HTMLElement, deps: Depende
     if (!resultado) {
       return;
     }
-    const nota = campoNota.input.value.trim();
+    const nota = mostrarNota ? campoNota.input.value.trim() : '';
     deps.onSeleccionar(resultado, nota.length > 0 ? nota : null);
     deps.rebote.cancelar();
     campoBusqueda.input.value = '';
@@ -257,5 +270,5 @@ export function montarComboboxAlumnoExtra(contenedor: HTMLElement, deps: Depende
   almacen.suscribir(pintar);
   pintar(almacen.obtener());
 
-  contenedor.append(campoBusqueda.contenedor, campoNota.contenedor, zonaEstado, listbox);
+  contenedor.append(campoBusqueda.contenedor, ...(mostrarNota ? [campoNota.contenedor] : []), zonaEstado, listbox);
 }

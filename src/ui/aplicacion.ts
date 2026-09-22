@@ -354,6 +354,9 @@ function mostrarAppAdministrador(
         resolverNombresProfesores: (ids) => resolverNombresProfesores(app.postgrest, ids),
         modificarSlot: (slotId, cambios, fechaEfecto) => modificarSlot(app.postgrest, slotId, cambios, fechaEfecto),
         cesarSlot: (slotId, fechaEfecto) => cesarSlot(app.postgrest, slotId, fechaEfecto),
+        crearSlot: (datos) => crearSlot(app.postgrest, datos),
+        buscarAlumnos: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
+        rebote: crearRebote(),
       });
       return;
     }
