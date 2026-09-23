@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { mostrarPantallaMiHorario, type DependenciasPantallaMiHorario } from './pantallaMiHorario.ts';
 import type { AlumnoParaPropuesta, SlotConAlumno } from '../dominio/slots.ts';
+import type { Asistencia } from '../dominio/tipos.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { crearProgramadorIntervaloDePrueba, type ProgramadorIntervaloDePrueba } from '../nucleo/programadorIntervalo.ts';
 import { ErrorDeRed } from '../datos/erroresDominio.ts';
@@ -80,6 +81,33 @@ function crearSlot(sobrescribir: Partial<SlotConAlumno> = {}, alumno: Partial<Al
     actualizado_en: '2026-01-01T00:00:00.000Z',
     ...sobrescribir,
     alumno: crearAlumno({ id: sobrescribir.alumno_id ?? 'alumno-1', ...alumno }),
+  };
+}
+
+function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
+  return {
+    id: 'asistencia-1',
+    alumno_id: 'alumno-1',
+    profesor_id: 'profesor-1',
+    registrado_en: '2026-08-26T15:30:05.000Z',
+    ocurrido_en: '2026-08-26T15:30:05.000Z',
+    ocurrido_en_salida: null,
+    es_retroactivo: false,
+    origen: 'slot',
+    slot_id: 'slot-1',
+    slot_dia_semana: 3,
+    slot_hora_inicio: '17:00',
+    slot_hora_fin: '18:00',
+    slot_asignatura_o_grupo: 'Matemáticas',
+    estado: 'valida',
+    motivo_anulacion: null,
+    motivo_justificacion: null,
+    nota_justificacion: null,
+    nota: null,
+    actualizado_en: null,
+    actualizado_por: null,
+    peticion_id: 'peticion-servidor-1',
+    ...sobrescribir,
   };
 }
 
@@ -613,6 +641,51 @@ void test('un día cerrado del centro (R-12) excluye ese slot de "sesiones sin p
   await esperarMicrotareas();
 
   assert.doesNotMatch(contenedor.textContent, /Sesiones sin pasar lista/);
+});
+
+// --- R-28: aviso de ausencias repetidas ------------------------------------------------------------
+
+void test('un alumno con 3 o más ausencias sin justificar recientes muestra el indicador en su fila', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const ausencias = ['a', 'b', 'c'].map((sufijo) =>
+    crearAsistencia({ id: `ausencia-${sufijo}`, estado: 'ausente', motivo_justificacion: null, peticion_id: `pet-${sufijo}` }),
+  );
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarAusenciasRecientes: () => Promise.resolve(ausencias),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /3 ausencias sin justificar/);
+});
+
+void test('un alumno con menos de 3 ausencias sin justificar no muestra ningún indicador', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const ausencias = [crearAsistencia({ id: 'ausencia-a', estado: 'ausente', motivo_justificacion: null, peticion_id: 'pet-a' })];
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      listarAusenciasRecientes: () => Promise.resolve(ausencias),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /ausencias sin justificar/);
+});
+
+void test('sin listarAusenciasRecientes inyectada, "Mi horario" funciona exactamente como antes de R-28', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /ausencias sin justificar/);
 });
 
 // --- Refresco periódico sin red -------------------------------------------------------------------

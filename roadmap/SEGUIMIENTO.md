@@ -10,7 +10,34 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-22 (ciclo programado del Product Manager — vigésimo noveno ciclo):
+**Última actualización:** 2026-09-23 (rutina programada de programador): protocolo primero —
+`git checkout develop && git pull origin develop` fast-forward limpio desde la pasada del auditor
+(`5062608`, ninguna sesión de programador entre medias). Revisado `auditoriacontinua.md` con lectura
+directa de la columna `Estado`: solo **#8** (alta, RGPD artículo 9 en R-02) sigue `ABIERTO`, bloqueado
+en la pregunta #16 de §6 sin ninguna vía de esta sesión — no genera ningún P-XX urgente. Revisada §1:
+**R-28** (Oleada v13/F-19, "aviso de ausencias repetidas") era la siguiente `PENDIENTE`, sin migración
+y con sus cuatro dependencias (R-11, T-17, T-19, T-22) ya `COMPLETADA` — tomada. Implementada tal como
+fija su spec en `ROADMAP_PRODUCTO.md`: `dominio/avisoAusenciasRepetidas.ts` (nuevo, puro, 8 tests)
+reutiliza sin duplicar `rankingAusenciasSinJustificarPanelCentro` (R-11, requisito 3 literal) para dar,
+por `alumnoId`, quién alcanza `UMBRAL_AVISO_AUSENCIAS_REPETIDAS` (3) ausencias sin justificar en los
+últimos `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` (30) días — el mapa de alumnos que pide esa función
+para resolver nombres se pasa vacío a propósito, porque ni pasar lista ni "Mi horario" necesitan aquí
+el nombre (cada card/fila ya lo pinta con el dato que ya tiene). Indicador discreto junto al nombre en
+`pantallaPasarLista.ts` (T-19, requisito 1: card de slot y de "alumno extra" por igual, 4 tests
+nuevos) y `pantallaMiHorario.ts` (T-22, requisito 2: cada fila de la vista semanal, 3 tests nuevos),
+las dos detrás de una dependencia `listarAusenciasRecientes` opcional — sin ella, cada pantalla
+funciona exactamente como antes de R-28, mismo criterio que el resto de dependencias opcionales del
+proyecto. Wireada en `aplicacion.ts` sobre `datos/asistencia.ts#listarHistoricoAsistenciaCompleto`
+filtrado por `profesorId` (requisito 3, "nunca a todo el centro": RLS ya acota a lo propio del
+profesor, el mismo `SELECT` que ya usan T-17/T-23, sin RPC ni columna nueva — requisito 5). Pausas
+activas (R-21) ya fetchadas por cada pantalla para su propio uso se reutilizan tal cual para el mismo
+filtro de días pausados del ranking, sin ninguna petición nueva. 15 tests nuevos en total (1831 en
+total, antes 1816). Verificación pre-push completa en verde: contenedor sin `node_modules`, `npm ci`
+recuperó los 130 paquetes declarados (0 vulnerabilidades) + `npm run typecheck` + `npm run lint` +
+`npm test` (1831/1831) + `npm run build`, los cuatro en verde. R-28 pasa a `COMPLETADA` en §1. Commit y
+push a `develop`, sin tocar `master`. — Programador, 2026-09-23
+
+**Sesión anterior (2026-09-22, ciclo programado del Product Manager — vigésimo noveno ciclo):**
 protocolo primero — `git checkout develop && git pull origin develop` fast-forward limpio desde la
 última rutina de programador (`19e893b`, quinta pasada del día, cola vacía). Revisado el registro de
 hallazgos de `auditoriacontinua.md` (24 filas, lectura directa de la columna `Estado`): solo **#8**
@@ -3391,7 +3418,7 @@ pantallas del requisito 2.
 | R-25 | Vista de horario del centro y gestión en bloque de una sesión completa | COMPLETADA | 2026-09-21 | Oleada v11 / F-16 · Sin migración: reutiliza `modificarSlot`/`cesarSlot` (T-15) y el criterio de agrupación de `slotsDeLaMismaSesion` (T-15, ya usada por R-17/R-23), sin ninguna RPC nueva. Nueva `dominio/horarioCentro.ts`, `datos/slotsHorario.ts#listarTodosLosSlotsConAlumno` y `ui/pantallaHorarioCentro.ts` (`#/horario-centro`). 24 tests nuevos (1770 en total, antes 1746) |
 | R-26 | Recordatorio local antes de que empiece una sesión | COMPLETADA | 2026-09-22 | Oleada v12 / F-17 · Sin migración: depende solo de T-17/T-22/R-09, las tres `COMPLETADA`. `dominio/recordatorioSesion.ts` (nuevo, puro, 13 tests): `sesionesParaRecordatorio` — sesiones de hoy del profesor que empiezan dentro de `MINUTOS_AVISO_RECORDATORIO_POR_DEFECTO` (5) minutos y no están ya en el conjunto `yaAvisadas` que le pasa quien llama. `nucleo/preferenciaRecordatorio.ts` (nuevo, 4 tests): interruptor persistido por dispositivo sobre `localStorage` (no `sessionStorage`: es un ajuste de dispositivo, no debe borrarse al cerrar la pestaña, mismo patrón de inyección que `almacenSesion.ts` pero con la implementación de `Storage` distinta que le corresponde). `nucleo/notificadorRecordatorio.ts` (nuevo, 4 tests): envoltorio mínimo e inyectable sobre `Notification`/`ServiceWorkerRegistration#showNotification`, mismo criterio que `registroServiceWorker.ts`. `ui/pantallaMiHorario.ts` (T-22): interruptor "Avisarme antes de cada clase" junto al título, pide permiso solo tras el gesto explícito de activarlo, se apaga solo si se deniega, y el mismo `programador.cada(...)` que ya refresca "en curso"/"siguiente" dispara la notificación (10 tests nuevos). `sw.js` gana su primer `notificationclick`: abre/enfoca la aplicación y navega a `#/pasar-lista` o `#/horario` según si la sesión ya empezó, comparando épocas — sin lógica de calendario en el Service Worker. 31 tests nuevos en total (1801 en total, antes 1770) |
 | R-27 | Alta de una sesión de grupo completa | COMPLETADA | 2026-09-22 | Oleada v12 / F-18 · Sin migración: depende de T-15, T-16, T-20, R-25, las cuatro `COMPLETADA`. Botón de página "Nueva sesión de grupo" en `pantallaHorarioCentro.ts` (R-25): día/hora/profesor/asignatura una sola vez, selección múltiple de alumnos con `comboboxAlumnoExtra.ts` (T-20, nuevo `mostrarNota: false`), sin duplicados (requisito 5). `crearSlot` (T-15) una vez por alumno, mismo patrón de reintento parcial que "Editar/Cesar sesión completa" (R-25): un solape del propio alumno rechaza solo su alta, el resto del grupo se crea igual (requisito 4). 10 tests nuevos (1811 en total, antes 1801) |
-| R-28 | Aviso de ausencias repetidas, donde el profesor ya mira | PENDIENTE | 2026-09-22 | Oleada v13 / F-19 · Spec en `ROADMAP_PRODUCTO.md`. Sin migración propia: reutiliza `rankingAusenciasSinJustificarPanelCentro` (R-11, `COMPLETADA`) acotado a los alumnos del profesor. Depende de R-01 (código-completa, bloqueada solo por migración `010`, fila 13 de §3 — mismo precedente que R-04/R-11/R-13/R-15/R-17: no bloquea escribirla) |
+| R-28 | Aviso de ausencias repetidas, donde el profesor ya mira | COMPLETADA | 2026-09-23 | Oleada v13 / F-19 · Sin migración: `dominio/avisoAusenciasRepetidas.ts` (nuevo, puro, 8 tests) reutiliza tal cual `rankingAusenciasSinJustificarPanelCentro` (R-11, requisito 3, ninguna función nueva de conteo) para calcular, por `alumnoId`, quién alcanza `UMBRAL_AVISO_AUSENCIAS_REPETIDAS` (3) ausencias sin justificar en los últimos `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` (30) días. Indicador discreto junto al nombre en `pantallaPasarLista.ts` (T-19, card de slot y de "alumno extra" por igual, 4 tests nuevos) y `pantallaMiHorario.ts` (T-22, cada fila de la vista semanal, 3 tests nuevos), las dos detrás de una dependencia `listarAusenciasRecientes` opcional — sin ella, cada pantalla funciona exactamente como antes de R-28. Wireada en `aplicacion.ts` sobre `datos/asistencia.ts#listarHistoricoAsistenciaCompleto` filtrado por `profesorId` (requisito 3: "nunca a todo el centro", el mismo `SELECT` que ya lee T-17/T-23, sin RPC ni columna nueva, requisito 5). 15 tests nuevos en total (1831 en total, antes 1816) |
 | R-29 | El profesor avisa de que falta un día, sin salir de la aplicación | PENDIENTE | 2026-09-22 | Oleada v13 / F-20 · Spec en `ROADMAP_PRODUCTO.md`. Migración `019_aviso_ausencia_profesor.sql` (tabla nueva, RLS, dos RPC) — no depende de ninguna migración anterior pendiente, pero el runner aplica siempre en orden numérico dentro de la misma invocación |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>

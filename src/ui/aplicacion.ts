@@ -715,6 +715,8 @@ function mostrarAppProfesor(
           listarHistoricoAsistenciaCompleto(app.postgrest, { profesorId: perfil.id, desde, hasta }),
         listarCierresActivos: () => listarCierres(app.postgrest, { estado: 'activos' }),
         listarExcepcionesRecientes: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
+        listarAusenciasRecientes: (desde, hasta) =>
+          listarHistoricoAsistenciaCompleto(app.postgrest, { profesorId: perfil.id, desde, hasta }),
         irAPasarLista: () => {
           router.navegar({ nombre: 'pasar-lista' });
         },
@@ -834,6 +836,8 @@ function mostrarAppProfesor(
       cargarAsistenciaDeHoy: (instante) => listarAsistenciaDeHoy(app.postgrest, perfil.id, instante),
       listarExcepcionesDeHoy: (fecha) => listarExcepcionesDelDiaParaProfesor(app.postgrest, fecha),
       listarPausasDeHoy: () => listarPausasActivasDeMisAlumnos(app.postgrest),
+      listarAusenciasRecientes: (desde, hasta) =>
+        listarHistoricoAsistenciaCompleto(app.postgrest, { profesorId: perfil.id, desde, hasta }),
       registrar: (entrada) =>
         registrarAsistencia(
           { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },

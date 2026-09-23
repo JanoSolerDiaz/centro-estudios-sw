@@ -112,6 +112,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     ...(overrides.tolerancia !== undefined ? { tolerancia: overrides.tolerancia } : {}),
     ...(overrides.listarExcepcionesDeHoy !== undefined ? { listarExcepcionesDeHoy: overrides.listarExcepcionesDeHoy } : {}),
     ...(overrides.listarPausasDeHoy !== undefined ? { listarPausasDeHoy: overrides.listarPausasDeHoy } : {}),
+    ...(overrides.listarAusenciasRecientes !== undefined ? { listarAusenciasRecientes: overrides.listarAusenciasRecientes } : {}),
     ...(overrides.colaOffline !== undefined ? { colaOffline: overrides.colaOffline } : {}),
     ...(overrides.detectorConexion !== undefined ? { detectorConexion: overrides.detectorConexion } : {}),
     ...(overrides.marcarSalidaDisponible !== undefined ? { marcarSalidaDisponible: overrides.marcarSalidaDisponible } : {}),
@@ -429,6 +430,72 @@ void test('sin listarPausasDeHoy inyectada, pasar lista funciona exactamente com
 
   assert.equal(botonesDeTarjeta(contenedor).length, 1);
   assert.doesNotMatch(contenedor.textContent, /En pausa hoy/);
+});
+
+// --- R-28: aviso de ausencias repetidas ----------------------------------------------------------
+
+void test('un alumno con 3 o más ausencias sin justificar recientes muestra el indicador en su card', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const ausencias = ['a', 'b', 'c'].map((sufijo) =>
+    crearAsistencia({ id: `ausencia-${sufijo}`, estado: 'ausente', motivo_justificacion: null, peticion_id: `pet-${sufijo}` }),
+  );
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      listarAusenciasRecientes: () => Promise.resolve(ausencias),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /3 ausencias sin justificar/);
+});
+
+void test('un alumno con menos de 3 ausencias sin justificar no muestra ningún indicador', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  const ausencias = [crearAsistencia({ id: 'ausencia-a', estado: 'ausente', motivo_justificacion: null, peticion_id: 'pet-a' })];
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      listarAusenciasRecientes: () => Promise.resolve(ausencias),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /ausencias sin justificar/);
+});
+
+void test('ningún profesor ve el indicador de un alumno fuera de sus propios slots (los datos ya llegan acotados por profesorId)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slotPropio = crearSlot({ id: 'slot-propio', alumno_id: 'alumno-1' });
+  const ausenciasDelAjeno = ['a', 'b', 'c'].map((sufijo) =>
+    crearAsistencia({ id: `ausencia-ajeno-${sufijo}`, alumno_id: 'alumno-2', estado: 'ausente', motivo_justificacion: null, peticion_id: `pet-ajeno-${sufijo}` }),
+  );
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slotPropio]),
+      // El alumno-2 no es del profesor de este test: no aparece entre los slots propuestos, así
+      // que su indicador (si el servidor lo devolviera por error) no tiene ninguna card donde pintarse.
+      listarAusenciasRecientes: () => Promise.resolve(ausenciasDelAjeno),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /ausencias sin justificar/);
+});
+
+void test('sin listarAusenciasRecientes inyectada, pasar lista funciona exactamente como antes de R-28', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.equal(botonesDeTarjeta(contenedor).length, 1);
+  assert.doesNotMatch(contenedor.textContent, /ausencias sin justificar/);
 });
 
 // --- Requisito 5: ya registrado al abrir --------------------------------------------------------

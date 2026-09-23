@@ -48,9 +48,17 @@
  * el requisito 5 ("una sola vez por sesión y día"); un recargo de página la reinicia, aceptado como
  * límite conocido — mismo tipo de ventana ya aceptada en otras piezas de "mejor esfuerzo" del
  * proyecto (R-07, R-09).
+ *
+ * Indicador de ausencias repetidas (R-28), `deps.listarAusenciasRecientes`, OPCIONAL — sin ella,
+ * "Mi horario" funciona exactamente como antes de R-28 (ninguna fila lleva indicador). Con ella,
+ * `dominio/avisoAusenciasRepetidas.ts#ausenciasRepetidasPorAlumno` (que reutiliza tal cual el
+ * ranking de R-11) calcula, una vez por `cargar()`, qué alumnos alcanzan el umbral en los últimos
+ * `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` días — pintado como una etiqueta discreta junto al
+ * nombre en cada fila, con `pausasHoyCache` (R-21) ya fresca en ese punto reutilizada tal cual para
+ * el mismo filtro de días pausados que ya aplica el panel de centro.
  */
 
-import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro, PausaAlumno } from '../dominio/tipos.ts';
+import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro, PausaAlumno, Asistencia } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import {
   fechaLocalISO,
@@ -66,6 +74,7 @@ import { etiquetaExcepcion, excepcionDelDia } from '../dominio/excepcionSlot.ts'
 import { pausaDeAlumnoEnFecha } from '../dominio/pausaAlumno.ts';
 import { VENTANA_EDICION_TEACHER_DIAS } from '../dominio/asistencia.ts';
 import { sesionesSinPasarLista, type RegistroParaAvisoPasarLista, type SesionSinPasarLista } from '../dominio/avisosPasarLista.ts';
+import { ausenciasRepetidasPorAlumno, VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS } from '../dominio/avisoAusenciasRepetidas.ts';
 import { sesionesParaRecordatorio } from '../dominio/recordatorioSesion.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
@@ -113,6 +122,11 @@ export interface DependenciasPantallaMiHorario {
    * `listarExcepcionesDeHoy` (un único día, para relabelar la fila de hoy), esta trae todo el rango
    * de la ventana de aviso. */
   listarExcepcionesRecientes?(desde: string, hasta: string): Promise<readonly ExcepcionSlot[]>;
+  /** R-28: registros del profesor en los últimos `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` días, de
+   * cualquier estado — mismo criterio que `datos/asistencia.ts#listarHistoricoAsistenciaCompleto`
+   * filtrado por `profesorId` (requisito 3: "nunca a todo el centro"). Opcional: sin ella, "Mi
+   * horario" funciona exactamente como antes de R-28 (ningún indicador de ausencias repetidas). */
+  listarAusenciasRecientes?(desde: Date, hasta: Date): Promise<readonly Asistencia[]>;
   /** Navega a pasar lista (T-19) — sin parámetros: pasar lista siempre muestra lo que toque ahora,
    * que si este botón está visible ya coincide con este slot. */
   irAPasarLista(): void;
@@ -133,6 +147,9 @@ interface EstadoPantalla {
   readonly error: string;
   readonly instante: Date;
   readonly avisos: readonly SesionSinPasarLista[];
+  /** R-28: `alumnoId` → nº de ausencias sin justificar recientes, solo para quienes alcanzan el
+   * umbral — ver `dominio/avisoAusenciasRepetidas.ts`. Recalculado solo al `cargar()`. */
+  readonly ausenciasRepetidas: ReadonlyMap<string, number>;
   /** R-26: reflejo de "preferencia guardada === 'activado' Y permiso del navegador === 'granted'" —
    * nunca solo la preferencia, para que un permiso revocado desde fuera de la aplicación (ajustes
    * del navegador) apague el interruptor en la propia pantalla sin esperar a que la persona lo
@@ -163,6 +180,7 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     error: '',
     instante: deps.reloj.ahora(),
     avisos: [],
+    ausenciasRepetidas: new Map(),
     recordatorioActivado: false,
   });
 
@@ -305,6 +323,18 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     });
   }
 
+  /** R-28: ausencias repetidas de los alumnos propios — ver `dominio/avisoAusenciasRepetidas.ts`.
+   * `pausasHoyCache` ya está fresca en este punto (`cargar()` la asigna justo antes de llamar
+   * aquí), mismo criterio de reutilización de dato ya pedido que `pausas` en `puedeCalcularAvisos`. */
+  async function cargarAusenciasRepetidas(instante: Date): Promise<ReadonlyMap<string, number>> {
+    if (!deps.listarAusenciasRecientes) {
+      return new Map();
+    }
+    const desde = new Date(instante.getTime() - VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS * 24 * 60 * 60 * 1000);
+    const asistencias = await deps.listarAusenciasRecientes(desde, instante);
+    return ausenciasRepetidasPorAlumno({ asistencias, pausas: pausasHoyCache });
+  }
+
   async function cargar(): Promise<void> {
     almacen.actualizar({ cargando: true, error: '' });
     const instante = deps.reloj.ahora();
@@ -319,7 +349,14 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
       excepcionesHoyCache = excepciones;
       pausasHoyCache = pausas;
       const avisos = puedeCalcularAvisos() ? await cargarAvisos(instante) : [];
-      almacen.actualizar({ cargando: false, instante: deps.reloj.ahora(), avisos, recordatorioActivado: calcularRecordatorioActivado() });
+      const ausenciasRepetidas = await cargarAusenciasRepetidas(instante);
+      almacen.actualizar({
+        cargando: false,
+        instante: deps.reloj.ahora(),
+        avisos,
+        ausenciasRepetidas,
+        recordatorioActivado: calcularRecordatorioActivado(),
+      });
     } catch (error) {
       almacen.actualizar({ cargando: false, error: mensajeAmigable(error) });
     }
@@ -398,6 +435,11 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
       crearElemento(documento, 'span', { texto: slot.asignatura_o_grupo ?? '—' }),
       crearElemento(documento, 'span', { texto: nombreCompletoAlumno(slot.alumno) }),
     );
+    // R-28: indicador discreto junto al nombre — ver dominio/avisoAusenciasRepetidas.ts.
+    const ausencias = almacen.obtener().ausenciasRepetidas.get(slot.alumno.id);
+    if (ausencias !== undefined) {
+      li.append(crearElemento(documento, 'span', { texto: `⚠ ${String(ausencias)} ausencias sin justificar` }));
+    }
     // R-06/R-21, requisito 6 de R-21: una excepción o una pausa de hoy mandan sobre "en
     // curso"/"siguiente" — nunca ninguna combinación de las dos a la vez, y "Pasar lista" no se
     // ofrece (para que el titular no piense que tiene que pasar lista sobre una clase cancelada,

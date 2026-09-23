@@ -37,6 +37,39 @@
 
 ---
 
+### Sesión 2026-09-23 (rutina programada de programador) — implementa R-28 (aviso de ausencias repetidas)
+**Tarea(s):** R-28 — Aviso de ausencias repetidas, donde el profesor ya mira (Oleada v13/F-19)
+**Estado resultante:** R-28 pasa de `PENDIENTE` a `COMPLETADA` en §1 de `SEGUIMIENTO.md`
+**Commits a `develop`:** el de esta sesión (código + tests + documentos de roadmap)
+**Migraciones aplicadas:** ninguna — R-28 declara `Migración: No` en su spec, sin tabla ni RPC nueva
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/dominio/avisoAusenciasRepetidas.ts` (nuevo), `src/dominio/avisoAusenciasRepetidas.test.ts`
+(nuevo, 8 tests), `src/ui/pantallaPasarLista.ts` (indicador en card de slot y "alumno extra",
+dependencia opcional `listarAusenciasRecientes`), `src/ui/pantallaPasarLista.test.ts` (4 tests nuevos),
+`src/ui/pantallaMiHorario.ts` (indicador en cada fila de la vista semanal, misma dependencia opcional),
+`src/ui/pantallaMiHorario.test.ts` (3 tests nuevos), `src/ui/aplicacion.ts` (wireadas las dos pantallas
+sobre `listarHistoricoAsistenciaCompleto`), `roadmap/SEGUIMIENTO.md` (cabecera, fila de R-28 en §1),
+`roadmap/DECISIONES_TECNICAS.md` (dos filas nuevas), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1831/1831, antes 1816 — contenedor sin
+`node_modules`, `npm ci` recuperó los 130 paquetes declarados, 0 vulnerabilidades) · build ✅
+**Health check post-deploy:** N/A — sin migración ni despliegue, sesión sobre `develop`
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-23, R-28): el
+`alumnosPorId` vacío pasado a `rankingAusenciasSinJustificarPanelCentro` (la función reutilizada solo
+necesita el conteo por `alumnoId`, nunca el nombre que ese mapa resuelve) y la ventana propia de 30
+días de R-28 en vez de ampliar la de 8 días que ya pide R-13 para un propósito distinto
+**Hallazgos del auditor atendidos:** ninguno — revisado `auditoriacontinua.md`: solo **#8** (alta,
+RGPD artículo 9 en R-02) sigue `ABIERTO`, decisión reservada al dueño (pregunta #16 de §6), sin
+ninguna vía de esta sesión; no genera P-XX urgente
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la siguiente sesión de programador puede tomar R-29 (escribe y empuja
+`019_aviso_ausencia_profesor.sql`, abre fila nueva en §3 a la espera de que el dueño la aplique) o
+cualquier otra tarea que la cola normal habilite. Sigue pendiente que el dueño aplique las migraciones
+`010` a `018` (filas 13-21 de §3) y responda la pregunta #16 de §6 (hallazgo #8) — ninguna de las dos
+cambia con esta sesión
+
+---
+
 ### Sesión 2026-09-22 (ciclo programado del Product Manager, 29) — cierra Oleada v12, abre Oleada v13 (R-28, R-29)
 **Tarea(s):** ninguna T-XX/P-XX de código — ciclo de producto. Añadidas **R-28** y **R-29** (spec
 completa) a `roadmap/ROADMAP_PRODUCTO.md`

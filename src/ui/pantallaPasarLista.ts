@@ -75,6 +75,14 @@
  * en `colaOffline` (requisito 4: sobrevive a un cierre de pestaña, porque lo que sobrevive es el
  * ALMACÉN inyectado, nunca el estado en memoria de esta función) y repinta esas cards como
  * `'pendiente_offline'` antes de intentar vaciar la cola si ya hay conexión.
+ *
+ * **R-28 (aviso de ausencias repetidas), `deps.listarAusenciasRecientes`, OPCIONAL** — sin ella,
+ * esta pantalla funciona exactamente como antes de R-28 (ninguna card lleva indicador). Con ella,
+ * `dominio/avisoAusenciasRepetidas.ts#ausenciasRepetidasPorAlumno` (que reutiliza tal cual el
+ * ranking de R-11) calcula, una vez por `cargar()`, qué alumnos de la ventana de
+ * `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` alcanzan el umbral — pintado como una etiqueta discreta
+ * junto al nombre, en la card de slot y en la de "alumno extra" por igual, nunca un toque ni una
+ * pantalla nueva.
  */
 
 import type { Rol, SlotHorario } from '../dominio/tipos.ts';
@@ -102,6 +110,7 @@ import { inicialesAlumno, colorMonograma } from '../dominio/avatarAlumno.ts';
 import { puedeUsarPasarLista } from '../dominio/permisosUi.ts';
 import { slotsEfectivosDelDia } from '../dominio/excepcionSlot.ts';
 import { excluirAlumnosPausadosHoy, alumnosPausadosHoy, type AlumnoPausadoHoy } from '../dominio/pausaAlumno.ts';
+import { ausenciasRepetidasPorAlumno, VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS } from '../dominio/avisoAusenciasRepetidas.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
@@ -143,6 +152,11 @@ export interface DependenciasPantallaPasarLista {
    * (requisito 6: "que no ha dejado de existir en ese slot ese día"). Opcional: sin ella, pasar
    * lista funciona exactamente como antes de R-21 (ningún alumno se excluye por pausa). */
   listarPausasDeHoy?(): Promise<readonly PausaAlumno[]>;
+  /** R-28: registros del profesor en los últimos `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` días, de
+   * cualquier estado — mismo criterio que `datos/asistencia.ts#listarHistoricoAsistenciaCompleto`
+   * filtrado por `profesorId` (requisito 3: "nunca a todo el centro"). Opcional: sin ella, pasar
+   * lista funciona exactamente como antes de R-28 (ningún indicador de ausencias repetidas). */
+  listarAusenciasRecientes?(desde: Date, hasta: Date): Promise<readonly Asistencia[]>;
   registrar(entrada: RegistrarAsistenciaEntrada): Promise<Asistencia>;
   /** Marca ausente a un alumno de un slot (R-01, requisito 1) — control secundario de la card,
    * distinguible del toque simple que registra presencia. */
@@ -278,6 +292,10 @@ interface EstadoPantalla {
    * (requisito 6). Recalculado solo al `cargar()`, igual que `excepcionesHoyCache`: la pausa de un
    * alumno no cambia dentro de la misma sesión de pantalla abierta. */
   readonly pausadosHoy: readonly AlumnoPausadoHoy[];
+  /** R-28: `alumnoId` → nº de ausencias sin justificar recientes, solo para quienes alcanzan el
+   * umbral — ver `dominio/avisoAusenciasRepetidas.ts`. Recalculado solo al `cargar()`, igual que
+   * `pausadosHoy`. */
+  readonly ausenciasRepetidas: ReadonlyMap<string, number>;
 }
 
 function formatearMinutos(minutos: number): string {
@@ -368,6 +386,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     cierreEnBloque: { confirmando: false, enviando: false, claves: [] },
     marcarPresenteEnBloque: { confirmando: false, enviando: false, claves: [] },
     pausadosHoy: [],
+    ausenciasRepetidas: new Map(),
   });
 
   const zonaError = crearZonaMensaje(documento, 'alert');
@@ -472,7 +491,12 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
    * presencia; "Marcar ausente" es un `<button>` HERMANO, nunca anidado dentro del principal (un
    * `<button>` no puede contener otro elemento interactivo válido) — cumple el requisito 1 de R-01:
    * un control "distinguible del toque simple", nunca el mismo gesto con doble significado. */
-  function crearTarjetaElemento(clave: string, tarjeta: EstadoTarjeta, avatares: ReadonlyMap<string, string>): HTMLElement {
+  function crearTarjetaElemento(
+    clave: string,
+    tarjeta: EstadoTarjeta,
+    avatares: ReadonlyMap<string, string>,
+    ausenciasRepetidas: ReadonlyMap<string, number>,
+  ): HTMLElement {
     const { alumno } = tarjeta;
     const resuelta =
       tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente' || tarjeta.fase === 'enviando' || tarjeta.fase === 'pendiente_offline';
@@ -518,11 +542,21 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       boton.append(crearElemento(documento, 'span', { texto: alumno.segundo_apellido }));
     }
 
+    // R-28: indicador discreto junto al nombre — ver dominio/avisoAusenciasRepetidas.ts.
+    const ausencias = ausenciasRepetidas.get(alumno.id);
+    if (ausencias !== undefined) {
+      const indicadorAusencias = crearElemento(documento, 'span', { texto: `⚠ ${String(ausencias)} ausencias sin justificar` });
+      indicadorAusencias.style.fontSize = '12px';
+      indicadorAusencias.style.color = '#92400E';
+      boton.append(indicadorAusencias);
+    }
+
     const textoEstado = textoEstadoTarjeta(tarjeta, zonaHoraria);
     boton.append(crearElemento(documento, 'span', { texto: textoEstado }));
+    const sufijoAusencias = ausencias !== undefined ? ` ${String(ausencias)} ausencias sin justificar recientes.` : '';
     boton.setAttribute(
       'aria-label',
-      `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}. ${textoEstado}`,
+      `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}. ${textoEstado}.${sufijoAusencias}`,
     );
     boton.disabled = resuelta;
 
@@ -667,7 +701,12 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
    * alumno+slot+día con la que releer: un reintento que choca con `Conflicto` se trata como
    * cualquier otro error (limitación documentada en DECISIONES_TECNICAS.md), y "Actualizar" en la
    * próxima sesión de pasar lista lo mostraría de todas formas a través de `listarAsistenciaDeHoy`. */
-  function crearTarjetaExtraElemento(clave: string, extra: EstadoTarjetaExtra, avatares: ReadonlyMap<string, string>): HTMLButtonElement {
+  function crearTarjetaExtraElemento(
+    clave: string,
+    extra: EstadoTarjetaExtra,
+    avatares: ReadonlyMap<string, string>,
+    ausenciasRepetidas: ReadonlyMap<string, number>,
+  ): HTMLButtonElement {
     const { alumno } = extra;
     const boton = documento.createElement('button');
     boton.type = 'button';
@@ -704,11 +743,21 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       boton.append(crearElemento(documento, 'span', { texto: extra.nota }));
     }
 
+    // R-28: mismo indicador discreto que la card de slot — ver dominio/avisoAusenciasRepetidas.ts.
+    const ausencias = ausenciasRepetidas.get(alumno.id);
+    if (ausencias !== undefined) {
+      const indicadorAusencias = crearElemento(documento, 'span', { texto: `⚠ ${String(ausencias)} ausencias sin justificar` });
+      indicadorAusencias.style.fontSize = '12px';
+      indicadorAusencias.style.color = '#92400E';
+      boton.append(indicadorAusencias);
+    }
+
     const textoEstado = textoEstadoTarjeta(extra, zonaHoraria);
     boton.append(crearElemento(documento, 'span', { texto: textoEstado }));
+    const sufijoAusencias = ausencias !== undefined ? ` ${String(ausencias)} ausencias sin justificar recientes.` : '';
     boton.setAttribute(
       'aria-label',
-      `Extra. ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}. ${textoEstado}`,
+      `Extra. ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}. ${textoEstado}.${sufijoAusencias}`,
     );
     boton.disabled = extra.fase === 'registrado' || extra.fase === 'enviando' || extra.fase === 'pendiente_offline';
 
@@ -788,7 +837,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const claveEnfocada = foco?.clave ?? null;
     rejilla.textContent = '';
     for (const [clave, tarjeta] of estado.tarjetas) {
-      const elemento = crearTarjetaElemento(clave, tarjeta, estado.avatares);
+      const elemento = crearTarjetaElemento(clave, tarjeta, estado.avatares, estado.ausenciasRepetidas);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
         const selector =
@@ -805,7 +854,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     // Los "alumno extra" (T-20) van al final de la MISMA rejilla — "una card más en la lista de la
     // sesión" (requisito 5), no una sección aparte — distinguidos por su propio marcado visual.
     for (const [clave, extra] of estado.extras) {
-      const elemento = crearTarjetaExtraElemento(clave, extra, estado.avatares);
+      const elemento = crearTarjetaExtraElemento(clave, extra, estado.avatares, estado.ausenciasRepetidas);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
         elemento.focus();
@@ -889,11 +938,13 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const instante = deps.reloj.ahora();
     const fechaHoy = fechaLocalISO(instante, zonaHoraria);
     try {
-      const [slots, asistenciaHoy, excepcionesHoy, pausasHoy] = await Promise.all([
+      const desdeAusencias = new Date(instante.getTime() - VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS * 24 * 60 * 60 * 1000);
+      const [slots, asistenciaHoy, excepcionesHoy, pausasHoy, ausenciasRecientes] = await Promise.all([
         deps.cargarPropuesta(),
         deps.cargarAsistenciaDeHoy(instante),
         deps.listarExcepcionesDeHoy ? deps.listarExcepcionesDeHoy(fechaHoy) : Promise.resolve([]),
         deps.listarPausasDeHoy ? deps.listarPausasDeHoy() : Promise.resolve([]),
+        deps.listarAusenciasRecientes ? deps.listarAusenciasRecientes(desdeAusencias, instante) : Promise.resolve([]),
       ]);
       // R-06: un slot propio cancelado/sustituido hoy se excluye; uno ajeno que este profesor
       // cubre hoy como sustituto se añade — ver dominio/excepcionSlot.ts#slotsEfectivosDelDia.
@@ -903,8 +954,10 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const pausadosHoy = alumnosPausadosHoy(slotsEfectivos, fechaHoy, pausasHoy);
       slotsCache = excluirAlumnosPausadosHoy(slotsEfectivos, fechaHoy, pausasHoy);
       registrosHoyCache = registrosDeHoyPorAlumnoSlot(asistenciaHoy);
+      // R-28: mismo criterio de pausas (R-21) que el ranking del panel de centro.
+      const ausenciasRepetidas = ausenciasRepetidasPorAlumno({ asistencias: ausenciasRecientes, pausas: pausasHoy, zonaHoraria });
       aplicarRecalculo(instante);
-      almacen.actualizar({ cargando: false, pausadosHoy });
+      almacen.actualizar({ cargando: false, pausadosHoy, ausenciasRepetidas });
       void cargarAvataresPendientes();
     } catch (error) {
       almacen.actualizar({ cargando: false, errorCarga: mensajeAmigable(error) });
