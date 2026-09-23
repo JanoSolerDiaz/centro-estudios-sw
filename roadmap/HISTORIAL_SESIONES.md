@@ -37,6 +37,30 @@
 
 ---
 
+### Sesión 2026-09-23 (rutina programada de programador, tercera pasada) — cola vacía, nada que hacer
+**Tarea(s):** ninguna — §1 sin ninguna fila `PENDIENTE` (todo `COMPLETADA` o `BLOQUEADA` por
+migración, §3, filas 13-22, o por el paso a producción de T-25, fila 12), §5 sin ningún P-XX
+pendiente, y el único hallazgo `ABIERTO` de `auditoriacontinua.md` (#8, alta, RGPD artículo 9)
+sigue bloqueado en la pregunta #16 de §6 sin ninguna vía de esta sesión
+**Estado resultante:** sin cambios de estado en §1
+**Commits a `develop`:** el de esta sesión (solo bitácora — `SEGUIMIENTO.md` §1 cabecera y
+`HISTORIAL_SESIONES.md`)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera/bitácora), este documento
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1863/1863, mismo número que la sesión
+anterior — ningún fichero de `src/` cambió) · build ✅
+**Health check post-deploy:** N/D — sin deploy, sesión sin cambios de código
+**Decisiones tomadas:** ninguna nueva
+**Hallazgos del auditor atendidos:** ninguno — #8 sigue `ABIERTO`, sin vía sin el dueño
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna — las 32 existentes siguen `RESUELTA`/`IMPLEMENTADA`
+**Próximo paso:** la siguiente sesión de programador seguirá sin cola normal propia hasta que el
+dueño aplique alguna de las migraciones pendientes (`010`-`019`, filas 13-22 de §3), responda la
+pregunta #16 de §6, o el PM abra la siguiente oleada
+
+---
+
 ### Sesión 2026-09-23 (rutina programada de programador, segunda pasada) — implementa R-29 (aviso de ausencia del profesor)
 **Tarea(s):** R-29 — El profesor avisa de que falta un día, sin salir de la aplicación (Oleada v13/F-20)
 **Estado resultante:** R-29 pasa de `PENDIENTE` a `BLOQUEADA — pendiente aplicar migración 019` en §1
