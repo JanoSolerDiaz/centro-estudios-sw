@@ -27,9 +27,28 @@
  * misma guarda de la pantalla completa (`puedeVerPanelCentro`) — no hace falta una segunda función
  * de `permisosUi.ts`, mismo criterio que R-15 (requisito 5 de R-16 ya lo cubre la inaccesibilidad
  * estructural de todo el panel).
+ *
+ * Bloque 5, avisos de ausencia del profesor pendientes (R-29, requisito 3): `deps.listarAvisosAusenciaPendientes`/
+ * `deps.marcarAvisoAusenciaAtendido`, OPCIONALES JUNTOS — mismo criterio que el par
+ * `notificador`/`preferenciaRecordatorio` de R-26 en `pantallaMiHorario.ts`: sin los dos, el panel
+ * funciona exactamente como antes de R-29 (ningún bloque nuevo). Ya vienen ordenados por
+ * `fecha_sesion` (la propia consulta, `datos/avisosAusenciaProfesor.ts`); los nombres de profesor se
+ * resuelven reutilizando `resolverNombresProfesores` sobre los ids de los avisos, fusionados con los
+ * de los slots del bloque 1a en una única llamada (nunca una petición aparte). «Marcar atendido» no
+ * tiene más acción asociada (requisito 3, literal) y quita el aviso de la lista al confirmar sin
+ * volver a pedir toda la página.
  */
 
-import type { Rol, CentroEstudios, CierreCentro, ExcepcionSlot, PausaAlumno, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
+import type {
+  Rol,
+  CentroEstudios,
+  CierreCentro,
+  ExcepcionSlot,
+  PausaAlumno,
+  PersonaReferencia,
+  SlotHorario,
+  AvisoAusenciaProfesor,
+} from '../dominio/tipos.ts';
 import { puedeVerPanelCentro } from '../dominio/permisosUi.ts';
 import {
   sesionesDeHoyPanelCentro,
@@ -109,6 +128,12 @@ export interface DependenciasPantallaPanelCentro {
   listarTodosLosCentros(): Promise<readonly CentroEstudios[]>;
   listarTodosLosAlumnos(): Promise<readonly AlumnoParaExportacionPanel[]>;
   listarPersonasReferenciaDeAlumnos(alumnoIds: readonly string[]): Promise<ReadonlyMap<string, readonly PersonaReferencia[]>>;
+  /** R-29, requisito 3: avisos `pendiente` de cualquier profesor, ya ordenados por `fecha_sesion`.
+   * Opcional JUNTO a `marcarAvisoAusenciaAtendido` — sin las dos, no aparece ningún bloque nuevo. */
+  listarAvisosAusenciaPendientes?(): Promise<readonly AvisoAusenciaProfesor[]>;
+  /** R-29, requisito 3: marca un aviso como atendido, sin más acción asociada. Opcional junto a
+   * `listarAvisosAusenciaPendientes`. */
+  marcarAvisoAusenciaAtendido?(avisoId: string): Promise<AvisoAusenciaProfesor>;
 }
 
 export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: DependenciasPantallaPanelCentro): void {
@@ -134,6 +159,11 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
   let sesionesHoy: readonly SesionHoyPanelCentro[] = [];
   let rankingAusencias: readonly FilaRankingAusenciasPanelCentro[] = [];
   let rankingProfesores: readonly FilaRankingAsistenciaProfesorPanelCentro[] = [];
+  // R-29: solo se rellena cuando las dos dependencias del bloque 5 están presentes (ver cabecera).
+  let avisosAusenciaPendientes: readonly AvisoAusenciaProfesor[] = [];
+  let nombresProfesoresAviso: ReadonlyMap<string, string> = new Map();
+  const avisosAusenciaAtendiendo = new Set<string>();
+  let errorAvisoAusencia = '';
 
   const titulo = crearElemento(documento, 'h1', { texto: 'Panel de centro' });
   const zonaError = crearZonaMensaje(documento, 'alert');
@@ -153,25 +183,33 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
 
       const filtroBase: Omit<FiltroHistorico, 'pagina' | 'porPagina' | 'desde' | 'hasta'> = centroId ? { centroId } : {};
 
-      const [slots, cierres, excepcionesHoy, excepcionesRango, pausas, registrosHoyBruto, registrosRangoBruto] = await Promise.all([
-        deps.listarSlotsDeAlumnos(alumnoIds),
-        deps.listarCierresActivos(),
-        deps.listarExcepcionesEnRango(hoyIso, hoyIso),
-        deps.listarExcepcionesEnRango(filtroDesde, filtroHasta),
-        deps.listarPausasActivasDeAlumnos(alumnoIds),
-        deps.listarHistoricoCompleto({
-          ...filtroBase,
-          desde: new Date(`${hoyIso}T00:00:00.000Z`),
-          hasta: new Date(`${hoyIso}T00:00:00.000Z`),
-        }),
-        deps.listarHistoricoCompleto({
-          ...filtroBase,
-          desde: new Date(`${filtroDesde}T00:00:00.000Z`),
-          hasta: new Date(`${filtroHasta}T00:00:00.000Z`),
-        }),
-      ]);
+      const [slots, cierres, excepcionesHoy, excepcionesRango, pausas, registrosHoyBruto, registrosRangoBruto, avisosAusencia] =
+        await Promise.all([
+          deps.listarSlotsDeAlumnos(alumnoIds),
+          deps.listarCierresActivos(),
+          deps.listarExcepcionesEnRango(hoyIso, hoyIso),
+          deps.listarExcepcionesEnRango(filtroDesde, filtroHasta),
+          deps.listarPausasActivasDeAlumnos(alumnoIds),
+          deps.listarHistoricoCompleto({
+            ...filtroBase,
+            desde: new Date(`${hoyIso}T00:00:00.000Z`),
+            hasta: new Date(`${hoyIso}T00:00:00.000Z`),
+          }),
+          deps.listarHistoricoCompleto({
+            ...filtroBase,
+            desde: new Date(`${filtroDesde}T00:00:00.000Z`),
+            hasta: new Date(`${filtroHasta}T00:00:00.000Z`),
+          }),
+          deps.listarAvisosAusenciaPendientes && deps.marcarAvisoAusenciaAtendido
+            ? deps.listarAvisosAusenciaPendientes()
+            : Promise.resolve([]),
+        ]);
+      avisosAusenciaPendientes = avisosAusencia;
 
-      const nombresProfesores = await deps.resolverNombresProfesores([...new Set(slots.map((slot) => slot.profesor_id))]);
+      const nombresProfesores = await deps.resolverNombresProfesores([
+        ...new Set([...slots.map((slot) => slot.profesor_id), ...avisosAusencia.map((aviso) => aviso.profesor_id)]),
+      ]);
+      nombresProfesoresAviso = nombresProfesores;
 
       // Vuelve a acotar al alcance elegido (requisito 3): la respuesta del servidor para un centro
       // puede incluir alumnos ya de baja (el histórico de T-23 no filtra por `activo`), que este
@@ -318,9 +356,71 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
     return tabla;
   }
 
+  /** R-29: las dos dependencias del bloque 5 vienen juntas o no vienen — mismo criterio que el par
+   * `notificador`/`preferenciaRecordatorio` de R-26 en `pantallaMiHorario.ts`. */
+  function bloqueAvisosAusenciaDisponible(): boolean {
+    return deps.listarAvisosAusenciaPendientes !== undefined && deps.marcarAvisoAusenciaAtendido !== undefined;
+  }
+
+  function pintarTablaAvisosAusencia(): HTMLElement {
+    if (avisosAusenciaPendientes.length === 0) {
+      return crearElemento(documento, 'p', { texto: 'Ningún profesor ha avisado de una ausencia pendiente de atender.' });
+    }
+    const tabla = documento.createElement('table');
+    const cabecera = documento.createElement('thead');
+    const filaCabecera = documento.createElement('tr');
+    for (const texto of ['Profesor', 'Fecha', 'Hora', 'Asignatura / grupo', 'Motivo', '']) {
+      filaCabecera.append(crearElemento(documento, 'th', { texto, atributos: { scope: 'col' } }));
+    }
+    cabecera.append(filaCabecera);
+    const cuerpo = documento.createElement('tbody');
+    for (const aviso of avisosAusenciaPendientes) {
+      const fila = documento.createElement('tr');
+      fila.append(
+        crearElemento(documento, 'td', { texto: nombresProfesoresAviso.get(aviso.profesor_id) ?? aviso.profesor_id }),
+        crearElemento(documento, 'td', { texto: aviso.fecha_sesion }),
+        crearElemento(documento, 'td', { texto: `${aviso.hora_inicio}–${aviso.hora_fin}` }),
+        crearElemento(documento, 'td', { texto: aviso.asignatura_o_grupo ?? '' }),
+        crearElemento(documento, 'td', { texto: aviso.motivo ?? '' }),
+      );
+      const celdaAccion = documento.createElement('td');
+      const atendiendo = avisosAusenciaAtendiendo.has(aviso.id);
+      const botonAtendido = crearBoton(documento, atendiendo ? 'Marcando…' : 'Marcar atendido', 'button');
+      botonAtendido.disabled = atendiendo;
+      botonAtendido.addEventListener('click', () => {
+        void marcarAvisoAusenciaAtendidoYRepintar(aviso.id);
+      });
+      celdaAccion.append(botonAtendido);
+      fila.append(celdaAccion);
+      cuerpo.append(fila);
+    }
+    tabla.append(cabecera, cuerpo);
+    return tabla;
+  }
+
+  /** R-29, requisito 3: "sin más acción asociada" — solo quita el aviso de la lista al confirmar,
+   * sin recargar el resto del panel. */
+  async function marcarAvisoAusenciaAtendidoYRepintar(avisoId: string): Promise<void> {
+    if (!deps.marcarAvisoAusenciaAtendido || avisosAusenciaAtendiendo.has(avisoId)) {
+      return;
+    }
+    avisosAusenciaAtendiendo.add(avisoId);
+    errorAvisoAusencia = '';
+    pintar();
+    try {
+      await deps.marcarAvisoAusenciaAtendido(avisoId);
+      avisosAusenciaPendientes = avisosAusenciaPendientes.filter((aviso) => aviso.id !== avisoId);
+    } catch (error) {
+      errorAvisoAusencia = mensajeAmigable(error);
+    }
+    avisosAusenciaAtendiendo.delete(avisoId);
+    pintar();
+  }
+
   const seccionSesionesHoy = documento.createElement('section');
   const seccionRankingAusencias = documento.createElement('section');
   const seccionRankingProfesores = documento.createElement('section');
+  const seccionAvisosAusencia = documento.createElement('section');
 
   function pintar(): void {
     zonaError.textContent = errorCarga;
@@ -342,6 +442,17 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
       crearElemento(documento, 'h2', { texto: 'Profesores con menor proporción de sesiones registradas' }),
       cargando ? crearElemento(documento, 'p', { texto: 'Cargando…' }) : pintarTablaRankingProfesores(),
     );
+
+    seccionAvisosAusencia.textContent = '';
+    if (bloqueAvisosAusenciaDisponible()) {
+      seccionAvisosAusencia.append(
+        crearElemento(documento, 'h2', { texto: 'Avisos de ausencia pendientes' }),
+        cargando ? crearElemento(documento, 'p', { texto: 'Cargando…' }) : pintarTablaAvisosAusencia(),
+      );
+      if (errorAvisoAusencia) {
+        seccionAvisosAusencia.append(crearElemento(documento, 'p', { texto: errorAvisoAusencia }));
+      }
+    }
   }
 
   // --- Bloque 4: exportación completa del centro (R-16) ---
@@ -417,6 +528,7 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
     seccionSesionesHoy,
     seccionRankingAusencias,
     seccionRankingProfesores,
+    seccionAvisosAusencia,
     seccionExportacion,
   );
 

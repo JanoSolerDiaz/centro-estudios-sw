@@ -37,6 +37,53 @@
 
 ---
 
+### Sesión 2026-09-23 (rutina programada de programador, segunda pasada) — implementa R-29 (aviso de ausencia del profesor)
+**Tarea(s):** R-29 — El profesor avisa de que falta un día, sin salir de la aplicación (Oleada v13/F-20)
+**Estado resultante:** R-29 pasa de `PENDIENTE` a `BLOQUEADA — pendiente aplicar migración 019` en §1
+de `SEGUIMIENTO.md`
+**Commits a `develop`:** el de esta sesión (migración + código + tests + documentos de roadmap)
+**Migraciones aplicadas:** ninguna — `db/019_aviso_ausencia_profesor.sql` escrita y empujada, todavía
+sin aplicar (fila 22, nueva, de §3 de `SEGUIMIENTO.md`)
+**Propagación a prod pendiente:** ninguna nueva — `019` es posterior a T-25 y no forma parte de sus
+diez migraciones
+**Archivos creados/modificados:** `db/019_aviso_ausencia_profesor.sql` (nuevo: tabla
+`aviso_ausencia_profesor`, RLS, RPC `avisar_ausencia_profesor`/`marcar_aviso_ausencia_atendido`),
+`db/pruebas_rls.sql` (nueva sección 8p, más `aviso_ausencia_profesor` añadida a los barridos de
+`student`/`TRUNCATE`), `db/MODELO.md` (sección nueva), `db/APLICADAS.md` (nota de pendiente),
+`src/dominio/tipos.ts` (`AvisoAusenciaProfesor`/`EstadoAvisoAusenciaProfesor`),
+`src/dominio/avisoAusenciaProfesor.ts` (nuevo, puro), `src/dominio/avisoAusenciaProfesor.test.ts`
+(nuevo, 10 tests), `src/datos/avisosAusenciaProfesor.ts` (nuevo),
+`src/datos/avisosAusenciaProfesor.test.ts` (nuevo, 7 tests), `src/ui/pantallaMiHorario.ts` (botón
+"Avisar que no puedo dar esta clase", dependencia opcional `avisarAusenciaProfesor`),
+`src/ui/pantallaMiHorario.test.ts` (9 tests nuevos), `src/ui/pantallaPanelCentro.ts` (bloque nuevo
+"Avisos de ausencia pendientes", dependencias opcionales JUNTAS `listarAvisosAusenciaPendientes`/
+`marcarAvisoAusenciaAtendido`), `src/ui/pantallaPanelCentro.test.ts` (6 tests nuevos),
+`src/ui/aplicacion.ts` (wireadas las dos pantallas), `roadmap/SEGUIMIENTO.md` (cabecera, fila de R-29
+en §1, fila 22 nueva en §3), `roadmap/DECISIONES_TECNICAS.md` (cuatro filas nuevas más la fila de la
+matriz rol×tabla×operación), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1863/1863, antes 1831 — contenedor sin
+`node_modules`, `npm ci` recuperó los 130 paquetes declarados, 0 vulnerabilidades) · build ✅
+**Health check post-deploy:** N/A — sin migración aplicada ni despliegue, sesión sobre `develop`
+**Decisiones tomadas:** cuatro filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-23, R-29):
+denormalizar `hora_inicio`/`hora_fin`/`asignatura_o_grupo` en vez de una columna `uuid[]`/tabla puente
+para "slot o slots afectados"; la ventana "nunca sobre una sesión de hoy ya en curso" impuesta también
+en el servidor, no solo en el cliente; y el estado transitorio del formulario "Avisar..." fuera de
+`EstadoPantalla` para no perder el foco del motivo en cada tecla (mismo criterio que R-26). Más la fila
+nueva de `aviso_ausencia_profesor` en la matriz rol×tabla×operación
+**Hallazgos del auditor atendidos:** ninguno — revisado `auditoriacontinua.md`: solo **#8** (alta, RGPD
+artículo 9 en R-02) sigue `ABIERTO`, decisión reservada al dueño (pregunta #16 de §6), sin ninguna vía
+de esta sesión; no genera P-XX urgente
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** con R-29 código-completa mientras espera la migración `019`, y sin ninguna otra fila
+`PENDIENTE` en §1, la siguiente sesión de programador debe revisar primero si el dueño ha aplicado
+alguna de las migraciones bloqueadas (filas 13-22 de §3) o respondido la pregunta #16 de §6 (hallazgo
+#8); si no, no queda ningún trabajo de código nuevo que la cola normal habilite por sí sola —
+verificación pre-push igualmente recomendada para confirmar que el estado sigue verde, mismo criterio
+que las pasadas de "cola vacía" anteriores
+
+---
+
 ### Sesión 2026-09-23 (rutina programada de programador) — implementa R-28 (aviso de ausencias repetidas)
 **Tarea(s):** R-28 — Aviso de ausencias repetidas, donde el profesor ya mira (Oleada v13/F-19)
 **Estado resultante:** R-28 pasa de `PENDIENTE` a `COMPLETADA` en §1 de `SEGUIMIENTO.md`

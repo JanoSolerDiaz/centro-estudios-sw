@@ -201,6 +201,35 @@ export interface BajaProfesor {
   readonly actualizado_en: string;
 }
 
+export type EstadoAvisoAusenciaProfesor = 'pendiente' | 'atendido';
+
+/** Aviso (R-29, `db/019_aviso_ausencia_profesor.sql`) de que un profesor no podrá dar una sesión
+ * futura propia — puramente informativo: no crea, modifica ni cancela ningún `slot_horario` ni
+ * `excepcion_slot` por sí mismo; la sustitución/cancelación real la sigue declarando el
+ * administrador con R-06. Una fila representa LA SESIÓN (posiblemente varios alumnos, un
+ * `slot_horario` por alumno, T-15), no un alumno concreto: `slot_id` es el slot REPRESENTATIVO
+ * desde el que el profesor pulsó «Avisar», y `hora_inicio`/`hora_fin`/`asignatura_o_grupo` quedan
+ * denormalizados de él en el alta (nunca del cliente) para identificar la sesión completa.
+ * `fecha_sesion` en formato `AAAA-MM-DD`. `motivo` SIEMPRE texto libre opcional — nunca una lista
+ * cerrada ni ninguna opción que categorice salud (mismo criterio que `PausaAlumno.motivo`, lección
+ * del hallazgo #8/pregunta #16 de §6 sobre R-02). Baja lógica (`estado`), nunca DELETE:
+ * `atendido_por`/`atendido_en` solo se rellenan a la vez, al marcarlo `'atendido'`. */
+export interface AvisoAusenciaProfesor {
+  readonly id: string;
+  readonly profesor_id: string;
+  readonly slot_id: string;
+  readonly fecha_sesion: string;
+  readonly hora_inicio: string;
+  readonly hora_fin: string;
+  readonly asignatura_o_grupo: string | null;
+  readonly motivo: string | null;
+  readonly estado: EstadoAvisoAusenciaProfesor;
+  readonly atendido_por: string | null;
+  readonly atendido_en: string | null;
+  readonly registrado_en: string;
+  readonly actualizado_en: string;
+}
+
 export type OrigenAsistencia = 'slot' | 'manual';
 export type EstadoAsistencia = 'valida' | 'anulada' | 'ausente';
 /** Lista corta cerrada de motivos de justificación de una ausencia (R-02, requisito 1) — el `CHECK

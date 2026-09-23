@@ -10,7 +10,7 @@ import {
 import { crearRelojFijo } from '../nucleo/reloj.ts';
 import { SinPermiso } from '../datos/erroresDominio.ts';
 import type { AlumnoParaPanelCentro } from '../dominio/panelCentro.ts';
-import type { Asistencia, CentroEstudios, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
+import type { Asistencia, AvisoAusenciaProfesor, CentroEstudios, PersonaReferencia, SlotHorario } from '../dominio/tipos.ts';
 import type { Descargador } from './dom.ts';
 
 function crearContenedorDePruebas(): HTMLElement {
@@ -99,6 +99,25 @@ function crearAlumnoParaExportacion(sobrescribir: Partial<AlumnoParaExportacionP
     creado_en: '2026-01-01T00:00:00.000Z',
     actualizado_en: '2026-01-01T00:00:00.000Z',
     centro: { nombre: 'Colegio Ejemplo' },
+    ...sobrescribir,
+  };
+}
+
+function crearAvisoAusencia(sobrescribir: Partial<AvisoAusenciaProfesor> = {}): AvisoAusenciaProfesor {
+  return {
+    id: 'aviso-1',
+    profesor_id: 'profesor-1',
+    slot_id: 'slot-1',
+    fecha_sesion: '2026-09-10',
+    hora_inicio: '09:00',
+    hora_fin: '10:00',
+    asignatura_o_grupo: 'Matemáticas',
+    motivo: 'Imprevisto',
+    estado: 'pendiente',
+    atendido_por: null,
+    atendido_en: null,
+    registrado_en: '2026-09-08T00:00:00.000Z',
+    actualizado_en: '2026-09-08T00:00:00.000Z',
     ...sobrescribir,
   };
 }
@@ -429,4 +448,104 @@ void test('exportación: un segundo clic mientras la primera exportación está 
   await esperarMicrotareas();
 
   assert.equal(descargador.llamadas.length, 1);
+});
+
+// --- R-29: bloque "Avisos de ausencia pendientes" -----------------------------------------------
+
+void test('sin las dos dependencias de R-29, no aparece ningún bloque nuevo (ni siquiera "Cargando…")', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(contenedor, crearDepsFalsas({}));
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Avisos de ausencia pendientes/);
+});
+
+void test('con solo una de las dos dependencias, tampoco aparece el bloque', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({ listarAvisosAusenciaPendientes: () => Promise.resolve([crearAvisoAusencia()]) }),
+  );
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Avisos de ausencia pendientes/);
+});
+
+void test('con las dos dependencias, el bloque lista los avisos pendientes con el nombre del profesor resuelto', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarAvisosAusenciaPendientes: () => Promise.resolve([crearAvisoAusencia()]),
+      marcarAvisoAusenciaAtendido: () => Promise.reject(new Error('no usado en este test')),
+      resolverNombresProfesores: (ids) => Promise.resolve(new Map(ids.map((id) => [id, 'Juan Profesor']))),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Avisos de ausencia pendientes/);
+  assert.match(contenedor.textContent, /Juan Profesor/);
+  assert.match(contenedor.textContent, /2026-09-10/);
+  assert.match(contenedor.textContent, /09:00–10:00/);
+  assert.match(contenedor.textContent, /Matemáticas/);
+  assert.ok(boton(contenedor, 'Marcar atendido'));
+});
+
+void test('sin ningún aviso pendiente, el bloque muestra el mensaje explícito', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarAvisosAusenciaPendientes: () => Promise.resolve([]),
+      marcarAvisoAusenciaAtendido: () => Promise.reject(new Error('no usado')),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /Ningún profesor ha avisado/);
+});
+
+void test('"Marcar atendido" llama a la dependencia y quita el aviso de la lista sin recargar el resto del panel', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let llamadasListar = 0;
+  let idMarcado: string | undefined;
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarAvisosAusenciaPendientes: () => {
+        llamadasListar += 1;
+        return Promise.resolve([crearAvisoAusencia()]);
+      },
+      marcarAvisoAusenciaAtendido: (avisoId) => {
+        idMarcado = avisoId;
+        return Promise.resolve(crearAvisoAusencia({ estado: 'atendido', atendido_por: 'admin-1', atendido_en: '2026-09-09T00:00:00.000Z' }));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Marcar atendido').click();
+  await esperarMicrotareas();
+
+  assert.equal(idMarcado, 'aviso-1');
+  assert.equal(llamadasListar, 1); // no se volvió a pedir la lista completa
+  assert.match(contenedor.textContent, /Ningún profesor ha avisado/);
+});
+
+void test('un error al marcar atendido se muestra sin perder la fila del aviso', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarAvisosAusenciaPendientes: () => Promise.resolve([crearAvisoAusencia()]),
+      marcarAvisoAusenciaAtendido: () => Promise.reject(new SinPermiso()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Marcar atendido').click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /No tienes permiso/);
+  assert.ok(boton(contenedor, 'Marcar atendido'), 'el aviso sigue en la lista tras el error');
 });

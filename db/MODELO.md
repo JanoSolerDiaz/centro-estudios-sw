@@ -648,6 +648,56 @@ completo en `DECISIONES_TECNICAS.md`.
 **Todavía sin aplicar en `dev`:** ver fila 21 de §3 de `SEGUIMIENTO.md` y la nota correspondiente en
 `db/APLICADAS.md`. Depende de `013_excepcion_slot.sql`, también sin aplicar todavía.
 
+## Aviso de ausencia del profesor (`019_aviso_ausencia_profesor.sql`, R-29) — sin aplicar todavía
+
+Puramente informativo: un profesor avisa desde «Mi horario» de que no podrá dar una sesión futura
+propia, sin salir de la aplicación. **No sustituye a R-06** — el administrador sigue siendo quien
+declara la sustitución o cancelación real; esto es solo el paso previo de comunicación que hoy ocurre
+por teléfono/WhatsApp, fuera de la aplicación y sin dejar rastro.
+
+Tabla nueva, `aviso_ausencia_profesor`: `profesor_id`, `slot_id` (el slot REPRESENTATIVO desde el que
+el profesor pulsó «Avisar»), `fecha_sesion` (`date`, la fecha concreta que falta), `hora_inicio`/
+`hora_fin`/`asignatura_o_grupo` (denormalizados del slot en el alta, nunca del cliente — mismo patrón
+que `asistencia.slot_hora_inicio`/etc. desde `001_esquema_inicial.sql`), `motivo` (SIEMPRE texto libre
+opcional, nunca una lista cerrada — mismo criterio que `pausa_alumno.motivo`, lección del hallazgo
+#8/pregunta #16 de §6 sobre R-02), `estado` (`pendiente`/`atendido`, baja lógica, nunca `DELETE`) y
+`atendido_por`/`atendido_en` (mismo `CHECK` de "los dos a la vez o ninguno" que `pausa_alumno`).
+
+**Por qué una fila representa LA SESIÓN, no un alumno:** `slot_horario` es por alumno (T-15), así que
+una sesión con varios alumnos son varias filas que comparten profesor/día/hora/asignatura — el mismo
+criterio de agrupación que `slotsDeLaMismaSesion` (T-15/R-17). El profesor pulsa «Avisar» desde
+CUALQUIER fila de esa sesión en «Mi horario» (una fila por alumno, igual que «Ver registros»/«Pasar
+lista» ya son por fila); en vez de una columna `uuid[]`/tabla puente con la lista de alumnos afectados,
+la tabla denormaliza `hora_inicio`/`hora_fin`/`asignatura_o_grupo` del slot elegido, y el requisito 5
+("no puede avisar dos veces de la misma sesión mientras la primera siga pendiente") se aplica sobre
+esa clave de sesión (`profesor_id`, `fecha_sesion`, `hora_inicio`, `hora_fin`,
+`coalesce(asignatura_o_grupo, '')`, único índice parcial `where estado = 'pendiente'`), nunca sobre
+`slot_id`: avisar desde la fila de OTRO alumno de la misma sesión se reconoce como la misma sesión ya
+avisada y se rechaza, en vez de fragmentar un aviso en varios. Se descarta la alternativa (lista
+programática de alumnos afectados) porque el aviso es puramente informativo (requisito 4) — el
+administrador no actúa sobre alumnos concretos desde aquí, solo decide si declara R-06. Decisión
+razonada en `DECISIONES_TECNICAS.md`.
+
+**Dos RPC, cada una con una única comprobación de rol real (`SECURITY DEFINER`, sin GRANT de
+INSERT/UPDATE directo a `authenticated`):**
+- `avisar_ausencia_profesor(p_slot_id, p_fecha_sesion, p_motivo)` — `teacher` únicamente, sobre su
+  propio slot (`slot.profesor_id = auth.uid()`). Comprueba, en orden: el slot existe y es suyo, el
+  motivo no es solo espacios, `p_fecha_sesion` cae en el día de la semana del slot y el slot está
+  vigente esa fecha (mismas dos comprobaciones que `declarar_excepcion_slot`, R-06), y — requisito 2
+  de la pantalla, impuesto también aquí, no solo en el cliente — que la sesión no sea de un día ya
+  pasado ni de hoy si `now() >= (fecha_sesion + hora_inicio) at time zone 'Europe/Madrid'` (ya en
+  curso o ya pasada).
+- `marcar_aviso_ausencia_atendido(p_aviso_id)` — `administrator` únicamente. Sin más acción asociada
+  (requisito 3: cubre igual el caso de que ya se resolvió por teléfono antes de que existiera esta
+  pantalla); rechazada si el aviso ya está `atendido`.
+
+**Políticas RLS (requisito 1):** `teacher` lee solo sus propios avisos (`profesor_id = auth.uid()`);
+`administrator` lee todos; sin ninguna política para `student` (§0.2).
+
+**Todavía sin aplicar en `dev`:** ver la fila nueva de §3 de `SEGUIMIENTO.md` y la nota
+correspondiente en `db/APLICADAS.md`. No depende de ninguna migración pendiente, pero el runner
+aplica siempre en orden numérico dentro de la misma invocación.
+
 ## Calendario de cierres del centro (`014_calendario_cierres.sql`, R-12)
 
 Tabla nueva, `cierre_centro`: `fecha_inicio`/`fecha_fin` (`date`, ambos inclusive — puede coincidir

@@ -56,9 +56,24 @@
  * `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` días — pintado como una etiqueta discreta junto al
  * nombre en cada fila, con `pausasHoyCache` (R-21) ya fresca en ese punto reutilizada tal cual para
  * el mismo filtro de días pausados que ya aplica el panel de centro.
+ *
+ * Botón «Avisar que no puedo dar esta clase» (R-29), `deps.avisarAusenciaProfesor`, OPCIONAL — sin
+ * ella, "Mi horario" funciona exactamente como antes de R-29 (ningún botón). Puramente informativo
+ * (requisito 4 de R-29): nunca crea, modifica ni cancela ningún `slot_horario`/`excepcion_slot`,
+ * solo un aviso que el administrador verá en el Panel de centro (R-11). Ofrecido en cada fila cuya
+ * PRÓXIMA ocurrencia (`dominio/avisoAusenciaProfesor.ts#proximaFechaDiaSemana`, necesaria porque la
+ * vista semanal es recurrente y no trae una fecha de calendario propia por fila) siga siendo una
+ * sesión futura o de hoy sin empezar (`puedeAvisarAusenciaSesion`, requisito 2), y ninguna
+ * excepción/pausa la relabele hoy (mismo criterio que "Pasar lista" más abajo). Confirma en dos
+ * toques (primero abre un formulario con el motivo opcional, segundo lo envía) — estado transitorio
+ * en `avisosAusenciaUiPorSlot`, en memoria, FUERA de `EstadoPantalla`: mismo criterio que
+ * `sesionesAvisadasHoy` de R-26, así el formulario no se repinta en cada tecleo (evitaría perder el
+ * foco). Un envío con éxito deja la fila con "Aviso enviado" hasta que se recargue la pantalla —
+ * duplicados de la MISMA sesión ya pendiente los rechaza el servidor (requisito 5), esta pantalla no
+ * los previene por su cuenta.
  */
 
-import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro, PausaAlumno, Asistencia } from '../dominio/tipos.ts';
+import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro, PausaAlumno, Asistencia, AvisoAusenciaProfesor } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import {
   fechaLocalISO,
@@ -75,6 +90,7 @@ import { pausaDeAlumnoEnFecha } from '../dominio/pausaAlumno.ts';
 import { VENTANA_EDICION_TEACHER_DIAS } from '../dominio/asistencia.ts';
 import { sesionesSinPasarLista, type RegistroParaAvisoPasarLista, type SesionSinPasarLista } from '../dominio/avisosPasarLista.ts';
 import { ausenciasRepetidasPorAlumno, VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS } from '../dominio/avisoAusenciasRepetidas.ts';
+import { proximaFechaDiaSemana, puedeAvisarAusenciaSesion } from '../dominio/avisoAusenciaProfesor.ts';
 import { sesionesParaRecordatorio } from '../dominio/recordatorioSesion.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
@@ -127,6 +143,11 @@ export interface DependenciasPantallaMiHorario {
    * filtrado por `profesorId` (requisito 3: "nunca a todo el centro"). Opcional: sin ella, "Mi
    * horario" funciona exactamente como antes de R-28 (ningún indicador de ausencias repetidas). */
   listarAusenciasRecientes?(desde: Date, hasta: Date): Promise<readonly Asistencia[]>;
+  /** R-29: envía el aviso de que el profesor no podrá dar esta sesión (`avisar_ausencia_profesor`,
+   * `db/019_aviso_ausencia_profesor.sql`) — puramente informativo (requisito 4), nunca crea ni
+   * modifica ningún `slot_horario`/`excepcion_slot`. Opcional: sin ella, «Mi horario» funciona
+   * exactamente como antes de R-29 (ningún botón "Avisar..."). */
+  avisarAusenciaProfesor?(slotId: string, fechaSesion: string, motivo?: string): Promise<AvisoAusenciaProfesor>;
   /** Navega a pasar lista (T-19) — sin parámetros: pasar lista siempre muestra lo que toque ahora,
    * que si este botón está visible ya coincide con este slot. */
   irAPasarLista(): void;
@@ -188,6 +209,27 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
   // persistir (ver cabecera del módulo). No forma parte de `EstadoPantalla`: no se pinta nunca, solo
   // decide qué dispara `comprobarRecordatorios` en el siguiente tick.
   const sesionesAvisadasHoy = new Set<string>();
+
+  // R-29: estado transitorio del formulario "Avisar que no puedo dar esta clase", por slot_id — en
+  // memoria, sin persistir, FUERA de `EstadoPantalla` a propósito (ver cabecera del módulo: mutado
+  // directamente y repintado a mano, nunca en el 'input' del motivo, para no perder el foco).
+  interface EstadoAvisoAusenciaUi {
+    abierto: boolean;
+    motivo: string;
+    enviando: boolean;
+    error: string;
+    enviado: boolean;
+  }
+  const avisosAusenciaUiPorSlot = new Map<string, EstadoAvisoAusenciaUi>();
+
+  function obtenerEstadoAvisoAusencia(slotId: string): EstadoAvisoAusenciaUi {
+    let estado = avisosAusenciaUiPorSlot.get(slotId);
+    if (!estado) {
+      estado = { abierto: false, motivo: '', enviando: false, error: '', enviado: false };
+      avisosAusenciaUiPorSlot.set(slotId, estado);
+    }
+    return estado;
+  }
 
   const tituloPantalla = crearElemento(documento, 'h2', { texto: 'Mi horario' });
   const zonaRecordatorio = documento.createElement('div');
@@ -428,6 +470,90 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     return pausaDeAlumnoEnFecha(slot.alumno.id, fechaLocalISO(instante), pausasHoyCache);
   }
 
+  /** R-29: envía el aviso y actualiza el estado transitorio de esa fila — nunca lanza, el error
+   * queda en `ui.error` para que `pintarAvisoAusencia` lo muestre junto al formulario. */
+  async function enviarAvisoAusencia(slotId: string, fechaSesion: string, ui: EstadoAvisoAusenciaUi): Promise<void> {
+    if (!deps.avisarAusenciaProfesor) {
+      return;
+    }
+    ui.enviando = true;
+    ui.error = '';
+    pintar();
+    try {
+      const motivo = ui.motivo.trim();
+      await deps.avisarAusenciaProfesor(slotId, fechaSesion, motivo === '' ? undefined : motivo);
+      ui.enviando = false;
+      ui.enviado = true;
+      ui.abierto = false;
+    } catch (error) {
+      ui.enviando = false;
+      ui.error = mensajeAmigable(error);
+    }
+    pintar();
+  }
+
+  /** R-29: botón "Avisar..." o, una vez abierto, su formulario de dos toques (motivo opcional +
+   * Confirmar/Cancelar) — `undefined` si la dependencia no está disponible o la sesión de esta fila
+   * ya no es elegible (requisito 2). `fechaSesion` es la PRÓXIMA ocurrencia de `slot.dia_semana`
+   * (ver cabecera del módulo), no necesariamente hoy. */
+  function pintarAvisoAusencia(slot: SlotSemanal, instante: Date): HTMLElement | undefined {
+    if (!deps.avisarAusenciaProfesor) {
+      return undefined;
+    }
+    const fechaSesion = proximaFechaDiaSemana(slot.dia_semana, instante);
+    if (!puedeAvisarAusenciaSesion(fechaSesion, slot.hora_inicio, instante)) {
+      return undefined;
+    }
+    const ui = obtenerEstadoAvisoAusencia(slot.id);
+    const contenedor = documento.createElement('div');
+
+    if (ui.enviado) {
+      contenedor.append(crearElemento(documento, 'span', { texto: 'Aviso enviado.' }));
+      return contenedor;
+    }
+
+    if (!ui.abierto) {
+      const boton = crearBoton(documento, 'Avisar que no puedo dar esta clase', 'button');
+      boton.addEventListener('click', () => {
+        ui.abierto = true;
+        pintar();
+      });
+      contenedor.append(boton);
+      return contenedor;
+    }
+
+    const campoMotivo = documento.createElement('textarea');
+    campoMotivo.value = ui.motivo;
+    campoMotivo.placeholder = 'Motivo (opcional)';
+    campoMotivo.disabled = ui.enviando;
+    // Nunca repinta en el propio 'input' (perdería el foco en cada tecleo, ver cabecera del
+    // módulo): solo actualiza el estado transitorio, que se lee al confirmar.
+    campoMotivo.addEventListener('input', () => {
+      ui.motivo = campoMotivo.value;
+    });
+
+    const botonConfirmar = crearBoton(documento, ui.enviando ? 'Enviando…' : 'Confirmar aviso', 'button');
+    botonConfirmar.disabled = ui.enviando;
+    botonConfirmar.addEventListener('click', () => {
+      void enviarAvisoAusencia(slot.id, fechaSesion, ui);
+    });
+
+    const botonCancelar = crearBoton(documento, 'Cancelar', 'button');
+    botonCancelar.disabled = ui.enviando;
+    botonCancelar.addEventListener('click', () => {
+      ui.abierto = false;
+      ui.motivo = '';
+      ui.error = '';
+      pintar();
+    });
+
+    contenedor.append(campoMotivo, botonConfirmar, botonCancelar);
+    if (ui.error) {
+      contenedor.append(crearElemento(documento, 'span', { texto: ui.error }));
+    }
+    return contenedor;
+  }
+
   function pintarFilaSlot(slot: SlotSemanal, instante: Date): HTMLLIElement {
     const li = documento.createElement('li');
     li.append(
@@ -467,6 +593,13 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
       deps.irARegistros(slot.id);
     });
     li.append(botonRegistros);
+    // R-29: mismo criterio que "Pasar lista" arriba — sin excepción ni pausa relabelando hoy.
+    if (!excepcion && !pausa) {
+      const avisoAusencia = pintarAvisoAusencia(slot, instante);
+      if (avisoAusencia) {
+        li.append(avisoAusencia);
+      }
+    }
     return li;
   }
 

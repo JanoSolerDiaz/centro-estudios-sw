@@ -688,6 +688,208 @@ void test('sin listarAusenciasRecientes inyectada, "Mi horario" funciona exactam
   assert.doesNotMatch(contenedor.textContent, /ausencias sin justificar/);
 });
 
+// --- R-29: aviso de ausencia del profesor -----------------------------------------------------
+
+function botonPorTexto(contenedor: HTMLElement, texto: string): HTMLButtonElement | undefined {
+  return Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === texto);
+}
+
+void test('con avisarAusenciaProfesor informado, un slot futuro propio ofrece "Avisar que no puedo dar esta clase"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  // Viernes (dia_semana 5): una ocurrencia futura respecto al miércoles de INSTANTE_EN_CLASE.
+  const slot = crearSlot({ dia_semana: 5, hora_inicio: '10:00', hora_fin: '11:00' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({ cargarSlots: () => Promise.resolve([slot]), avisarAusenciaProfesor: () => Promise.reject(new Error('no usado')) }),
+  );
+  await esperarMicrotareas();
+
+  assert.ok(botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase'));
+});
+
+void test('sin avisarAusenciaProfesor inyectada, "Mi horario" funciona exactamente como antes de R-29', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ dia_semana: 5, hora_inicio: '10:00', hora_fin: '11:00' });
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([slot]) }));
+  await esperarMicrotareas();
+
+  assert.equal(botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase'), undefined);
+});
+
+void test('un slot de hoy YA EN CURSO no ofrece "Avisar..." (requisito 2)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({}); // dia_semana 3, 17:00-18:00 — en curso en INSTANTE_EN_CLASE (17:30)
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({ cargarSlots: () => Promise.resolve([slot]), avisarAusenciaProfesor: () => Promise.reject(new Error('no usado')) }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase'), undefined);
+});
+
+void test('un slot de hoy que TODAVÍA NO ha empezado sí ofrece "Avisar..."', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ hora_inicio: '19:00', hora_fin: '20:00' }); // hoy, después de las 17:30
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({ cargarSlots: () => Promise.resolve([slot]), avisarAusenciaProfesor: () => Promise.reject(new Error('no usado')) }),
+  );
+  await esperarMicrotareas();
+
+  assert.ok(botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase'));
+});
+
+void test('una excepción de hoy (R-06) también suprime "Avisar..." aunque el slot sea de hoy', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ hora_inicio: '19:00', hora_fin: '20:00' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      avisarAusenciaProfesor: () => Promise.reject(new Error('no usado')),
+      listarExcepcionesDeHoy: () =>
+        Promise.resolve([
+          {
+            id: 'exc-1',
+            slot_id: slot.id,
+            fecha: '2026-08-26',
+            tipo: 'cancelacion',
+            profesor_sustituto_id: null,
+            motivo: 'Profesor de baja',
+            activo: true,
+            aviso_familias_quien: null,
+            aviso_familias_en: null,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+          },
+        ]),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase'), undefined);
+});
+
+void test('pulsar "Avisar..." abre el formulario; confirmar sin motivo llama con motivo undefined y la próxima fecha del día de la semana', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ dia_semana: 5, hora_inicio: '10:00', hora_fin: '11:00' });
+  let llamada: { slotId: string; fechaSesion: string; motivo: string | undefined } | undefined;
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      avisarAusenciaProfesor: (slotId, fechaSesion, motivo) => {
+        llamada = { slotId, fechaSesion, motivo };
+        return Promise.resolve({
+          id: 'aviso-1',
+          profesor_id: 'profesor-1',
+          slot_id: slotId,
+          fecha_sesion: fechaSesion,
+          hora_inicio: slot.hora_inicio,
+          hora_fin: slot.hora_fin,
+          asignatura_o_grupo: slot.asignatura_o_grupo,
+          motivo: motivo ?? null,
+          estado: 'pendiente',
+          atendido_por: null,
+          atendido_en: null,
+          registrado_en: '2026-08-26T00:00:00.000Z',
+          actualizado_en: '2026-08-26T00:00:00.000Z',
+        });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase')?.click();
+  await esperarMicrotareas();
+
+  const botonConfirmar = botonPorTexto(contenedor, 'Confirmar aviso');
+  assert.ok(botonConfirmar, 'debe mostrar el formulario con "Confirmar aviso"');
+  botonConfirmar.click();
+  await esperarMicrotareas();
+
+  assert.ok(llamada);
+  assert.equal(llamada.slotId, 'slot-1');
+  assert.equal(llamada.fechaSesion, '2026-08-28'); // viernes siguiente al miércoles de INSTANTE_EN_CLASE
+  assert.equal(llamada.motivo, undefined);
+  assert.match(contenedor.textContent, /Aviso enviado\./);
+});
+
+void test('confirmar con un motivo escrito lo envía recortado, y vacío tras solo espacios se envía como undefined', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ dia_semana: 5, hora_inicio: '10:00', hora_fin: '11:00' });
+  const motivosRecibidos: (string | undefined)[] = [];
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      avisarAusenciaProfesor: (_slotId, _fechaSesion, motivo) => {
+        motivosRecibidos.push(motivo);
+        return Promise.reject(new Error('detener aquí, no hace falta resolver'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase')?.click();
+  await esperarMicrotareas();
+  const campoMotivo = contenedor.querySelector('textarea');
+  assert.ok(campoMotivo);
+  campoMotivo.value = '  Imprevisto familiar  ';
+  disparar(campoMotivo, 'input');
+  botonPorTexto(contenedor, 'Confirmar aviso')?.click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(motivosRecibidos, ['Imprevisto familiar']);
+});
+
+void test('un error del servidor al avisar se muestra sin perder el formulario', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ dia_semana: 5, hora_inicio: '10:00', hora_fin: '11:00' });
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      avisarAusenciaProfesor: () => Promise.reject(new ErrorDeRed()),
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase')?.click();
+  await esperarMicrotareas();
+  botonPorTexto(contenedor, 'Confirmar aviso')?.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /No se ha podido conectar/);
+  assert.ok(botonPorTexto(contenedor, 'Confirmar aviso'), 'el formulario sigue abierto tras el error');
+});
+
+void test('"Cancelar" cierra el formulario sin llamar al servidor', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({ dia_semana: 5, hora_inicio: '10:00', hora_fin: '11:00' });
+  let llamadas = 0;
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({
+      cargarSlots: () => Promise.resolve([slot]),
+      avisarAusenciaProfesor: () => {
+        llamadas += 1;
+        return Promise.reject(new Error('no debería llamarse'));
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase')?.click();
+  await esperarMicrotareas();
+  botonPorTexto(contenedor, 'Cancelar')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(llamadas, 0);
+  assert.ok(botonPorTexto(contenedor, 'Avisar que no puedo dar esta clase'), 'vuelve a ofrecer el botón inicial');
+});
+
 // --- Refresco periódico sin red -------------------------------------------------------------------
 
 void test('un tick del programador recalcula la vista sin volver a pedir datos al servidor', async () => {

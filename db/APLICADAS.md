@@ -228,6 +228,29 @@ desactivan en bloque las excepciones generadas, administrator lee `baja_profesor
 Fila 21 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `018` es posterior
 y no forma parte de las diez migraciones de su paso a producción.
 
+**`019_aviso_ausencia_profesor.sql`** (R-29, "el profesor avisa de que falta un día, sin salir de la
+aplicación") — escrita y empujada a `develop` el 2026-09-23, todavía sin aplicar. Tabla nueva
+`aviso_ausencia_profesor` (RLS y políticas en el mismo fichero, sin precedente que aplazarlas):
+`teacher` inserta y lee solo sus propios avisos, `administrator` lee todos, sin ninguna política de
+`student`. Dos RPC `SECURITY DEFINER`: `avisar_ausencia_profesor` (`teacher` únicamente, sobre su
+propio slot; rechaza una fecha que no coincida con el día de la semana del slot, un slot no vigente
+esa fecha, una sesión pasada o de hoy ya en curso, y un segundo aviso `pendiente` de la MISMA sesión
+—mismo profesor/fecha/tramo horario, no el mismo `slot_id`— mientras el primero siga sin atender) y
+`marcar_aviso_ausencia_atendido` (`administrator` únicamente, sin más acción asociada). Puramente
+informativo: no sustituye a R-06 ni crea/modifica ningún `slot_horario`/`excepcion_slot` por sí
+mismo. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local, comprobar que
+`esquema_version()` devuelve `19` (o más, si alguna migración anterior ya se resolvió), y ejecutar
+también `npm run probar-rls` (nueva sección 8p: teacher avisa de una sesión futura propia,
+administrator/student rechazados en `avisar_ausencia_profesor`, slot ajeno rechazado, fecha que no
+coincide con el día de la semana rechazada, motivo solo espacios rechazado, sesión pasada y sesión de
+hoy ya en curso rechazadas, un segundo aviso de la misma sesión con OTRO alumno mientras el primero
+sigue pendiente rechazado y permitido de nuevo una vez atendido, teacher/student rechazados en
+`marcar_aviso_ausencia_atendido`, administrator marca atendido y un segundo intento rechazado, lectura
+aislada entre profesores y administrator ve todos; más `aviso_ausencia_profesor` añadida a los
+barridos obligatorios de `student` —sección 6— y de `anon`/TRUNCATE —sección 8—). Fila nueva de §3 de
+`SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `019` es posterior y no forma parte
+de las diez migraciones de su paso a producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

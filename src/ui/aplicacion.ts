@@ -56,6 +56,7 @@ import {
   listarPausasActivasDeMisAlumnos,
 } from '../datos/pausasAlumno.ts';
 import { declararBajaProfesor, cancelarBajaProfesor, acortarBajaProfesor, listarBajasDeProfesor, listarExcepcionesDeBaja } from '../datos/bajasProfesor.ts';
+import { avisarAusenciaProfesor, marcarAvisoAusenciaAtendido, listarAvisosAusenciaPendientes } from '../datos/avisosAusenciaProfesor.ts';
 import {
   listarAlumnos,
   obtenerAlumno,
@@ -316,6 +317,8 @@ function mostrarAppAdministrador(
         listarTodosLosCentros: () => listarCentros(app.postgrest, { estado: 'todos' }),
         listarTodosLosAlumnos: () => listarTodosLosAlumnosParaExportacion(app.postgrest),
         listarPersonasReferenciaDeAlumnos: (alumnoIds) => listarPersonasReferenciaDeAlumnos(app.postgrest, alumnoIds),
+        listarAvisosAusenciaPendientes: () => listarAvisosAusenciaPendientes(app.postgrest),
+        marcarAvisoAusenciaAtendido: (avisoId) => marcarAvisoAusenciaAtendido(app.postgrest, avisoId),
       });
       return;
     }
@@ -717,6 +720,7 @@ function mostrarAppProfesor(
         listarExcepcionesRecientes: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
         listarAusenciasRecientes: (desde, hasta) =>
           listarHistoricoAsistenciaCompleto(app.postgrest, { profesorId: perfil.id, desde, hasta }),
+        avisarAusenciaProfesor: (slotId, fechaSesion, motivo) => avisarAusenciaProfesor(app.postgrest, slotId, fechaSesion, motivo),
         irAPasarLista: () => {
           router.navegar({ nombre: 'pasar-lista' });
         },

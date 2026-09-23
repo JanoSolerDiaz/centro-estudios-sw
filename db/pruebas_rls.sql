@@ -740,7 +740,8 @@ begin
   perform pg_temp.impersonar('student');
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor'
+    'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor',
+    'aviso_ausencia_profesor'
   ]
   loop
     begin
@@ -1201,7 +1202,7 @@ begin
   foreach v_tabla in array array[
     'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario',
     'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa',
-    'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor'
+    'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor', 'aviso_ausencia_profesor'
   ]
   loop
     foreach v_rol in array array['administrator', 'teacher']
@@ -3504,6 +3505,296 @@ begin
   perform pg_temp.dejar_de_impersonar();
 end $$;
 
+
+
+-- ---------------------------------------------------------------------
+-- 8p. Aviso de ausencia del profesor (R-29, db/019_aviso_ausencia_profesor.sql)
+--     — avisar/marcar atendido. Crea su PROPIO alumno y slots (mismo
+--     criterio que 8g/8h/8i/8k/8n/8o): tres fechas fijas relativas a
+--     "hoy" en Europe/Madrid (futura, pasada, hoy) para ejercitar los
+--     tres rechazos del requisito 2 sin depender de cuándo se ejecute
+--     esta batería, y un segundo slot en la MISMA sesión (mismo teacher,
+--     mismo día/hora/asignatura, alumno distinto) para probar que el
+--     requisito 5 ("no puede avisar dos veces de la misma sesión") se
+--     aplica por SESIÓN, no por slot_id — justo la razón de ser de la
+--     denormalización de hora_inicio/hora_fin/asignatura_o_grupo (ver
+--     cabecera de la migración).
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_centro_id       uuid := pg_temp.dato('centro_admin');
+  v_alumno_id       uuid;
+  v_alumno2_id      uuid;
+  v_teacher_id      uuid;
+  v_teacher2_id     uuid;
+  v_slot_futuro_id  uuid;
+  v_slot_futuro2_id uuid; -- misma sesión que v_slot_futuro_id, alumno distinto
+  v_slot_pasado_id  uuid;
+  v_slot_hoy_id     uuid; -- hora_inicio 00:00, ya en curso/pasada para cualquier hora del día
+  v_slot_ajeno_id   uuid; -- de v_teacher2_id
+  v_hoy             date := (now() at time zone 'Europe/Madrid')::date;
+  v_fecha_futura    date := v_hoy + 7;
+  v_fecha_pasada    date := v_hoy - 7;
+  v_aviso1          public.aviso_ausencia_profesor;
+  v_aviso2          public.aviso_ausencia_profesor;
+  v_visto           boolean;
+  v_n               integer;
+begin
+  select id into v_teacher_id from _fixture_usuarios where rol = 'teacher';
+  select id into v_teacher2_id from _fixture_usuarios where rol = 'teacher2';
+
+  if v_centro_id is null or v_teacher_id is null or v_teacher2_id is null or not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('avisar_ausencia_profesor / administrator no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / student no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / slot ajeno (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / fecha no coincide con el día de la semana (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / motivo solo espacios (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / sesión pasada (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / sesión de hoy ya en curso (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / teacher avisa de una sesión futura propia', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / misma sesión, otro alumno, mientras pendiente (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / teacher no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / student no puede llamar (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / administrator marca atendido', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / ya atendido (debe fallar)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('avisar_ausencia_profesor / misma sesión, ya atendida (permitido)', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('aviso_ausencia_profesor / teacher lee su propio aviso', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('aviso_ausencia_profesor / teacher2 no lee el aviso ajeno', 'falta el centro, un segundo teacher o el administrator de prueba');
+    perform pg_temp.omitir('aviso_ausencia_profesor / administrator lee todos los avisos', 'falta el centro, un segundo teacher o el administrator de prueba');
+    return;
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+  begin
+    insert into public.alumno (nombre, primer_apellido, centro_referencia_id)
+      values ('__prueba_rls__aviso_a', 'Alumno', v_centro_id)
+      returning id into v_alumno_id;
+    insert into public.alumno (nombre, primer_apellido, centro_referencia_id)
+      values ('__prueba_rls__aviso_b', 'Alumno', v_centro_id)
+      returning id into v_alumno2_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, asignatura_o_grupo, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_fecha_futura)::smallint, '09:00', '10:00', '__prueba_rls__asignatura', current_date - 30)
+      returning id into v_slot_futuro_id;
+    -- Misma sesión que v_slot_futuro_id (mismo profesor/día/hora/asignatura), alumno distinto.
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, asignatura_o_grupo, vigente_desde)
+      values (v_alumno2_id, v_teacher_id, extract(isodow from v_fecha_futura)::smallint, '09:00', '10:00', '__prueba_rls__asignatura', current_date - 30)
+      returning id into v_slot_futuro2_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_fecha_pasada)::smallint, '11:00', '12:00', current_date - 30)
+      returning id into v_slot_pasado_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher_id, extract(isodow from v_hoy)::smallint, '00:00', '00:01', current_date - 30)
+      returning id into v_slot_hoy_id;
+    insert into public.slot_horario (alumno_id, profesor_id, dia_semana, hora_inicio, hora_fin, vigente_desde)
+      values (v_alumno_id, v_teacher2_id, extract(isodow from v_fecha_futura)::smallint, '09:00', '10:00', current_date - 30)
+      returning id into v_slot_ajeno_id;
+  exception when others then
+    v_slot_futuro_id := null;
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  if v_slot_futuro_id is null or v_slot_futuro2_id is null or v_slot_pasado_id is null or v_slot_hoy_id is null or v_slot_ajeno_id is null then
+    perform pg_temp.omitir('avisar_ausencia_profesor / administrator no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / student no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / slot ajeno (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / fecha no coincide con el día de la semana (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / motivo solo espacios (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / sesión pasada (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / sesión de hoy ya en curso (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / teacher avisa de una sesión futura propia', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / misma sesión, otro alumno, mientras pendiente (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / teacher no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / student no puede llamar (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / administrator marca atendido', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / ya atendido (debe fallar)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('avisar_ausencia_profesor / misma sesión, ya atendida (permitido)', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('aviso_ausencia_profesor / teacher lee su propio aviso', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('aviso_ausencia_profesor / teacher2 no lee el aviso ajeno', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    perform pg_temp.omitir('aviso_ausencia_profesor / administrator lee todos los avisos', 'no se pudieron crear los alumnos/slots de prueba propios de esta sección');
+    return;
+  end if;
+
+  -- administrator no puede avisar (§0.2: solo teacher, de su propia ausencia).
+  perform pg_temp.impersonar('administrator');
+  begin
+    perform public.avisar_ausencia_profesor(p_slot_id => v_slot_futuro_id, p_fecha_sesion => v_fecha_futura);
+    perform pg_temp.registrar('avisar_ausencia_profesor / administrator no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / administrator no puede llamar (debe fallar)', array['%solo un profesor puede avisar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student, tampoco.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('avisar_ausencia_profesor / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.avisar_ausencia_profesor(p_slot_id => v_slot_futuro_id, p_fecha_sesion => v_fecha_futura);
+      perform pg_temp.registrar('avisar_ausencia_profesor / student no puede llamar (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / student no puede llamar (debe fallar)', array['%solo un profesor puede avisar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  perform pg_temp.impersonar('teacher');
+
+  -- Slot ajeno (de teacher2): rechazado, sin llegar a comprobar nada más.
+  begin
+    perform public.avisar_ausencia_profesor(p_slot_id => v_slot_ajeno_id, p_fecha_sesion => v_fecha_futura);
+    perform pg_temp.registrar('avisar_ausencia_profesor / slot ajeno (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / slot ajeno (debe fallar)', array['%no te pertenece%'], sqlerrm);
+  end;
+
+  -- Fecha que NO coincide con el día de la semana del slot futuro: rechazado.
+  begin
+    perform public.avisar_ausencia_profesor(p_slot_id => v_slot_futuro_id, p_fecha_sesion => v_fecha_futura + 1);
+    perform pg_temp.registrar('avisar_ausencia_profesor / fecha no coincide con el día de la semana (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / fecha no coincide con el día de la semana (debe fallar)', array['%no cae en el día de la semana%'], sqlerrm);
+  end;
+
+  -- Motivo solo espacios: rechazado.
+  begin
+    perform public.avisar_ausencia_profesor(p_slot_id => v_slot_futuro_id, p_fecha_sesion => v_fecha_futura, p_motivo => '   ');
+    perform pg_temp.registrar('avisar_ausencia_profesor / motivo solo espacios (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / motivo solo espacios (debe fallar)', array['%solo espacios en blanco%'], sqlerrm);
+  end;
+
+  -- Requisito 2: sesión pasada, rechazada.
+  begin
+    perform public.avisar_ausencia_profesor(p_slot_id => v_slot_pasado_id, p_fecha_sesion => v_fecha_pasada);
+    perform pg_temp.registrar('avisar_ausencia_profesor / sesión pasada (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / sesión pasada (debe fallar)', array['%ya ha pasado%'], sqlerrm);
+  end;
+
+  -- Requisito 2: sesión de HOY, hora_inicio 00:00 — ya en curso o pasada a cualquier hora del día.
+  begin
+    perform public.avisar_ausencia_profesor(p_slot_id => v_slot_hoy_id, p_fecha_sesion => v_hoy);
+    perform pg_temp.registrar('avisar_ausencia_profesor / sesión de hoy ya en curso (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / sesión de hoy ya en curso (debe fallar)', array['%ya está en curso o ya ha pasado%'], sqlerrm);
+  end;
+
+  -- Alta real, sesión futura propia — permitido.
+  begin
+    select * into v_aviso1 from public.avisar_ausencia_profesor(
+      p_slot_id => v_slot_futuro_id, p_fecha_sesion => v_fecha_futura, p_motivo => '__prueba_rls__aviso'
+    );
+    perform pg_temp.registrar(
+      'avisar_ausencia_profesor / teacher avisa de una sesión futura propia', 'permitido',
+      v_aviso1.id is not null and v_aviso1.estado = 'pendiente' and v_aviso1.profesor_id = v_teacher_id
+        and v_aviso1.hora_inicio = '09:00' and v_aviso1.hora_fin = '10:00'
+    );
+  exception when others then
+    perform pg_temp.registrar('avisar_ausencia_profesor / teacher avisa de una sesión futura propia', 'permitido', false, sqlerrm);
+  end;
+
+  -- Requisito 5: MISMA sesión (mismo profesor/día/hora/asignatura), slot de OTRO alumno, mientras
+  -- el primer aviso sigue pendiente — rechazado, por sesión, no por slot_id.
+  begin
+    perform public.avisar_ausencia_profesor(p_slot_id => v_slot_futuro2_id, p_fecha_sesion => v_fecha_futura);
+    perform pg_temp.registrar('avisar_ausencia_profesor / misma sesión, otro alumno, mientras pendiente (debe fallar)', 'prohibido', false, 'se insertó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('avisar_ausencia_profesor / misma sesión, otro alumno, mientras pendiente (debe fallar)', array['%ya avisaste de esta sesión%'], sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- marcar_aviso_ausencia_atendido: teacher no puede (§0.2: solo administrator).
+  perform pg_temp.impersonar('teacher');
+  begin
+    perform public.marcar_aviso_ausencia_atendido(v_aviso1.id);
+    perform pg_temp.registrar('marcar_aviso_ausencia_atendido / teacher no puede llamar (debe fallar)', 'prohibido', false, 'se marcó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('marcar_aviso_ausencia_atendido / teacher no puede llamar (debe fallar)', array['%solo un administrador puede marcar%'], sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- student, tampoco.
+  if not pg_temp.hay_fixture('student') then
+    perform pg_temp.omitir('marcar_aviso_ausencia_atendido / student no puede llamar (debe fallar)', 'no hay student en este entorno');
+  else
+    perform pg_temp.impersonar('student');
+    begin
+      perform public.marcar_aviso_ausencia_atendido(v_aviso1.id);
+      perform pg_temp.registrar('marcar_aviso_ausencia_atendido / student no puede llamar (debe fallar)', 'prohibido', false, 'se marcó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('marcar_aviso_ausencia_atendido / student no puede llamar (debe fallar)', array['%solo un administrador puede marcar%'], sqlerrm);
+    end;
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  perform pg_temp.impersonar('administrator');
+
+  -- Marcar atendido de verdad — permitido.
+  begin
+    select * into v_aviso1 from public.marcar_aviso_ausencia_atendido(v_aviso1.id);
+    perform pg_temp.registrar(
+      'marcar_aviso_ausencia_atendido / administrator marca atendido', 'permitido',
+      v_aviso1.estado = 'atendido' and v_aviso1.atendido_por is not null and v_aviso1.atendido_en is not null
+    );
+  exception when others then
+    perform pg_temp.registrar('marcar_aviso_ausencia_atendido / administrator marca atendido', 'permitido', false, sqlerrm);
+  end;
+
+  -- Ya atendido: rechazado.
+  begin
+    perform public.marcar_aviso_ausencia_atendido(v_aviso1.id);
+    perform pg_temp.registrar('marcar_aviso_ausencia_atendido / ya atendido (debe fallar)', 'prohibido', false, 'se marcó sin error');
+  exception when others then
+    perform pg_temp.registrar_prohibido('marcar_aviso_ausencia_atendido / ya atendido (debe fallar)', array['%ya está atendido%'], sqlerrm);
+  end;
+
+  perform pg_temp.dejar_de_impersonar();
+
+  -- Requisito 5, rama positiva: el aviso anterior de la MISMA sesión ya quedó atendido — avisar de
+  -- nuevo está permitido.
+  perform pg_temp.impersonar('teacher');
+  begin
+    select * into v_aviso2 from public.avisar_ausencia_profesor(p_slot_id => v_slot_futuro_id, p_fecha_sesion => v_fecha_futura);
+    perform pg_temp.registrar(
+      'avisar_ausencia_profesor / misma sesión, ya atendida (permitido)', 'permitido',
+      v_aviso2.id is not null and v_aviso2.id <> v_aviso1.id and v_aviso2.estado = 'pendiente'
+    );
+  exception when others then
+    perform pg_temp.registrar('avisar_ausencia_profesor / misma sesión, ya atendida (permitido)', 'permitido', false, sqlerrm);
+  end;
+
+  -- Lectura: teacher ve su propio aviso (el segundo, todavía pendiente).
+  begin
+    select exists(select 1 from public.aviso_ausencia_profesor where id = v_aviso2.id) into v_visto;
+    perform pg_temp.registrar('aviso_ausencia_profesor / teacher lee su propio aviso', 'permitido', v_visto);
+  exception when others then
+    perform pg_temp.registrar('aviso_ausencia_profesor / teacher lee su propio aviso', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- teacher2 no ve el aviso ajeno.
+  perform pg_temp.impersonar('teacher2');
+  begin
+    select exists(select 1 from public.aviso_ausencia_profesor where id = v_aviso2.id) into v_visto;
+    perform pg_temp.registrar('aviso_ausencia_profesor / teacher2 no lee el aviso ajeno', 'prohibido', not v_visto);
+  exception when others then
+    perform pg_temp.registrar('aviso_ausencia_profesor / teacher2 no lee el aviso ajeno', 'prohibido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+
+  -- administrator ve todos los avisos de este profesor (al menos los dos de esta sección).
+  perform pg_temp.impersonar('administrator');
+  begin
+    select count(*) into v_n from public.aviso_ausencia_profesor where profesor_id = v_teacher_id;
+    perform pg_temp.registrar('aviso_ausencia_profesor / administrator lee todos los avisos', 'permitido', v_n >= 2);
+  exception when others then
+    perform pg_temp.registrar('aviso_ausencia_profesor / administrator lee todos los avisos', 'permitido', false, sqlerrm);
+  end;
+  perform pg_temp.dejar_de_impersonar();
+end $$;
 
 
 -- ---------------------------------------------------------------------
