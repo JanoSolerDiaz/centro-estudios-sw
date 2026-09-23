@@ -8,52 +8,53 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-22 — vigésimo noveno ciclo del PM: **cierra la Oleada v12 (R-26 y
-R-27, ambas `COMPLETADA` hoy) y abre la Oleada v13 con R-28 y R-29.** `FEEDBACK.md` sigue sin entradas
+**Última actualización:** 2026-09-23 — trigésimo ciclo del PM: **cierra la Oleada v13 (R-28 y R-29,
+ambas `COMPLETADA` en código) y abre la Oleada v14 con R-30 y R-31.** `FEEDBACK.md` sigue sin entradas
 `nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` con una pasada nueva
-de hoy mismo (commit `8b2f7f4`): de los hallazgos que quedaban, **ABIERTO #8** sigue esperando al
-dueño (pregunta #16 de §6, decimoquinto ciclo consecutivo sin novedad de fondo — no es una decisión
-que el PM pueda tomar) y **ABIERTO #22** ya lo cerró el ciclo de programador de hoy (P-30). Hay dos
-hallazgos nuevos de hoy, **#23** (control "Marcar salida"/"Justificar" sin ocultar mientras `011`/`012`
-siguen bloqueadas — bug de UX ya corregible con la señal `accionPendienteDeMigracion` que el propio
-código expone) y **#24** (fila de `pausa_alumno` que falta en la matriz de `DECISIONES_TECNICAS.md`):
-ninguno de los dos es un hallazgo de producto o arquitectura — el primero es un bug de interfaz y el
-segundo es deuda documental, así que ambos quedan para que el programador los tome como P-XX urgente/
-backlog en su próximo ciclo (§0.3), no como R-XX de este documento.
+de hoy (commit `5062608`) y el registro de hallazgos revisado de nuevo tras el ciclo de programador que
+la siguió: de 24 hallazgos totales, 23 están `RESUELTO`, incluidos los dos que quedaban de la pasada
+anterior (**#23**, control muerto por migración bloqueada, y **#24**, fila que faltaba en la matriz de
+`DECISIONES_TECNICAS.md`, ambos cerrados hoy mismo por el programador). El único que sigue **ABIERTO**
+es **#8** (RGPD artículo 9, `motivo_justificacion` de R-02) — decimosexto ciclo consecutivo sin novedad
+de fondo en la pregunta #16 de §6: sigue sin ser una decisión que el PM pueda tomar, y sigue sin
+bloquear nada del resto del roadmap.
 
-**R-26 y R-27 (Oleada v12) `COMPLETADA`** desde hoy (2026-09-22, misma sesión de programador que las
-implementó una detrás de otra): con eso, la Oleada v12 queda cerrada en código — sin ninguna migración
-propia pendiente — y hay base real para abrir la v13. El MVP (T-00 a T-25) sigue sin estar completo
-(T-25 bloqueada por el paso a producción) y ninguna oleada ha llegado a desplegarse todavía, así que,
-como en cada ciclo anterior, nada se mueve todavía a `ROADMAP_HISTORICO.md`.
+**R-28 y R-29 (Oleada v13) `COMPLETADA`** en código desde ayer (2026-09-22): con eso, la Oleada v13
+queda cerrada salvo por la migración propia de R-29 (`019`, fila 22 de §3, `PENDIENTE`), que no bloquea
+abrir la v14 — mismo precedente que todas las oleadas anteriores. El MVP (T-00 a T-25) sigue sin estar
+completo (T-25 bloqueada por el paso a producción) y ninguna oleada ha llegado a desplegarse todavía,
+así que, como en cada ciclo anterior, nada se mueve todavía a `ROADMAP_HISTORICO.md`.
 
-Revisado el roadmap completo contra la visión de producto y el ICP, esta vez el hueco no está en una
-pantalla nueva sino en una que **ya existe pero solo la ve el administrador**: `dominio/panelCentro.ts`
-(R-11) calcula desde 2026-09-09 qué alumnos acumulan más ausencias sin justificar, y esa señal vive
-únicamente en el Panel de centro (`#/panel`, exclusivo de `administrator`) — un profesor que pasa lista
-a diario no tiene, en su propia pantalla, ningún indicio de que un alumno suyo concreto lleva ya varias
-faltas seguidas sin justificar; se entera, si se entera, porque el administrador lo mira aparte y se lo
-dice por fuera de la aplicación. Es exactamente el mismo patrón de "dato que ya existe, pero solo lo ve
-quien no lo necesita a diario" que motivó R-13 y R-19 en oleadas anteriores. Se abre la Oleada v13 con
-**R-28** (aviso de ausencias repetidas, reutilizando sin duplicar `rankingAusenciasSinJustificarPanelCentro`
-de R-11, mostrado donde el profesor ya mira — pasar lista y Mi horario, F-19) como primera pieza.
+Revisado el roadmap completo contra la visión de producto y el ICP, esta vez las dos piezas no abren
+ningún hueco nuevo: **cierran uno que la propia spec de una tarea ya en el roadmap dejó dicho que
+quedaba abierto**. La primera es la continuación literal de R-29 (Oleada v13, recién cerrada en
+código): su propio objetivo dice que "el administrador sigue siendo quien declara la excepción real...
+es el paso previo que hoy ocurre por fuera" — y hoy, aun con R-29 escrita, atender un aviso en el Panel
+de centro (`pantallaPanelCentro.ts`) solo lo marca `atendido`; declarar la sustitución o cancelación de
+verdad (R-06, `pantallaRegistrosSlot.ts`) exige que el administrador vuelva a teclear a mano el mismo
+profesor, el mismo slot y la misma fecha que el aviso ya traía en sus columnas (`profesor_id`,
+`slot_id`, `fecha_sesion`) — un rodeo de navegación, no de permiso ni de dato, del mismo tipo que ya
+resolvieron R-17/R-23, R-21/R-22 y R-25 en oleadas anteriores. `grep -rn "profesorId.*slotId.*fecha"
+src/nucleo/router.ts` confirma que el enlace profundo `#/registros/<profesorId>/<slotId>/<fecha>` ya
+existe y ya lo usa R-20 (auditoría) para el mismo propósito: se abre **R-30** (F-21) para reutilizarlo
+tal cual desde el bloque de avisos del Panel de centro, sin ninguna RPC ni migración nueva.
 
-Segunda pieza, sobre el sentido contrario del mismo problema: cuando es el **profesor** quien sabe de
-antemano que va a faltar, hoy el único camino que existe es avisar al administrador por teléfono o
-WhatsApp, fuera de la aplicación, para que luego, si procede, declare la sustitución o cancelación con
-R-06 — `grep -rn "aviso_ausencia_profesor\|avisar.*falta" src/` no devuelve nada: no existe ningún
-registro de ese aviso dentro de la aplicación, ni ninguna cola de "profesores que ya han avisado,
-pendientes de resolver". Se añade **R-29** (el profesor avisa desde «Mi horario», sin salir de la
-aplicación; el aviso llega como pendiente al Panel de centro, F-20) — no sustituye a R-06, que sigue
-siendo quien declara la excepción real, es el paso previo que hoy ocurre por fuera y no deja rastro.
+La segunda pieza vuelve sobre R-08 (Oleada v2, primer día de una academia migrando desde una hoja de
+cálculo): su propio requisito 1 importa alumnos y su requisito 3 importa horarios, pero ninguno importa
+las personas de referencia (T-13) de esos mismos alumnos — hoy, tras un alta masiva de 60 alumnos, el
+administrador tiene que abrir la ficha de cada uno y teclear a mano el teléfono de cada padre, madre o
+tutor, exactamente el trabajo repetido que R-08 existe para evitar en todo lo demás. `grep -rln
+"persona_referencia\|personaReferencia" src/dominio/importacion*.ts src/datos/importacionMasiva.ts`
+no devuelve nada: no hay ningún camino de importación para esta tabla. Se abre **R-31** (F-22) para
+cerrar ese hueco, con el mismo patrón de fichero CSV, vista previa obligatoria y detección de
+duplicados que ya usan R-08 y T-13.
 
-Ninguna de las dos R-XX añade ningún dato personal nuevo del alumno o de sus personas de referencia,
-ni amplía el alcance del rol `student` (sigue sin ningún acceso), ni convierte el producto en
-multi-centro. R-28 no necesita migración (reutiliza cálculo y datos ya leíbles por `teacher`); R-29 sí
-(`019_aviso_ausencia_profesor.sql`, tabla nueva sobre datos del propio profesor, no del alumno).
-Añadidas sus dos filas `PENDIENTE` en §1 de `SEGUIMIENTO.md`, y la pregunta #18 en §6 (umbral y
-ventana del aviso de R-28, con valor conservador ya en la spec, sin bloquear). Sin ningún commit de
-código — sesión de producto, no de programador.
+Ninguna de las dos R-XX añade ningún dato personal nuevo del alumno o de sus personas de referencia
+(R-31 usa exactamente los campos que T-13 ya define), ni amplía el alcance del rol `student` (sigue
+sin ningún acceso), ni convierte el producto en multi-centro. Ninguna de las dos necesita migración:
+R-30 es enlazado puro de cliente sobre datos que ya existen; R-31 escribe en `persona_referencia`, que
+ya existe desde `001_esquema_inicial` con sus políticas RLS (T-10). Añadidas sus dos filas `PENDIENTE`
+en §1 de `SEGUIMIENTO.md`. Sin ningún commit de código — sesión de producto, no de programador.
 
 ---
 
@@ -404,6 +405,29 @@ alumno, sin ampliar el rol `student` y sin convertir el producto en multi-centro
 
 - **F-19 — Detectar antes: la señal de ausencias repetidas, donde el profesor ya mira.** R-28.
 - **F-20 — Avisar sin salir de la aplicación: el profesor comunica que falta.** R-29.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v14 — Cerrar los dos rodeos que las propias tareas anteriores dejaron dichos
+
+**Arranca cuando la oleada v13 (R-28, R-29) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado
+real de esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces las R-XX de esta
+oleada quedan especificadas y en cola, detrás de la oleada v13, en el orden de §1.
+
+Por qué esta oleada: no nace de un hueco nuevo en la visión de producto, sino de dos rodeos que dos
+tareas ya entregadas identificaron en su propio texto sin resolverlos, porque no era su alcance.
+R-29 declara explícitamente que "el administrador sigue siendo quien declara la excepción real... es
+el paso previo que hoy ocurre por fuera" — dejando a propósito sin cerrar el último paso: pasar del
+aviso ya registrado a la declaración real de R-06. Y R-08 importa alumnos y horarios en el primer día
+de una academia, pero nunca las personas de referencia de esos mismos alumnos, así que ese primer día
+sigue exigiendo tanto tecleo manual de contactos como el que R-08 ya evitó para todo lo demás. Las dos
+piezas son enlazado y reutilización de datos y pantallas que ya existen — mismo patrón de bajo riesgo
+que R-13/R-19/R-20/R-25 en oleadas anteriores —, sin ninguna RPC nueva y sin ninguna migración.
+
+- **F-21 — De aviso a excepción, en un enlace.** R-30.
+- **F-22 — Importación masiva de personas de referencia.** R-31.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1688,3 +1712,101 @@ sin salir de «Mi horario»; el aviso aparece en el Panel de centro como `pendie
 administrador lo marca `atendido`; ningún profesor ve ni puede marcar atendido un aviso ajeno;
 `student` no tiene ningún acceso a la tabla ni a ninguna de las dos RPC; el aviso, por sí solo, no
 cambia ningún horario ni ningún registro de asistencia.
+
+### R-30 — De aviso a excepción, en un enlace
+**Oleada / Fase:** v14 / F-21 · **Migración:** No · **Depende de:** R-29 (código-completa, bloqueada
+solo por migración `019` — mismo precedente que R-04/R-11/R-13/R-15/R-17/R-28 con sus dependencias),
+R-06 (código-completa, bloqueada solo por migración `013`, mismo precedente), R-20 (`COMPLETADA`)
+**Origen:** roadmap
+
+**Objetivo:** R-29 registra dentro de la aplicación que un profesor ha avisado de que falta a una
+sesión, y el Panel de centro ya lista esos avisos `pendiente` — pero la propia spec de R-29 (requisito
+4) deja dicho, a propósito, que el aviso "no sustituye a R-06: el administrador sigue siendo quien
+declara la excepción real". Hoy ese paso siguiente exige que el administrador lea en el aviso qué
+profesor, qué slot y qué fecha son, salga del bloque de avisos, entre en «Registros» (T-21), y vuelva
+a elegir a mano ese mismo profesor, ese mismo slot y esa misma fecha para declarar la sustitución o
+cancelación (R-06) — repitiendo información que el propio aviso ya trae en sus columnas
+(`profesor_id`, `slot_id`, `fecha_sesion`, T-19). Es exactamente el tipo de rodeo de navegación, no de
+permiso ni de dato, que R-20 (Oleada v6) ya resolvió para el mismo destino: cada fila de auditoría con
+`slot_id` enlaza a `#/registros/<profesorId>/<slotId>/<fecha>` con los tres ya elegidos. Esta tarea
+reutiliza tal cual ese mismo enlace profundo, ya existente en `nucleo/router.ts` desde R-20, esta vez
+desde el bloque de avisos de ausencia del profesor.
+
+**Requisitos:**
+1. En `pantallaPanelCentro.ts` (R-11/R-29), cada fila del bloque «Avisos de ausencia pendientes» gana
+   un enlace «Declarar sustitución o cancelación» junto al botón «Marcar atendido» existente (los dos
+   conviven: el enlace no marca nada como atendido por sí solo, y marcar atendido sigue disponible sin
+   pasar por el enlace — cubre igual de bien el caso, ya contemplado en R-29, de que el aviso se
+   resolvió por teléfono antes de abrir esta pantalla).
+2. El enlace navega a `#/registros/<profesorId>/<slotId>/<fecha>` (`nucleo/router.ts`, ruta `registros`
+   ya existente desde T-21/R-20) usando los propios `profesor_id`/`slot_id`/`fecha_sesion` de la fila
+   del aviso — sin ningún parámetro nuevo en el router, sin ninguna ruta nueva.
+3. `pantallaRegistrosSlot.ts` (T-21/R-06) no cambia: ya resuelve profesor, slot y fecha desde la URL
+   (mismo camino que ya ejercita R-20) y ya ofrece ahí el formulario de «Declarar excepción» (R-06)
+   para el slot y la fecha elegidos. Esta tarea no añade ningún campo, ninguna validación ni ninguna
+   RPC nueva a esa pantalla.
+4. Si el aviso ya está `atendido` (alguien ya resolvió la sustitución o canceló, o lo marcó atendido
+   sin más acción), el enlace no aparece — un aviso atendido no necesita seguir ofreciendo el mismo
+   atajo, mismo criterio que R-17/R-23 con una card que ya no está pendiente.
+5. Sin ninguna RPC ni columna nueva: enlazado puro de cliente entre dos pantallas ya existentes, cada
+   una con sus propios permisos y validaciones inalterados (el enlace no otorga ningún acceso que
+   `administrator` no tuviera ya en ambas pantallas).
+
+**Bloqueo humano:** ninguno directo. Como R-28, el enlace navega a una pantalla cuyo formulario de
+declarar excepción seguirá rechazando la escritura real mientras la migración `013` (R-06, fila 17 de
+§3) y la propia `019` (R-29, fila 22 de §3) sigan sin aplicarse — no bloquea escribir ni desplegar esta
+tarea, mismo precedente que el resto del roadmap con dependencias code-completas bloqueadas solo por
+migración.
+
+**Criterio de aceptación:** desde el Panel de centro, un aviso `pendiente` con su enlace lleva
+directamente a «Registros» con el profesor, el slot y la fecha del aviso ya elegidos, sin que el
+administrador tenga que volver a buscarlos; un aviso `atendido` no muestra el enlace; ningún dato ni
+permiso nuevo se concede en el camino — todo lo que la pantalla de destino ya validaba (T-21/R-06) lo
+sigue validando igual.
+
+### R-31 — Importación masiva de personas de referencia
+**Oleada / Fase:** v14 / F-22 · **Migración:** No · **Depende de:** R-08 (`COMPLETADA`), T-13
+(`COMPLETADA`)
+**Origen:** roadmap
+
+**Objetivo:** R-08 (Oleada v2) ya evita que el primer día de una academia real exija teclear a mano
+cada alumno y cada horario que ya existían en una hoja de cálculo — pero su alcance, fijado en su
+propia spec, es literalmente "alumnos y horarios" (requisitos 1 y 3): no incluye las personas de
+referencia (T-13) de esos mismos alumnos. Hoy, tras importar 60 alumnos en un CSV, el administrador
+tiene que abrir la ficha de cada uno de ellos y añadir a mano el teléfono (obligatorio) de cada padre,
+madre o tutor — precisamente el trabajo repetido que R-08 existe para evitar en todo lo demás, y con el
+mismo riesgo de que "el primer día cuesta demasiado" que motivó R-08 y R-09 en su día.
+
+**Requisitos:**
+1. Desde el panel de `administrator` (`pantallaImportacionMasiva.ts`, R-08), un tercer fichero CSV,
+   opcional e independiente de los otros dos, importa personas de referencia (T-13) con las columnas
+   de su spec: alumno (nombre y apellidos exactos de una fila ya importada en la misma sesión o ya
+   existente en el sistema, misma comparación de T-12/R-08), nombre, primer apellido, segundo
+   apellido opcional, teléfono (obligatorio) y email opcional de la persona de referencia.
+2. Vista previa obligatoria antes de confirmar, con el mismo formato que alumnos y horarios (R-08):
+   fila a fila, qué se va a crear y qué fila falla y por qué (alumno no encontrado, teléfono con
+   formato inválido, email con formato inválido). Ninguna fila se escribe hasta que `administrator`
+   confirma la importación completa.
+3. Reintentar el mismo fichero tras corregir errores no duplica las filas ya importadas correctamente:
+   se identifica con la misma comparación de duplicados que T-13 ya usa dentro de una ficha individual
+   (nombre completo + teléfono de la persona de referencia, dentro del mismo alumno) — sin ninguna
+   lógica de deduplicación nueva que escribir, solo aplicada ahora fila a fila sobre un fichero.
+4. Un alumno puede tener más de una fila en el CSV (varias personas de referencia del mismo alumno,
+   tal como T-13 ya permite 0..N) — no hay límite propio de esta tarea distinto del que ya tiene T-13.
+5. El fichero de origen no se conserva más allá de la sesión de importación, mismo criterio que R-08.
+6. Reservado a `administrator`, igual que R-08 y T-13. Parseo de CSV con el mismo código propio ya
+   escrito para R-08 (`nucleo/csv.ts` o el módulo que R-08 use internamente), sin ninguna librería de
+   terceros ni duplicación de la lógica de parseo.
+7. No añade ningún dato nuevo ni ninguna categoría de dato: las columnas son exactamente las de T-13
+   (nombre, primer apellido, segundo apellido opcional, teléfono obligatorio, email opcional) — nunca
+   un campo `relacion` (pregunta #9 de §6, todavía sin decisión del dueño) ni ningún otro.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** un CSV de 90 personas de referencia (dos por cada uno de 45 alumnos ya
+importados) con 3 filas con error (un alumno inexistente, un teléfono sin formato válido, un email sin
+formato válido) muestra la vista previa con esas 3 filas marcadas y permite confirmar las 87 correctas
+sin esperar a corregirlas; reimportar el mismo fichero después de corregirlas solo añade las 3 que
+faltaban, sin duplicar las 87 ya creadas; una fila que referencia un alumno con nombre y apellidos que
+no coinciden con ninguno ya existente ni ya importado en la misma sesión queda en error sin bloquear el
+resto.

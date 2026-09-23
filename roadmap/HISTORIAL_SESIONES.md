@@ -37,6 +37,36 @@
 
 ---
 
+### Sesión 2026-09-23 (trigésimo ciclo del Product Manager) — cierra Oleada v13, abre Oleada v14 (R-30, R-31)
+**Tarea(s):** ninguna T-XX/R-XX de código — sesión de producto (gestión de roadmap)
+**Estado resultante:** R-28 y R-29 confirmadas `COMPLETADA` en código (sin cambio, ya lo estaban desde
+ayer); R-30 y R-31 nuevas, `PENDIENTE`, añadidas a §1 de `SEGUIMIENTO.md`
+**Commits a `develop`:** el de esta sesión (`roadmap/ROADMAP_PRODUCTO.md`, `roadmap/SEGUIMIENTO.md`,
+este documento)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v14 con F-21/F-22,
+detalle de R-30 y R-31), `roadmap/SEGUIMIENTO.md` (cabecera/bitácora, dos filas nuevas en §1), este
+documento
+**Verificaciones pre-push:** N/D — sin cambios en `src/`, no aplica typecheck/lint/test/build
+**Health check post-deploy:** N/D — sin deploy, sesión sin cambios de código
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (sin decisión técnica de mecanismo; la
+elección de oleada/fase es gestión de producto, ya justificada en `ROADMAP_PRODUCTO.md`)
+**Hallazgos del auditor atendidos:** ninguno nuevo — revisados los 24 hallazgos de
+`auditoriacontinua.md`: 23 `RESUELTO` (incluidos `#23`/`#24`, cerrados hoy por el programador antes de
+esta sesión), el único `ABIERTO` (`#8`, RGPD artículo 9 en R-02) sigue en la pregunta #16 de §6 sin
+ninguna vía de esta sesión — ninguno de los 24 es un hallazgo de producto/arquitectura pendiente de
+convertir en R-XX
+**Hallazgos:** ninguno nuevo. Revisado `FEEDBACK.md`: sigue con su única fila plantilla vacía, nada
+que convertir
+**Tareas autopropuestas (P-XX):** ninguna — gestión de P-XX es del programador, no de esta sesión
+**Próximo paso:** la siguiente sesión de programador puede empezar R-30 y R-31 (ninguna de las dos
+tiene bloqueo humano ni dependencia de una decisión del dueño); R-30 depende en tiempo de ejecución
+—no de escritura de código— de que se apliquen las migraciones `013` (R-06) y `019` (R-29), mismo
+precedente que el resto del roadmap con dependencias code-completas bloqueadas solo por migración
+
+---
+
 ### Sesión 2026-09-23 (rutina programada de programador, quinta pasada) — cola vacía, nada que hacer
 **Tarea(s):** ninguna — §1 sin ninguna fila `PENDIENTE` (todo `COMPLETADA` o `BLOQUEADA` por
 migración, §3, filas 13-22, o por el paso a producción de T-25, fila 12), §5 sin ningún P-XX
