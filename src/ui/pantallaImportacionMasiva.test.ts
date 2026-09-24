@@ -26,6 +26,8 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaImportacionMasiv
     resolverProfesorPorEmail: overrides.resolverProfesorPorEmail ?? noImplementado('resolverProfesorPorEmail'),
     importarAlumnos: overrides.importarAlumnos ?? noImplementado('importarAlumnos'),
     importarHorarios: overrides.importarHorarios ?? noImplementado('importarHorarios'),
+    listarPersonasReferenciaExistentes: overrides.listarPersonasReferenciaExistentes ?? (() => Promise.resolve(new Map())),
+    importarPersonasReferencia: overrides.importarPersonasReferencia ?? noImplementado('importarPersonasReferencia'),
     generarId: overrides.generarId ?? contadorDeIdsDeterminista(),
   };
 }
@@ -56,6 +58,7 @@ function seleccionarFichero(documento: Document, input: HTMLInputElement, texto:
 
 const CABECERA_ALUMNOS = 'nombre;primer_apellido;segundo_apellido;centro;telefono;email';
 const CABECERA_HORARIOS = 'alumno_nombre;alumno_primer_apellido;alumno_segundo_apellido;profesor_email;dia_semana;hora_inicio;hora_fin;asignatura_o_grupo';
+const CABECERA_PERSONAS_REFERENCIA = 'alumno_nombre;alumno_primer_apellido;alumno_segundo_apellido;nombre;primer_apellido;segundo_apellido;telefono;email';
 
 void test('teacher: no tiene acceso a esta pantalla, y no dispara ninguna petición', () => {
   const { contenedor } = crearContenedorDePruebas();
@@ -71,15 +74,17 @@ void test('student: no tiene acceso a esta pantalla', () => {
   assert.match(contenedor.textContent, /No tienes acceso/);
 });
 
-void test('administrator: monta los dos bloques con sus botones de confirmar deshabilitados', () => {
+void test('administrator: monta los tres bloques con sus botones de confirmar deshabilitados', () => {
   const { contenedor } = crearContenedorDePruebas();
   mostrarPantallaImportacionMasiva(contenedor, crearDepsFalsas());
   assert.match(contenedor.textContent, /Importar alumnos/);
   assert.match(contenedor.textContent, /Importar horarios/);
+  assert.match(contenedor.textContent, /Importar personas de referencia/);
   const botones = [...contenedor.querySelectorAll('button')].filter((b) => b.textContent === 'Confirmar importación');
-  assert.equal(botones.length, 2);
+  assert.equal(botones.length, 3);
   assert.ok(botones[0]?.disabled);
   assert.ok(botones[1]?.disabled);
+  assert.ok(botones[2]?.disabled);
 });
 
 // --- bloque de alumnos ------------------------------------------------------------------------
@@ -244,4 +249,137 @@ void test('horarios: confirmar muestra el recuento creado y los errores de escri
 
   assert.match(contenedor.textContent, /Se han creado 1 horarios\./);
   assert.match(contenedor.textContent, /Existente Previo — martes 10:00-11:00: Se solapa\./);
+});
+
+// --- bloque de personas de referencia (R-31) ---------------------------------------------------
+
+void test('personas de referencia: analiza el CSV seleccionado y muestra la vista previa con el resumen', async () => {
+  const { contenedor, documento } = crearContenedorDePruebas();
+  const deps = crearDepsFalsas();
+  mostrarPantallaImportacionMasiva(contenedor, deps);
+  const input = contenedor.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+
+  seleccionarFichero(documento, input, `${CABECERA_PERSONAS_REFERENCIA}\r\nExistente;Previo;;María;López;;666123456;\r\n`);
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /1 nuevas, 0 duplicadas \(se omiten\), 0 con error\./);
+  assert.match(contenedor.textContent, /Existente Previo — María López \(666123456\) — se creará\./);
+});
+
+void test('personas de referencia: cabecera inválida muestra el error y no ofrece confirmar', async () => {
+  const { contenedor, documento } = crearContenedorDePruebas();
+  const deps = crearDepsFalsas();
+  mostrarPantallaImportacionMasiva(contenedor, deps);
+  const input = contenedor.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+
+  seleccionarFichero(documento, input, 'columna_a;columna_b\r\nx;y\r\n');
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /La cabecera debe ser exactamente/);
+  const boton = [...contenedor.querySelectorAll('button')].filter((b) => b.textContent === 'Confirmar importación')[2];
+  assert.ok(boton?.disabled);
+});
+
+void test('personas de referencia: alumno inexistente deja esa fila en error sin bloquear el resto', async () => {
+  const { contenedor, documento } = crearContenedorDePruebas();
+  const deps = crearDepsFalsas();
+  mostrarPantallaImportacionMasiva(contenedor, deps);
+  const input = contenedor.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+
+  seleccionarFichero(
+    documento,
+    input,
+    `${CABECERA_PERSONAS_REFERENCIA}\r\nNoExiste;Nadie;;María;López;;666123456;\r\nExistente;Previo;;María;López;;666123456;\r\n`,
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /1 nuevas, 0 duplicadas \(se omiten\), 1 con error\./);
+  assert.match(contenedor.textContent, /No existe ningún alumno con el nombre y apellidos exactos «NoExiste Nadie»\./);
+});
+
+void test('personas de referencia: una ya existente para ese alumno queda como duplicada, no bloquea el resto', async () => {
+  const { contenedor, documento } = crearContenedorDePruebas();
+  const deps = crearDepsFalsas({
+    listarPersonasReferenciaExistentes: (alumnoIds) =>
+      Promise.resolve(
+        new Map(
+          alumnoIds.includes('a0')
+            ? [['a0', [{ nombre: 'María', primer_apellido: 'López', segundo_apellido: null, telefono_referencia: '666123456' }]]]
+            : [],
+        ),
+      ),
+  });
+  mostrarPantallaImportacionMasiva(contenedor, deps);
+  const input = contenedor.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+
+  seleccionarFichero(
+    documento,
+    input,
+    `${CABECERA_PERSONAS_REFERENCIA}\r\nExistente;Previo;;María;López;;666123456;\r\nExistente;Previo;;Pedro;López;;677123456;\r\n`,
+  );
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /1 nuevas, 1 duplicadas \(se omiten\), 0 con error\./);
+});
+
+void test('personas de referencia: confirmar llama a importarPersonasReferencia solo con las filas nuevas y muestra el recuento', async () => {
+  const { contenedor, documento } = crearContenedorDePruebas();
+  let recibido: unknown;
+  const deps = crearDepsFalsas({
+    importarPersonasReferencia: (filas) => {
+      recibido = filas;
+      return Promise.resolve(filas.length);
+    },
+  });
+  mostrarPantallaImportacionMasiva(contenedor, deps);
+  const input = contenedor.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+
+  seleccionarFichero(documento, input, `${CABECERA_PERSONAS_REFERENCIA}\r\nExistente;Previo;;María;López;;666123456;\r\n`);
+  await esperarMicrotareas();
+
+  const botonConfirmar = [...contenedor.querySelectorAll('button')].filter((b) => b.textContent === 'Confirmar importación')[2];
+  assert.ok(botonConfirmar);
+  assert.equal(botonConfirmar.disabled, false);
+  botonConfirmar.click();
+  await esperarMicrotareas();
+
+  const filas = recibido as { readonly id: string; readonly datos: { readonly nombre: string } }[];
+  assert.deepEqual(filas.map((f) => f.datos.nombre), ['María']);
+  assert.ok(filas[0]?.id);
+  assert.match(contenedor.textContent, /Se han creado 1 personas de referencia\./);
+});
+
+void test('personas de referencia: un reintento tras un error de red reenvía el mismo id que el primer intento (P-25)', async () => {
+  const { contenedor, documento } = crearContenedorDePruebas();
+  const recibidos: (readonly { readonly id: string; readonly datos: { readonly nombre: string } }[])[] = [];
+  let intento = 0;
+  const deps = crearDepsFalsas({
+    importarPersonasReferencia: (filas) => {
+      recibidos.push(filas);
+      intento += 1;
+      if (intento === 1) {
+        return Promise.reject(new Error('corte de red simulado'));
+      }
+      return Promise.resolve(filas.length);
+    },
+  });
+  mostrarPantallaImportacionMasiva(contenedor, deps);
+  const input = contenedor.querySelectorAll('input[type="file"]')[2] as HTMLInputElement;
+
+  seleccionarFichero(documento, input, `${CABECERA_PERSONAS_REFERENCIA}\r\nExistente;Previo;;María;López;;666123456;\r\n`);
+  await esperarMicrotareas();
+
+  const botonConfirmar = [...contenedor.querySelectorAll('button')].filter((b) => b.textContent === 'Confirmar importación')[2];
+  assert.ok(botonConfirmar);
+
+  botonConfirmar.click();
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /No se ha podido completar la acción/);
+
+  botonConfirmar.click();
+  await esperarMicrotareas();
+
+  assert.equal(recibidos.length, 2);
+  assert.equal(recibidos[0]?.[0]?.id, recibidos[1]?.[0]?.id);
+  assert.match(contenedor.textContent, /Se han creado 1 personas de referencia\./);
 });

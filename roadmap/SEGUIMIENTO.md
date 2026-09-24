@@ -10,8 +10,43 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-24 (rutina programada de programador — R-30 completada, Oleada v14
-en marcha): protocolo primero — `git checkout develop && git pull origin develop` fast-forward limpio
+**Última actualización:** 2026-09-24 (rutina programada de programador — R-31 completada, Oleada v14
+cerrada): protocolo primero — `git checkout develop && git pull origin develop` fast-forward limpio
+desde la pasada anterior de esta misma rutina (`636dbf2`, R-30). `npm ci` fue necesario primero:
+`node_modules` no existía en el contenedor de esta sesión. Revisado `auditoriacontinua.md`: el único
+hallazgo `ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en R-02), decimoséptimo ciclo consecutivo
+sin novedad de fondo en la pregunta #16 de §6 — bloqueado exclusivamente en el dueño, nada que tratar
+como P-XX antes de la cola. Revisada §1: la siguiente tarea pendiente era **R-31** (Importación masiva
+de personas de referencia). Implementada tal cual su spec: tercer bloque independiente en
+`pantallaImportacionMasiva.ts` («Importar personas de referencia»), mismo flujo en dos pasos (vista
+previa obligatoria, confirmación explícita) que los bloques de alumnos/horarios de R-08. Nuevo
+`dominio/importacionPersonasReferencia.ts` (16 tests): alumno resuelto por "nombre y apellidos
+exactos" (comparación EXACTA, mismo criterio que el CSV de horarios de R-08, no el acento-insensible
+de alumnos — requisito 1, literal); duplicado detectado reutilizando tal cual
+`buscarPersonaReferenciaDuplicada` (T-13, `dominio/personaReferencia.ts`, generalizada con un tipo
+genérico `<T extends DatosDuplicadoPersonaReferencia>` para aceptar candidatas sin fila real todavía,
+sin cambiar su comportamiento para el único llamador previo, `pantallaFichaAlumno.ts`), acotado POR
+ALUMNO (`Map` por `alumno_id`, requisito 3 literal: "dentro del mismo alumno") para que dos padres
+homónimos de dos hermanos distintos no se pisen. Nuevas
+`datos/importacionMasiva.ts#listarPersonasReferenciaExistentesParaImportacion` (envuelve
+`listarPersonasReferenciaDeAlumnos` de R-16, una única petición para todo el catálogo de alumnos) e
+`importarPersonasReferenciaValidados` (mismo patrón de `INSERT` único en lote con `id` estable
+generado por quien llama, idempotencia P-25, que `importarAlumnosValidados`). Sin migración
+(`persona_referencia` y su RLS ya existen desde T-07/T-10, tal como declaraba la propia spec). 27
+tests nuevos (16 dominio, 11 datos/pantalla — 1894 en total, antes 1867); `personaReferencia.test.ts`
+tiene además un test reescrito (sin cambiar su aserción) para fijar el tipo genérico explícito y evitar
+un falso positivo de ESLint (`no-confusing-void-expression`) que aparece al inferir `T` desde un array
+vacío. Dos decisiones nuevas registradas en `DECISIONES_TECNICAS.md`: la comparación EXACTA de alumno
+(mismo motivo que R-08) y la generalización de `buscarPersonaReferenciaDuplicada` (evita una segunda
+implementación de la misma lógica, requisito 3 literal). Verificación pre-push completa en verde:
+`typecheck`, `lint`, 1894 tests, `build`, todos limpios. R-31 pasa a `COMPLETADA`
+en §1 — cierra la Oleada v14 (R-30 y R-31 ambas `COMPLETADA`); la cola de §1 vuelve a quedar sin
+ninguna fila `PENDIENTE` (todo `COMPLETADA` o `BLOQUEADA` por migración/T-25), a la espera de que el
+dueño aplique alguna migración, responda una pregunta de §6, o el PM abra la siguiente oleada. —
+Programador, 2026-09-24
+
+**Sesión anterior (2026-09-24, rutina programada de programador — R-30 completada, Oleada v14
+en marcha):** protocolo primero — `git checkout develop && git pull origin develop` fast-forward limpio
 desde el trigésimo ciclo del PM (`64b659b`). Revisado `auditoriacontinua.md`: el único hallazgo
 `ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en R-02), bloqueado en la pregunta #16 de §6 sin
 ninguna vía de esta sesión — no es una urgencia nueva, ya está correctamente reflejado como R-02
@@ -3563,7 +3598,7 @@ pantallas del requisito 2.
 | R-28 | Aviso de ausencias repetidas, donde el profesor ya mira | COMPLETADA | 2026-09-23 | Oleada v13 / F-19 · Sin migración: `dominio/avisoAusenciasRepetidas.ts` (nuevo, puro, 8 tests) reutiliza tal cual `rankingAusenciasSinJustificarPanelCentro` (R-11, requisito 3, ninguna función nueva de conteo) para calcular, por `alumnoId`, quién alcanza `UMBRAL_AVISO_AUSENCIAS_REPETIDAS` (3) ausencias sin justificar en los últimos `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` (30) días. Indicador discreto junto al nombre en `pantallaPasarLista.ts` (T-19, card de slot y de "alumno extra" por igual, 4 tests nuevos) y `pantallaMiHorario.ts` (T-22, cada fila de la vista semanal, 3 tests nuevos), las dos detrás de una dependencia `listarAusenciasRecientes` opcional — sin ella, cada pantalla funciona exactamente como antes de R-28. Wireada en `aplicacion.ts` sobre `datos/asistencia.ts#listarHistoricoAsistenciaCompleto` filtrado por `profesorId` (requisito 3: "nunca a todo el centro", el mismo `SELECT` que ya lee T-17/T-23, sin RPC ni columna nueva, requisito 5). 15 tests nuevos en total (1831 en total, antes 1816) |
 | R-29 | El profesor avisa de que falta un día, sin salir de la aplicación | BLOQUEADA — pendiente aplicar migración `019` (fila 22 de §3) | 2026-09-23 | Oleada v13 / F-20 · Código y tests completos, contra dobles. Migración `019_aviso_ausencia_profesor.sql` (tabla nueva, RLS, dos RPC) escrita y empujada, todavía sin aplicar — no depende de ninguna migración anterior pendiente, pero el runner aplica siempre en orden numérico dentro de la misma invocación. `dominio/avisoAusenciaProfesor.ts` (nuevo, puro, 10 tests): resuelve la PRÓXIMA fecha de calendario de cada fila de la vista semanal recurrente y si esa sesión sigue siendo elegible (futura, o de hoy sin empezar). Botón «Avisar que no puedo dar esta clase» en `pantallaMiHorario.ts` (T-22, dos toques: abre motivo opcional, confirma), bloque nuevo «Avisos de ausencia pendientes» en `pantallaPanelCentro.ts` (R-11, «Marcar atendido»), las dos detrás de dependencias opcionales — sin ellas, cada pantalla funciona exactamente como antes de R-29, mismo criterio que el resto de dependencias opcionales del proyecto. 32 tests nuevos en total (1863 en total, antes 1831) |
 | R-30 | De aviso a excepción, en un enlace | COMPLETADA | 2026-09-24 | Oleada v14 / F-21 · Sin migración: enlazado puro de cliente. `pantallaPanelCentro.ts` (bloque 5, R-29): botón «Declarar sustitución o cancelación» junto a «Marcar atendido» en cada fila, detrás de `deps.irARegistro` (opcional, mismo `deps.irARegistro` que R-20 ya usa en `pantallaRegistroAuditoria.ts`), navega a `#/registros/<profesorId>/<slotId>/<fecha>` con los datos del propio aviso. `listarAvisosAusenciaPendientes` ya filtra por `estado = 'pendiente'`, así que el requisito 4 (ocultar el enlace si el aviso está atendido) se cumple por construcción. Sin cambios en `pantallaRegistrosSlot.ts` (requisito 3, literal). 4 tests nuevos (1867 en total, antes 1863). Real en `dev` en cuanto se apliquen `013`/`019` (mismo precedente que R-29/R-06, ninguna de las dos bloquea esta tarea) |
-| R-31 | Importación masiva de personas de referencia | PENDIENTE | 2026-09-23 | Oleada v14 / F-22 · Sin migración: `persona_referencia` y su RLS ya existen desde T-07/T-10. Depende de R-08 (`COMPLETADA`) y T-13 (`COMPLETADA`). Tercer CSV opcional en `pantallaImportacionMasiva.ts`, mismo patrón de vista previa y deduplicación que alumnos/horarios |
+| R-31 | Importación masiva de personas de referencia | COMPLETADA | 2026-09-24 | Oleada v14 / F-22 · Sin migración: `persona_referencia` y su RLS ya existen desde T-07/T-10. Tercer bloque en `pantallaImportacionMasiva.ts` (nuevo `dominio/importacionPersonasReferencia.ts`, 16 tests): alumno resuelto por nombre y apellidos EXACTOS (mismo criterio que el CSV de horarios de R-08, requisito 1 literal), duplicado detectado reutilizando `buscarPersonaReferenciaDuplicada` (T-13, generalizada con un tipo genérico para aceptar candidatas sin fila real) acotado POR ALUMNO. Nuevas `datos/importacionMasiva.ts#listarPersonasReferenciaExistentesParaImportacion`/`importarPersonasReferenciaValidados` (mismo patrón de `INSERT` único en lote e idempotencia P-25 que alumnos). 27 tests nuevos en total (1894 en total, antes 1867) |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

@@ -154,6 +154,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   `nucleo/csv.ts` ampliado con `analizarCsv`/`detectarSeparadorCsv` (parseo propio, comillas dobles
   estilo RFC 4180, separador `;`/`,` autodetectado). `permisosUi.ts` añade `puedeImportarMasivamente`
   (exclusiva de `administrator`).
+  Desde R-31: `importacionPersonasReferencia.ts` (nuevo) — `analizarCsvPersonasReferencia` resuelve el
+  alumno por nombre y apellidos EXACTOS (mismo criterio que `importacionHorarios.ts`, requisito 1
+  literal) y detecta duplicado reutilizando tal cual `buscarPersonaReferenciaDuplicada` (T-13,
+  `personaReferencia.ts`, generalizada con un tipo genérico `<T extends DatosDuplicadoPersonaReferencia>`
+  para aceptar candidatas sin fila real todavía en la base de datos), acotado POR ALUMNO (`Map` por
+  `alumno_id`, requisito 3 literal: "dentro del mismo alumno" — dos padres homónimos de dos hermanos
+  distintos no se pisan entre sí).
   Desde R-10: `expedienteAlumno.ts` (nuevo) — `construirDatosExpedienteAlumno(parametros)` compone,
   a partir de la ficha ya cargada (T-12/T-13, con centro y personas de referencia embebidos) y el
   histórico ÍNTEGRO de asistencia (T-23, sin filtro de mes ni de estado — incluye anuladas y
@@ -436,6 +443,12 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     sin abortar en la primera que falle — un solape con un horario ya existente (incluida la
     reimportación del mismo fichero sin cambios) queda recogido en `errores`, con el motivo real de
     `crearSlot`, nunca el genérico de `mensajeAmigable`.
+    **Desde R-31:** `listarPersonasReferenciaExistentesParaImportacion(cliente, alumnoIds)` — envuelve
+    tal cual `datos/personasReferencia.ts#listarPersonasReferenciaDeAlumnos` (R-16), una única petición
+    agrupada por `alumno_id` para TODO el catálogo de alumnos, sin ninguna función de lectura nueva.
+    `importarPersonasReferenciaValidados(cliente, filas: FilaPersonaReferenciaParaConfirmar[])`: mismo
+    patrón que `importarAlumnosValidados` — un ÚNICO `INSERT` en lote con `Prefer: return=minimal` y
+    `id` estable fijado por quien llama (idempotencia P-25).
 
   ### Configuración del cliente (`config.js`)
 
@@ -949,13 +962,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     DOS aplicaciones (`#/cierres`): `administrator` con las cuatro operaciones de escritura
     (`puedeGestionarCierresCentro`); `teacher` en modo exclusivamente lectura, sin las cuatro
     operaciones opcionales de la interfaz de dependencias, viendo solo los cierres activos.
-  - `pantallaImportacionMasiva.ts` (R-08, nuevo) — `mostrarPantallaImportacionMasiva(contenedor, deps)`:
-    dos bloques independientes (alumnos/horarios), cada uno con el mismo flujo en dos pasos: elegir
+  - `pantallaImportacionMasiva.ts` (R-08, nuevo; R-31 añade el tercer bloque) —
+    `mostrarPantallaImportacionMasiva(contenedor, deps)`: tres bloques independientes
+    (alumnos/horarios/personas de referencia), cada uno con el mismo flujo en dos pasos: elegir
     un fichero (`<input type="file">`, leído con `deps.leerFichero`) analiza y muestra una vista
     previa obligatoria (fila a fila, qué se creará/omitirá/fallará y por qué); confirmar exige un
     segundo toque explícito y solo entonces escribe. El bloque de horarios resuelve cada email de
-    profesor distinto UNA vez (`emailsProfesorUnicosDeCsvHorarios`) antes de analizar las filas.
-    Exclusiva de `administrator` (`puedeImportarMasivamente`). Enrutada como `#/importacion`.
+    profesor distinto UNA vez (`emailsProfesorUnicosDeCsvHorarios`) antes de analizar las filas. El
+    bloque de personas de referencia (R-31) trae en una única petición las personas ya existentes de
+    TODOS los alumnos del catálogo (`deps.listarPersonasReferenciaExistentes`) y, como el de alumnos,
+    genera el `id` de cada fila `'nueva'` una única vez al analizar (idempotencia P-25). Exclusiva de
+    `administrator` (`puedeImportarMasivamente`). Enrutada como `#/importacion`.
   - `pantallaPanelCentro.ts` (R-11, nuevo) — `mostrarPantallaPanelCentro(contenedor, deps)`: tres
     bloques calculados sin ninguna tabla nueva, compuestos por `dominio/panelCentro.ts` sobre datos
     ya existentes de T-15/R-12/R-06/T-18/R-01. (a) sesiones de hoy y su estado (`pasada_lista`/

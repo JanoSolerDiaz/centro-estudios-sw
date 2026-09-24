@@ -3,10 +3,17 @@ import assert from 'node:assert/strict';
 import { crearFetchSimulado, type PeticionSimulada } from './pruebas/dobleHttp.ts';
 import { crearClientePostgrest } from './postgrest.ts';
 import { crearRelojFijo } from '../nucleo/reloj.ts';
-import { listarAlumnosParaImportacion, importarAlumnosValidados, importarHorariosValidados } from './importacionMasiva.ts';
+import {
+  listarAlumnosParaImportacion,
+  importarAlumnosValidados,
+  importarHorariosValidados,
+  listarPersonasReferenciaExistentesParaImportacion,
+  importarPersonasReferenciaValidados,
+} from './importacionMasiva.ts';
 import type { AlumnoConCentro } from './alumnos.ts';
-import type { SlotHorario } from '../dominio/tipos.ts';
+import type { SlotHorario, PersonaReferencia } from '../dominio/tipos.ts';
 import type { DatosHorarioImportado } from '../dominio/importacionHorarios.ts';
+import type { DatosPersonaReferenciaImportada } from '../dominio/importacionPersonasReferencia.ts';
 
 function crearCliente(manejador: Parameters<typeof crearFetchSimulado>[0]) {
   return crearClientePostgrest({
@@ -213,4 +220,108 @@ void test('importarHorariosValidados: usa el instante del reloj inyectado como v
   await importarHorariosValidados(cliente, reloj, [{ descripcion: 'x', datos: DATOS_A1 }]);
 
   assert.equal(cuerpoInsert?.vigente_desde, '2026-03-15');
+});
+
+// --- listarPersonasReferenciaExistentesParaImportacion / importarPersonasReferenciaValidados (R-31) ------
+
+const PERSONA_EXISTENTE: PersonaReferencia = {
+  id: 'pr1',
+  alumno_id: 'a1',
+  nombre: 'Juan',
+  primer_apellido: 'López',
+  segundo_apellido: null,
+  email_referencia: null,
+  telefono_referencia: '666123456',
+  creado_en: '2026-01-01T00:00:00Z',
+  actualizado_en: '2026-01-01T00:00:00Z',
+};
+
+void test('listarPersonasReferenciaExistentesParaImportacion: una única petición "in", agrupada por alumno_id', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: [PERSONA_EXISTENTE] };
+  });
+
+  const mapa = await listarPersonasReferenciaExistentesParaImportacion(cliente, ['a1', 'a2']);
+
+  assert.ok(peticion);
+  assert.equal(new URL(peticion.url).pathname, '/rest/v1/persona_referencia');
+  assert.deepEqual(mapa.get('a1'), [PERSONA_EXISTENTE]);
+  assert.equal(mapa.get('a2'), undefined);
+});
+
+void test('listarPersonasReferenciaExistentesParaImportacion: con alumnoIds vacío no hace ninguna petición', async () => {
+  let llamadas = 0;
+  const cliente = crearCliente(() => {
+    llamadas += 1;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  const mapa = await listarPersonasReferenciaExistentesParaImportacion(cliente, []);
+
+  assert.equal(llamadas, 0);
+  assert.equal(mapa.size, 0);
+});
+
+void test('importarPersonasReferenciaValidados: con filas vacío, no hace ninguna petición y devuelve 0', async () => {
+  let llamadas = 0;
+  const cliente = crearCliente(() => {
+    llamadas += 1;
+    return { estado: 200, cuerpo: [] };
+  });
+
+  assert.equal(await importarPersonasReferenciaValidados(cliente, []), 0);
+  assert.equal(llamadas, 0);
+});
+
+const DATOS_PERSONA: DatosPersonaReferenciaImportada = {
+  alumno_id: 'a1',
+  nombre: 'Juan',
+  primer_apellido: 'López',
+  segundo_apellido: null,
+  telefono_referencia: '666123456',
+  email_referencia: null,
+};
+
+void test('importarPersonasReferenciaValidados: una única petición INSERT con todas las filas y return=minimal', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const cliente = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: undefined };
+  });
+
+  const filas = [
+    { id: 'id-1', datos: DATOS_PERSONA },
+    { id: 'id-2', datos: { ...DATOS_PERSONA, nombre: 'María' } },
+  ];
+
+  const creadas = await importarPersonasReferenciaValidados(cliente, filas);
+
+  assert.equal(creadas, 2);
+  assert.ok(peticion);
+  assert.equal(peticion.metodo, 'POST');
+  assert.equal(new URL(peticion.url).pathname, '/rest/v1/persona_referencia');
+  assert.equal(peticion.cabeceras.prefer, 'return=minimal');
+  const cuerpo = peticion.cuerpo as { readonly id: string; readonly nombre: string }[];
+  assert.equal(cuerpo.length, 2);
+  assert.equal(cuerpo[0]?.id, 'id-1');
+  assert.equal(cuerpo[1]?.nombre, 'María');
+});
+
+void test('importarPersonasReferenciaValidados: no genera ningún id — usa siempre el que trae la fila (P-25, idempotencia ante reintento)', async () => {
+  const peticiones: PeticionSimulada[] = [];
+  const cliente = crearCliente((p) => {
+    peticiones.push(p);
+    return { estado: 200, cuerpo: undefined };
+  });
+
+  const filas = [{ id: 'id-estable', datos: DATOS_PERSONA }];
+
+  await importarPersonasReferenciaValidados(cliente, filas);
+  await importarPersonasReferenciaValidados(cliente, filas); // simula el reintento de un mismo lote tras un corte de red
+
+  assert.equal(peticiones.length, 2);
+  const idsEnviados = peticiones.map((p) => (p.cuerpo as { readonly id: string }[])[0]?.id);
+  assert.deepEqual(idsEnviados, ['id-estable', 'id-estable']);
 });

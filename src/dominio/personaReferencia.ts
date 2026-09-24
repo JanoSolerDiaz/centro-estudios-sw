@@ -7,7 +7,6 @@
  * reexporta las funciones de `dominio/alumno.ts` en vez de duplicarlas.
  */
 
-import type { PersonaReferencia } from './tipos.ts';
 import { normalizarNombrePersona } from './alumno.ts';
 
 export {
@@ -48,11 +47,16 @@ export interface DatosDuplicadoPersonaReferencia extends DatosNombrePersonaRefer
 /** La primera persona de `existentes` con el mismo nombre completo (acento-insensible, igual
  * criterio que `compararAlumnosParaOrden` de T-12) y el mismo teléfono que `datos`, o `undefined`
  * si ninguna coincide. Requisito 6 de T-13: es un aviso, no un bloqueo — quien llama (la interfaz)
- * decide qué hacer con el resultado, igual que `buscarCentroDuplicado` de T-11. */
-export function buscarPersonaReferenciaDuplicada(
+ * decide qué hacer con el resultado, igual que `buscarCentroDuplicado` de T-11.
+ *
+ * Genérica sobre `existentes` (en vez de fijar `PersonaReferencia[]`) para que R-31 (importación
+ * masiva) pueda reutilizarla tal cual sobre candidatas que todavía no tienen fila real en la base de
+ * datos (sin `id`/`creado_en`/`actualizado_en`) — mismo criterio de "sin ninguna lógica de
+ * deduplicación nueva que escribir" de su propia spec. */
+export function buscarPersonaReferenciaDuplicada<T extends DatosDuplicadoPersonaReferencia>(
   datos: DatosDuplicadoPersonaReferencia,
-  existentes: readonly PersonaReferencia[],
-): PersonaReferencia | undefined {
+  existentes: readonly T[],
+): T | undefined {
   return existentes.find(
     (existente) =>
       mismoNombreCompleto(datos, existente) && existente.telefono_referencia === datos.telefono_referencia,

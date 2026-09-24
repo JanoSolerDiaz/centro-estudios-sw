@@ -88,7 +88,13 @@ import { slotsVigentesEn } from '../dominio/slotHorario.ts';
 import { calcularPasosAsistentePrimerosPasos, asistentePrimerosPasosCompleto } from '../dominio/asistentePrimerosPasos.ts';
 import { listarProfesoresActivos, resolverNombresProfesores, resolverProfesorPorEmail } from '../datos/profesores.ts';
 import { listarUsuarios, actualizarUsuario } from '../datos/usuarios.ts';
-import { listarAlumnosParaImportacion, importarAlumnosValidados, importarHorariosValidados } from '../datos/importacionMasiva.ts';
+import {
+  listarAlumnosParaImportacion,
+  importarAlumnosValidados,
+  importarHorariosValidados,
+  listarPersonasReferenciaExistentesParaImportacion,
+  importarPersonasReferenciaValidados,
+} from '../datos/importacionMasiva.ts';
 import {
   registrarAsistencia,
   registrarAusencia,
@@ -476,6 +482,8 @@ function mostrarAppAdministrador(
         resolverProfesorPorEmail: (email) => resolverProfesorPorEmail(app.postgrest, email),
         importarAlumnos: (filas) => importarAlumnosValidados(app.postgrest, filas),
         importarHorarios: (filas) => importarHorariosValidados(app.postgrest, app.reloj, filas),
+        listarPersonasReferenciaExistentes: (alumnoIds) => listarPersonasReferenciaExistentesParaImportacion(app.postgrest, alumnoIds),
+        importarPersonasReferencia: (filas) => importarPersonasReferenciaValidados(app.postgrest, filas),
         generarId: () => crypto.randomUUID(),
       });
       return;

@@ -63,13 +63,13 @@ void test('buscarPersonaReferenciaDuplicada trata segundo_apellido ausente y nul
 });
 
 void test('buscarPersonaReferenciaDuplicada devuelve undefined sin personas existentes', () => {
-  assert.equal(
-    buscarPersonaReferenciaDuplicada(
-      { nombre: 'Juan', primer_apellido: 'García', telefono_referencia: '600000000' },
-      [],
-    ),
-    undefined,
+  // Tipo genérico explícito: con `existentes` vacío, TypeScript no tiene de dónde inferir `T` y lo
+  // reduce a `never` (retorno `undefined` puro), que ESLint trata como una expresión "vacía" confusa.
+  const duplicado = buscarPersonaReferenciaDuplicada<PersonaReferencia>(
+    { nombre: 'Juan', primer_apellido: 'García', telefono_referencia: '600000000' },
+    [],
   );
+  assert.equal(duplicado, undefined);
 });
 
 void test('las funciones reexportadas de alumno.ts siguen siendo las mismas reglas de formato', () => {

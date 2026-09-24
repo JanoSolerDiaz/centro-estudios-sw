@@ -37,6 +37,56 @@
 
 ---
 
+### Sesión 2026-09-24 (rutina programada de programador) — R-31: importación masiva de personas de referencia
+**Tarea(s):** R-31
+**Estado resultante:** R-31 `COMPLETADA` (§1 de `SEGUIMIENTO.md`) — cierra la Oleada v14 (R-30 y R-31
+ambas `COMPLETADA`); §1 vuelve a quedar sin ninguna fila `PENDIENTE`
+**Commits a `develop`:** el de esta sesión (`src/dominio/importacionPersonasReferencia.ts` y su test,
+`src/dominio/personaReferencia.ts` y su test, `src/datos/importacionMasiva.ts` y su test,
+`src/ui/pantallaImportacionMasiva.ts` y su test, `src/ui/aplicacion.ts`, `roadmap/SEGUIMIENTO.md`,
+`roadmap/DECISIONES_TECNICAS.md`, este documento)
+**Migraciones aplicadas:** ninguna — R-31 declara `Migración: No` en su propia spec (`persona_referencia`
+y su RLS ya existen desde T-07/T-10)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/dominio/importacionPersonasReferencia.ts` (nuevo: análisis puro
+del CSV, alumno resuelto por nombre y apellidos EXACTOS, deduplicación por alumno reutilizando
+`buscarPersonaReferenciaDuplicada`) y su test (16 tests); `src/dominio/personaReferencia.ts`
+(`buscarPersonaReferenciaDuplicada` generalizada con un tipo genérico `<T extends
+DatosDuplicadoPersonaReferencia>` para aceptar candidatas sin fila real, sin cambiar su comportamiento
+para `pantallaFichaAlumno.ts`) y su test (un test reescrito con tipo genérico explícito, sin tests
+nuevos); `src/datos/importacionMasiva.ts` (nuevas
+`listarPersonasReferenciaExistentesParaImportacion`/`importarPersonasReferenciaValidados`, mismo patrón
+de `INSERT` único en lote e idempotencia P-25 que alumnos) y su test (6 tests nuevos);
+`src/ui/pantallaImportacionMasiva.ts` (tercer bloque «Importar personas de referencia») y su test (6
+tests nuevos, 5 netos tras sustituir el test de "monta los dos bloques" por "monta los tres bloques");
+`src/ui/aplicacion.ts` (cablea las dos dependencias nuevas); `roadmap/SEGUIMIENTO.md` (cabecera y fila de
+R-31 en §1); `roadmap/DECISIONES_TECNICAS.md` (4 filas nuevas)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1894/1894, antes 1867) · build ✅ — `npm ci`
+fue necesario antes de la primera verificación: `node_modules` no existía en el contenedor de esta
+sesión
+**Health check post-deploy:** N/D — sin migración ni cambio de esquema, nada nuevo que verificar contra
+`dev`/`prod`
+**Decisiones tomadas:** 4 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-24, R-31): (1) comparación
+EXACTA de alumno en el CSV, mismo motivo que el CSV de horarios de R-08; (2) generalización de
+`buscarPersonaReferenciaDuplicada` en vez de una función de deduplicación nueva, requisito 3 literal de
+R-31; (3) deduplicación POR ALUMNO, no global al fichero, para no pisar a dos padres homónimos de dos
+hermanos distintos; (4) alta en un único `INSERT` en lote con `id` estable, mismo patrón P-25 que
+alumnos
+**Hallazgos del auditor atendidos:** ninguno — el único `ABIERTO` (`#8`, RGPD artículo 9 en R-02) sigue
+bloqueado en la pregunta #16 de §6, sin ninguna vía de esta sesión
+**Hallazgos:** ninguno nuevo. Al escribir el test de "personas de referencia: devuelve undefined sin
+personas existentes" en `personaReferencia.test.ts` se detectó que generalizar
+`buscarPersonaReferenciaDuplicada` con un array vacío hace que TypeScript infiera su parámetro genérico
+como `never` (retorno `undefined` puro), lo que ESLint (`no-confusing-void-expression`) trata como una
+expresión "vacía" confusa — resuelto fijando el tipo genérico explícito en ese único test, sin afectar
+al comportamiento real de la función ni a ningún otro llamador
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la cola de §1 queda sin ninguna fila `PENDIENTE` — la siguiente sesión de programador
+revisa si el dueño aplicó alguna migración pendiente (`010`-`019`), respondió alguna pregunta de §6, o
+si el PM abrió una nueva oleada; si no, no hay trabajo de código nuevo que hacer
+
+---
+
 ### Sesión 2026-09-24 (rutina programada de programador) — R-30: de aviso a excepción, en un enlace
 **Tarea(s):** R-30
 **Estado resultante:** R-30 `COMPLETADA` (§1 de `SEGUIMIENTO.md`)

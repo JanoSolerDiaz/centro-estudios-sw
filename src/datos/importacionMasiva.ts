@@ -1,7 +1,13 @@
 /**
- * Orquestación de red de la importación masiva (R-08): cargar el catálogo completo de alumnos que
- * necesitan `dominio/importacionAlumnos.ts` (duplicados) y `dominio/importacionHorarios.ts`
- * (emparejar por nombre), y confirmar las filas ya validadas por esas dos funciones puras.
+ * Orquestación de red de la importación masiva (R-08, R-31): cargar el catálogo completo de alumnos
+ * que necesitan `dominio/importacionAlumnos.ts` (duplicados), `dominio/importacionHorarios.ts`
+ * (emparejar por nombre) y `dominio/importacionPersonasReferencia.ts` (emparejar por nombre y
+ * deduplicar dentro del mismo alumno), y confirmar las filas ya validadas por esas tres funciones
+ * puras.
+ *
+ * **Personas de referencia (R-31): mismo patrón de `INSERT` único en lote e idempotencia por `id`
+ * estable que alumnos** (ver P-25 más abajo) — `persona_referencia` tampoco tiene ninguna restricción
+ * que dependa de las demás filas del lote.
  *
  * **Alumnos: una única petición `INSERT` con todas las filas nuevas**, con `Prefer: return=minimal`
  * (`email_alumno`/`telefono_alumno` no se pueden `RETURNING` desde la tabla base) en vez de una
@@ -33,8 +39,11 @@ import type { ClientePostgrest } from './postgrest.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import { listarAlumnos } from './alumnos.ts';
 import { crearSlot } from './slotsHorario.ts';
+import { listarPersonasReferenciaDeAlumnos } from './personasReferencia.ts';
 import type { AlumnoExistenteParaImportacion, DatosAlumnoImportado } from '../dominio/importacionAlumnos.ts';
 import type { AlumnoParaEmparejarHorario, DatosHorarioImportado } from '../dominio/importacionHorarios.ts';
+import type { DatosPersonaReferenciaImportada } from '../dominio/importacionPersonasReferencia.ts';
+import type { DatosDuplicadoPersonaReferencia } from '../dominio/personaReferencia.ts';
 
 /** El motivo exacto del rechazo (p. ej. "Este alumno ya tiene un horario que se solapa en ese día y
  * hora.", de `crearSlot`) es justo lo que el administrator necesita para decidir qué corregir en el
@@ -122,4 +131,42 @@ export async function importarHorariosValidados(
     }
   }
   return { creados, errores };
+}
+
+const TABLA_PERSONA_REFERENCIA = 'persona_referencia';
+
+/** Personas de referencia ya existentes de TODOS los alumnos que aparecen en `alumnosExistentes`
+ * (`dominio/importacionPersonasReferencia.ts`, requisito 3: la deduplicación es "dentro del mismo
+ * alumno"), agrupadas por `alumno_id` en una única petición — reutiliza tal cual
+ * `datos/personasReferencia.ts#listarPersonasReferenciaDeAlumnos` (R-16 ya trae exactamente esta
+ * forma para todo el centro), sin ninguna función de lectura nueva. */
+export async function listarPersonasReferenciaExistentesParaImportacion(
+  cliente: ClientePostgrest,
+  alumnoIds: readonly string[],
+): Promise<ReadonlyMap<string, readonly DatosDuplicadoPersonaReferencia[]>> {
+  return listarPersonasReferenciaDeAlumnos(cliente, alumnoIds);
+}
+
+/** Una fila ya validada como `'nueva'` por `analizarCsvPersonasReferencia`, con el `id` que le asignó
+ * quien llama — mismo criterio de idempotencia ante reintento que `FilaAlumnoParaConfirmar` (P-25,
+ * ver la cabecera del módulo): el `id` se genera una única vez al analizar el fichero, nunca aquí. */
+export interface FilaPersonaReferenciaParaConfirmar {
+  readonly id: string;
+  readonly datos: DatosPersonaReferenciaImportada;
+}
+
+/** Inserta de una vez todas las filas ya validadas como `'nueva'` por `analizarCsvPersonasReferencia`
+ * — mismo patrón que `importarAlumnosValidados`: `persona_referencia` no tiene ninguna restricción
+ * que dependa de las demás filas del lote, así que un único `INSERT` con un array es correcto. Con
+ * `filas` vacío no hace ninguna petición. */
+export async function importarPersonasReferenciaValidados(
+  cliente: ClientePostgrest,
+  filas: readonly FilaPersonaReferenciaParaConfirmar[],
+): Promise<number> {
+  if (filas.length === 0) {
+    return 0;
+  }
+  const conId = filas.map((fila) => ({ id: fila.id, ...fila.datos }));
+  await cliente.desde(TABLA_PERSONA_REFERENCIA).insertar(conId, { representar: false });
+  return conId.length;
 }
