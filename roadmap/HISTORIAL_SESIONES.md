@@ -37,6 +37,26 @@
 
 ---
 
+### Sesión 2026-09-24 (rutina programada de programador, tercera pasada del día) — cola vacía, nada que hacer
+**Tarea(s):** ninguna — §1 sin filas `PENDIENTE` propias del programador
+**Estado resultante:** sin cambio — todo `COMPLETADA` o `BLOQUEADA` por migración/T-25, igual que al
+cierre de la pasada anterior (R-31)
+**Commits a `develop`:** el de esta sesión (solo `roadmap/SEGUIMIENTO.md` y este documento)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva (T-25 sigue bloqueada en el dueño, fila 12 de §3)
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera y bitácora), este documento
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1894/1894) · build ✅
+**Health check post-deploy:** no aplica (sin cambios en `src/`)
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno — el único `ABIERTO` (#8) sigue bloqueado en el dueño
+(pregunta #16 de §6), decimoséptimo ciclo consecutivo sin novedad de fondo
+**Hallazgos:** ninguno
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** sin cola normal propia hasta que el dueño aplique alguna migración pendiente,
+responda la pregunta #16 de §6, o el PM abra la siguiente oleada
+
+---
+
 ### Sesión 2026-09-24 (rutina programada de programador) — R-31: importación masiva de personas de referencia
 **Tarea(s):** R-31
 **Estado resultante:** R-31 `COMPLETADA` (§1 de `SEGUIMIENTO.md`) — cierra la Oleada v14 (R-30 y R-31

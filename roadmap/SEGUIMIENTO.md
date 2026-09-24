@@ -10,7 +10,27 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-24 (rutina programada de programador — R-31 completada, Oleada v14
+**Última actualización:** 2026-09-24 (rutina programada de programador, tercera pasada del día — cola
+vacía, nada que hacer): protocolo primero — `git checkout develop && git pull origin develop`
+fast-forward limpio desde la pasada anterior de esta misma rutina (`d3dc2c5`, R-31, sin commits entre
+medias). Revisado `auditoriacontinua.md`: el único hallazgo `ABIERTO` sigue siendo **#8** (alta, RGPD
+artículo 9 en R-02), decimoséptimo ciclo consecutivo sin novedad de fondo en la pregunta #16 de §6 —
+bloqueado exclusivamente en el dueño, nada que tratar como P-XX antes de la cola. Revisada §1 completa
+(lectura directa de la tabla, no solo la bitácora): **ninguna fila queda `PENDIENTE`** salvo la propia
+fila 12 de §3 (T-25, paso a producción, bloqueada en el dueño) — todo lo demás `COMPLETADA` o
+`BLOQUEADA` por migración (§3, filas 13-22). Revisado `FEEDBACK.md`: sigue con su única fila plantilla
+vacía, nada que convertir. Sin ninguna R-XX nueva del PM, ningún hallazgo urgente y ningún backlog
+propio, esta sesión no tiene ningún trabajo de código que hacer. Verificación pre-push completa
+igualmente ejecutada para confirmar que el estado sigue verde: contenedor sin `node_modules`, `npm ci`
+recuperó los 130 paquetes declarados (0 vulnerabilidades) + `npm run typecheck` + `npm run lint` +
+`npm test` (**1894/1894**, mismo número que la pasada anterior de R-31 — ningún fichero de `src/`
+cambió) + `npm run build`, los cuatro en verde. Commit solo de esta entrada de bitácora y esta
+cabecera, empujado a `develop`, sin tocar `master` en ningún momento. La siguiente sesión seguirá sin
+cola normal propia hasta que el dueño aplique alguna de las migraciones pendientes, responda la
+pregunta #16, o el PM abra la siguiente oleada — esto no es un fallo de proceso, es el estado correcto
+de una cola agotada. — Programador, 2026-09-24
+
+**Sesión anterior (2026-09-24, rutina programada de programador — R-31 completada, Oleada v14
 cerrada): protocolo primero — `git checkout develop && git pull origin develop` fast-forward limpio
 desde la pasada anterior de esta misma rutina (`636dbf2`, R-30). `npm ci` fue necesario primero:
 `node_modules` no existía en el contenedor de esta sesión. Revisado `auditoriacontinua.md`: el único
