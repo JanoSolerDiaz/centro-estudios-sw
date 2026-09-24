@@ -684,6 +684,80 @@ void test('administrator con appAdministrador: "Ver registro completo" en Audito
   assert.equal(campoFecha.value, '2026-08-31');
 });
 
+void test('administrator con appAdministrador: "Declarar sustitución o cancelación" en el Panel enlaza a Registros con profesor, slot y fecha del aviso (requisito 2 de R-30)', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const AVISO = {
+    id: 'aviso-1',
+    profesor_id: 'profesor-1',
+    slot_id: 'slot-1',
+    fecha_sesion: '2026-09-11',
+    hora_inicio: '17:00',
+    hora_fin: '18:00',
+    asignatura_o_grupo: 'Matemáticas',
+    motivo: null,
+    estado: 'pendiente',
+    atendido_por: null,
+    atendido_en: null,
+    registrado_en: '2026-09-08T00:00:00.000Z',
+    actualizado_en: '2026-09-08T00:00:00.000Z',
+  };
+  const { app } = crearAppAdministradorFalso((p) => {
+    const pathname = new URL(p.url).pathname;
+    if (pathname === '/rest/v1/aviso_ausencia_profesor') {
+      return { estado: 200, cuerpo: [AVISO] };
+    }
+    if (pathname === '/rest/v1/perfil') {
+      return { estado: 200, cuerpo: [{ id: 'profesor-1', nombre: 'Marta Ruiz' }] };
+    }
+    if (pathname === '/rest/v1/slot_horario') {
+      return {
+        estado: 200,
+        cuerpo: [
+          {
+            id: 'slot-1',
+            alumno_id: 'alumno-1',
+            profesor_id: 'profesor-1',
+            dia_semana: 1,
+            hora_inicio: '17:00',
+            hora_fin: '18:00',
+            asignatura_o_grupo: 'Matemáticas',
+            vigente_desde: '2026-01-01',
+            vigente_hasta: null,
+            creado_en: '2026-01-01T00:00:00.000Z',
+            actualizado_en: '2026-01-01T00:00:00.000Z',
+            alumno: { id: 'alumno-1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, avatar_ruta: null, activo: true },
+          },
+        ],
+      };
+    }
+    return { estado: 200, cuerpo: [] };
+  });
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appAdministrador: app });
+  await esperarMicrotareas();
+
+  const botonPanel = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Panel');
+  assert.ok(botonPanel);
+  botonPanel.click();
+  await esperarMicrotareas();
+
+  const botonDeclarar = Array.from(contenedor.querySelectorAll('button')).find((b) => b.textContent === 'Declarar sustitución o cancelación');
+  assert.ok(botonDeclarar);
+  botonDeclarar.click();
+  await esperarMicrotareas();
+
+  const selectProfesor = contenedor.querySelector<HTMLSelectElement>('#registros-profesor');
+  assert.ok(selectProfesor);
+  assert.equal(selectProfesor.value, 'profesor-1');
+  const selectSlot = contenedor.querySelector<HTMLSelectElement>('#registros-slot');
+  assert.ok(selectSlot);
+  assert.equal(selectSlot.value, 'slot-1');
+  const campoFechaPanel = contenedor.querySelector<HTMLInputElement>('#registros-fecha');
+  assert.ok(campoFechaPanel);
+  assert.equal(campoFechaPanel.value, '2026-09-11');
+});
+
 void test('teacher con appProfesor: "Histórico" navega a la pantalla de histórico, sin selector de profesor ni de centro', async () => {
   const contenedor = crearContenedorDePruebas();
   const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));

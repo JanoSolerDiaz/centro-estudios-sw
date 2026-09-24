@@ -549,3 +549,64 @@ void test('un error al marcar atendido se muestra sin perder la fila del aviso',
   assert.match(contenedor.textContent, /No tienes permiso/);
   assert.ok(boton(contenedor, 'Marcar atendido'), 'el aviso sigue en la lista tras el error');
 });
+
+// --- R-30: enlace "Declarar sustitución o cancelación" desde el bloque de avisos ----------------
+
+void test('sin deps.irARegistro, la fila del aviso solo ofrece "Marcar atendido"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarAvisosAusenciaPendientes: () => Promise.resolve([crearAvisoAusencia()]),
+      marcarAvisoAusenciaAtendido: () => Promise.reject(new Error('no usado en este test')),
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.ok(boton(contenedor, 'Marcar atendido'));
+  assert.doesNotMatch(contenedor.textContent, /Declarar sustitución o cancelación/);
+});
+
+void test('con deps.irARegistro, cada aviso pendiente gana el botón "Declarar sustitución o cancelación"', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarAvisosAusenciaPendientes: () => Promise.resolve([crearAvisoAusencia()]),
+      marcarAvisoAusenciaAtendido: () => Promise.reject(new Error('no usado en este test')),
+      irARegistro: () => undefined,
+    }),
+  );
+  await esperarMicrotareas();
+
+  assert.ok(boton(contenedor, 'Marcar atendido'), 'los dos controles conviven (requisito 1)');
+  assert.ok(boton(contenedor, 'Declarar sustitución o cancelación'));
+});
+
+void test('"Declarar sustitución o cancelación" navega con el profesor/slot/fecha del propio aviso, sin marcarlo atendido', async () => {
+  const contenedor = crearContenedorDePruebas();
+  let llamada: readonly [string, string, string] | undefined;
+  let llamadasMarcarAtendido = 0;
+  mostrarPantallaPanelCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarAvisosAusenciaPendientes: () =>
+        Promise.resolve([crearAvisoAusencia({ profesor_id: 'profesor-9', slot_id: 'slot-9', fecha_sesion: '2026-09-11' })]),
+      marcarAvisoAusenciaAtendido: () => {
+        llamadasMarcarAtendido += 1;
+        return Promise.reject(new Error('no debería llamarse desde el enlace'));
+      },
+      irARegistro: (profesorId, slotId, fecha) => {
+        llamada = [profesorId, slotId, fecha];
+      },
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Declarar sustitución o cancelación').click();
+  await esperarMicrotareas();
+
+  assert.deepEqual(llamada, ['profesor-9', 'slot-9', '2026-09-11']);
+  assert.equal(llamadasMarcarAtendido, 0, 'el enlace no marca nada como atendido por sí solo (requisito 1)');
+  assert.ok(boton(contenedor, 'Marcar atendido'), 'el aviso sigue disponible para marcar atendido tras usar el enlace');
+});

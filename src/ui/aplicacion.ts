@@ -319,6 +319,9 @@ function mostrarAppAdministrador(
         listarPersonasReferenciaDeAlumnos: (alumnoIds) => listarPersonasReferenciaDeAlumnos(app.postgrest, alumnoIds),
         listarAvisosAusenciaPendientes: () => listarAvisosAusenciaPendientes(app.postgrest),
         marcarAvisoAusenciaAtendido: (avisoId) => marcarAvisoAusenciaAtendido(app.postgrest, avisoId),
+        irARegistro: (profesorId, slotId, fecha) => {
+          router.navegar({ nombre: 'registros', profesorId, slotId, fecha });
+        },
       });
       return;
     }

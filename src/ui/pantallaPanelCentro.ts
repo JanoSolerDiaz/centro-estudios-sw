@@ -37,6 +37,14 @@
  * de los slots del bloque 1a en una única llamada (nunca una petición aparte). «Marcar atendido» no
  * tiene más acción asociada (requisito 3, literal) y quita el aviso de la lista al confirmar sin
  * volver a pedir toda la página.
+ *
+ * R-30: cada fila del bloque 5 gana un botón «Declarar sustitución o cancelación» junto a «Marcar
+ * atendido» (`deps.irARegistro`, mismo patrón que `pantallaRegistroAuditoria.ts` de R-20) que navega a
+ * `#/registros/<profesorId>/<slotId>/<fecha>` con los propios `profesor_id`/`slot_id`/`fecha_sesion`
+ * del aviso — sin ruta ni RPC nueva. `listarAvisosAusenciaPendientes` ya filtra por `estado =
+ * 'pendiente'` (requisito 4 de R-30: un aviso atendido nunca llega a esta lista, así que ninguna fila
+ * necesita ocultar el botón). Opcional por sí sola: sin `deps.irARegistro`, la fila solo ofrece
+ * «Marcar atendido», exactamente como antes de R-30.
  */
 
 import type {
@@ -134,6 +142,11 @@ export interface DependenciasPantallaPanelCentro {
   /** R-29, requisito 3: marca un aviso como atendido, sin más acción asociada. Opcional junto a
    * `listarAvisosAusenciaPendientes`. */
   marcarAvisoAusenciaAtendido?(avisoId: string): Promise<AvisoAusenciaProfesor>;
+  /** R-30: navega a «Registros» (T-21/R-06) con el profesor, el slot y la fecha del propio aviso ya
+   * elegidos — mismo `deps.irARegistro` que R-20 usa en `pantallaRegistroAuditoria.ts`, sin ruta ni
+   * parámetro nuevo. Opcional: sin ella, la fila del aviso solo ofrece «Marcar atendido», igual que
+   * antes de R-30 (el enlace no condiciona el resto del bloque). */
+  irARegistro?(profesorId: string, slotId: string, fecha: string): void;
 }
 
 export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: DependenciasPantallaPanelCentro): void {
@@ -391,6 +404,13 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
         void marcarAvisoAusenciaAtendidoYRepintar(aviso.id);
       });
       celdaAccion.append(botonAtendido);
+      if (deps.irARegistro) {
+        const botonDeclarar = crearBoton(documento, 'Declarar sustitución o cancelación', 'button');
+        botonDeclarar.addEventListener('click', () => {
+          deps.irARegistro?.(aviso.profesor_id, aviso.slot_id, aviso.fecha_sesion);
+        });
+        celdaAccion.append(botonDeclarar);
+      }
       fila.append(celdaAccion);
       cuerpo.append(fila);
     }

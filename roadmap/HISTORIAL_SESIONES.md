@@ -37,6 +37,40 @@
 
 ---
 
+### Sesión 2026-09-24 (rutina programada de programador) — R-30: de aviso a excepción, en un enlace
+**Tarea(s):** R-30
+**Estado resultante:** R-30 `COMPLETADA` (§1 de `SEGUIMIENTO.md`)
+**Commits a `develop`:** el de esta sesión (`src/ui/pantallaPanelCentro.ts`,
+`src/ui/pantallaPanelCentro.test.ts`, `src/ui/aplicacion.ts`, `src/ui/aplicacion.test.ts`,
+`roadmap/SEGUIMIENTO.md`, este documento)
+**Migraciones aplicadas:** ninguna — R-30 declara `Migración: No` en su propia spec (enlazado puro de
+cliente entre dos pantallas ya existentes)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `src/ui/pantallaPanelCentro.ts` (bloque 5 del panel de centro: nueva
+dependencia opcional `irARegistro` y botón «Declarar sustitución o cancelación» por fila),
+`src/ui/pantallaPanelCentro.test.ts` (3 tests nuevos), `src/ui/aplicacion.ts` (cablea `irARegistro` del
+panel reutilizando `router.navegar({ nombre: 'registros', ... })`, mismo patrón que R-20 en la
+pantalla de auditoría), `src/ui/aplicacion.test.ts` (1 test de cableado extremo a extremo),
+`roadmap/SEGUIMIENTO.md` (cabecera y fila de R-30 en §1)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1867/1867, antes 1863) · build ✅ — `npm ci`
+fue necesario antes de la primera verificación: `node_modules` no existía en el contenedor de esta
+sesión
+**Health check post-deploy:** N/D — sin migración ni cambio de esquema, nada nuevo que verificar contra
+`dev`/`prod`
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md` — R-30 reutiliza tal cual el patrón
+de dependencia opcional acoplada (R-29: `listarAvisosAusenciaPendientes`/`marcarAvisoAusenciaAtendido`)
+y el propio `deps.irARegistro` que R-20 ya usa en `pantallaRegistroAuditoria.ts`, sin ningún mecanismo
+nuevo que decidir
+**Hallazgos del auditor atendidos:** ninguno — el único `ABIERTO` (`#8`, RGPD artículo 9 en R-02) sigue
+bloqueado en la pregunta #16 de §6, sin ninguna vía de esta sesión
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la siguiente sesión de programador puede empezar R-31 (importación masiva de
+personas de referencia), siguiente `PENDIENTE` de §1, sin bloqueo humano ni dependencia de una decisión
+del dueño
+
+---
+
 ### Sesión 2026-09-23 (trigésimo ciclo del Product Manager) — cierra Oleada v13, abre Oleada v14 (R-30, R-31)
 **Tarea(s):** ninguna T-XX/R-XX de código — sesión de producto (gestión de roadmap)
 **Estado resultante:** R-28 y R-29 confirmadas `COMPLETADA` en código (sin cambio, ya lo estaban desde

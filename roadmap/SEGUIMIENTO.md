@@ -10,7 +10,31 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-23 (trigésimo ciclo del Product Manager — **cierra la Oleada v13
+**Última actualización:** 2026-09-24 (rutina programada de programador — R-30 completada, Oleada v14
+en marcha): protocolo primero — `git checkout develop && git pull origin develop` fast-forward limpio
+desde el trigésimo ciclo del PM (`64b659b`). Revisado `auditoriacontinua.md`: el único hallazgo
+`ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en R-02), bloqueado en la pregunta #16 de §6 sin
+ninguna vía de esta sesión — no es una urgencia nueva, ya está correctamente reflejado como R-02
+`BLOQUEADA` sin aplicar su migración; nada que tratar como P-XX antes de la cola. Revisada §1: la
+siguiente tarea pendiente era **R-30** (De aviso a excepción, en un enlace). Implementada tal cual su
+spec: `pantallaPanelCentro.ts` (bloque 5, avisos de ausencia de R-29) gana un botón «Declarar
+sustitución o cancelación» junto a «Marcar atendido» en cada fila, detrás de una nueva dependencia
+opcional `deps.irARegistro` (mismo patrón que el par `listarAvisosAusenciaPendientes`/
+`marcarAvisoAusenciaAtendido` de R-29 y que `deps.irARegistro` ya usado por R-20 en
+`pantallaRegistroAuditoria.ts`) — sin ruta, RPC ni columna nueva. El enlace navega a
+`#/registros/<profesorId>/<slotId>/<fecha>` con los propios `profesor_id`/`slot_id`/`fecha_sesion` del
+aviso; como `listarAvisosAusenciaPendientes` ya filtra por `estado = 'pendiente'`, ningún aviso
+`atendido` llega nunca a esta lista, así que el requisito 4 (ocultar el enlace en un aviso ya atendido)
+queda satisfecho por construcción, sin lógica adicional. `aplicacion.ts` conecta la dependencia
+reutilizando `router.navegar({ nombre: 'registros', profesorId, slotId, fecha })`, idéntico al cableado
+de R-20. Sin migración (requisito de la propia spec). 4 tests nuevos (3 en
+`pantallaPanelCentro.test.ts`, 1 de cableado extremo a extremo en `aplicacion.test.ts` — 1867 en total,
+antes 1863). Verificación pre-push completa en verde (`npm ci` fue necesario primero: `node_modules`
+no existía en el contenedor de esta sesión) — `typecheck`, `lint`, 1867 tests, `build`, todos limpios.
+R-30 pasa a `COMPLETADA` en §1. R-31 queda como siguiente tarea de la cola, sin empezar. — Programador,
+2026-09-24
+
+**Sesión anterior (2026-09-23, trigésimo ciclo del Product Manager — **cierra la Oleada v13
 (R-28, R-29, ambas `COMPLETADA` en código) y abre la Oleada v14 con R-30 y R-31**): protocolo primero
 — `git checkout develop && git pull origin develop` fast-forward limpio desde la quinta pasada de
 programador del día (`2f26f9e`). Revisado `auditoriacontinua.md` completo (24 hallazgos): 23
@@ -3538,7 +3562,7 @@ pantallas del requisito 2.
 | R-27 | Alta de una sesión de grupo completa | COMPLETADA | 2026-09-22 | Oleada v12 / F-18 · Sin migración: depende de T-15, T-16, T-20, R-25, las cuatro `COMPLETADA`. Botón de página "Nueva sesión de grupo" en `pantallaHorarioCentro.ts` (R-25): día/hora/profesor/asignatura una sola vez, selección múltiple de alumnos con `comboboxAlumnoExtra.ts` (T-20, nuevo `mostrarNota: false`), sin duplicados (requisito 5). `crearSlot` (T-15) una vez por alumno, mismo patrón de reintento parcial que "Editar/Cesar sesión completa" (R-25): un solape del propio alumno rechaza solo su alta, el resto del grupo se crea igual (requisito 4). 10 tests nuevos (1811 en total, antes 1801) |
 | R-28 | Aviso de ausencias repetidas, donde el profesor ya mira | COMPLETADA | 2026-09-23 | Oleada v13 / F-19 · Sin migración: `dominio/avisoAusenciasRepetidas.ts` (nuevo, puro, 8 tests) reutiliza tal cual `rankingAusenciasSinJustificarPanelCentro` (R-11, requisito 3, ninguna función nueva de conteo) para calcular, por `alumnoId`, quién alcanza `UMBRAL_AVISO_AUSENCIAS_REPETIDAS` (3) ausencias sin justificar en los últimos `VENTANA_AVISO_AUSENCIAS_REPETIDAS_DIAS` (30) días. Indicador discreto junto al nombre en `pantallaPasarLista.ts` (T-19, card de slot y de "alumno extra" por igual, 4 tests nuevos) y `pantallaMiHorario.ts` (T-22, cada fila de la vista semanal, 3 tests nuevos), las dos detrás de una dependencia `listarAusenciasRecientes` opcional — sin ella, cada pantalla funciona exactamente como antes de R-28. Wireada en `aplicacion.ts` sobre `datos/asistencia.ts#listarHistoricoAsistenciaCompleto` filtrado por `profesorId` (requisito 3: "nunca a todo el centro", el mismo `SELECT` que ya lee T-17/T-23, sin RPC ni columna nueva, requisito 5). 15 tests nuevos en total (1831 en total, antes 1816) |
 | R-29 | El profesor avisa de que falta un día, sin salir de la aplicación | BLOQUEADA — pendiente aplicar migración `019` (fila 22 de §3) | 2026-09-23 | Oleada v13 / F-20 · Código y tests completos, contra dobles. Migración `019_aviso_ausencia_profesor.sql` (tabla nueva, RLS, dos RPC) escrita y empujada, todavía sin aplicar — no depende de ninguna migración anterior pendiente, pero el runner aplica siempre en orden numérico dentro de la misma invocación. `dominio/avisoAusenciaProfesor.ts` (nuevo, puro, 10 tests): resuelve la PRÓXIMA fecha de calendario de cada fila de la vista semanal recurrente y si esa sesión sigue siendo elegible (futura, o de hoy sin empezar). Botón «Avisar que no puedo dar esta clase» en `pantallaMiHorario.ts` (T-22, dos toques: abre motivo opcional, confirma), bloque nuevo «Avisos de ausencia pendientes» en `pantallaPanelCentro.ts` (R-11, «Marcar atendido»), las dos detrás de dependencias opcionales — sin ellas, cada pantalla funciona exactamente como antes de R-29, mismo criterio que el resto de dependencias opcionales del proyecto. 32 tests nuevos en total (1863 en total, antes 1831) |
-| R-30 | De aviso a excepción, en un enlace | PENDIENTE | 2026-09-23 | Oleada v14 / F-21 · Sin migración: depende de R-29 (código-completa, bloqueada solo por migración `019` — mismo precedente que el resto del roadmap), R-06 (código-completa, bloqueada solo por migración `013`) y R-20 (`COMPLETADA`, ya usa el mismo enlace profundo `#/registros/<profesorId>/<slotId>/<fecha>` de `nucleo/router.ts`). Enlazado puro de cliente: sin RPC ni columna nueva |
+| R-30 | De aviso a excepción, en un enlace | COMPLETADA | 2026-09-24 | Oleada v14 / F-21 · Sin migración: enlazado puro de cliente. `pantallaPanelCentro.ts` (bloque 5, R-29): botón «Declarar sustitución o cancelación» junto a «Marcar atendido» en cada fila, detrás de `deps.irARegistro` (opcional, mismo `deps.irARegistro` que R-20 ya usa en `pantallaRegistroAuditoria.ts`), navega a `#/registros/<profesorId>/<slotId>/<fecha>` con los datos del propio aviso. `listarAvisosAusenciaPendientes` ya filtra por `estado = 'pendiente'`, así que el requisito 4 (ocultar el enlace si el aviso está atendido) se cumple por construcción. Sin cambios en `pantallaRegistrosSlot.ts` (requisito 3, literal). 4 tests nuevos (1867 en total, antes 1863). Real en `dev` en cuanto se apliquen `013`/`019` (mismo precedente que R-29/R-06, ninguna de las dos bloquea esta tarea) |
 | R-31 | Importación masiva de personas de referencia | PENDIENTE | 2026-09-23 | Oleada v14 / F-22 · Sin migración: `persona_referencia` y su RLS ya existen desde T-07/T-10. Depende de R-08 (`COMPLETADA`) y T-13 (`COMPLETADA`). Tercer CSV opcional en `pantallaImportacionMasiva.ts`, mismo patrón de vista previa y deduplicación que alumnos/horarios |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
