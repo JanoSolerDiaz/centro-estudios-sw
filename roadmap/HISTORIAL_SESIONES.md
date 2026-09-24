@@ -37,6 +37,35 @@
 
 ---
 
+### Sesión 2026-09-24 (trigésimo primer ciclo del Product Manager) — cierra Oleada v14, abre Oleada v15 (R-32)
+**Tarea(s):** ninguna T-XX/R-XX de código — sesión de producto (gestión de roadmap)
+**Estado resultante:** R-30 y R-31 confirmadas `COMPLETADA` en código (sin cambio, ya lo estaban desde
+hoy); R-32 nueva, `PENDIENTE`, añadida a §1 de `SEGUIMIENTO.md`
+**Commits a `develop`:** el de esta sesión (`roadmap/ROADMAP_PRODUCTO.md`, `roadmap/SEGUIMIENTO.md`,
+este documento)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v15 con F-23, detalle
+de R-32), `roadmap/SEGUIMIENTO.md` (cabecera/bitácora, fila nueva en §1), este documento
+**Verificaciones pre-push:** N/D — sin cambios en `src/`, no aplica typecheck/lint/test/build
+**Health check post-deploy:** N/D — sin deploy, sesión sin cambios de código
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (sin decisión técnica de mecanismo; la
+elección de oleada/fase es gestión de producto, ya justificada en `ROADMAP_PRODUCTO.md`)
+**Hallazgos del auditor atendidos:** ninguno nuevo — revisados los 24 hallazgos de
+`auditoriacontinua.md`: 23 `RESUELTO`, el único `ABIERTO` (`#8`, RGPD artículo 9 en R-02) sigue en la
+pregunta #16 de §6 sin ninguna vía de esta sesión — no es un hallazgo de producto/arquitectura
+pendiente de convertir en R-XX, ya está correctamente escalado
+**Hallazgos:** ninguno nuevo. Revisado `FEEDBACK.md`: sigue con su única fila plantilla vacía, nada
+que convertir. Repasadas las 31 R-XX ya entregadas en busca de un rodeo autoseñalado sin cerrar (el
+patrón que abrió las oleadas v11 a v14): ninguna queda pendiente — R-32 nace en cambio de una
+inconsistencia observada entre pantallas del propio producto (las únicas dos vistas de horario sin
+salida en papel/fichero, frente a todos los informes tabulares que ya la tienen)
+**Tareas autopropuestas (P-XX):** ninguna — gestión de P-XX es del programador, no de esta sesión
+**Próximo paso:** la siguiente sesión de programador puede empezar R-32 (sin bloqueo humano, sin
+dependencia de una decisión del dueño, sin migración: depende solo de R-25 y T-22, ambas `COMPLETADA`)
+
+---
+
 ### Sesión 2026-09-24 (rutina programada de programador, cuarta pasada del día) — cola vacía, nada que hacer
 **Tarea(s):** ninguna — §1 sin filas `PENDIENTE` propias del programador
 **Estado resultante:** sin cambio — todo `COMPLETADA` o `BLOQUEADA` por migración/T-25, igual que al

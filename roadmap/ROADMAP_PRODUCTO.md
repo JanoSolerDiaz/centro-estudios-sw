@@ -8,53 +8,46 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-23 — trigésimo ciclo del PM: **cierra la Oleada v13 (R-28 y R-29,
-ambas `COMPLETADA` en código) y abre la Oleada v14 con R-30 y R-31.** `FEEDBACK.md` sigue sin entradas
-`nuevo` reales (fila plantilla vacía): nada que convertir. `auditoriacontinua.md` con una pasada nueva
-de hoy (commit `5062608`) y el registro de hallazgos revisado de nuevo tras el ciclo de programador que
-la siguió: de 24 hallazgos totales, 23 están `RESUELTO`, incluidos los dos que quedaban de la pasada
-anterior (**#23**, control muerto por migración bloqueada, y **#24**, fila que faltaba en la matriz de
-`DECISIONES_TECNICAS.md`, ambos cerrados hoy mismo por el programador). El único que sigue **ABIERTO**
-es **#8** (RGPD artículo 9, `motivo_justificacion` de R-02) — decimosexto ciclo consecutivo sin novedad
-de fondo en la pregunta #16 de §6: sigue sin ser una decisión que el PM pueda tomar, y sigue sin
-bloquear nada del resto del roadmap.
+**Última actualización:** 2026-09-24 — trigésimo primer ciclo del PM: **cierra la Oleada v14 (R-30 y
+R-31, ambas `COMPLETADA` en código, sin ninguna migración pendiente) y abre la Oleada v15 con R-32.**
+`FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` con una pasada nueva de hoy y el registro de hallazgos revisado de nuevo: de 24
+hallazgos totales, 23 siguen `RESUELTO` y el único que sigue **ABIERTO** es **#8** (RGPD artículo 9,
+`motivo_justificacion` de R-02) — decimoséptimo ciclo consecutivo sin novedad de fondo en la pregunta
+#16 de §6: sigue sin ser una decisión que el PM pueda tomar, y sigue sin bloquear nada del resto del
+roadmap.
 
-**R-28 y R-29 (Oleada v13) `COMPLETADA`** en código desde ayer (2026-09-22): con eso, la Oleada v13
-queda cerrada salvo por la migración propia de R-29 (`019`, fila 22 de §3, `PENDIENTE`), que no bloquea
-abrir la v14 — mismo precedente que todas las oleadas anteriores. El MVP (T-00 a T-25) sigue sin estar
-completo (T-25 bloqueada por el paso a producción) y ninguna oleada ha llegado a desplegarse todavía,
-así que, como en cada ciclo anterior, nada se mueve todavía a `ROADMAP_HISTORICO.md`.
+**R-30 y R-31 (Oleada v14) `COMPLETADA`** en código desde hoy, y sin ninguna fila de migración propia
+pendiente en §3 (a diferencia de todas las oleadas anteriores, ninguna de las dos escribe esquema): la
+única razón por la que la Oleada v14 no queda "desplegada en producción" es que **ninguna** oleada
+puede estarlo mientras T-25 siga bloqueada por el paso a producción (fila 12 de §3), no por nada propio
+de v14. El MVP (T-00 a T-25) sigue sin estar completo, así que, como en cada ciclo anterior, nada se
+mueve todavía a `ROADMAP_HISTORICO.md`.
 
-Revisado el roadmap completo contra la visión de producto y el ICP, esta vez las dos piezas no abren
-ningún hueco nuevo: **cierran uno que la propia spec de una tarea ya en el roadmap dejó dicho que
-quedaba abierto**. La primera es la continuación literal de R-29 (Oleada v13, recién cerrada en
-código): su propio objetivo dice que "el administrador sigue siendo quien declara la excepción real...
-es el paso previo que hoy ocurre por fuera" — y hoy, aun con R-29 escrita, atender un aviso en el Panel
-de centro (`pantallaPanelCentro.ts`) solo lo marca `atendido`; declarar la sustitución o cancelación de
-verdad (R-06, `pantallaRegistrosSlot.ts`) exige que el administrador vuelva a teclear a mano el mismo
-profesor, el mismo slot y la misma fecha que el aviso ya traía en sus columnas (`profesor_id`,
-`slot_id`, `fecha_sesion`) — un rodeo de navegación, no de permiso ni de dato, del mismo tipo que ya
-resolvieron R-17/R-23, R-21/R-22 y R-25 en oleadas anteriores. `grep -rn "profesorId.*slotId.*fecha"
-src/nucleo/router.ts` confirma que el enlace profundo `#/registros/<profesorId>/<slotId>/<fecha>` ya
-existe y ya lo usa R-20 (auditoría) para el mismo propósito: se abre **R-30** (F-21) para reutilizarlo
-tal cual desde el bloque de avisos del Panel de centro, sin ninguna RPC ni migración nueva.
+Revisado el roadmap completo contra la visión de producto y el ICP, esta vez no queda ningún rodeo
+autoseñalado por una spec anterior sin resolver (el patrón que abrió v11 a v14): repasadas las 31 R-XX
+ya escritas en busca de una frase del tipo "queda fuera de esta tarea" o "ampliación futura" sin una
+R-XX propia que la cierre, ninguna sigue abierta — R-06→R-14, R-15→R-19, R-17→R-23, R-21→R-22, R-29→R-30
+y R-08→R-31 ya cerraron cada una la suya. Toca entonces juicio de producto nuevo, no una continuación
+literal de un texto ya escrito.
 
-La segunda pieza vuelve sobre R-08 (Oleada v2, primer día de una academia migrando desde una hoja de
-cálculo): su propio requisito 1 importa alumnos y su requisito 3 importa horarios, pero ninguno importa
-las personas de referencia (T-13) de esos mismos alumnos — hoy, tras un alta masiva de 60 alumnos, el
-administrador tiene que abrir la ficha de cada uno y teclear a mano el teléfono de cada padre, madre o
-tutor, exactamente el trabajo repetido que R-08 existe para evitar en todo lo demás. `grep -rln
-"persona_referencia\|personaReferencia" src/dominio/importacion*.ts src/datos/importacionMasiva.ts`
-no devuelve nada: no hay ningún camino de importación para esta tabla. Se abre **R-31** (F-22) para
-cerrar ese hueco, con el mismo patrón de fichero CSV, vista previa obligatoria y detección de
-duplicados que ya usan R-08 y T-13.
+La pieza que se abre nace de una inconsistencia real entre pantallas del propio producto, no de un
+hueco de funcionalidad: toda pantalla de informe o listado tabular del producto ya ofrece una salida en
+papel o fichero — CSV y ventana de impresión en el informe mensual (R-04) y en el informe de horas por
+profesor (R-15), CSV en la exportación completa del centro (R-16), JSON e impresión en el expediente
+RGPD (R-10) — **salvo las dos únicas pantallas que muestran el horario como una rejilla semanal**: el
+horario del centro (R-25, `administrator`) y «Mi horario» (T-22, `teacher`). `grep -n "print\|Print\|imprim" src/ui/pantallaHorarioCentro.ts src/ui/pantallaMiHorario.ts` no devuelve nada: hoy la única
+forma de tener una copia en papel del horario semanal —para el tablón de la entrada, para dársela a un
+profesor nuevo, o como respaldo personal— es una captura de pantalla o reconstruirlo a mano en una hoja
+de cálculo, justo la fricción que el resto del producto ya eliminó para cada informe. Se abre **R-32**
+(F-23) para cerrar esa inconsistencia, reutilizando tal cual el mismo mecanismo de ventana de impresión
+que ya construyeron R-04/R-15, sin ninguna RPC, columna ni migración nueva, y sin exponer ningún dato
+que la propia pantalla no muestre ya (alumnos por nombre, nunca por foto — misma regla que ya respeta
+R-25).
 
-Ninguna de las dos R-XX añade ningún dato personal nuevo del alumno o de sus personas de referencia
-(R-31 usa exactamente los campos que T-13 ya define), ni amplía el alcance del rol `student` (sigue
-sin ningún acceso), ni convierte el producto en multi-centro. Ninguna de las dos necesita migración:
-R-30 es enlazado puro de cliente sobre datos que ya existen; R-31 escribe en `persona_referencia`, que
-ya existe desde `001_esquema_inicial` con sus políticas RLS (T-10). Añadidas sus dos filas `PENDIENTE`
-en §1 de `SEGUIMIENTO.md`. Sin ningún commit de código — sesión de producto, no de programador.
+No amplía ningún dato personal nuevo, ni el alcance del rol `student` (sigue sin ningún acceso), ni
+convierte el producto en multi-centro. Añadida su fila `PENDIENTE` en §1 de `SEGUIMIENTO.md`. Sin
+ningún commit de código — sesión de producto, no de programador.
 
 ---
 
@@ -428,6 +421,29 @@ que R-13/R-19/R-20/R-25 en oleadas anteriores —, sin ninguna RPC nueva y sin n
 
 - **F-21 — De aviso a excepción, en un enlace.** R-30.
 - **F-22 — Importación masiva de personas de referencia.** R-31.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v15 — El horario, también en papel
+
+**Arranca cuando la oleada v14 (R-30, R-31) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado
+real de esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta
+oleada queda especificada y en cola, detrás de la oleada v14, en el orden de §1.
+
+Por qué esta oleada: no nace de un rodeo que una tarea anterior dejara dicho —repasado el roadmap
+completo, ninguna R-XX entregada deja ya un hilo suelto de ese tipo—, sino de una inconsistencia
+entre pantallas del propio producto. Cada informe o listado tabular (R-04, R-10, R-15, R-16) ya sabe
+salir del navegador en papel o en fichero; las dos únicas pantallas que muestran el horario semanal
+como una rejilla —el horario del centro (R-25) y «Mi horario» (T-22)— no saben hacerlo todavía, así
+que hoy la única forma de tener una copia del horario para el tablón de la entrada, para un profesor
+nuevo o como respaldo personal es una captura de pantalla. Es el mismo tipo de mejora de bajo riesgo
+que ya resolvieron R-04/R-15/R-16 cada uno en su propio informe, aplicado esta vez al horario en sí:
+reutiliza tal cual el mecanismo de ventana de impresión ya construido, sin ninguna RPC, columna ni
+migración nueva, y sin exponer ningún dato que la propia pantalla no muestre ya.
+
+- **F-23 — Horario imprimible y exportable, del centro y del propio profesor.** R-32.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1810,3 +1826,55 @@ sin esperar a corregirlas; reimportar el mismo fichero después de corregirlas s
 faltaban, sin duplicar las 87 ya creadas; una fila que referencia un alumno con nombre y apellidos que
 no coinciden con ninguno ya existente ni ya importado en la misma sesión queda en error sin bloquear el
 resto.
+
+---
+
+### R-32 — Horario imprimible y exportable: del centro y del propio profesor
+**Oleada / Fase:** v15 / F-23 · **Migración:** No · **Depende de:** R-25 (`COMPLETADA`), T-22
+(`COMPLETADA`)
+**Origen:** roadmap
+
+**Objetivo:** cada informe o listado tabular del producto ya sabe salir del navegador en papel o en
+fichero — el informe mensual (R-04) y el informe de horas por profesor (R-15) abren una ventana de
+impresión y exportan CSV, la exportación completa del centro (R-16) genera CSV, el expediente RGPD
+(R-10) descarga JSON e imprime. Las dos únicas pantallas que muestran el horario semanal como una
+rejilla —el horario del centro (R-25, `administrator`) y «Mi horario» (T-22, `teacher`)— no ofrecen
+ninguna salida: hoy la única forma de tener una copia del horario para el tablón de la entrada, para
+dárselo a un profesor nuevo, o como respaldo personal si un día falla el dispositivo, es una captura
+de pantalla o reconstruirlo a mano en una hoja de cálculo — exactamente la fricción que el resto del
+producto ya eliminó para cada informe.
+
+**Requisitos:**
+1. En `pantallaHorarioCentro.ts` (R-25), un botón «Imprimir horario» abre una ventana de impresión
+   —mismo mecanismo ya construido para R-04/R-15 (`window.open` con una tabla HTML propia, sin
+   librería de terceros ni PDF)— con todas las sesiones vigentes del centro, agrupadas por día de la
+   semana y por sesión (misma agrupación que ya pinta la pantalla: `sesionesVigentesDelCentro`,
+   `claveSesionHorarioCentro`, `dominio/horarioCentro.ts`), mostrando día, hora, asignatura/grupo,
+   profesor y el nombre de cada alumno de la sesión — **nunca su fotografía**, mismo criterio que ya
+   respeta la propia pantalla (requisito 1 de R-25) y que R-24 ya aplicó antes.
+2. En `pantallaMiHorario.ts` (T-22), un botón equivalente «Imprimir mi horario» abre la misma ventana
+   de impresión acotada a las sesiones propias del profesor (`vistaSemanalProfesor`,
+   `dominio/slots.ts`, la misma función que ya pinta la pantalla), sin columna de profesor —es obvio,
+   son todas suyas— y sin nombres de alumno si la propia pantalla no los muestra ya por sesión (mismo
+   contenido que ya está en pantalla, ni más ni menos).
+3. Las dos ventanas de impresión llevan cabecera con el título de la pantalla y la fecha de
+   generación, mismo formato que ya usan R-04/R-15/R-16 (`documentoCsvConMetadatos`, adaptado a HTML
+   igual que ya lo adaptó R-15 para su propia ventana de impresión) — sin nombre de la academia:
+   `centro_estudios` es el colegio de referencia del alumno, no la academia, que no tiene ningún campo
+   de nombre propio en el modelo (pregunta #7 de §6, todavía sin decisión del dueño).
+4. Ninguna de las dos salidas añade ningún dato, columna, RPC ni tabla nueva: es exactamente lo que
+   cada pantalla ya tiene calculado y en memoria en el momento de imprimir, sin ninguna petición de
+   red adicional — ni historial, ni ausencias, ni ningún dato de contacto.
+5. Reservado a quien ya tiene acceso a cada pantalla, sin ningún cambio de alcance: `administrator`
+   para el horario del centro, y cada `teacher` solo el suyo propio — ni un profesor ve el botón del
+   horario del centro, ni un administrador ve un botón que le falte por imprimir el de un profesor
+   concreto (para eso ya existe R-25 completa, sin acotar por profesor).
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** desde el horario del centro, «Imprimir horario» abre una ventana con una
+tabla legible de todas las sesiones vigentes agrupadas por día y sesión, con alumnos por nombre y
+nunca por foto; desde «Mi horario», un profesor imprime solo sus propias sesiones, sin ver las de
+ningún otro; ningún dato nuevo se expone en ninguno de los dos casos — la impresión contiene
+exactamente lo que la pantalla ya muestra en ese momento, ni una columna más; un `teacher` no ve el
+botón de imprimir el horario del centro completo.

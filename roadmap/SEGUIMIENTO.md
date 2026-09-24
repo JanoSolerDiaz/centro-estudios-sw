@@ -10,7 +10,21 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-24 (rutina programada de programador, quinta pasada del día — cola
+**Última actualización:** 2026-09-24 — trigésimo primer ciclo del PM: **cierra la Oleada v14 (R-30 y
+R-31, ambas `COMPLETADA` en código y sin ninguna migración propia pendiente) y abre la Oleada v15 con
+R-32** (horario imprimible y exportable, del centro y del propio profesor — F-23). No nace de ningún
+rodeo autoseñalado por una spec anterior (repasado el roadmap completo, ninguna R-XX entregada deja ya
+un hilo de ese tipo sin cerrar), sino de una inconsistencia real entre pantallas: cada informe tabular
+del producto (R-04, R-10, R-15, R-16) ya sabe salir en papel o en fichero, y las dos únicas pantallas
+que muestran el horario como rejilla semanal (R-25, T-22) no. Reutiliza tal cual el mecanismo de
+ventana de impresión ya construido por R-04/R-15, sin RPC, columna ni migración nueva. Razonamiento
+completo en la cabecera de `ROADMAP_PRODUCTO.md`. `FEEDBACK.md` sigue con su única fila plantilla
+vacía, nada que convertir. `auditoriacontinua.md`: único hallazgo `ABIERTO` sigue siendo **#8** (RGPD
+artículo 9, `motivo_justificacion` de R-02), decimoséptimo ciclo consecutivo sin novedad de fondo en la
+pregunta #16 de §6 — sigue sin ser una decisión que el PM pueda tomar. Añadida la fila `PENDIENTE` de
+R-32 en §1. Sin ningún commit de código — sesión de producto, no de programador. — PM, 2026-09-24
+
+**Sesión anterior (2026-09-24, rutina programada de programador, quinta pasada del día — cola
 vacía, nada que hacer): protocolo primero — `git checkout develop && git pull origin develop`
 fast-forward limpio desde la pasada anterior de esta misma rutina (`d1f78d4`, cuarta pasada, sin
 commits entre medias — ni del dueño ni del PM ni del auditor). Revisado `auditoriacontinua.md`: el
@@ -3642,6 +3656,7 @@ pantallas del requisito 2.
 | R-29 | El profesor avisa de que falta un día, sin salir de la aplicación | BLOQUEADA — pendiente aplicar migración `019` (fila 22 de §3) | 2026-09-23 | Oleada v13 / F-20 · Código y tests completos, contra dobles. Migración `019_aviso_ausencia_profesor.sql` (tabla nueva, RLS, dos RPC) escrita y empujada, todavía sin aplicar — no depende de ninguna migración anterior pendiente, pero el runner aplica siempre en orden numérico dentro de la misma invocación. `dominio/avisoAusenciaProfesor.ts` (nuevo, puro, 10 tests): resuelve la PRÓXIMA fecha de calendario de cada fila de la vista semanal recurrente y si esa sesión sigue siendo elegible (futura, o de hoy sin empezar). Botón «Avisar que no puedo dar esta clase» en `pantallaMiHorario.ts` (T-22, dos toques: abre motivo opcional, confirma), bloque nuevo «Avisos de ausencia pendientes» en `pantallaPanelCentro.ts` (R-11, «Marcar atendido»), las dos detrás de dependencias opcionales — sin ellas, cada pantalla funciona exactamente como antes de R-29, mismo criterio que el resto de dependencias opcionales del proyecto. 32 tests nuevos en total (1863 en total, antes 1831) |
 | R-30 | De aviso a excepción, en un enlace | COMPLETADA | 2026-09-24 | Oleada v14 / F-21 · Sin migración: enlazado puro de cliente. `pantallaPanelCentro.ts` (bloque 5, R-29): botón «Declarar sustitución o cancelación» junto a «Marcar atendido» en cada fila, detrás de `deps.irARegistro` (opcional, mismo `deps.irARegistro` que R-20 ya usa en `pantallaRegistroAuditoria.ts`), navega a `#/registros/<profesorId>/<slotId>/<fecha>` con los datos del propio aviso. `listarAvisosAusenciaPendientes` ya filtra por `estado = 'pendiente'`, así que el requisito 4 (ocultar el enlace si el aviso está atendido) se cumple por construcción. Sin cambios en `pantallaRegistrosSlot.ts` (requisito 3, literal). 4 tests nuevos (1867 en total, antes 1863). Real en `dev` en cuanto se apliquen `013`/`019` (mismo precedente que R-29/R-06, ninguna de las dos bloquea esta tarea) |
 | R-31 | Importación masiva de personas de referencia | COMPLETADA | 2026-09-24 | Oleada v14 / F-22 · Sin migración: `persona_referencia` y su RLS ya existen desde T-07/T-10. Tercer bloque en `pantallaImportacionMasiva.ts` (nuevo `dominio/importacionPersonasReferencia.ts`, 16 tests): alumno resuelto por nombre y apellidos EXACTOS (mismo criterio que el CSV de horarios de R-08, requisito 1 literal), duplicado detectado reutilizando `buscarPersonaReferenciaDuplicada` (T-13, generalizada con un tipo genérico para aceptar candidatas sin fila real) acotado POR ALUMNO. Nuevas `datos/importacionMasiva.ts#listarPersonasReferenciaExistentesParaImportacion`/`importarPersonasReferenciaValidados` (mismo patrón de `INSERT` único en lote e idempotencia P-25 que alumnos). 27 tests nuevos en total (1894 en total, antes 1867) |
+| R-32 | Horario imprimible y exportable: del centro y del propio profesor | PENDIENTE | 2026-09-24 | Oleada v15 / F-23 · Sin migración: depende de R-25 y T-22, ambas `COMPLETADA`. Añade un botón «Imprimir horario» a `pantallaHorarioCentro.ts` y «Imprimir mi horario» a `pantallaMiHorario.ts`, reutilizando el mecanismo de ventana de impresión ya construido por R-04/R-15 sobre los datos que cada pantalla ya tiene calculados — sin RPC, columna ni tabla nueva |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 
