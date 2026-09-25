@@ -37,6 +37,30 @@
 
 ---
 
+### Sesión 2026-09-25 (rutina programada de programador, tercera pasada del día) — cola vacía, nada que hacer
+
+**Tarea(s):** ninguna — cola de §1 agotada
+**Estado resultante:** sin cambios de estado en §1; ningún hallazgo nuevo en `auditoriacontinua.md`
+(sigue solo el #8, `ABIERTO`, bloqueado en el dueño); ninguna R-XX nueva en `ROADMAP_PRODUCTO.md`;
+`FEEDBACK.md` sigue con su fila plantilla vacía
+**Commits a `develop`:** el de esta sesión (`roadmap/SEGUIMIENTO.md`, este documento)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md`, `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1901/1901, mismo número que la pasada
+anterior) · build ✅
+**Health check post-deploy:** N/D — sin despliegue real desde este entorno
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno — único hallazgo `ABIERTO` sigue siendo #8, sin novedad
+de fondo en la pregunta #16 de §6
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la cola sigue agotada — la siguiente sesión de programador no tiene trabajo propio
+hasta que el dueño aplique alguna migración pendiente, responda la pregunta #16 de §6, o el PM abra
+una nueva oleada
+
+---
+
 ### Sesión 2026-09-25 (rutina programada de programador) — R-32 completada
 
 **Tarea(s):** R-32 (Horario imprimible y exportable: del centro y del propio profesor)
