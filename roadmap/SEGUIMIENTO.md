@@ -10,7 +10,27 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-25 (rutina programada de programador, cuarta pasada del día —
+**Última actualización:** 2026-09-25 (trigésimo segundo ciclo del Product Manager — abre la Oleada
+v16 con R-33): protocolo primero — `git checkout develop && git pull origin develop` fast-forward
+limpio desde la cuarta pasada de programador del día (`a72ee53`). Revisado `auditoriacontinua.md`: el
+único hallazgo `ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en R-02, `motivo_justificacion`),
+decimonoveno ciclo consecutivo sin novedad de fondo en la pregunta #16 de §6 — sigue sin ser una
+decisión que el PM pueda tomar. Revisado `roadmap/FEEDBACK.md`: sigue con su única fila plantilla
+vacía, nada que convertir. Revisada §1 completa hasta R-32 inclusive: ninguna fila quedaba
+`PENDIENTE` (todo `COMPLETADA` o `BLOQUEADA` por migración/T-25, §3, filas 12-22), así que tocaba
+juicio de producto nuevo, no continuar una cola existente. Abierta **R-33** (catálogo de asignaturas y
+grupos — F-24): no nace de ningún rodeo autoseñalado por una spec anterior (repasadas también R-30,
+R-31 y R-32, ninguna deja un hilo de ese tipo sin cerrar), sino de una lectura del propio modelo de
+datos — `asignatura_o_grupo` es texto libre por slot y se compara por igualdad EXACTA en
+`slotsDeLaMismaSesion` (T-15), la clave de agrupación que reutilizan tal cual R-17/R-23 (cierre en
+bloque), R-25 (edición conjunta) y R-27 (alta de sesión de grupo): un tecleo distinto entre dos altas
+del mismo grupo rompe esa agrupación sin avisar de nada. Mismo patrón de catálogo cerrado que T-11 ya
+resolvió para el centro de estudios de referencia del alumno, aplicado ahora a la asignatura/grupo, sin
+tocar ningún consumidor existente. Razonamiento completo en la cabecera de `ROADMAP_PRODUCTO.md`.
+Añadida la fila `PENDIENTE` de R-33 en §1. Sin ningún commit de código — sesión de producto, no de
+programador. — PM, 2026-09-25
+
+**Sesión anterior (2026-09-25, rutina programada de programador, cuarta pasada del día —
 cola vacía, nada que hacer): protocolo primero — `git checkout develop && git pull origin develop`
 fast-forward limpio desde la pasada anterior de esta misma rutina (`fac4b5e`, tercera pasada, sin
 commits entre medias — ni del dueño ni del PM ni del auditor). Revisado `auditoriacontinua.md`: el
@@ -3769,6 +3789,7 @@ pantallas del requisito 2.
 | R-30 | De aviso a excepción, en un enlace | COMPLETADA | 2026-09-24 | Oleada v14 / F-21 · Sin migración: enlazado puro de cliente. `pantallaPanelCentro.ts` (bloque 5, R-29): botón «Declarar sustitución o cancelación» junto a «Marcar atendido» en cada fila, detrás de `deps.irARegistro` (opcional, mismo `deps.irARegistro` que R-20 ya usa en `pantallaRegistroAuditoria.ts`), navega a `#/registros/<profesorId>/<slotId>/<fecha>` con los datos del propio aviso. `listarAvisosAusenciaPendientes` ya filtra por `estado = 'pendiente'`, así que el requisito 4 (ocultar el enlace si el aviso está atendido) se cumple por construcción. Sin cambios en `pantallaRegistrosSlot.ts` (requisito 3, literal). 4 tests nuevos (1867 en total, antes 1863). Real en `dev` en cuanto se apliquen `013`/`019` (mismo precedente que R-29/R-06, ninguna de las dos bloquea esta tarea) |
 | R-31 | Importación masiva de personas de referencia | COMPLETADA | 2026-09-24 | Oleada v14 / F-22 · Sin migración: `persona_referencia` y su RLS ya existen desde T-07/T-10. Tercer bloque en `pantallaImportacionMasiva.ts` (nuevo `dominio/importacionPersonasReferencia.ts`, 16 tests): alumno resuelto por nombre y apellidos EXACTOS (mismo criterio que el CSV de horarios de R-08, requisito 1 literal), duplicado detectado reutilizando `buscarPersonaReferenciaDuplicada` (T-13, generalizada con un tipo genérico para aceptar candidatas sin fila real) acotado POR ALUMNO. Nuevas `datos/importacionMasiva.ts#listarPersonasReferenciaExistentesParaImportacion`/`importarPersonasReferenciaValidados` (mismo patrón de `INSERT` único en lote e idempotencia P-25 que alumnos). 27 tests nuevos en total (1894 en total, antes 1867) |
 | R-32 | Horario imprimible y exportable: del centro y del propio profesor | COMPLETADA | 2026-09-25 | Oleada v15 / F-23 · Sin migración: depende de R-25 y T-22, ambas `COMPLETADA`. Botón «Imprimir horario» en `pantallaHorarioCentro.ts` (una fila por sesión: día, hora, asignatura/grupo, profesor y alumnos separados por coma, nunca fotografía) y «Imprimir mi horario» en `pantallaMiHorario.ts` (una fila por slot propio, sin columna de profesor), reutilizando tal cual el mecanismo de ventana de impresión de R-04/R-15 (`AbridorVentanaImpresion`) sobre los datos que cada pantalla ya tiene calculados — sin RPC, columna ni petición de red adicional. Cabecera con título y "Generado el" (`fechaHoraLocalLegible`) en las dos. 7 tests nuevos en total (1901 en total, antes 1894) |
+| R-33 | Catálogo de asignaturas y grupos | PENDIENTE | 2026-09-25 | Oleada v16 / F-24 · Migración: Sí (`020_catalogo_asignaturas`, todavía sin escribir) · Depende de T-11/T-15/T-20, las tres `COMPLETADA`. Abierta por el PM: `asignatura_o_grupo` es hoy texto libre por slot y se compara por igualdad EXACTA en `slotsDeLaMismaSesion` (T-15), la clave de agrupación que reutilizan R-17/R-23/R-25/R-27 — un tecleo distinto entre dos altas del mismo grupo rompe esa agrupación en silencio. Mismo patrón de catálogo cerrado que T-11 ya resolvió para el centro de estudios de referencia. Spec completa en `ROADMAP_PRODUCTO.md` |
 
 **Estados:** PENDIENTE · EN CURSO · COMPLETADA · DESPLEGADA EN PRODUCCIÓN · BLOQUEADA — <motivo> · DESCARTADA — <motivo>
 

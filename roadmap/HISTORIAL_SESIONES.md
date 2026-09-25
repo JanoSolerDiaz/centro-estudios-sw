@@ -37,6 +37,40 @@
 
 ---
 
+### Sesión 2026-09-25 (trigésimo segundo ciclo del Product Manager) — abre Oleada v16 (R-33)
+**Tarea(s):** ninguna T-XX/R-XX de código — sesión de producto (gestión de roadmap)
+**Estado resultante:** R-33 nueva, `PENDIENTE`, añadida a §1 de `SEGUIMIENTO.md`
+**Commits a `develop`:** el de esta sesión (`roadmap/ROADMAP_PRODUCTO.md`, `roadmap/SEGUIMIENTO.md`,
+este documento)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v16 con F-24, detalle
+de R-33), `roadmap/SEGUIMIENTO.md` (cabecera/bitácora, fila nueva en §1), este documento
+**Verificaciones pre-push:** N/D — sin cambios en `src/`, no aplica typecheck/lint/test/build
+**Health check post-deploy:** N/D — sin deploy, sesión sin cambios de código
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` (sin decisión técnica de mecanismo; la
+elección de oleada/fase es gestión de producto, ya justificada en `ROADMAP_PRODUCTO.md`)
+**Hallazgos del auditor atendidos:** ninguno nuevo — revisados los 24 hallazgos de
+`auditoriacontinua.md`: 23 `RESUELTO`, el único `ABIERTO` (`#8`, RGPD artículo 9 en R-02) sigue en la
+pregunta #16 de §6 sin ninguna vía de esta sesión — no es un hallazgo de producto/arquitectura
+pendiente de convertir en R-XX, ya está correctamente escalado
+**Hallazgos:** ninguno nuevo de auditoría. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada
+que convertir. Repasadas R-30, R-31 y R-32 en busca de un rodeo autoseñalado sin cerrar: ninguna deja
+uno. R-33 nace en cambio de una lectura del propio modelo de datos (`db/MODELO.md`): `asignatura_o_grupo`
+es texto libre por slot, comparado por igualdad EXACTA en `slotsDeLaMismaSesion` (T-15,
+`src/dominio/asistencia.ts:247-262`) — la clave de agrupación que reutilizan tal cual R-17/R-23 (cierre
+en bloque), R-25 (edición conjunta de una sesión) y R-27 (alta de sesión de grupo). Un tecleo distinto
+entre dos altas del mismo grupo rompe esa agrupación sin ningún error visible, mismo problema que T-11
+ya resolvió con un catálogo cerrado para el centro de estudios de referencia del alumno
+**Tareas autopropuestas (P-XX):** ninguna — gestión de P-XX es del programador, no de esta sesión
+**Próximo paso:** la siguiente sesión de programador puede empezar R-33: sin bloqueo humano previo,
+escribe primero la migración `020_catalogo_asignaturas.sql` y la deja `BLOQUEADA — pendiente aplicar
+migración 020` en §3/§1 (mismo procedimiento que el resto de migraciones, §0.1 de `HOJA_DE_RUTA.md`),
+y puede seguir con el resto del alcance (pantalla de catálogo, combobox en T-15/R-25/R-27) contra
+dobles mientras espera
+
+---
+
 ### Sesión 2026-09-25 (rutina programada de programador, tercera pasada del día) — cola vacía, nada que hacer
 
 **Tarea(s):** ninguna — cola de §1 agotada

@@ -8,42 +8,38 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-24 — trigésimo primer ciclo del PM: **cierra la Oleada v14 (R-30 y
-R-31, ambas `COMPLETADA` en código, sin ninguna migración pendiente) y abre la Oleada v15 con R-32.**
-`FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` con una pasada nueva de hoy y el registro de hallazgos revisado de nuevo: de 24
-hallazgos totales, 23 siguen `RESUELTO` y el único que sigue **ABIERTO** es **#8** (RGPD artículo 9,
-`motivo_justificacion` de R-02) — decimoséptimo ciclo consecutivo sin novedad de fondo en la pregunta
-#16 de §6: sigue sin ser una decisión que el PM pueda tomar, y sigue sin bloquear nada del resto del
-roadmap.
+**Última actualización:** 2026-09-25 — trigésimo segundo ciclo del PM: **abre la Oleada v16 con
+R-33.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` revisado de nuevo (pasada del propio 2026-09-25): de 24 hallazgos totales, 23
+siguen `RESUELTO` y el único que sigue **ABIERTO** es **#8** (RGPD artículo 9, `motivo_justificacion`
+de R-02) — decimonoveno ciclo consecutivo sin novedad de fondo en la pregunta #16 de §6: sigue sin ser
+una decisión que el PM pueda tomar, y sigue sin bloquear nada del resto del roadmap.
 
-**R-30 y R-31 (Oleada v14) `COMPLETADA`** en código desde hoy, y sin ninguna fila de migración propia
-pendiente en §3 (a diferencia de todas las oleadas anteriores, ninguna de las dos escribe esquema): la
-única razón por la que la Oleada v14 no queda "desplegada en producción" es que **ninguna** oleada
-puede estarlo mientras T-25 siga bloqueada por el paso a producción (fila 12 de §3), no por nada propio
-de v14. El MVP (T-00 a T-25) sigue sin estar completo, así que, como en cada ciclo anterior, nada se
-mueve todavía a `ROADMAP_HISTORICO.md`.
+**R-32 (Oleada v15) `COMPLETADA`** en código desde ayer, y sin ninguna fila de migración propia
+pendiente en §3 (igual que v14): la única razón por la que la Oleada v15 no queda "desplegada en
+producción" es que **ninguna** oleada puede estarlo mientras T-25 siga bloqueada por el paso a
+producción (fila 12 de §3), no por nada propio de v15. El MVP (T-00 a T-25) sigue sin estar completo,
+así que, como en cada ciclo anterior, nada se mueve todavía a `ROADMAP_HISTORICO.md`.
 
-Revisado el roadmap completo contra la visión de producto y el ICP, esta vez no queda ningún rodeo
-autoseñalado por una spec anterior sin resolver (el patrón que abrió v11 a v14): repasadas las 31 R-XX
-ya escritas en busca de una frase del tipo "queda fuera de esta tarea" o "ampliación futura" sin una
-R-XX propia que la cierre, ninguna sigue abierta — R-06→R-14, R-15→R-19, R-17→R-23, R-21→R-22, R-29→R-30
-y R-08→R-31 ya cerraron cada una la suya. Toca entonces juicio de producto nuevo, no una continuación
-literal de un texto ya escrito.
-
-La pieza que se abre nace de una inconsistencia real entre pantallas del propio producto, no de un
-hueco de funcionalidad: toda pantalla de informe o listado tabular del producto ya ofrece una salida en
-papel o fichero — CSV y ventana de impresión en el informe mensual (R-04) y en el informe de horas por
-profesor (R-15), CSV en la exportación completa del centro (R-16), JSON e impresión en el expediente
-RGPD (R-10) — **salvo las dos únicas pantallas que muestran el horario como una rejilla semanal**: el
-horario del centro (R-25, `administrator`) y «Mi horario» (T-22, `teacher`). `grep -n "print\|Print\|imprim" src/ui/pantallaHorarioCentro.ts src/ui/pantallaMiHorario.ts` no devuelve nada: hoy la única
-forma de tener una copia en papel del horario semanal —para el tablón de la entrada, para dársela a un
-profesor nuevo, o como respaldo personal— es una captura de pantalla o reconstruirlo a mano en una hoja
-de cálculo, justo la fricción que el resto del producto ya eliminó para cada informe. Se abre **R-32**
-(F-23) para cerrar esa inconsistencia, reutilizando tal cual el mismo mecanismo de ventana de impresión
-que ya construyeron R-04/R-15, sin ninguna RPC, columna ni migración nueva, y sin exponer ningún dato
-que la propia pantalla no muestre ya (alumnos por nombre, nunca por foto — misma regla que ya respeta
-R-25).
+Revisado el roadmap completo contra la visión de producto y el ICP, ninguna R-XX ya entregada deja un
+rodeo autoseñalado sin cerrar (repasadas también R-30, R-31 y R-32, las tres últimas en llegar desde
+el barrido del ciclo anterior). La pieza que se abre esta vez no nace de una frase dejada a medias en
+una spec anterior, sino de una lectura del propio modelo de datos: `db/MODELO.md:130` describe
+`asignatura_o_grupo` —la columna de cada slot que identifica qué clase es— como "texto — etiqueta
+libre", y esa misma columna, comparada por igualdad EXACTA (`===`, sensible a mayúsculas, tildes y
+espacios: `slotsDeLaMismaSesion`, `src/dominio/asistencia.ts:247-262`), es la clave con la que el
+producto entero decide qué filas forman una sola sesión. De esa agrupación dependen, tal cual, el
+cierre en bloque en los dos sentidos (R-17 "marcar el resto como ausente", R-23 "como presente"), la
+edición conjunta de una sesión completa (R-25) y el alta de una sesión de grupo (R-27). Un tecleo
+distinto entre dos altas del mismo grupo —"Matemáticas 4ESO" frente a "matemáticas 4 eso"— no produce
+ningún error visible en el momento, porque el sistema no rechaza nada: simplemente dos filas que
+deberían agruparse como una sola sesión dejan de hacerlo, y quien lo nota es el profesor cuando el
+cierre en bloque no cubre a todo su grupo, o el administrador cuando la edición conjunta le deja fuera
+a un alumno. T-11 ya resolvió exactamente el mismo problema, con el mismo patrón, para el centro de
+estudios de referencia del alumno: un catálogo cerrado en vez de texto libre. Se abre **R-33** (F-24)
+para aplicar ese mismo patrón ya probado a la asignatura/grupo, sin tocar ningún consumidor
+existente — el campo que guarda cada slot sigue siendo el mismo texto, ahora elegido de una lista en
+vez de tecleado a mano cada vez.
 
 No amplía ningún dato personal nuevo, ni el alcance del rol `student` (sigue sin ningún acceso), ni
 convierte el producto en multi-centro. Añadida su fila `PENDIENTE` en §1 de `SEGUIMIENTO.md`. Sin
@@ -444,6 +440,30 @@ reutiliza tal cual el mecanismo de ventana de impresión ya construido, sin ning
 migración nueva, y sin exponer ningún dato que la propia pantalla no muestre ya.
 
 - **F-23 — Horario imprimible y exportable, del centro y del propio profesor.** R-32.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+### Oleada v16 — Un catálogo cerrado también para la asignatura o grupo
+
+**Arranca cuando la oleada v15 (R-32) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real de
+esa condición se sigue en §1 de `SEGUIMIENTO.md`, no aquí. Hasta entonces la R-XX de esta oleada queda
+especificada y en cola, detrás de la oleada v15, en el orden de §1.
+
+Por qué esta oleada: no nace de un rodeo que una tarea anterior dejara dicho, sino de una lectura del
+propio modelo de datos. `asignatura_o_grupo` es hoy texto completamente libre en cada slot, y esa misma
+columna, comparada por igualdad exacta, es la clave con la que el producto decide qué filas forman una
+sola sesión — de la que dependen el cierre en bloque en los dos sentidos (R-17/R-23), la edición
+conjunta de una sesión completa (R-25) y el alta de una sesión de grupo (R-27). Un tecleo distinto
+entre dos altas del mismo grupo no avisa de nada en el momento: el sistema no rechaza nada, y solo se
+nota cuando una de esas funciones deja fuera a quien debería incluir — justo el tipo de fallo silencioso
+que más cuesta detectar, porque no es un error, es una lista corta sin explicación. T-11 ya resolvió el
+mismo problema, con el mismo patrón, para el centro de estudios de referencia del alumno; esta oleada
+aplica ese patrón ya probado a la asignatura/grupo. No añade ningún dato personal nuevo, ninguna RPC de
+asistencia ni toca al rol `student`.
+
+- **F-24 — Catálogo de asignaturas y grupos.** R-33.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1878,3 +1898,61 @@ nunca por foto; desde «Mi horario», un profesor imprime solo sus propias sesio
 ningún otro; ningún dato nuevo se expone en ninguno de los dos casos — la impresión contiene
 exactamente lo que la pantalla ya muestra en ese momento, ni una columna más; un `teacher` no ve el
 botón de imprimir el horario del centro completo.
+
+---
+
+### R-33 — Catálogo de asignaturas y grupos
+**Oleada / Fase:** v16 / F-24 · **Migración:** Sí (`020_catalogo_asignaturas`) · **Depende de:** T-11
+(`COMPLETADA`, mismo patrón), T-15 (`COMPLETADA`), T-20 (`COMPLETADA`, combobox reutilizado)
+**Origen:** roadmap
+
+**Objetivo:** hoy `asignatura_o_grupo` es texto completamente libre en cada slot (`db/MODELO.md:130`,
+"texto — etiqueta libre"), tecleado cada vez que se crea o edita uno. Esa misma columna, comparada por
+igualdad EXACTA (sensible a mayúsculas, tildes y espacios), es la clave con la que el producto decide
+qué filas son "la misma sesión": `slotsDeLaMismaSesion` (T-15, `src/dominio/asistencia.ts:247-262`)
+filtra por profesor + día + hora + `asignatura_o_grupo`, y la reutilizan tal cual el cierre en bloque en
+los dos sentidos (R-17 "marcar el resto como ausente", R-23 "como presente"), la edición conjunta de una
+sesión completa (R-25) y el alta de una sesión de grupo (R-27). Un tecleo distinto entre dos altas del
+mismo grupo —"Matemáticas 4ESO" frente a "matemáticas 4 eso"— no produce ningún error visible en el
+momento: el sistema no rechaza nada, simplemente dos filas que deberían agruparse como una sola sesión
+dejan de hacerlo, y quien lo nota es el profesor cuando el cierre en bloque no cubre a todo su grupo, o
+el administrador cuando la edición conjunta le deja un alumno fuera. T-11 ya resolvió exactamente el
+mismo problema, con el mismo patrón, para el centro de estudios de referencia del alumno: un catálogo
+cerrado que mantiene `administrator`, en vez de texto libre. Esta tarea aplica ese patrón ya probado a
+la asignatura/grupo, sin tocar ningún consumidor existente, porque el campo que guarda cada slot sigue
+siendo el mismo texto — solo que ahora se elige de una lista en vez de teclearse a mano cada vez.
+
+**Requisitos:**
+1. Migración `020_catalogo_asignaturas.sql`: tabla nueva `asignatura` (`nombre` único —comparación
+   exacta, mismo criterio que `centro_estudios.nombre`, T-11—, `activo`), con RLS de lectura para
+   `administrator` y `teacher` y de escritura solo para `administrator`; sin ninguna política de
+   `DELETE` (baja lógica, mismo patrón que `centro_estudios`). Revoca todo por defecto en la tabla
+   nueva y concede solo lo necesario (§0.2 de la hoja de ruta). Ninguna columna nueva en `slot_horario`
+   ni en `asistencia`: `asignatura_o_grupo` sigue siendo exactamente el mismo campo de texto que ya
+   consumen T-15/R-17/R-23/R-25/R-27/R-32 y el snapshot de `asistencia`, sin cambiar su tipo, su nombre
+   ni su significado.
+2. Pantalla de gestión standalone del catálogo, reutilizando tal cual el patrón de `pantallaCentros.ts`
+   (T-11): listar, crear, renombrar y dar de baja — exclusiva de `administrator`.
+3. En el alta y edición de un slot (T-15/T-16), en «Editar/Cesar sesión completa» (R-25) y en «Nueva
+   sesión de grupo» (R-27), el campo `asignatura_o_grupo` pasa de texto libre a un combobox con
+   autocompletado sobre el catálogo activo — mismo componente y mismo patrón que «alumno extra»
+   (`comboboxAlumnoExtra.ts`, T-20), no uno construido desde cero — con la opción de dar de alta una
+   entrada nueva del catálogo sobre la marcha si todavía no existe, para no bloquear el alta del primer
+   slot de un centro nuevo mientras completa su catálogo (mismo criterio que T-11/T-12 con el centro de
+   estudios de referencia del alumno).
+4. Los slots ya existentes conservan su texto actual tal cual: esta tarea no reescribe ningún dato
+   retroactivamente. El histórico de asistencia y su snapshot (`slot_asignatura_o_grupo`) no cambian de
+   significado ni se recalculan nunca (principio "cambiar el horario no altera el histórico", §0.2).
+5. No añade ningún dato personal, ninguna RPC de asistencia nueva ni ninguna política a favor del rol
+   `student` (sin acceso a `asignatura`, igual que al resto del catálogo).
+
+**Bloqueo humano:** aplicar la migración `020_catalogo_asignaturas.sql` en `dev`, mismo procedimiento
+que el resto de migraciones (fila nueva en §3 de `SEGUIMIENTO.md`, §0.1 de `HOJA_DE_RUTA.md`).
+
+**Criterio de aceptación:** crear dos slots del mismo grupo eligiendo la misma entrada del catálogo
+produce el mismo texto exacto en los dos, sin que el profesor o el administrador tengan que teclearlo
+dos veces de forma idéntica; `slotsDeLaMismaSesion` los sigue agrupando correctamente igual que hoy con
+un texto tecleado a mano una sola vez (R-27) o editado en bloque (R-25); un centro que todavía no ha
+dado de alta ninguna asignatura puede seguir creando su primer slot sin quedar bloqueado, dando de alta
+la primera entrada del catálogo sobre la marcha; `teacher` lee el catálogo activo pero no puede crear ni
+renombrar ninguna entrada; `student` no tiene ningún acceso a la tabla.
