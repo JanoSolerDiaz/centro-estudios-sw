@@ -10,7 +10,27 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-25 (rutina programada de programador — cola vacía, nada que
+**Última actualización:** 2026-09-25 (rutina programada de programador, segunda pasada del día —
+cola vacía, nada que hacer): protocolo primero — `git checkout develop && git pull origin develop`
+fast-forward limpio desde la pasada anterior de esta misma rutina (`714570b`, sin commits entre
+medias — ni del dueño ni del PM ni del auditor). Revisado `auditoriacontinua.md`: el único hallazgo
+`ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en R-02, `motivo_justificacion`), sin novedad de
+fondo en la pregunta #16 de §6 (columna «Respuesta» sigue vacía) — bloqueado exclusivamente en el
+dueño, nada que tratar como P-XX antes de la cola. Revisada §1 completa hasta R-32 inclusive:
+**ninguna fila queda `PENDIENTE`**, todo `COMPLETADA` o `BLOQUEADA` por migración/T-25 (§3, filas
+12-22). Revisado `ROADMAP_PRODUCTO.md`: ninguna R-XX por delante de R-32. Revisado
+`roadmap/FEEDBACK.md`: sigue con su única fila plantilla vacía, nada que convertir. Sin ninguna R-XX
+nueva del PM, ningún hallazgo urgente y ningún backlog propio, esta sesión no tiene ningún trabajo de
+código que hacer. Verificación pre-push completa igualmente ejecutada para confirmar que el estado
+sigue verde: contenedor sin `node_modules`, `npm ci` recuperó los 130 paquetes declarados (0
+vulnerabilidades) + `npm run typecheck` + `npm run lint` + `npm test` (**1901/1901**, mismo número
+que la pasada anterior — ningún fichero de `src/` cambió) + `npm run build`, los cuatro en verde.
+Commit solo de esta entrada de bitácora y esta cabecera, empujado a `develop`, sin tocar `master` en
+ningún momento. La siguiente sesión seguirá sin cola normal propia hasta que el dueño aplique alguna
+de las migraciones pendientes, responda la pregunta #16, o el PM abra la siguiente oleada — esto no
+es un fallo de proceso, es el estado correcto de una cola agotada. — Programador, 2026-09-25
+
+**Sesión anterior (2026-09-25, rutina programada de programador — cola vacía, nada que
 hacer): protocolo primero — `git checkout develop && git pull origin develop` fast-forward limpio
 desde R-32 (`818ccd6`, sin commits entre medias — ni del dueño ni del PM ni del auditor). Revisado
 `auditoriacontinua.md`: el único hallazgo `ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en
