@@ -25,13 +25,20 @@
  * alumno elegido — mismo patrón de "reintento solo con quien falló" que la edición/cese en bloque de
  * arriba: un solape del propio alumno rechaza SOLO su alta (requisito 4), el resto del grupo se crea
  * con normalidad. Un alumno ya elegido no puede repetirse en la selección (requisito 5).
+ *
+ * **Botón «Imprimir horario» (R-32):** mismo mecanismo de ventana de impresión ya construido por
+ * R-04/R-15 (`AbridorVentanaImpresion`, `window.open` con una tabla HTML propia, sin librería de
+ * terceros ni PDF), sobre las MISMAS `sesiones` que la pantalla ya tiene en memoria en el momento de
+ * imprimir — sin ninguna petición de red adicional (requisito 4). Una fila por sesión con día, hora,
+ * asignatura/grupo, profesor y los nombres de sus alumnos separados por coma — nunca su fotografía
+ * (requisito 1, mismo criterio que el resto de la pantalla).
  */
 
 import { ETIQUETA_DIA_SEMANA, type Rol, type DiaSemana } from '../dominio/tipos.ts';
 import { puedeGestionarHorarios } from '../dominio/permisosUi.ts';
 import { nombreCompletoAlumno } from '../dominio/alumno.ts';
 import { sesionesVigentesDelCentro, claveSesionHorarioCentro, type SesionHorarioCentro } from '../dominio/horarioCentro.ts';
-import { fechaLocalISO, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
+import { fechaLocalISO, fechaHoraLocalLegible, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
 import type { SlotConAlumno } from '../dominio/slots.ts';
 import type { ProfesorParaSelector } from '../datos/profesores.ts';
 import type { CambiosSlot, DatosNuevoSlot, ResultadoEscrituraSlot } from '../datos/slotsHorario.ts';
@@ -40,7 +47,7 @@ import type { Reloj } from '../nucleo/reloj.ts';
 import type { Rebote } from '../nucleo/rebote.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
 import { crearCampoTexto, crearZonaMensaje, crearBoton, crearMensajeErrorCampo } from './formularios.ts';
-import { crearElemento } from './dom.ts';
+import { crearElemento, type AbridorVentanaImpresion } from './dom.ts';
 import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
@@ -62,6 +69,9 @@ export interface DependenciasPantallaHorarioCentro {
   /** Fábrica NUEVA por montaje de pantalla (`crearRebote()`), nunca compartida con otra pantalla —
    * mismo criterio que el resto de consumidores de `comboboxAlumnoExtra.ts`. */
   readonly rebote: Rebote;
+  /** R-32: abre la ventana de impresión del horario del centro — mismo contrato exacto que
+   * `pantallaInformeHorasProfesor.ts` (R-15). */
+  readonly abridorImpresion: AbridorVentanaImpresion;
 }
 
 const AVISO_SOLAPE_PROFESOR = 'Aviso: algún profesor ya tenía otro alumno en este mismo día y hora.';
@@ -178,6 +188,13 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaAviso = crearZonaMensaje(documento, 'status');
   const listaEl = documento.createElement('div');
+
+  // R-32: independiente del resto de acciones de la pantalla (nunca se oculta mientras hay un
+  // formulario abierto), mismo criterio que los botones de descarga/impresión de R-15.
+  const botonImprimir = crearBoton(documento, 'Imprimir horario', 'button');
+  botonImprimir.addEventListener('click', () => {
+    imprimirHorario();
+  });
 
   function nombreProfesor(profesorId: string): string {
     return nombresProfesores.get(profesorId) ?? profesores.find((p) => p.id === profesorId)?.nombre ?? 'Profesor no disponible';
@@ -796,6 +813,49 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     }
   }
 
-  contenedor.append(titulo, zonaError, zonaAviso, listaEl);
+  /** Ventana de impresión del horario del centro (R-32, requisito 1): sobre las MISMAS `sesiones`
+   * que la pantalla ya tiene cargadas — sin ninguna petición de red adicional (requisito 4). Una
+   * fila por sesión, con día, hora, asignatura/grupo, profesor y los nombres de sus alumnos
+   * separados por coma — nunca su fotografía. */
+  function imprimirHorario(): void {
+    const ventana = deps.abridorImpresion.abrir('Horario del centro');
+    if (!ventana) {
+      errorCarga = 'El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes e inténtalo de nuevo.';
+      pintar();
+      return;
+    }
+    const docImpresion = ventana.document;
+    const tituloImpresion = crearElemento(docImpresion, 'h1', { texto: 'Horario del centro' });
+    const generado = crearElemento(docImpresion, 'p', {
+      texto: `Generado el ${fechaHoraLocalLegible(deps.reloj.ahora(), zonaHoraria)}`,
+    });
+    const tabla = docImpresion.createElement('table');
+    const cabecera = docImpresion.createElement('thead');
+    const filaCabecera = docImpresion.createElement('tr');
+    for (const texto of ['Día', 'Hora', 'Asignatura/grupo', 'Profesor', 'Alumnos']) {
+      filaCabecera.append(crearElemento(docImpresion, 'th', { texto, atributos: { scope: 'col' } }));
+    }
+    cabecera.append(filaCabecera);
+    const cuerpo = docImpresion.createElement('tbody');
+    for (const sesion of sesiones) {
+      const fila = docImpresion.createElement('tr');
+      const valores = [
+        ETIQUETA_DIA_SEMANA[sesion.diaSemana],
+        `${sesion.horaInicio.slice(0, 5)}–${sesion.horaFin.slice(0, 5)}`,
+        sesion.asignaturaOGrupo ?? 'Sin asignatura o grupo',
+        nombreProfesor(sesion.profesorId),
+        sesion.slots.map((slot) => nombreCompletoAlumno(slot.alumno)).join(', '),
+      ];
+      for (const valor of valores) {
+        fila.append(crearElemento(docImpresion, 'td', { texto: valor }));
+      }
+      cuerpo.append(fila);
+    }
+    tabla.append(cabecera, cuerpo);
+    docImpresion.body.append(tituloImpresion, generado, tabla);
+    ventana.imprimir();
+  }
+
+  contenedor.append(titulo, zonaError, zonaAviso, botonImprimir, listaEl);
   void cargar();
 }

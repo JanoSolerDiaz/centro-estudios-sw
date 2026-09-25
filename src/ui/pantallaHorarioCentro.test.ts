@@ -7,6 +7,7 @@ import { crearReboteDePrueba } from '../nucleo/rebote.ts';
 import { ErrorDeValidacion, SinPermiso } from '../datos/erroresDominio.ts';
 import type { SlotConAlumno } from '../dominio/slots.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
+import type { AbridorVentanaImpresion, VentanaImpresion } from './dom.ts';
 
 const ALUMNO_1 = { id: 'alumno-1', nombre: 'Ana', primer_apellido: 'García', segundo_apellido: null, avatar_ruta: null, activo: true };
 const ALUMNO_2 = { id: 'alumno-2', nombre: 'Luis', primer_apellido: 'Pérez', segundo_apellido: null, avatar_ruta: null, activo: true };
@@ -37,6 +38,32 @@ function crearContenedorDePruebas(): HTMLElement {
   return contenedor;
 }
 
+function crearAbridorImpresionDeMentira(): AbridorVentanaImpresion & {
+  readonly titulos: string[];
+  readonly documentos: Document[];
+  impresiones: number;
+} {
+  const titulos: string[] = [];
+  const documentos: Document[] = [];
+  const resultado = {
+    titulos,
+    documentos,
+    impresiones: 0,
+    abrir(titulo: string): VentanaImpresion {
+      titulos.push(titulo);
+      const documento = new JSDOM('<!doctype html><body></body>').window.document;
+      documentos.push(documento);
+      return {
+        document: documento,
+        imprimir: () => {
+          resultado.impresiones += 1;
+        },
+      };
+    },
+  };
+  return resultado;
+}
+
 function crearDepsFalsas(overrides: Partial<DependenciasPantallaHorarioCentro> = {}): DependenciasPantallaHorarioCentro {
   const noImplementado = (metodo: string) => () =>
     Promise.reject(new Error(`DependenciasPantallaHorarioCentro falsas: ${metodo} no se esperaba en este test`));
@@ -51,6 +78,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaHorarioCentro> =
     crearSlot: overrides.crearSlot ?? noImplementado('crearSlot'),
     buscarAlumnos: overrides.buscarAlumnos ?? (() => Promise.resolve([])),
     rebote: overrides.rebote ?? crearReboteDePrueba(),
+    abridorImpresion: overrides.abridorImpresion ?? crearAbridorImpresionDeMentira(),
     ...overrides,
   };
 }
@@ -548,7 +576,7 @@ void test('no ofrece ningún control de edición por alumno suelto, solo por ses
   await esperarMicrotareas();
 
   const botones = Array.from(contenedor.querySelectorAll('button')).map((b) => b.textContent);
-  assert.deepEqual(botones, ['Nueva sesión de grupo', 'Editar sesión completa', 'Cesar sesión completa']);
+  assert.deepEqual(botones, ['Imprimir horario', 'Nueva sesión de grupo', 'Editar sesión completa', 'Cesar sesión completa']);
 });
 
 // --- Requisito 2 y 4: edición en bloque de una sesión completa ---
@@ -771,4 +799,70 @@ void test('un aviso de solape de profesor se muestra sin bloquear la edición', 
   await esperarMicrotareas();
 
   assert.match(contenedor.textContent, /ya tenía otro alumno en este mismo día y hora/);
+});
+
+// --- «Imprimir horario» (R-32) -------------------------------------------------------------
+
+void test('el botón "Imprimir horario" está disponible incluso sin ningún horario vigente', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaHorarioCentro(contenedor, crearDepsFalsas({ listarSlots: () => Promise.resolve([]) }));
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Imprimir horario'); // no lanza si existe
+});
+
+void test('"Imprimir horario" abre una ventana con una fila por sesión, agrupando los alumnos de la misma sesión', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const abridorImpresion = crearAbridorImpresionDeMentira();
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({ listarSlots: () => Promise.resolve([SLOT_ALUMNO_1, SLOT_ALUMNO_2]), abridorImpresion }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Imprimir horario').click();
+
+  assert.deepEqual(abridorImpresion.titulos, ['Horario del centro']);
+  assert.equal(abridorImpresion.impresiones, 1);
+  const docImpresion = abridorImpresion.documentos[0];
+  assert.ok(docImpresion);
+  assert.match(docImpresion.body.textContent, /Horario del centro/);
+  assert.match(docImpresion.body.textContent, /Generado el/);
+  const filas = docImpresion.querySelectorAll('tbody tr');
+  assert.equal(filas.length, 1); // ambos alumnos comparten sesión: una única fila
+  const celdas = Array.from(filas[0]?.querySelectorAll('td') ?? []).map((td) => td.textContent);
+  assert.deepEqual(celdas, ['Martes', '17:00–18:00', 'Matemáticas', 'Pedro Profesor', 'Ana García, Luis Pérez']);
+  const cabeceras = Array.from(docImpresion.querySelectorAll('thead th')).map((th) => th.textContent);
+  assert.deepEqual(cabeceras, ['Día', 'Hora', 'Asignatura/grupo', 'Profesor', 'Alumnos']);
+});
+
+void test('"Imprimir horario" nunca imprime la fotografía del alumno, solo su nombre', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const abridorImpresion = crearAbridorImpresionDeMentira();
+  mostrarPantallaHorarioCentro(
+    contenedor,
+    crearDepsFalsas({
+      listarSlots: () => Promise.resolve([{ ...SLOT_ALUMNO_1, alumno: { ...ALUMNO_1, avatar_ruta: 'alumnos/alumno-1/512.jpg' } }]),
+      abridorImpresion,
+    }),
+  );
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Imprimir horario').click();
+
+  const docImpresion = abridorImpresion.documentos[0];
+  assert.ok(docImpresion);
+  assert.equal(docImpresion.querySelectorAll('img').length, 0);
+  assert.doesNotMatch(docImpresion.body.textContent, /avatar_ruta|\.jpg/);
+});
+
+void test('si el navegador bloquea la ventana emergente, "Imprimir horario" avisa sin lanzar', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const abridorImpresion: AbridorVentanaImpresion = { abrir: () => undefined };
+  mostrarPantallaHorarioCentro(contenedor, crearDepsFalsas({ listarSlots: () => Promise.resolve([]), abridorImpresion }));
+  await esperarMicrotareas();
+
+  boton(contenedor, 'Imprimir horario').click();
+
+  assert.match(contenedor.textContent, /bloqueado la ventana de impresión/);
 });

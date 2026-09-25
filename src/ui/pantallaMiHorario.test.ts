@@ -9,6 +9,7 @@ import { crearProgramadorIntervaloDePrueba, type ProgramadorIntervaloDePrueba } 
 import { ErrorDeRed } from '../datos/erroresDominio.ts';
 import { crearAlmacenPreferenciaRecordatorioEnMemoria } from '../nucleo/preferenciaRecordatorio.ts';
 import type { NotificadorRecordatorio, OpcionesRecordatorioSesion } from '../nucleo/notificadorRecordatorio.ts';
+import type { AbridorVentanaImpresion, VentanaImpresion } from './dom.ts';
 
 // Miércoles 2026-08-26, 17:30 CEST (15:30 UTC): dentro del slot 17:00-18:00 local de dia_semana 3.
 const INSTANTE_EN_CLASE = new Date('2026-08-26T15:30:00.000Z');
@@ -123,6 +124,32 @@ function disparar(elemento: Element, tipo: string): void {
   elemento.dispatchEvent(new ventana.Event(tipo));
 }
 
+function crearAbridorImpresionDeMentira(): AbridorVentanaImpresion & {
+  readonly titulos: string[];
+  readonly documentos: Document[];
+  impresiones: number;
+} {
+  const titulos: string[] = [];
+  const documentos: Document[] = [];
+  const resultado = {
+    titulos,
+    documentos,
+    impresiones: 0,
+    abrir(titulo: string): VentanaImpresion {
+      titulos.push(titulo);
+      const documento = new JSDOM('<!doctype html><body></body>').window.document;
+      documentos.push(documento);
+      return {
+        document: documento,
+        imprimir: () => {
+          resultado.impresiones += 1;
+        },
+      };
+    },
+  };
+  return resultado;
+}
+
 function crearDepsFalsas(overrides: Partial<DependenciasPantallaMiHorario> = {}): DependenciasPantallaMiHorario {
   return {
     rol: 'teacher',
@@ -132,6 +159,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaMiHorario> = {})
     cargarSlots: () => Promise.resolve([]),
     irAPasarLista: () => undefined,
     irARegistros: () => undefined,
+    abridorImpresion: overrides.abridorImpresion ?? crearAbridorImpresionDeMentira(),
     ...overrides,
   };
 }
@@ -1108,4 +1136,57 @@ void test('con el recordatorio apagado, un tick dentro de la ventana no dispara 
   await esperarMicrotareas();
 
   assert.equal(notificador.llamadas.length, 0);
+});
+
+// --- «Imprimir mi horario» (R-32) -----------------------------------------------------------
+
+void test('el botón "Imprimir mi horario" está disponible incluso sin ningún horario', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]) }));
+  await esperarMicrotareas();
+
+  assert.ok(botonPorTexto(contenedor, 'Imprimir mi horario'));
+});
+
+void test('"Imprimir mi horario" abre una ventana con una fila por slot propio, sin columna de profesor', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const abridorImpresion = crearAbridorImpresionDeMentira();
+  const slotMiercoles = crearSlot({ id: 'slot-1', dia_semana: 3, hora_inicio: '17:00', hora_fin: '18:00', asignatura_o_grupo: 'Matemáticas' });
+  const slotViernes = crearSlot(
+    { id: 'slot-2', alumno_id: 'alumno-2', dia_semana: 5, hora_inicio: '10:00', hora_fin: '11:00', asignatura_o_grupo: null },
+    { id: 'alumno-2', nombre: 'Luis', primer_apellido: 'Pérez', segundo_apellido: null },
+  );
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({ cargarSlots: () => Promise.resolve([slotMiercoles, slotViernes]), abridorImpresion }),
+  );
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Imprimir mi horario')?.click();
+
+  assert.deepEqual(abridorImpresion.titulos, ['Mi horario']);
+  assert.equal(abridorImpresion.impresiones, 1);
+  const docImpresion = abridorImpresion.documentos[0];
+  assert.ok(docImpresion);
+  assert.match(docImpresion.body.textContent, /Generado el/);
+  const cabeceras = Array.from(docImpresion.querySelectorAll('thead th')).map((th) => th.textContent);
+  assert.deepEqual(cabeceras, ['Día', 'Hora', 'Asignatura/grupo', 'Alumno']); // sin columna de profesor
+  const filas = docImpresion.querySelectorAll('tbody tr');
+  assert.equal(filas.length, 2);
+  const primeraFila = Array.from(filas[0]?.querySelectorAll('td') ?? []).map((td) => td.textContent);
+  assert.deepEqual(primeraFila, ['Miércoles', '17:00–18:00', 'Matemáticas', 'Ana García López']);
+  const segundaFila = Array.from(filas[1]?.querySelectorAll('td') ?? []).map((td) => td.textContent);
+  assert.deepEqual(segundaFila, ['Viernes', '10:00–11:00', '—', 'Luis Pérez']);
+});
+
+void test('si el navegador bloquea la ventana emergente, "Imprimir mi horario" avisa sin lanzar', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const abridorImpresion: AbridorVentanaImpresion = { abrir: () => undefined };
+  mostrarPantallaMiHorario(contenedor, crearDepsFalsas({ cargarSlots: () => Promise.resolve([]), abridorImpresion }));
+  await esperarMicrotareas();
+
+  botonPorTexto(contenedor, 'Imprimir mi horario')?.click();
+  await esperarMicrotareas();
+
+  assert.match(contenedor.textContent, /bloqueado la ventana de impresión/);
 });

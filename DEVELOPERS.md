@@ -833,6 +833,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     esfuerzo, un fallo no rompe nada más de la pantalla. `sesionesAvisadasHoy` (un `Set` en memoria,
     sin persistir) evita repetir el aviso de la misma sesión en el siguiente tick. El cuerpo de la
     notificación lleva hora, día y asignatura — nunca el nombre del alumno.
+    Desde R-32: botón "Imprimir mi horario", siempre disponible, que recalcula `vistaSemanalProfesor`
+    sobre `slotsCache` y el instante actual y abre una ventana de impresión (`deps.abridorImpresion`,
+    ahora dependencia OBLIGATORIA de esta pantalla, mismo mecanismo que R-04/R-15/R-25). Una fila por
+    slot propio (día, hora, asignatura/grupo, alumno), sin columna de profesor — son todas suyas.
   - `pantallaRegistrosSlot.ts` (T-21, ampliada en T-22 y R-20) — `mostrarPantallaRegistrosSlot(contenedor,
     deps)`: consulta y modificación de los registros de UN slot en UN día, para `teacher` (solo lo
     suyo, sin selector de profesor) y `administrator` (elige profesor,
@@ -1104,7 +1108,13 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     lista — mismo patrón exacto de reintento parcial que "Editar sesión completa"/"Cesar sesión
     completa": un solape del propio alumno rechaza SOLO su alta y queda listo para reintentar, el
     resto del grupo se crea igual; el aviso de solape con OTRO profesor (no bloqueante) también pasa
-    por `avisoGlobal`. Sin ninguna RPC nueva.
+    por `avisoGlobal`. Sin ninguna RPC nueva. **R-32 (horario imprimible), misma pantalla:** botón
+    "Imprimir horario" de nivel de página (siempre visible, independiente de cualquier otra acción en
+    curso) que abre una ventana de impresión sobre las MISMAS `sesiones` ya calculadas — mismo
+    mecanismo que R-04/R-15 (`deps.abridorImpresion`, ahora dependencia OBLIGATORIA de esta pantalla).
+    Una fila por sesión (día, hora, asignatura/grupo, profesor, alumnos separados por coma — nunca
+    fotografía), cabecera con título y "Generado el" (`fechaHoraLocalLegible`). Sin RPC ni petición de
+    red adicional.
 - **P-22 (bug real descubierto al escribir R-11, no un hallazgo de auditoría):**
   `datos/asistencia.ts#idsAlumnosDeCentro` (T-23, filtro por centro del histórico) leía
   `centro_referencia_id` de la tabla BASE `alumno`, columna que `003_politicas_rls.sql` nunca

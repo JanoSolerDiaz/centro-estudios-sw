@@ -371,6 +371,7 @@ function mostrarAppAdministrador(
         crearSlot: (datos) => crearSlot(app.postgrest, datos),
         buscarAlumnos: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
         rebote: crearRebote(),
+        abridorImpresion,
       });
       return;
     }
@@ -740,6 +741,7 @@ function mostrarAppProfesor(
         },
         ...(app.notificadorRecordatorio ? { notificador: app.notificadorRecordatorio } : {}),
         ...(app.preferenciaRecordatorio ? { preferenciaRecordatorio: app.preferenciaRecordatorio } : {}),
+        abridorImpresion,
       });
       return;
     }

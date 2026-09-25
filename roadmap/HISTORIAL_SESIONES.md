@@ -37,6 +37,36 @@
 
 ---
 
+### Sesión 2026-09-25 (rutina programada de programador) — R-32 completada
+
+**Tarea(s):** R-32 (Horario imprimible y exportable: del centro y del propio profesor)
+**Estado resultante:** R-32 `COMPLETADA` en §1 de `SEGUIMIENTO.md`; cola de §1 vuelve a quedar sin
+ninguna fila `PENDIENTE`
+**Commits a `develop`:** el de esta sesión (`src/ui/pantallaHorarioCentro.ts`,
+`src/ui/pantallaHorarioCentro.test.ts`, `src/ui/pantallaMiHorario.ts`,
+`src/ui/pantallaMiHorario.test.ts`, `src/ui/aplicacion.ts`, `roadmap/SEGUIMIENTO.md`,
+`roadmap/DECISIONES_TECNICAS.md`, este documento)
+**Migraciones aplicadas:** ninguna (spec declara `Migración: No`; depende solo de R-25 y T-22, ambas
+`COMPLETADA` sin ninguna migración propia pendiente)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** ver commit arriba
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1901/1901, antes 1894) · build ✅
+**Health check post-deploy:** N/D — sin despliegue real desde este entorno
+**Decisiones tomadas:** dos filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-25, R-32): tabla única
+con columna «Día» en vez de replicar las cabeceras `h3`/`section` de cada pantalla, y
+`abridorImpresion` como dependencia NO opcional (mismo criterio que R-15), a diferencia del resto de
+dependencias opcionales añadidas a estas dos pantallas en oleadas recientes (R-26/R-28/R-29)
+**Hallazgos del auditor atendidos:** ninguno — único hallazgo `ABIERTO` de `auditoriacontinua.md`
+sigue siendo **#8** (alta, RGPD artículo 9 en R-02), decimoctavo ciclo consecutivo sin novedad de
+fondo en la pregunta #16 de §6, bloqueado exclusivamente en el dueño
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** la cola de §1 vuelve a quedar agotada (todo `COMPLETADA` o `BLOQUEADA` por
+migración/T-25) — la siguiente sesión de programador no tiene trabajo propio hasta que el dueño
+aplique alguna migración pendiente, responda la pregunta #16 de §6, o el PM abra una nueva oleada
+
+---
+
 ### Sesión 2026-09-24 (trigésimo primer ciclo del Product Manager) — cierra Oleada v14, abre Oleada v15 (R-32)
 **Tarea(s):** ninguna T-XX/R-XX de código — sesión de producto (gestión de roadmap)
 **Estado resultante:** R-30 y R-31 confirmadas `COMPLETADA` en código (sin cambio, ya lo estaban desde

@@ -71,12 +71,19 @@
  * foco). Un envío con éxito deja la fila con "Aviso enviado" hasta que se recargue la pantalla —
  * duplicados de la MISMA sesión ya pendiente los rechaza el servidor (requisito 5), esta pantalla no
  * los previene por su cuenta.
+ *
+ * Botón «Imprimir mi horario» (R-32): mismo mecanismo de ventana de impresión que
+ * `pantallaHorarioCentro.ts` (`AbridorVentanaImpresion`), recalculando `vistaSemanalProfesor` sobre
+ * `slotsCache` y el instante actual del estado — sin ninguna petición de red adicional (requisito 4).
+ * Sin columna de profesor (son todas del propio profesor, requisito 2) y con el mismo nombre de
+ * alumno por fila que ya pinta la pantalla, ni uno más.
  */
 
 import type { Rol, DiaSemana, ExcepcionSlot, CierreCentro, PausaAlumno, Asistencia, AvisoAusenciaProfesor } from '../dominio/tipos.ts';
 import { ETIQUETA_DIA_SEMANA } from '../dominio/tipos.ts';
 import {
   fechaLocalISO,
+  fechaHoraLocalLegible,
   instanteLocal,
   vistaSemanalProfesor,
   ZONA_HORARIA_CENTRO_POR_DEFECTO,
@@ -97,7 +104,7 @@ import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import type { AlmacenPreferenciaRecordatorio } from '../nucleo/preferenciaRecordatorio.ts';
 import type { NotificadorRecordatorio } from '../nucleo/notificadorRecordatorio.ts';
-import { crearElemento } from './dom.ts';
+import { crearElemento, type AbridorVentanaImpresion } from './dom.ts';
 import { crearZonaMensaje, crearBoton } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
@@ -161,6 +168,9 @@ export interface DependenciasPantallaMiHorario {
   /** R-26: preferencia persistida por dispositivo (activado/apagado). Opcional junto a
    * `notificador`. */
   preferenciaRecordatorio?: AlmacenPreferenciaRecordatorio;
+  /** R-32: abre la ventana de impresión de "mi horario" — mismo contrato exacto que
+   * `pantallaHorarioCentro.ts` (R-32) y `pantallaInformeHorasProfesor.ts` (R-15). */
+  readonly abridorImpresion: AbridorVentanaImpresion;
 }
 
 interface EstadoPantalla {
@@ -232,6 +242,12 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
   }
 
   const tituloPantalla = crearElemento(documento, 'h2', { texto: 'Mi horario' });
+  // R-32: independiente del resto de la pantalla, siempre disponible — mismo criterio que los
+  // botones de descarga/impresión de R-15.
+  const botonImprimir = crearBoton(documento, 'Imprimir mi horario', 'button');
+  botonImprimir.addEventListener('click', () => {
+    imprimirMiHorario();
+  });
   const zonaRecordatorio = documento.createElement('div');
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaEstado = documento.createElement('div');
@@ -640,10 +656,51 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     pintarDias(vista, estado.instante);
   }
 
+  /** Ventana de impresión de "mi horario" (R-32, requisito 2): recalcula `vistaSemanalProfesor`
+   * sobre `slotsCache` y el instante actual — sin ninguna petición de red adicional (requisito 4).
+   * Una fila por slot (mismo contenido que ya pinta cada fila de la vista semanal), sin columna de
+   * profesor. */
+  function imprimirMiHorario(): void {
+    const ventana = deps.abridorImpresion.abrir('Mi horario');
+    if (!ventana) {
+      almacen.actualizar({ error: 'El navegador ha bloqueado la ventana de impresión. Permite las ventanas emergentes e inténtalo de nuevo.' });
+      return;
+    }
+    const { instante } = almacen.obtener();
+    const vista = vistaSemanalProfesor({ profesorId: deps.profesorId, instante, slots: slotsCache });
+    const docImpresion = ventana.document;
+    const tituloImpresion = crearElemento(docImpresion, 'h1', { texto: 'Mi horario' });
+    const generado = crearElemento(docImpresion, 'p', { texto: `Generado el ${fechaHoraLocalLegible(instante)}` });
+    const tabla = docImpresion.createElement('table');
+    const cabecera = docImpresion.createElement('thead');
+    const filaCabecera = docImpresion.createElement('tr');
+    for (const texto of ['Día', 'Hora', 'Asignatura/grupo', 'Alumno']) {
+      filaCabecera.append(crearElemento(docImpresion, 'th', { texto, atributos: { scope: 'col' } }));
+    }
+    cabecera.append(filaCabecera);
+    const cuerpo = docImpresion.createElement('tbody');
+    for (const slot of vista) {
+      const fila = docImpresion.createElement('tr');
+      const valores = [
+        ETIQUETA_DIA_SEMANA[slot.dia_semana],
+        `${slot.hora_inicio}–${slot.hora_fin}`,
+        slot.asignatura_o_grupo ?? '—',
+        nombreCompletoAlumno(slot.alumno),
+      ];
+      for (const valor of valores) {
+        fila.append(crearElemento(docImpresion, 'td', { texto: valor }));
+      }
+      cuerpo.append(fila);
+    }
+    tabla.append(cabecera, cuerpo);
+    docImpresion.body.append(tituloImpresion, generado, tabla);
+    ventana.imprimir();
+  }
+
   almacen.suscribir(pintar);
   pintar();
 
-  contenedor.append(tituloPantalla, zonaRecordatorio, zonaError, zonaEstado, zonaResumen, zonaAvisos, listaDias);
+  contenedor.append(tituloPantalla, botonImprimir, zonaRecordatorio, zonaError, zonaEstado, zonaResumen, zonaAvisos, listaDias);
 
   deps.programador.cada(INTERVALO_TICK_MS, () => {
     const instante = deps.reloj.ahora();
