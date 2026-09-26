@@ -10,7 +10,27 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-25 (trigésimo segundo ciclo del Product Manager — abre la Oleada
+**Última actualización:** 2026-09-26 (trigésimo tercer ciclo del Product Manager — sin R-XX nueva,
+cuarto ciclo consecutivo): protocolo primero — `git checkout develop && git pull origin develop`
+fast-forward limpio desde la pasada del auditor de hoy (`ca139ee`), sin ningún commit de código ni de
+`db/` desde que se abrió R-33 (`0f0c010`, ciclo anterior). Revisado `auditoriacontinua.md`: pasada
+limpia de hoy, sin hallazgo nuevo; el único `ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en
+R-02, `motivo_justificacion`), vigésimo ciclo consecutivo sin novedad de fondo en la pregunta #16 de
+§6 — sigue sin ser una decisión que el PM pueda tomar. Revisado `roadmap/FEEDBACK.md`: sigue con su
+única fila plantilla vacía, nada que convertir. Revisada §1 completa: **R-33 sigue siendo la única
+fila `PENDIENTE`**, exactamente como la dejó el ciclo anterior — `git log 0f0c010..HEAD` confirma que
+el único commit desde que se abrió es la pasada del auditor, ninguno de código ni de SQL, así que
+ningún programador la ha tomado todavía. Mismo criterio que los ciclos 19.º, 20.º, 26.º y 27.º (todos
+«sin R-XX nueva» con la cabeza de cola sin empezar): abrir ya la Oleada v17 encolaría una R-XX nueva
+por delante de una que todavía no tiene ni una línea de código, sin que ninguna entrada de feedback ni
+ningún hallazgo lo justifique. Revisado el resto del roadmap completo (oleadas v1 a v16) contra la
+visión de producto y el ICP: repasadas también R-30, R-31 y R-32 (ya lo hizo el ciclo anterior) y el
+resto de oleadas anteriores, ningún rodeo autoseñalado sin cerrar y ningún hueco nuevo que amerite
+forzar una tarea solo por tener una. T-25 sigue `BLOQUEADA` a falta del paso a producción (fila 12 de
+§3), así que ninguna oleada ha llegado todavía a «100% desplegada» — nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez. Sin ningún commit de código. — PM, 2026-09-26
+
+**Sesión anterior (2026-09-25, trigésimo segundo ciclo del Product Manager — abre la Oleada
 v16 con R-33): protocolo primero — `git checkout develop && git pull origin develop` fast-forward
 limpio desde la cuarta pasada de programador del día (`a72ee53`). Revisado `auditoriacontinua.md`: el
 único hallazgo `ABIERTO` sigue siendo **#8** (alta, RGPD artículo 9 en R-02, `motivo_justificacion`),

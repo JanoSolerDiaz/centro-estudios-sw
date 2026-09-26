@@ -37,6 +37,43 @@
 
 ---
 
+### Sesión 2026-09-26 (trigésimo tercer ciclo del Product Manager) — sin R-XX nueva, cuarto ciclo consecutivo
+**Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
+**Estado resultante:** N/A (documento vivo, no código) — **trigésimo tercer ciclo del PM: ninguna
+R-XX nueva; ningún hallazgo nuevo de `auditoriacontinua.md` que dé lugar a una R-XX ni entrada
+`nuevo` de `FEEDBACK.md` que convertir; sin cambios de estado de T-XX/R-XX en §1 (R-33 sigue
+`PENDIENTE`, sin que ninguna sesión de programador la haya tomado todavía).**
+**Commits a `develop`:** ver commit de esta sesión (roadmap: trigésimo tercer ciclo del PM — sin
+R-XX nueva, R-33 sigue pendiente de que un programador la tome)
+**Migraciones aplicadas:** ninguna (el agente PM no toca `db/`; `010` a `019` siguen pendientes de
+que el dueño las aplique — la `011` sigue condicionada además a la pregunta #16 de §6)
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera), `roadmap/SEGUIMIENTO.md`
+(cabecera; nueva entrada de sesión), `roadmap/HISTORIAL_SESIONES.md` (esta entrada)
+**Verificaciones pre-push:** N/A — sesión de producto, sin cambio de código
+**Health check post-deploy:** N/A — sin cambios de código desplegado
+**Decisiones tomadas:** ninguna en `DECISIONES_TECNICAS.md` — esta sesión no decide ningún mecanismo
+nuevo
+**Hallazgos del auditor atendidos:** ninguno resuelto por el PM. `auditoriacontinua.md` trae una
+pasada limpia de hoy (`ca139ee`, 2026-09-26), sin hallazgo nuevo. El único hallazgo `ABIERTO`
+heredado, **#8** (severidad alta, RGPD/dato de salud en R-02), sigue exactamente igual, esperando al
+dueño en la pregunta #16 de §6, vigésimo ciclo consecutivo sin novedad de fondo
+**Tareas autopropuestas (P-XX):** ninguna registrada ni ejecutada este ciclo
+**Hallazgos:** ninguno de producto. `FEEDBACK.md` sigue con su única fila plantilla vacía, nada que
+convertir. **R-33** (Oleada v16/F-24) sigue `PENDIENTE`: `git log 0f0c010..HEAD` confirma que el
+único commit desde que se abrió es la pasada del auditor de hoy, ninguno de código ni de SQL. La cola
+de trabajo sigue sin estar vacía, así que no hay base para abrir la Oleada v17 este ciclo — mismo
+criterio que los ciclos 19.º, 20.º, 26.º y 27.º. Revisado el MVP: T-25 sigue `BLOQUEADA` a falta del
+paso a producción, así que ninguna oleada ha llegado todavía a «100% desplegada» — nada se mueve a
+`ROADMAP_HISTORICO.md` esta vez. Revisado el resto del roadmap contra la visión de producto y el ICP:
+sin ningún hueco nuevo que añadir mientras R-33 siga sin implementar
+**Próximo paso:** una sesión de programador implementa R-33 (spec completa en `ROADMAP_PRODUCTO.md`,
+incluida la migración `020_catalogo_asignaturas.sql`). La siguiente sesión de producto vuelve a
+revisar `auditoriacontinua.md` y `FEEDBACK.md` en busca de hallazgos/entradas nuevas, y si R-33 ya
+está `COMPLETADA`/`DESPLEGADA EN PRODUCCIÓN`, valora si toca abrir la Oleada v17
+
+---
+
 ### Sesión 2026-09-25 (trigésimo segundo ciclo del Product Manager) — abre Oleada v16 (R-33)
 **Tarea(s):** ninguna T-XX/R-XX de código — sesión de producto (gestión de roadmap)
 **Estado resultante:** R-33 nueva, `PENDIENTE`, añadida a §1 de `SEGUIMIENTO.md`
