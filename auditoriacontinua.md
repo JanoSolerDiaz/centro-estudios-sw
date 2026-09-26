@@ -76,6 +76,80 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-09-26
+
+**Alcance real de esta pasada — seis commits desde la anterior (`d01e584`, 2026-09-25):**
+`818ccd6` (R-32, horario imprimible y exportable del centro y del propio profesor), cuatro rutinas
+programadas de programador sin trabajo accionable (`714570b`, `fe23ee5`, `fac4b5e`, `a72ee53`) y
+`0f0c010` (trigésimo segundo ciclo del PM, cierra la Oleada v15 y abre la v16 con R-33, solo spec,
+sin código). `git checkout develop && git pull origin develop`: fast-forward limpio hasta `0f0c010`.
+**Ningún cambio bajo `db/`, `herramientas/` ni `legal/`** en todo el rango (`git diff
+d01e584..HEAD --stat -- db/ herramientas/ legal/` no devuelve nada): el único commit de código del
+lote es cliente puro, sin migración. Por eso esta pasada no repite la lectura línea a línea de
+ningún fichero SQL ni del runner de migraciones — no hay nada nuevo que auditar ahí — y se
+concentra en el código de R-32, en la coherencia documental del cierre/apertura de oleada y en
+volver a ejecutar en vivo la batería completa.
+
+**R-32 (horario imprimible y exportable) revisada contra los puntos de control "avatar solo donde
+toca" y "alcance de datos personales":** `pantallaHorarioCentro.ts` y `pantallaMiHorario.ts` añaden
+un botón «Imprimir…» que reutiliza tal cual `AbridorVentanaImpresion` (R-04/R-15) sobre las
+`sesiones`/`slotsCache` que cada pantalla ya tiene en memoria — verificado leyendo el diff completo:
+cero RPC, cero columna y cero petición de red nuevas. Las dos tablas de impresión pintan día, hora,
+asignatura/grupo, profesor (solo en la del centro) y nombres de alumnos — **nunca su fotografía**,
+coherente con el criterio ya exigido en R-15/R-25 de no ampliar la superficie donde aparece el
+avatar más allá de la ficha del alumno y las cards del propio slot del profesor. `aplicacion.ts`
+cablea `abridorImpresion` únicamente en `mostrarAppAdministrador` y `mostrarAppProfesor` — ninguna
+ruta de `student` la recibe, verificado por lectura directa del diff, no solo del mensaje de commit.
+Las dos decisiones registradas en `DECISIONES_TECNICAS.md` (tabla única agrupada por día en vez de
+replicar el marcado de la pantalla; `abridorImpresion` obligatoria y no opcional, a diferencia de
+R-26/R-28/R-29) están bien motivadas y no ocultan ningún atajo: la propia spec de R-32 exige
+"agrupado por día", no un marcado idéntico al de pantalla, y el precedente real (R-15) ya trataba
+esa dependencia como obligatoria. 7 tests nuevos (`pantallaHorarioCentro.test.ts`,
+`pantallaMiHorario.test.ts`) cubren exactamente los bordes que importan aquí: que la fotografía
+nunca aparece en la tabla impresa, que la ventana bloqueada por el navegador se informa como error
+en vez de fallar en silencio, y que el profesor no ve columna de "Profesor" en su propio horario —
+no es una batería que solo ejercita el camino feliz.
+
+**R-33 (catálogo de asignaturas y grupos) revisada como spec, no como código — nada implementado
+todavía:** el PM abre la Oleada v16 aplicando a `asignatura_o_grupo` el mismo patrón de catálogo
+cerrado que T-11 ya resolvió para el centro de estudios de referencia del alumno, con motivo técnico
+sólido (comparación EXACTA de texto libre en `slotsDeLaMismaSesion`, T-15, que agrupa sesiones para
+R-17/R-23/R-25/R-27). El propio requisito 5 de la spec fija explícitamente "no añade ningún dato
+personal, ninguna RPC de asistencia nueva ni ninguna política a favor del rol `student`" — coherente
+con el resto del proyecto y sin ningún indicio de intentar colar alcance nuevo por la puerta de
+atrás. Sin migración `020` escrita todavía: no hay nada que revisar a nivel de SQL en esta pasada.
+
+**Coherencia roadmap ↔ código:** `ROADMAP_PRODUCTO.md` (spec de R-32, ya `COMPLETADA`, y spec nueva
+de R-33) y `DECISIONES_TECNICAS.md` (dos decisiones nuevas de mecanismo, ninguna de alcance de dato)
+coinciden con lo implementado; §1 de `SEGUIMIENTO.md` refleja R-32 como `COMPLETADA` el mismo día que
+su commit y §7 (desviaciones) no gana ninguna fila nueva — confirmado con `git diff
+d01e584..HEAD -- roadmap/SEGUIMIENTO.md`, que solo añade bitácora y la fila de §1, nunca §7.
+`HOJA_DE_RUTA.md` y `legal/` permanecen intactos (0 líneas de diff).
+
+**Puntos de control permanentes:** sin cambio bajo `db/` en todo el rango, así que el estado
+verificado en la pasada anterior (2026-09-25) sobre las migraciones aplicadas (`001`-`009`) y sobre
+`000b_arreglo_permisos.sql` (privilegios por defecto, sin `TRUNCATE` para `authenticated`) sigue
+vigente sin necesidad de repetir esa lectura línea a línea — releída igualmente la política de
+`asistencia`/`asistencia_historial` en `003_politicas_rls.sql` (solo `SELECT`, sin `INSERT`/`UPDATE`/
+`DELETE` para ningún rol de la API, RPC como única vía de escritura) para confirmar que sigue
+exactamente igual. Verificado de forma independiente lo que sí puede cambiar sin tocar `db/`:
+`package.json` sigue con `dependencies` inexistente (ni una sola, solo `devDependencies`) y las
+mismas siete `devDependencies` (`npm ci` reinstala 130 paquetes, 0 vulnerabilidades); `git ls-files |
+grep -i '\.env'` solo devuelve `.env.ejemplo`, y `.gitignore` sigue excluyendo `.env`/`.env.local`;
+ningún `service_role`, contraseña ni access token real en el diff del rango ni en el repositorio.
+
+**Calidad de la batería de pruebas y del código, verificada en ejecución, no solo leída:** `npm ci`
+(130 paquetes, 0 vulnerabilidades) + `npm run typecheck` limpio + `npm run lint` limpio + `npm test`
+— **1901 pruebas, 0 fallidas** (subida desde las 1894 de la pasada anterior, coherente con los 7
+tests nuevos de R-32) + `npm run build` limpio. Los cuatro comandos ejecutados directamente por este
+auditor, no solo leídos de la bitácora del programador.
+
+**Conclusión:** pasada limpia, sin hallazgo nuevo. El único hallazgo `ABIERTO` (#8, alcance de datos
+personales de R-02/artículo 9) sigue exactamente igual — decimonoveno ciclo consecutivo sin
+movimiento de fondo, todavía a la espera de que el dueño responda la pregunta #16 de §6 — y el
+trabajo nuevo de esta pasada (R-32) no introduce ningún dato personal nuevo, no amplía la superficie
+del avatar y mantiene la cobertura de pruebas sobre lógica de negocio real, no superficial.
+
 ### Auditoría 2026-09-25
 
 **Alcance real de esta pasada — seis commits desde la anterior (`64b659b`, 2026-09-24):**
