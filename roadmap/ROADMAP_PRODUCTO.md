@@ -8,24 +8,26 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-26 — trigésimo tercer ciclo del PM: **sin R-XX nueva, cuarto ciclo
-consecutivo.** `FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que
-convertir. `auditoriacontinua.md` trae una pasada limpia de hoy (`ca139ee`, seis commits revisados,
-ninguno bajo `db/`): de 24 hallazgos totales, 23 siguen `RESUELTO` y el único que sigue **ABIERTO**
-es **#8** (RGPD artículo 9, `motivo_justificacion` de R-02) — vigésimo ciclo consecutivo sin novedad
-de fondo en la pregunta #16 de §6: sigue sin ser una decisión que el PM pueda tomar, y sigue sin
-bloquear nada del resto del roadmap.
+**Última actualización:** 2026-09-27 — trigésimo cuarto ciclo del PM: **sin R-XX nueva, quinto ciclo
+consecutivo.** Protocolo primero: `git checkout develop && git pull origin develop`, fast-forward
+limpio hasta `d21b9df` (pasada del auditor de hoy); `git log 77b2b46..HEAD` confirma que ese es el
+único commit desde el ciclo anterior del PM, y no toca `db/`, `src/` ni `herramientas/`.
+`FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
+`auditoriacontinua.md` trae una pasada limpia de hoy: de 24 hallazgos totales, 23 siguen `RESUELTO`
+y el único que sigue **ABIERTO** es **#8** (RGPD artículo 9, `motivo_justificacion` de R-02) —
+vigésimo primer ciclo consecutivo sin novedad de fondo en la pregunta #16 de §6: sigue sin ser una
+decisión que el PM pueda tomar, y sigue sin bloquear nada del resto del roadmap.
 
 **R-33 (Oleada v16) sigue `PENDIENTE`**, exactamente como la dejó el ciclo anterior: `git log
-0f0c010..HEAD` (desde que se abrió su spec) confirma que el único commit de por medio es la pasada
-del auditor de hoy, ninguno de código ni de SQL — ningún programador la ha tomado todavía. Mismo
-criterio ya aplicado en los ciclos 19.º, 20.º, 26.º y 27.º (todos "sin R-XX nueva" con la cabeza de
-cola de §1 sin empezar): abrir ya la Oleada v17 encolaría una tarea nueva por delante de una que
-todavía no tiene ni una línea de código, sin que ninguna entrada de `FEEDBACK.md` ni ningún hallazgo
-del auditor lo justifique. R-32 (Oleada v15) sigue `COMPLETADA` en código, sin ninguna fila de
-migración propia pendiente en §3. El MVP (T-00 a T-25) sigue sin estar completo (T-25 `BLOQUEADA` a
-falta del paso a producción, fila 12 de §3), así que, como en cada ciclo anterior, nada se mueve
-todavía a `ROADMAP_HISTORICO.md`.
+0f0c010..HEAD` (desde que se abrió su spec) confirma que los dos únicos commits de por medio son el
+propio cierre del ciclo 33.º y la pasada del auditor de hoy, ninguno de código ni de SQL — ningún
+programador la ha tomado todavía. Mismo criterio ya aplicado en los ciclos 19.º, 20.º, 26.º, 27.º y
+33.º (todos "sin R-XX nueva" con la cabeza de cola de §1 sin empezar): abrir ya la Oleada v17
+encolaría una tarea nueva por delante de una que todavía no tiene ni una línea de código, sin que
+ninguna entrada de `FEEDBACK.md` ni ningún hallazgo del auditor lo justifique. R-32 (Oleada v15)
+sigue `COMPLETADA` en código, sin ninguna fila de migración propia pendiente en §3. El MVP (T-00 a
+T-25) sigue sin estar completo (T-25 `BLOQUEADA` a falta del paso a producción, fila 12 de §3), así
+que, como en cada ciclo anterior, nada se mueve todavía a `ROADMAP_HISTORICO.md`.
 
 Revisado el roadmap completo contra la visión de producto y el ICP (repasadas también R-30, R-31,
 R-32 y la propia R-33, sin encontrar ningún rodeo autoseñalado sin cerrar): ningún hueco nuevo que
