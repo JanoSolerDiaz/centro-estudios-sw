@@ -65,7 +65,8 @@ en editar/cesar sesión completa y nueva sesión de grupo, R-25/R-27), `src/ui/p
 (secciones de datos/rutas/pantallas), `roadmap/DECISIONES_TECNICAS.md` (matriz rol×tabla + 4
 decisiones nuevas), `roadmap/SEGUIMIENTO.md` (§1 R-33 → BLOQUEADA, §3 fila 23, cabecera)
 **Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1949/1949, antes 1901 — 48 nuevos) · build ✅
-**Health check post-deploy:** pendiente del push de esta sesión
+**Health check post-deploy:** N/A — sin despliegue real desde este entorno (proveedor de hosting
+todavía `<pendiente>`, T-25, fila 15 de §3; no existe `npm run health` ni paso de deploy en CI)
 **Decisiones tomadas:** 4 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-28): (1) combobox propio
 en vez de generalizar `comboboxAlumnoExtra.ts`, contrato de búsqueda remota con rebote no encaja con
 un catálogo local pequeño con alta sobre la marcha; (2) el valor del combobox se resuelve siempre
