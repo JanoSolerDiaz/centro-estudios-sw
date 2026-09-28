@@ -37,6 +37,35 @@
 
 ---
 
+### Sesión 2026-09-28 (rutina programada de programador, tercera pasada del día) — cola vacía, nada que hacer
+**Tarea(s):** ninguna — sin fila `PENDIENTE` en §1
+**Estado resultante:** N/A (sin cambio de estado de ninguna T-XX/R-XX). R-33 sigue `BLOQUEADA —
+pendiente aplicar migración 020` (fila 23 de §3), exactamente como la dejó la pasada anterior de
+esta misma rutina
+**Commits a `develop`:** ver commit de esta sesión (solo esta entrada de bitácora y la cabecera de
+`SEGUIMIENTO.md`)
+**Migraciones aplicadas:** ninguna. `010` a `020` siguen `PENDIENTE` (§3, filas 13-23), más el paso a
+producción de T-25 (fila 12) — todas bloqueadas en el dueño
+**Propagación a prod pendiente:** ninguna nueva
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+(esta entrada)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1949/1949, mismo número que la pasada
+anterior — ningún fichero de `src/` cambió) · build ✅. Contenedor sin `node_modules` al empezar;
+`npm ci` recuperó los 130 paquetes declarados, 0 vulnerabilidades
+**Health check post-deploy:** N/A — sin despliegue real desde este entorno
+**Decisiones tomadas:** ninguna
+**Hallazgos del auditor atendidos:** ninguno — el único `ABIERTO` sigue siendo #8 (RGPD, R-02),
+bloqueado exclusivamente en el dueño (pregunta #16 de §6), sin relación con ninguna tarea de código
+disponible
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** exactamente el mismo que dejó la pasada anterior — aplicar la migración
+`020_catalogo_asignaturas.sql` (fila 23 de §3) para desbloquear R-33; mientras tanto, la cola normal
+sigue sin tarea propia hasta que el dueño aplique alguna migración pendiente, responda la pregunta
+#16 de §6, o el PM abra la siguiente oleada
+
+---
+
 ### Sesión 2026-09-28 (rutina programada de programador, segunda pasada del día) — cola vacía, nada que hacer
 **Tarea(s):** ninguna — sin fila `PENDIENTE` en §1
 **Estado resultante:** N/A (sin cambio de estado de ninguna T-XX/R-XX). R-33 sigue `BLOQUEADA —
