@@ -732,6 +732,46 @@ la comparación de cadenas coincida con el orden cronológico, sin construir nin
 cuenta un cierre con `activo = true`. R-04 (informe mensual, pendiente) es su primer consumidor
 previsto.
 
+## Catálogo de asignaturas y grupos (`020_catalogo_asignaturas.sql`, R-33) — sin aplicar todavía
+
+Tabla nueva, `asignatura`: `nombre` (único de forma exacta, mismo criterio que
+`centro_estudios.nombre`, T-11) y `activo` (baja lógica, nunca `DELETE`). Ningún dato de alumno ni de
+persona de referencia. **Sin ninguna relación de clave foránea con `slot_horario`**: a diferencia de
+`alumno.centro_referencia_id` (T-11), el catálogo no se referencia desde el esquema — solo ofrece de
+dónde sacar el texto que `slot_horario.asignatura_o_grupo` sigue guardando tal cual, sin cambiar su
+tipo, su nombre ni su significado. Por eso desactivar una asignatura no afecta a ningún slot
+existente ni exige ningún aviso de "cuántos slots la usan" antes de confirmar (a diferencia de la
+baja de `centro_estudios`, que sí referencia `alumno` por clave foránea).
+
+**RLS y privilegios, con sus propias políticas en el mismo fichero** (mismo criterio que
+`cierre_centro`, sin ningún "próximo lote" al que aplazarlas): `administrator` inserta y actualiza
+sin restricción adicional (además de leer todas); `teacher` **solo lee las asignaturas ACTIVAS**
+(`asignatura_teacher_leer_activas`, mismo patrón que `centro_estudios_teacher_leer_activos`/
+`cierre_centro_teacher_leer_activos`); sin ninguna política de `student`. Sin `DELETE` para nadie.
+**Sin ninguna RPC**: mismo patrón que `centro_estudios` (T-11) y `cierre_centro` (R-12) — el
+`INSERT`/`UPDATE` directo de `administrator` ya queda aislado por RLS, sin necesidad de una función
+`SECURITY DEFINER`.
+
+**Detección de duplicados en la aplicación, no en el esquema**
+(`src/dominio/asignaturas.ts#buscarAsignaturaDuplicada`): mismo patrón acento-insensible exacto que
+`src/dominio/centrosEstudios.ts` (T-11) — la `unique` de `nombre` es exacta a propósito, y ofrecer el
+existente en vez de un error seco es responsabilidad de la aplicación.
+
+**Combobox de alta sobre la marcha** (`src/ui/comboboxAsignatura.ts`, requisito 3 de R-33): a
+diferencia de `comboboxAlumnoExtra.ts` (T-20, búsqueda remota con rebote sobre un conjunto grande),
+el catálogo de asignaturas es pequeño y se precarga entero al abrir la pantalla — el filtro sobre el
+texto tecleado es local (mismo criterio acento-insensible de `dominio/asignaturas.ts`), sin ninguna
+petición de red por tecla. El valor que el formulario lee siempre se resuelve contra el catálogo (el
+propio ya cargado, ampliado en memoria en cuanto se crea una entrada nueva): un texto tecleado que no
+coincide con ninguna entrada, ni se ha dado de alta con el botón de creación, se trata como "sin
+resolver" y el formulario no lo envía — es la garantía de que dos slots del mismo grupo nunca acaban
+con dos textos distintos, que es el problema entero que resuelve R-33. Sustituye el campo de texto
+libre en exactamente dos puntos (los únicos que hoy lo ofrecían para escritura): «Editar/Cesar sesión
+completa» y «Nueva sesión de grupo» de `pantallaHorarioCentro.ts` (R-25/R-27), y el alta/edición de
+slot de `pantallaFichaAlumno.ts` (T-15/T-16). El resto de consumidores de `asignatura_o_grupo` (T-15,
+`slotsDeLaMismaSesion`; R-17/R-23/R-25/R-27/R-32; el snapshot de `asistencia`) no cambian: siguen
+leyendo el mismo campo de texto de siempre, sin saber que existe un catálogo detrás.
+
 ## Bloqueo de cuenta (`002_bloqueo_cuenta.sql`, P-01)
 
 Ampliación de T-09 acordada por el dueño el 2026-08-27 (§5/§6#5 de `SEGUIMIENTO.md`), aplicada

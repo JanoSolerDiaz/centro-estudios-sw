@@ -741,7 +741,7 @@ begin
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
     'evento_error', 'limite_tasa', 'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor',
-    'aviso_ausencia_profesor'
+    'aviso_ausencia_profesor', 'asignatura'
   ]
   loop
     begin
@@ -1202,7 +1202,8 @@ begin
   foreach v_tabla in array array[
     'perfil', 'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario',
     'asistencia', 'asistencia_historial', 'evento_error', 'limite_tasa',
-    'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor', 'aviso_ausencia_profesor'
+    'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor', 'aviso_ausencia_profesor',
+    'asignatura'
   ]
   loop
     foreach v_rol in array array['administrator', 'teacher']
@@ -1856,7 +1857,8 @@ begin
 
   foreach v_tabla in array array[
     'centro_estudios', 'alumno', 'persona_referencia', 'slot_horario', 'asistencia', 'asistencia_historial',
-    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor'
+    'evento_error', 'limite_tasa', 'perfil', 'cierre_centro', 'excepcion_slot', 'pausa_alumno', 'baja_profesor',
+    'asignatura'
   ]
   loop
     begin
@@ -3794,6 +3796,95 @@ begin
     perform pg_temp.registrar('aviso_ausencia_profesor / administrator lee todos los avisos', 'permitido', false, sqlerrm);
   end;
   perform pg_temp.dejar_de_impersonar();
+end $$;
+
+
+-- ---------------------------------------------------------------------
+-- 8q. Catálogo de asignaturas (R-33, db/020_catalogo_asignaturas.sql) —
+--     administrator gestiona (alta, edición, baja lógica); teacher solo
+--     lee las asignaturas ACTIVAS, nunca las inactivas (mismo criterio
+--     que cierre_centro, sección 8j). El barrido de `student` (sección
+--     6) y de `anon` (sección 8f) ya cubren esta tabla dentro de sus
+--     bucles genéricos: aquí solo lo específico de administrator/teacher.
+-- ---------------------------------------------------------------------
+
+do $$
+declare
+  v_asignatura_id uuid;
+  v_inactiva_id   uuid;
+  v_filas         integer;
+  v_n             integer;
+begin
+  if not pg_temp.hay_fixture('administrator') then
+    perform pg_temp.omitir('asignatura / administrator INSERT', 'no hay administrator en este entorno');
+    perform pg_temp.omitir('asignatura / administrator UPDATE', 'no hay administrator en este entorno');
+  else
+    perform pg_temp.impersonar('administrator');
+    begin
+      insert into public.asignatura (nombre) values ('__prueba_rls__asignatura_admin')
+        returning id into v_asignatura_id;
+      perform pg_temp.registrar('asignatura / administrator INSERT', 'permitido', v_asignatura_id is not null);
+    exception when others then
+      perform pg_temp.registrar('asignatura / administrator INSERT', 'permitido', false, sqlerrm);
+    end;
+
+    if v_asignatura_id is null then
+      perform pg_temp.omitir('asignatura / administrator UPDATE', 'no se creó la asignatura de prueba (arriba)');
+    else
+      update public.asignatura set nombre = '__prueba_rls__asignatura_admin_editada' where id = v_asignatura_id;
+      get diagnostics v_filas = row_count;
+      perform pg_temp.registrar('asignatura / administrator UPDATE', 'permitido', v_filas = 1);
+    end if;
+
+    -- Segunda asignatura, ya inactiva desde el alta, para probar que el teacher no la lee.
+    begin
+      insert into public.asignatura (nombre, activo) values ('__prueba_rls__asignatura_inactiva', false)
+        returning id into v_inactiva_id;
+    exception when others then
+      v_inactiva_id := null;
+    end;
+
+    perform pg_temp.dejar_de_impersonar();
+  end if;
+
+  if not pg_temp.hay_fixture('teacher') then
+    perform pg_temp.omitir('asignatura / teacher INSERT (debe fallar)', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('asignatura / teacher UPDATE (debe fallar)', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('asignatura / teacher lee una asignatura activa', 'no hay teacher en este entorno');
+    perform pg_temp.omitir('asignatura / teacher no lee una asignatura inactiva (debe fallar)', 'no hay teacher en este entorno');
+  else
+    perform pg_temp.impersonar('teacher');
+
+    begin
+      insert into public.asignatura (nombre) values ('__prueba_rls__asignatura_teacher');
+      perform pg_temp.registrar('asignatura / teacher INSERT (debe fallar)', 'prohibido', false, 'se insertó sin error');
+    exception when others then
+      perform pg_temp.registrar_prohibido('asignatura / teacher INSERT (debe fallar)', array['%row-level security%', '%permission denied%'], sqlerrm);
+    end;
+
+    if v_asignatura_id is null then
+      perform pg_temp.omitir('asignatura / teacher UPDATE (debe fallar)', 'no se creó la asignatura de prueba (arriba)');
+      perform pg_temp.omitir('asignatura / teacher lee una asignatura activa', 'no se creó la asignatura de prueba (arriba)');
+    else
+      update public.asignatura set nombre = '__prueba_rls__asignatura_teacher_intento' where id = v_asignatura_id;
+      get diagnostics v_filas = row_count;
+      -- Bajo RLS, "prohibido" en un UPDATE se manifiesta como cero filas afectadas, no como un
+      -- error: la política de administrator excluye la fila del USING antes de tocarla.
+      perform pg_temp.registrar('asignatura / teacher UPDATE (debe fallar)', 'prohibido', v_filas = 0);
+
+      select count(*) into v_n from public.asignatura where id = v_asignatura_id;
+      perform pg_temp.registrar('asignatura / teacher lee una asignatura activa', 'permitido', v_n = 1);
+    end if;
+
+    if v_inactiva_id is null then
+      perform pg_temp.omitir('asignatura / teacher no lee una asignatura inactiva (debe fallar)', 'no se creó la asignatura inactiva de prueba (arriba)');
+    else
+      select count(*) into v_n from public.asignatura where id = v_inactiva_id;
+      perform pg_temp.registrar('asignatura / teacher no lee una asignatura inactiva (debe fallar)', 'prohibido', v_n = 0);
+    end if;
+
+    perform pg_temp.dejar_de_impersonar();
+  end if;
 end $$;
 
 

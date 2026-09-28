@@ -151,6 +151,8 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaFichaAlumno> = {
     crearSlot: overrides.crearSlot ?? noImplementado('crearSlot'),
     modificarSlot: overrides.modificarSlot ?? noImplementado('modificarSlot'),
     cesarSlot: overrides.cesarSlot ?? noImplementado('cesarSlot'),
+    listarAsignaturasParaSelector: overrides.listarAsignaturasParaSelector ?? (() => Promise.resolve([])),
+    crearAsignatura: overrides.crearAsignatura ?? noImplementado('crearAsignatura'),
     listarPausasDeAlumno: overrides.listarPausasDeAlumno ?? (() => Promise.resolve([])),
     declararPausaAlumno: overrides.declararPausaAlumno ?? noImplementado('declararPausaAlumno'),
     cancelarPausaAlumno: overrides.cancelarPausaAlumno ?? noImplementado('cancelarPausaAlumno'),

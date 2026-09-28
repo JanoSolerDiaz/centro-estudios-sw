@@ -192,6 +192,14 @@ export function puedeGestionarBajasProfesor(rol: Rol): boolean {
   return rol === 'administrator';
 }
 
+/** Catálogo de asignaturas y grupos (R-33): alta, edición y baja lógica. Exclusivamente
+ * `administrator` (requisito 1) — un `teacher` solo lee el catálogo activo desde el combobox de
+ * horario (`comboboxAsignatura.ts`), nunca gestiona sus entradas, mismo criterio que
+ * `puedeGestionarCentros` (T-11). */
+export function puedeGestionarAsignaturas(rol: Rol): boolean {
+  return rol === 'administrator';
+}
+
 /** Registro de auditoría de cambios (R-20): índice de centro completo de las modificaciones y
  * anulaciones de asistencia, sobre `asistencia_historial` (lectura ya reservada a `administrator`
  * desde T-10). Exclusivamente `administrator` (requisito 6) — un `teacher` ya ve, registro a

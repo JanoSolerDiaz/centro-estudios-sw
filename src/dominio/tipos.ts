@@ -58,6 +58,18 @@ export interface CierreCentro {
   readonly actualizado_en: string;
 }
 
+/** Catálogo cerrado de asignaturas/grupos (R-33, `db/020_catalogo_asignaturas.sql`) — de dónde sale
+ * el texto que `SlotHorario.asignatura_o_grupo` guarda, sin ninguna relación de clave foránea con
+ * `slot_horario`: ese campo sigue siendo el mismo texto libre de siempre, solo que ahora se elige de
+ * aquí en vez de teclearse a mano cada vez. Baja lógica (`activo`), nunca DELETE. */
+export interface Asignatura {
+  readonly id: string;
+  readonly nombre: string;
+  readonly activo: boolean;
+  readonly creado_en: string;
+  readonly actualizado_en: string;
+}
+
 export interface Alumno {
   readonly id: string;
   readonly nombre: string;

@@ -37,6 +37,7 @@ import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import type { NotificadorRecordatorio } from '../nucleo/notificadorRecordatorio.ts';
 import type { AlmacenPreferenciaRecordatorio } from '../nucleo/preferenciaRecordatorio.ts';
 import { listarCentros, crearCentro, editarNombreCentro, contarAlumnosActivosDeCentro, desactivarCentro, reactivarCentro } from '../datos/centrosEstudios.ts';
+import { listarAsignaturas, crearAsignatura, editarNombreAsignatura, desactivarAsignatura, reactivarAsignatura } from '../datos/asignaturas.ts';
 import { listarCierres, crearCierre, editarCierre, desactivarCierre, reactivarCierre } from '../datos/cierresCentro.ts';
 import {
   declararExcepcionSlot,
@@ -119,6 +120,7 @@ import { mostrarPantallaRecuperarContrasena } from './pantallaRecuperarContrasen
 import { mostrarPantallaEstablecerContrasenaNueva } from './pantallaEstablecerContrasenaNueva.ts';
 import { mostrarPantallaSinAcceso } from './pantallaSinAcceso.ts';
 import { mostrarPantallaCentros } from './pantallaCentros.ts';
+import { mostrarPantallaAsignaturas } from './pantallaAsignaturas.ts';
 import { mostrarPantallaListadoAlumnos } from './pantallaListadoAlumnos.ts';
 import { mostrarPantallaFichaAlumno } from './pantallaFichaAlumno.ts';
 import { mostrarPantallaPasarLista } from './pantallaPasarLista.ts';
@@ -239,6 +241,10 @@ function mostrarAppAdministrador(
   enlaceCentros.addEventListener('click', () => {
     router.navegar({ nombre: 'centros' });
   });
+  const enlaceAsignaturas = crearBoton(documento, 'Asignaturas', 'button');
+  enlaceAsignaturas.addEventListener('click', () => {
+    router.navegar({ nombre: 'asignaturas' });
+  });
   const enlaceAlumnos = crearBoton(documento, 'Alumnos', 'button');
   enlaceAlumnos.addEventListener('click', () => {
     router.navegar({ nombre: 'alumnos' });
@@ -287,6 +293,7 @@ function mostrarAppAdministrador(
     enlacePrimerosPasos,
     enlacePanel,
     enlaceCentros,
+    enlaceAsignaturas,
     enlaceAlumnos,
     enlaceHorarioCentro,
     enlaceRegistros,
@@ -345,6 +352,18 @@ function mostrarAppAdministrador(
       return;
     }
 
+    if (ruta.nombre === 'asignaturas') {
+      mostrarPantallaAsignaturas(areaPantalla, {
+        rol: perfil.rol,
+        listarAsignaturas: (opciones) => listarAsignaturas(app.postgrest, opciones),
+        crearAsignatura: (nombre) => crearAsignatura(app.postgrest, nombre),
+        editarNombreAsignatura: (id, nombre) => editarNombreAsignatura(app.postgrest, id, nombre),
+        desactivarAsignatura: (id) => desactivarAsignatura(app.postgrest, id),
+        reactivarAsignatura: (id) => reactivarAsignatura(app.postgrest, id),
+      });
+      return;
+    }
+
     if (ruta.nombre === 'alumnos') {
       mostrarPantallaListadoAlumnos(areaPantalla, {
         rol: perfil.rol,
@@ -372,6 +391,8 @@ function mostrarAppAdministrador(
         buscarAlumnos: (texto, señal) => buscarAlumnosParaExtra(app.postgrest, texto, señal),
         rebote: crearRebote(),
         abridorImpresion,
+        listarAsignaturasActivas: () => listarAsignaturas(app.postgrest, { estado: 'activos' }),
+        crearAsignatura: (nombre) => crearAsignatura(app.postgrest, nombre),
       });
       return;
     }
@@ -583,6 +604,8 @@ function mostrarAppAdministrador(
       crearSlot: (datos) => crearSlot(app.postgrest, datos),
       modificarSlot: (slotId, cambios, fechaEfecto) => modificarSlot(app.postgrest, slotId, cambios, fechaEfecto),
       cesarSlot: (slotId, fechaEfecto) => cesarSlot(app.postgrest, slotId, fechaEfecto),
+      listarAsignaturasParaSelector: () => listarAsignaturas(app.postgrest, { estado: 'activos' }),
+      crearAsignatura: (nombre) => crearAsignatura(app.postgrest, nombre),
       listarPausasDeAlumno: (id) => listarPausasDeAlumno(app.postgrest, id),
       declararPausaAlumno: (id, fechaInicio, fechaFin, motivo) =>
         declararPausaAlumno(app.postgrest, { alumnoId: id, fechaInicio, fechaFin, motivo }),

@@ -251,6 +251,21 @@ barridos obligatorios de `student` —sección 6— y de `anon`/TRUNCATE —secc
 `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `019` es posterior y no forma parte
 de las diez migraciones de su paso a producción.
 
+**`020_catalogo_asignaturas.sql`** (R-33, "catálogo de asignaturas y grupos") — escrita y empujada a
+`develop` el 2026-09-28, todavía sin aplicar. Tabla nueva `asignatura` (RLS y políticas en el mismo
+fichero, sin precedente que aplazarlas): `administrator` inserta y edita el nombre (sin `DELETE`, baja
+lógica), `teacher` solo lee las activas, sin ninguna política de `student`. Sin ninguna RPC: mismo
+patrón que `centro_estudios` (T-11) y `cierre_centro` (R-12) — el `INSERT`/`UPDATE` directo de
+`administrator` ya queda aislado por RLS. Sin ninguna columna nueva en `slot_horario` ni en
+`asistencia`: `asignatura_o_grupo` sigue siendo el mismo campo de texto, sin relación de clave foránea
+con el catálogo nuevo. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local,
+comprobar que `esquema_version()` devuelve `20` (o más, si alguna migración anterior ya se resolvió), y
+ejecutar también `npm run probar-rls` (nueva sección 8q: administrator inserta y edita el nombre de una
+asignatura, teacher rechazado en INSERT/UPDATE, teacher lee una asignatura activa y no una inactiva;
+más `asignatura` añadida a los barridos obligatorios de `student` —sección 6—, `TRUNCATE` —sección 8—
+y `anon` —sección 8f—). Fila 23 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda
+inafectada: `020` es posterior y no forma parte de las diez migraciones de su paso a producción.
+
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

@@ -19,7 +19,7 @@
  * pantalla." y no se dispara ninguna petición de datos.
  */
 
-import { ETIQUETA_DIA_SEMANA, type Rol, type CentroEstudios, type PersonaReferencia, type SlotHorario, type DiaSemana, type Asistencia, type PausaAlumno } from '../dominio/tipos.ts';
+import { ETIQUETA_DIA_SEMANA, type Rol, type CentroEstudios, type Asignatura, type PersonaReferencia, type SlotHorario, type DiaSemana, type Asistencia, type PausaAlumno } from '../dominio/tipos.ts';
 import {
   puedeGestionarFichaAlumno,
   puedeVerPersonasReferencia,
@@ -56,9 +56,11 @@ import type { DatosPersonaReferencia } from '../datos/personasReferencia.ts';
 import type { ArchivoOrigenAvatar } from '../datos/avatarAlumno.ts';
 import type { ProfesorParaSelector } from '../datos/profesores.ts';
 import type { DatosNuevoSlot, CambiosSlot, ResultadoEscrituraSlot } from '../datos/slotsHorario.ts';
+import type { ResultadoGuardarAsignatura } from '../datos/asignaturas.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import { crearCampoTexto, crearZonaMensaje, crearBoton, crearMensajeErrorCampo } from './formularios.ts';
 import { crearElemento, type Descargador, type AbridorVentanaImpresion } from './dom.ts';
+import { montarComboboxAsignatura } from './comboboxAsignatura.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
 export interface DependenciasPantallaFichaAlumno {
@@ -88,6 +90,12 @@ export interface DependenciasPantallaFichaAlumno {
   crearSlot(datos: DatosNuevoSlot): Promise<ResultadoEscrituraSlot>;
   modificarSlot(slotId: string, cambios: CambiosSlot, fechaEfecto: Date): Promise<ResultadoEscrituraSlot>;
   cesarSlot(slotId: string, fechaEfecto: Date): Promise<SlotHorario>;
+  /** Catálogo de asignaturas/grupos activo (R-33) para el combobox del alta/edición de slot —
+   * mismo patrón que `listarProfesoresParaSelector`. */
+  listarAsignaturasParaSelector(): Promise<readonly Asignatura[]>;
+  /** Alta sobre la marcha de una asignatura que todavía no existe en el catálogo (R-33, requisito
+   * 3), llamada por el propio combobox. */
+  crearAsignatura(nombre: string): Promise<ResultadoGuardarAsignatura>;
   /** Histórico ÍNTEGRO de asistencia del alumno (R-10, requisito 1: "sin filtrar por mes"), sin
    * ningún filtro de fecha — `listarHistoricoAsistenciaCompleto` (T-23) ya trae anuladas y
    * retroactivos porque no filtra por `estado`. Solo se llama si `puedeExportarExpedienteCompleto`. */
@@ -718,6 +726,8 @@ interface DependenciasBloqueHorario {
   crearSlot(datos: DatosNuevoSlot): Promise<ResultadoEscrituraSlot>;
   modificarSlot(slotId: string, cambios: CambiosSlot, fechaEfecto: Date): Promise<ResultadoEscrituraSlot>;
   cesarSlot(slotId: string, fechaEfecto: Date): Promise<SlotHorario>;
+  listarAsignaturasParaSelector(): Promise<readonly Asignatura[]>;
+  crearAsignatura(nombre: string): Promise<ResultadoGuardarAsignatura>;
 }
 
 function fechaUtcDeCampo(valorFecha: string): Date {
@@ -758,6 +768,7 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
   let aviso = '';
   let slots: readonly SlotHorario[] = [];
   let profesores: readonly ProfesorParaSelector[] = [];
+  let asignaturasActivas: readonly Asignatura[] = [];
   let idEnEdicion: string | null = null;
   let idEnCese: string | null = null;
 
@@ -801,9 +812,12 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
     campoFin.value = slot.hora_fin.slice(0, 5);
     const etiquetaFin = crearElemento(documento, 'label', { texto: 'Hora de fin', atributos: { for: idFin } });
 
-    const campoAsignatura = crearCampoTexto(documento, `slot-editar-asignatura-${slot.id}`, 'Asignatura o grupo (opcional)', 'text', 'off');
-    campoAsignatura.input.required = false;
-    campoAsignatura.input.value = slot.asignatura_o_grupo ?? '';
+    const comboboxAsignatura = montarComboboxAsignatura(documento, {
+      catalogoInicial: asignaturasActivas,
+      crearAsignatura: (nombre) => deps.crearAsignatura(nombre),
+    });
+    comboboxAsignatura.establecerValor(slot.asignatura_o_grupo);
+    const errorAsignatura = crearZonaMensaje(documento, 'alert');
 
     const idFechaEfecto = `slot-editar-fecha-efecto-${slot.id}`;
     const campoFechaEfecto = documento.createElement('input');
@@ -828,6 +842,12 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
         return;
       }
       errorHora.limpiar();
+      const valorAsignatura = comboboxAsignatura.obtenerValor();
+      if (valorAsignatura.tipo === 'sin_resolver') {
+        errorAsignatura.textContent = `Elige "${valorAsignatura.textoEscrito}" del catálogo o créala con el botón "Crear…" antes de guardar.`;
+        return;
+      }
+      errorAsignatura.textContent = '';
       void (async () => {
         try {
           const resultado = await deps.modificarSlot(
@@ -837,7 +857,7 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
               dia_semana: Number(selectDia.value) as DiaSemana,
               hora_inicio: campoInicio.value,
               hora_fin: campoFin.value,
-              asignatura_o_grupo: campoAsignatura.input.value.trim().length > 0 ? campoAsignatura.input.value : null,
+              asignatura_o_grupo: valorAsignatura.tipo === 'vacio' ? null : valorAsignatura.nombre,
             },
             fechaUtcDeCampo(campoFechaEfecto.value),
           );
@@ -863,7 +883,8 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
       etiquetaFin,
       campoFin,
       errorHora.elemento,
-      campoAsignatura.contenedor,
+      comboboxAsignatura.contenedor,
+      errorAsignatura,
       etiquetaFechaEfecto,
       campoFechaEfecto,
       botonGuardar,
@@ -992,8 +1013,11 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
   campoFinAlta.required = true;
   const etiquetaFinAlta = crearElemento(documento, 'label', { texto: 'Hora de fin', atributos: { for: 'slot-nuevo-fin' } });
   const errorHoraAlta = crearMensajeErrorCampo(documento, campoFinAlta, 'slot-nuevo-fin-error');
-  const campoAsignaturaAlta = crearCampoTexto(documento, 'slot-nuevo-asignatura', 'Asignatura o grupo (opcional)', 'text', 'off');
-  campoAsignaturaAlta.input.required = false;
+  const comboboxAsignaturaAlta = montarComboboxAsignatura(documento, {
+    catalogoInicial: [],
+    crearAsignatura: (nombre) => deps.crearAsignatura(nombre),
+  });
+  const errorAsignaturaAlta = crearZonaMensaje(documento, 'alert');
   const campoFechaEfectoAlta = documento.createElement('input');
   campoFechaEfectoAlta.type = 'date';
   campoFechaEfectoAlta.required = true;
@@ -1013,7 +1037,8 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
     etiquetaFinAlta,
     campoFinAlta,
     errorHoraAlta.elemento,
-    campoAsignaturaAlta.contenedor,
+    comboboxAsignaturaAlta.contenedor,
+    errorAsignaturaAlta,
     etiquetaFechaEfectoAlta,
     campoFechaEfectoAlta,
     crearBoton(documento, 'Añadir horario'),
@@ -1026,6 +1051,12 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
       return;
     }
     errorHoraAlta.limpiar();
+    const valorAsignaturaAlta = comboboxAsignaturaAlta.obtenerValor();
+    if (valorAsignaturaAlta.tipo === 'sin_resolver') {
+      errorAsignaturaAlta.textContent = `Elige "${valorAsignaturaAlta.textoEscrito}" del catálogo o créala con el botón "Crear…" antes de guardar.`;
+      return;
+    }
+    errorAsignaturaAlta.textContent = '';
     void (async () => {
       try {
         const resultado = await deps.crearSlot({
@@ -1034,13 +1065,13 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
           dia_semana: Number(selectDiaAlta.value) as DiaSemana,
           hora_inicio: campoInicioAlta.value,
           hora_fin: campoFinAlta.value,
-          asignatura_o_grupo: campoAsignaturaAlta.input.value.trim().length > 0 ? campoAsignaturaAlta.input.value : null,
+          asignatura_o_grupo: valorAsignaturaAlta.tipo === 'vacio' ? null : valorAsignaturaAlta.nombre,
           vigente_desde: fechaUtcDeCampo(campoFechaEfectoAlta.value),
         });
         aviso = resultado.avisoSolapeProfesor ? 'Aviso: este profesor ya tiene otro alumno en este mismo día y hora.' : '';
         campoInicioAlta.value = '';
         campoFinAlta.value = '';
-        campoAsignaturaAlta.input.value = '';
+        comboboxAsignaturaAlta.establecerValor(null);
         campoFechaEfectoAlta.value = '';
         await cargar();
       } catch (crearError) {
@@ -1064,6 +1095,13 @@ function montarBloqueHorario(contenedorBloque: HTMLElement, deps: DependenciasBl
       }
     } catch (cargarProfesoresError) {
       error = mensajeAmigable(cargarProfesoresError);
+      pintar();
+    }
+    try {
+      asignaturasActivas = await deps.listarAsignaturasParaSelector();
+      comboboxAsignaturaAlta.actualizarCatalogo(asignaturasActivas);
+    } catch (cargarAsignaturasError) {
+      error = mensajeAmigable(cargarAsignaturasError);
       pintar();
     }
     await cargar();
@@ -1550,6 +1588,8 @@ export function mostrarPantallaFichaAlumno(contenedor: HTMLElement, deps: Depend
           crearSlot: (datos) => deps.crearSlot(datos),
           modificarSlot: (slotId, cambios, fechaEfecto) => deps.modificarSlot(slotId, cambios, fechaEfecto),
           cesarSlot: (slotId, fechaEfecto) => deps.cesarSlot(slotId, fechaEfecto),
+          listarAsignaturasParaSelector: () => deps.listarAsignaturasParaSelector(),
+          crearAsignatura: (nombre) => deps.crearAsignatura(nombre),
         });
       }
 

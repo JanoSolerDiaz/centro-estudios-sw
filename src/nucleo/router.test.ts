@@ -16,6 +16,10 @@ void test('analizarRuta: "#/centros" es la ruta de centros', () => {
   assert.deepEqual(analizarRuta('#/centros'), { nombre: 'centros' });
 });
 
+void test('analizarRuta: "#/asignaturas" es la ruta del catálogo de asignaturas (R-33)', () => {
+  assert.deepEqual(analizarRuta('#/asignaturas'), { nombre: 'asignaturas' });
+});
+
 void test('analizarRuta: "#/alumnos" es el listado de alumnos', () => {
   assert.deepEqual(analizarRuta('#/alumnos'), { nombre: 'alumnos' });
 });
@@ -132,6 +136,7 @@ void test('analizarRuta: funciona igual sin el "#" inicial', () => {
 void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ruta', () => {
   const rutas: readonly Ruta[] = [
     { nombre: 'centros' },
+    { nombre: 'asignaturas' },
     { nombre: 'alumnos' },
     { nombre: 'alumno-nuevo' },
     { nombre: 'alumno-detalle', alumnoId: 'abc-123' },

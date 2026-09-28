@@ -79,6 +79,8 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaHorarioCentro> =
     buscarAlumnos: overrides.buscarAlumnos ?? (() => Promise.resolve([])),
     rebote: overrides.rebote ?? crearReboteDePrueba(),
     abridorImpresion: overrides.abridorImpresion ?? crearAbridorImpresionDeMentira(),
+    listarAsignaturasActivas: overrides.listarAsignaturasActivas ?? (() => Promise.resolve([])),
+    crearAsignatura: overrides.crearAsignatura ?? noImplementado('crearAsignatura'),
     ...overrides,
   };
 }
@@ -119,7 +121,7 @@ const LUIS_RESULTADO: ResultadoBusquedaAlumno = {
 };
 
 function escribirEnCombobox(contenedor: HTMLElement, texto: string): void {
-  const input = contenedor.querySelector<HTMLInputElement>('input[role="combobox"]');
+  const input = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-buscador-alumnos input[role="combobox"]');
   assert.ok(input, 'no se encuentra el combobox de alumnos');
   const ventana = input.ownerDocument.defaultView;
   assert.ok(ventana);
@@ -129,10 +131,31 @@ function escribirEnCombobox(contenedor: HTMLElement, texto: string): void {
 
 /** Selecciona la PRIMERA opción del combobox de alumnos ya abierto (ArrowDown + Enter). */
 function seleccionarPrimeraOpcionCombobox(contenedor: HTMLElement): void {
-  const input = contenedor.querySelector<HTMLInputElement>('input[role="combobox"]');
+  const input = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-buscador-alumnos input[role="combobox"]');
   assert.ok(input);
   const ventana = input.ownerDocument.defaultView;
   assert.ok(ventana);
+  input.dispatchEvent(new ventana.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+  input.dispatchEvent(new ventana.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+}
+
+// --- Combobox de asignatura/grupo (R-33, comboboxAsignatura.ts) --------------------------------
+
+function inputAsignaturaCombobox(contenedor: HTMLElement): HTMLInputElement {
+  const todos = Array.from(contenedor.querySelectorAll<HTMLInputElement>('input[role="combobox"]'));
+  const encontrado = todos.find((input) => !input.closest('#horario-centro-crear-buscador-alumnos'));
+  assert.ok(encontrado, 'no se encuentra el combobox de asignatura/grupo');
+  return encontrado;
+}
+
+/** Escribe `texto` en el combobox de asignatura y, si no coincide con nada del catálogo, activa la
+ * opción «Crear…» (ArrowDown + Enter) para darla de alta sobre la marcha (requisito 3 de R-33). */
+function elegirOCrearAsignatura(contenedor: HTMLElement, texto: string): void {
+  const input = inputAsignaturaCombobox(contenedor);
+  const ventana = input.ownerDocument.defaultView;
+  assert.ok(ventana);
+  input.value = texto;
+  input.dispatchEvent(new ventana.Event('input', { bubbles: true }));
   input.dispatchEvent(new ventana.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
   input.dispatchEvent(new ventana.KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
 }
@@ -162,9 +185,9 @@ void test('abre un formulario con día/hora/profesor/asignatura y fecha de efect
   assert.ok(contenedor.querySelector('#horario-centro-crear-dia'));
   assert.ok(contenedor.querySelector('#horario-centro-crear-inicio'));
   assert.ok(contenedor.querySelector('#horario-centro-crear-fin'));
-  assert.ok(contenedor.querySelector('#horario-centro-crear-asignatura'));
+  assert.ok(contenedor.querySelector('input[role="combobox"]'), 'debe existir el combobox de asignatura/grupo (R-33)');
   // A diferencia del combobox de "alumno extra" (T-20), aquí no hay campo de motivo (mostrarNota: false).
-  assert.equal(contenedor.querySelectorAll('input').length, 5); // inicio, fin, asignatura, fecha, buscador — sin nota
+  assert.equal(contenedor.querySelectorAll('input').length, 5); // inicio, fin, asignatura (combobox), fecha, buscador — sin nota
 });
 
 void test('elegir un alumno lo añade a la lista del grupo, y "Quitar" lo retira', async () => {
@@ -317,6 +340,11 @@ void test('crea un slot por cada alumno elegido, con el mismo día/hora/profesor
           avisoSolapeProfesor: false,
         });
       },
+      crearAsignatura: (nombre) =>
+        Promise.resolve({
+          tipo: 'guardado',
+          asignatura: { id: 'asig-fisica', nombre, activo: true, creado_en: '2026-01-01T00:00:00Z', actualizado_en: '2026-01-01T00:00:00Z' },
+        }),
     }),
   );
   await esperarMicrotareas();
@@ -334,13 +362,13 @@ void test('crea un slot por cada alumno elegido, con el mismo día/hora/profesor
   const selectDia = contenedor.querySelector<HTMLSelectElement>('#horario-centro-crear-dia');
   const campoInicio = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-inicio');
   const campoFin = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fin');
-  const campoAsignatura = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-asignatura');
   const campoFechaEfecto = contenedor.querySelector<HTMLInputElement>('#horario-centro-crear-fecha-efecto');
-  assert.ok(selectDia && campoInicio && campoFin && campoAsignatura && campoFechaEfecto);
+  assert.ok(selectDia && campoInicio && campoFin && campoFechaEfecto);
   selectDia.value = '2';
   campoInicio.value = '16:00';
   campoFin.value = '17:00';
-  campoAsignatura.value = 'Física';
+  elegirOCrearAsignatura(contenedor, 'Física'); // sin coincidencia en el catálogo: la crea sobre la marcha
+  await esperarMicrotareas();
   campoFechaEfecto.value = '2026-09-15';
   boton(contenedor, 'Crear sesión de grupo').click();
   await esperarMicrotareas();

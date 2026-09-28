@@ -323,6 +323,15 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     sistema sin ningún `administrator` activo llega como `ErrorDeValidacion` con el mensaje del
     propio trigger (sin `errcode` de permiso a propósito, para no perder ese mensaje detrás de un
     `SinPermiso` genérico). Sin alta de usuario: eso es procedimiento manual, ver más abajo.
+  - `asignaturas.ts` (R-33, nuevo) — `listarAsignaturas`/`crearAsignatura`/`editarNombreAsignatura`/
+    `desactivarAsignatura`/`reactivarAsignatura` sobre `postgrest.ts`, tabla `asignatura`
+    (`db/020_catalogo_asignaturas.sql`, sin aplicar todavía). Mismo patrón exacto que
+    `centrosEstudios.ts`: sin `DELETE` (baja siempre `activo = false`), sin ninguna RPC (el
+    `INSERT`/`UPDATE` de `administrator` ya está aislado por RLS), y el alta/edición comprueba antes
+    el duplicado acento-insensible (`src/dominio/asignaturas.ts`), devolviendo `{ tipo: 'duplicado',
+    existente }` en vez de intentar la escritura. A diferencia de `centro_estudios`, ninguna otra
+    tabla la referencia por clave foránea: desactivar una asignatura no afecta a ningún slot que ya
+    la use como texto.
   - `alumnos.ts` (T-12, ampliado en T-13) — `listarAlumnos`/`obtenerAlumno`/`crearAlumno`/
     `editarAlumno`/`darDeBajaAlumno`/`reactivarAlumno` sobre `postgrest.ts`. Lee siempre de la vista
     `alumno_ficha` (T-10, no la tabla base) con el centro embebido
@@ -524,10 +533,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - `enlaceRecuperacion.ts` (T-09) — `parsearParametrosRecuperacion(hash)`: función pura que
     reconoce el fragmento de URL que GoTrue añade al volver del enlace de recuperación del correo
     (`#access_token=...&type=recovery`).
-  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08, R-11, R-19, R-20 y
-    R-22) — dos routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)`
+  - `router.ts` (T-16, ampliado en T-21, T-22, T-23, T-24, R-12, R-13, R-04, R-08, R-11, R-19, R-20,
+    R-22 y R-33) — dos routers por `hash`, cada uno con su propio par `analizarX(hash)`/`hashDeX(ruta)`
     (puras) sobre un motor interno común (`crearRouterGenerico`, privado): `crearRouter(objetivo)`
-    para `administrator` (`#/centros`, `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`,
+    para `administrator` (`#/centros`, `#/asignaturas` (R-33), `#/alumnos`, `#/alumnos/nuevo`, `#/alumnos/<id>`,
     `#/registros[/<profesorId>[/<slotId>[/<fecha>]]]` — los tres segmentos, opcionales y solo
     juntos, añadidos por R-20 para que el registro de auditoría de cambios enlace directo a un
     registro concreto (a diferencia de `teacher`, aquí hace falta elegir profesor primero) —,
@@ -651,8 +660,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     las funciones puras de `src/datos/**` con el `ClientePostgrest`/`ClienteAlmacenamiento` reales,
     para que cada pantalla siga recibiendo solo funciones ya resueltas, nunca un cliente HTTP.
     `mostrarAppAdministrador` monta un `crearRouter` propio (`pantallaCentros.ts`,
-    `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`, `pantallaRegistrosSlot.ts` desde T-21,
-    `pantallaHistorico.ts` desde T-23). `mostrarAppProfesor` monta a su vez `crearRouterProfesor`
+    `pantallaAsignaturas.ts` desde R-33, `pantallaListadoAlumnos.ts`, `pantallaFichaAlumno.ts`,
+    `pantallaRegistrosSlot.ts` desde T-21, `pantallaHistorico.ts` desde T-23). `mostrarAppProfesor`
+    monta a su vez `crearRouterProfesor`
     (sustituye la navegación local de dos valores que T-21 dejó como paso intermedio): cuatro botones
     en la cabecera ("Pasar lista", "Mi horario", "Registros", "Histórico" desde T-23) alternan entre
     `pantallaPasarLista.ts`, `pantallaMiHorario.ts`, `pantallaRegistrosSlot.ts` y `pantallaHistorico.ts`
@@ -670,6 +680,17 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     baja pide confirmación mostrando cuántos alumnos activos apuntan al centro (sin impedirla: siguen
     siendo válidos después). El alta/edición de nombre nunca inserta un duplicado acento-insensible:
     ofrece el existente (`src/dominio/centrosEstudios.ts` + `src/datos/centrosEstudios.ts`).
+  - `pantallaAsignaturas.ts` (R-33, nuevo) — `mostrarPantallaAsignaturas(contenedor, deps)`: catálogo
+    de asignaturas/grupos (listar con filtro de estado, crear, renombrar, desactivar, reactivar).
+    **Enrutada desde su propia tarea** (`#/asignaturas`, solo dentro de la aplicación de
+    `administrator`). Mismo patrón que `pantallaCierresCentro.ts` (R-12), más simple que
+    `pantallaCentros.ts`: sin ninguna relación de clave foránea que contar antes de desactivar, la
+    baja no pide confirmación. El alta/edición de nombre nunca inserta un duplicado
+    acento-insensible: ofrece el existente (`src/dominio/asignaturas.ts` + `src/datos/asignaturas.ts`).
+    El combobox nuevo `comboboxAsignatura.ts` (catálogo precargado, filtro local, alta sobre la
+    marcha) sustituye el campo de texto libre en `pantallaHorarioCentro.ts` (R-25/R-27) y
+    `pantallaFichaAlumno.ts` (T-15/T-16) — ver la cabecera de ese fichero para el porqué de no
+    reutilizar `comboboxAlumnoExtra.ts` (T-20).
   - `pantallaListadoAlumnos.ts` (T-16) — `mostrarPantallaListadoAlumnos(contenedor, deps)`: listado
     de alumnos con búsqueda y filtro por estado, paginado en servidor (`#/alumnos`). Sustituye a la
     lista con edición en línea que traía `pantallaFichaAlumno.ts` desde T-12: aquí solo se busca y se

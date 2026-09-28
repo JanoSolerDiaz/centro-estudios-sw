@@ -61,6 +61,7 @@ function crearRouterGenerico<TRuta>(
 
 export type Ruta =
   | { readonly nombre: 'centros' }
+  | { readonly nombre: 'asignaturas' }
   | { readonly nombre: 'alumnos' }
   | { readonly nombre: 'alumno-nuevo' }
   | { readonly nombre: 'alumno-detalle'; readonly alumnoId: string }
@@ -107,6 +108,9 @@ export function analizarRuta(hash: string): Ruta {
 
   if (primero === 'centros') {
     return { nombre: 'centros' };
+  }
+  if (primero === 'asignaturas') {
+    return { nombre: 'asignaturas' };
   }
   if (primero === 'registros') {
     if (segundo === undefined) {
@@ -169,6 +173,8 @@ export function hashDeRuta(ruta: Ruta): string {
   switch (ruta.nombre) {
     case 'centros':
       return '#/centros';
+    case 'asignaturas':
+      return '#/asignaturas';
     case 'alumnos':
       return '#/alumnos';
     case 'alumno-nuevo':

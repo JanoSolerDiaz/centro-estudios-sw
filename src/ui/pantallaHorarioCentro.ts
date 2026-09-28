@@ -46,9 +46,12 @@ import type { SlotHorario } from '../dominio/tipos.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { Rebote } from '../nucleo/rebote.ts';
 import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts';
-import { crearCampoTexto, crearZonaMensaje, crearBoton, crearMensajeErrorCampo } from './formularios.ts';
+import type { Asignatura } from '../dominio/tipos.ts';
+import type { ResultadoGuardarAsignatura } from '../datos/asignaturas.ts';
+import { crearZonaMensaje, crearBoton, crearMensajeErrorCampo } from './formularios.ts';
 import { crearElemento, type AbridorVentanaImpresion } from './dom.ts';
 import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
+import { montarComboboxAsignatura } from './comboboxAsignatura.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
 export interface DependenciasPantallaHorarioCentro {
@@ -72,6 +75,13 @@ export interface DependenciasPantallaHorarioCentro {
   /** R-32: abre la ventana de impresión del horario del centro — mismo contrato exacto que
    * `pantallaInformeHorasProfesor.ts` (R-15). */
   readonly abridorImpresion: AbridorVentanaImpresion;
+  /** Catálogo de asignaturas/grupos activo (R-33) para el combobox de «Editar/Cesar sesión
+   * completa» y «Nueva sesión de grupo» — precargado una sola vez junto al resto de la pantalla,
+   * igual que `listarProfesoresParaSelector`. */
+  listarAsignaturasActivas(): Promise<readonly Asignatura[]>;
+  /** Alta sobre la marcha de una asignatura que todavía no existe en el catálogo (R-33, requisito
+   * 3), llamada por el propio combobox — mismo patrón que `datos/asignaturas.ts#crearAsignatura`. */
+  crearAsignatura(nombre: string): Promise<ResultadoGuardarAsignatura>;
 }
 
 const AVISO_SOLAPE_PROFESOR = 'Aviso: algún profesor ya tenía otro alumno en este mismo día y hora.';
@@ -177,6 +187,7 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
   let todosLosSlots: readonly SlotConAlumno[] = [];
   let sesiones: readonly SesionHorarioCentro<SlotConAlumno>[] = [];
   let profesores: readonly ProfesorParaSelector[] = [];
+  let asignaturasActivas: readonly Asignatura[] = [];
   let nombresProfesores: ReadonlyMap<string, string> = new Map();
   let accion: AccionEnCurso | null = null;
   /** Aviso de solape de profesor (requisito 4: "nunca bloqueo") de la ÚLTIMA edición completada con
@@ -205,9 +216,14 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     errorCarga = '';
     pintar();
     try {
-      const [slots, listaProfesores] = await Promise.all([deps.listarSlots(), deps.listarProfesoresParaSelector()]);
+      const [slots, listaProfesores, listaAsignaturas] = await Promise.all([
+        deps.listarSlots(),
+        deps.listarProfesoresParaSelector(),
+        deps.listarAsignaturasActivas(),
+      ]);
       todosLosSlots = slots;
       profesores = listaProfesores;
+      asignaturasActivas = listaAsignaturas;
       const idsProfesores = [...new Set(slots.map((slot) => slot.profesor_id))];
       nombresProfesores = await deps.resolverNombresProfesores(idsProfesores);
       sesiones = sesionesVigentesDelCentro(todosLosSlots, deps.reloj.ahora());
@@ -476,9 +492,12 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     campoFin.value = sesion.horaFin.slice(0, 5);
     const etiquetaFin = crearElemento(documento, 'label', { texto: 'Hora de fin', atributos: { for: idFin } });
 
-    const campoAsignatura = crearCampoTexto(documento, 'horario-centro-editar-asignatura', 'Asignatura o grupo (opcional)', 'text', 'off');
-    campoAsignatura.input.required = false;
-    campoAsignatura.input.value = sesion.asignaturaOGrupo ?? '';
+    const comboboxAsignatura = montarComboboxAsignatura(documento, {
+      catalogoInicial: asignaturasActivas,
+      crearAsignatura: (nombre) => deps.crearAsignatura(nombre),
+    });
+    comboboxAsignatura.establecerValor(sesion.asignaturaOGrupo);
+    const errorAsignatura = crearZonaMensaje(documento, 'alert');
 
     const idFechaEfecto = 'horario-centro-editar-fecha-efecto';
     const campoFechaEfecto = documento.createElement('input');
@@ -501,12 +520,18 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
         return;
       }
       errorHora.limpiar();
+      const valorAsignatura = comboboxAsignatura.obtenerValor();
+      if (valorAsignatura.tipo === 'sin_resolver') {
+        errorAsignatura.textContent = `Elige "${valorAsignatura.textoEscrito}" del catálogo o créala con el botón "Crear…" antes de guardar.`;
+        return;
+      }
+      errorAsignatura.textContent = '';
       const campos: CambiosSlot = {
         profesor_id: selectProfesor.value,
         dia_semana: Number(selectDia.value) as DiaSemana,
         hora_inicio: campoInicio.value,
         hora_fin: campoFin.value,
-        asignatura_o_grupo: campoAsignatura.input.value.trim().length > 0 ? campoAsignatura.input.value.trim() : null,
+        asignatura_o_grupo: valorAsignatura.tipo === 'vacio' ? null : valorAsignatura.nombre,
       };
       accion = { ...enCurso, campos, fechaEfecto: fechaUtcDeCampo(campoFechaEfecto.value), intentado: true, guardando: true };
       pintar();
@@ -523,7 +548,8 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
       etiquetaFin,
       campoFin,
       errorHora.elemento,
-      campoAsignatura.contenedor,
+      comboboxAsignatura.contenedor,
+      errorAsignatura,
       etiquetaFechaEfecto,
       campoFechaEfecto,
       botonGuardar,
@@ -653,8 +679,11 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     campoFin.required = true;
     const etiquetaFin = crearElemento(documento, 'label', { texto: 'Hora de fin', atributos: { for: idFin } });
 
-    const campoAsignatura = crearCampoTexto(documento, 'horario-centro-crear-asignatura', 'Asignatura o grupo (opcional)', 'text', 'off');
-    campoAsignatura.input.required = false;
+    const comboboxAsignatura = montarComboboxAsignatura(documento, {
+      catalogoInicial: asignaturasActivas,
+      crearAsignatura: (nombre) => deps.crearAsignatura(nombre),
+    });
+    const errorAsignatura = crearZonaMensaje(documento, 'alert');
 
     const idFechaEfecto = 'horario-centro-crear-fecha-efecto';
     const campoFechaEfecto = documento.createElement('input');
@@ -682,6 +711,7 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
     }
 
     const contenedorBuscador = documento.createElement('div');
+    contenedorBuscador.id = 'horario-centro-crear-buscador-alumnos';
     montarComboboxAlumnoExtra(contenedorBuscador, {
       buscar: (texto, señal) => deps.buscarAlumnos(texto, señal),
       onSeleccionar: (resultado) => {
@@ -708,12 +738,18 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
         return;
       }
       errorSeleccion.textContent = '';
+      const valorAsignatura = comboboxAsignatura.obtenerValor();
+      if (valorAsignatura.tipo === 'sin_resolver') {
+        errorAsignatura.textContent = `Elige "${valorAsignatura.textoEscrito}" del catálogo o créala con el botón "Crear…" antes de guardar.`;
+        return;
+      }
+      errorAsignatura.textContent = '';
       const campos: CamposSesionGrupo = {
         profesor_id: selectProfesor.value,
         dia_semana: Number(selectDia.value) as DiaSemana,
         hora_inicio: campoInicio.value,
         hora_fin: campoFin.value,
-        asignatura_o_grupo: campoAsignatura.input.value.trim().length > 0 ? campoAsignatura.input.value.trim() : null,
+        asignatura_o_grupo: valorAsignatura.tipo === 'vacio' ? null : valorAsignatura.nombre,
       };
       accion = { ...enCurso, campos, fechaEfecto: fechaUtcDeCampo(campoFechaEfecto.value), intentado: true, guardando: true };
       pintar();
@@ -730,7 +766,8 @@ export function mostrarPantallaHorarioCentro(contenedor: HTMLElement, deps: Depe
       etiquetaFin,
       campoFin,
       errorHora.elemento,
-      campoAsignatura.contenedor,
+      comboboxAsignatura.contenedor,
+      errorAsignatura,
       etiquetaFechaEfecto,
       campoFechaEfecto,
       crearElemento(documento, 'h4', { texto: 'Alumnos del grupo' }),

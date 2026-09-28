@@ -37,6 +37,58 @@
 
 ---
 
+### Sesión 2026-09-28 (rutina programada de programador) — R-33, catálogo de asignaturas y grupos
+**Tarea(s):** R-33 (Oleada v16 / F-24)
+**Estado resultante:** BLOQUEADA — pendiente aplicar migración `020` (fila 23 de §3 de SEGUIMIENTO.md).
+Código y tests completos, contra dobles.
+**Commits a `develop`:** ver commit de esta sesión (`R-33: catálogo de asignaturas y grupos —
+migración, dominio, datos, combobox de alta sobre la marcha, pantalla de gestión y wiring en
+horario del centro/ficha de alumno`)
+**Migraciones aplicadas:** ninguna. Escrita `db/020_catalogo_asignaturas.sql` (tabla `asignatura`,
+RLS y políticas en el mismo fichero, sin RPC — mismo patrón que `centro_estudios`/T-11 y
+`cierre_centro`/R-12), empujada a `develop`, todavía sin aplicar
+**Propagación a prod pendiente:** ninguna nueva (`020` es posterior a las diez migraciones del paso
+a producción de T-25, que sigue igual de `BLOQUEADA`)
+**Archivos creados/modificados:** `db/020_catalogo_asignaturas.sql` (nuevo), `db/pruebas_rls.sql`
+(sección 8q nueva + `asignatura` añadida a los barridos de `student`/TRUNCATE/`anon`),
+`db/MODELO.md`, `db/APLICADAS.md` (entrada de pendiente), `src/dominio/tipos.ts` (interfaz
+`Asignatura`), `src/dominio/asignaturas.ts` + `.test.ts` (nuevo — normalización, duplicados y
+filtro local, mismo patrón que `centrosEstudios.ts`), `src/datos/asignaturas.ts` + `.test.ts`
+(nuevo — CRUD sin RPC, mismo patrón que `datos/centrosEstudios.ts`), `src/dominio/permisosUi.ts` +
+`.test.ts` (`puedeGestionarAsignaturas`), `src/ui/comboboxAsignatura.ts` + `.test.ts` (nuevo —
+combobox de catálogo local con alta sobre la marcha), `src/ui/pantallaAsignaturas.ts` + `.test.ts`
+(nuevo — gestión del catálogo, patrón de `pantallaCierresCentro.ts`), `src/nucleo/router.ts` +
+`.test.ts` (ruta `asignaturas`), `src/ui/aplicacion.ts` (nav + ruta + wiring en `horario-centro` y
+`alumno-detalle`), `src/ui/pantallaHorarioCentro.ts` + `.test.ts` (combobox sustituye el texto libre
+en editar/cesar sesión completa y nueva sesión de grupo, R-25/R-27), `src/ui/pantallaFichaAlumno.ts`
++ `.test.ts` (combobox sustituye el texto libre en alta/edición de slot, T-15/T-16), `DEVELOPERS.md`
+(secciones de datos/rutas/pantallas), `roadmap/DECISIONES_TECNICAS.md` (matriz rol×tabla + 4
+decisiones nuevas), `roadmap/SEGUIMIENTO.md` (§1 R-33 → BLOQUEADA, §3 fila 23, cabecera)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1949/1949, antes 1901 — 48 nuevos) · build ✅
+**Health check post-deploy:** pendiente del push de esta sesión
+**Decisiones tomadas:** 4 filas nuevas en `DECISIONES_TECNICAS.md` (2026-09-28): (1) combobox propio
+en vez de generalizar `comboboxAlumnoExtra.ts`, contrato de búsqueda remota con rebote no encaja con
+un catálogo local pequeño con alta sobre la marcha; (2) el valor del combobox se resuelve siempre
+contra el catálogo salvo el valor con el que se abrió el formulario de edición (preserva el texto
+histórico de un slot ya existente sin forzar su resolución, requisito 4); (3) baja del catálogo sin
+paso de confirmación con recuento de afectados (a diferencia de T-11): sin relación de clave foránea
+con `slot_horario`, no hay ningún afectado real que contar; (4) fila `asignatura` añadida a la
+matriz rol × tabla × operación de T-10 (mismo hueco de gobernanza que P-32 corrigió para
+`pausa_alumno`, evitado aquí desde el principio)
+**Hallazgos del auditor atendidos:** ninguno — la pasada de hoy (`9fb5f6e`, 2026-09-28) no encontró
+ningún hallazgo nuevo; el único `ABIERTO` sigue siendo #8 (RGPD, R-02), sin relación con esta tarea
+**Hallazgos:** ninguno nuevo. Confirmado que `asignatura_o_grupo` en `slot_horario` no tiene ninguna
+relación de clave foránea con el catálogo nuevo (deliberado, ver requisito 1 de R-33): los slots ya
+existentes conservan su texto tal cual, sin reescritura retroactiva
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** aplicar la migración `020_catalogo_asignaturas.sql` (fila 23 de §3) para
+desbloquear R-33; mientras tanto, la siguiente sesión revisa `auditoriacontinua.md` y, si no hay
+ningún hallazgo urgente ni ninguna R-XX nueva del PM por delante, la cola normal queda sin tarea
+propia hasta que el dueño aplique alguna migración pendiente, responda la pregunta #16 de §6, o el
+PM abra la siguiente oleada
+
+---
+
 ### Sesión 2026-09-27 (trigésimo cuarto ciclo del Product Manager) — sin R-XX nueva, quinto ciclo consecutivo
 **Tarea(s):** ninguna T-XX/R-XX de código — rutina de producto (gestión de roadmap)
 **Estado resultante:** N/A (documento vivo, no código) — **trigésimo cuarto ciclo del PM: ninguna
