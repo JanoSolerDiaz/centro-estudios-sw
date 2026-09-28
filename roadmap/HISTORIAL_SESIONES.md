@@ -37,6 +37,21 @@
 
 ---
 
+### Sesión 2026-09-28 (PM) — trigésimo quinto ciclo: abre Oleada v17 (R-34, R-35)
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código) — R-34 y R-35 añadidas `PENDIENTE`
+**Commits a `develop`:** ver commit de esta sesión (PM: abre Oleada v17)
+**Migraciones aplicadas:** ninguna · **Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (Oleada v17, F-25/F-26, R-34, R-35), `roadmap/SEGUIMIENTO.md` (§1 dos filas, §6 pregunta #19), esta entrada
+**Verificaciones pre-push:** N/A — solo documentación
+**Decisiones tomadas:** ninguna técnica; la spec queda en las R-XX
+**Hallazgos del auditor atendidos:** ninguno nuevo — #8 sigue ABIERTO, bloqueado en la pregunta #16 del dueño
+**Hallazgos:** feedback vacío. R-33 ya en código (cola de programador vacía), lo que levanta la disciplina de los cinco ciclos anteriores. Huecos comprobados por `grep`: sin huella de integridad en exportaciones, sin cierre por inactividad
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el programador toma R-34 y R-35 en ese orden (independientes entre sí, solo cliente) tras la migración `020` de R-33 si el dueño la ha aplicado; no bloquean por ella.
+
+---
+
 ### Sesión 2026-09-28 (rutina programada de programador, quinta pasada del día) — cola vacía, nada que hacer
 **Tarea(s):** ninguna — sin fila `PENDIENTE` en §1
 **Estado resultante:** N/A (sin cambio de estado de ninguna T-XX/R-XX). R-33 sigue `BLOQUEADA —

@@ -8,33 +8,20 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-27 — trigésimo cuarto ciclo del PM: **sin R-XX nueva, quinto ciclo
-consecutivo.** Protocolo primero: `git checkout develop && git pull origin develop`, fast-forward
-limpio hasta `d21b9df` (pasada del auditor de hoy); `git log 77b2b46..HEAD` confirma que ese es el
-único commit desde el ciclo anterior del PM, y no toca `db/`, `src/` ni `herramientas/`.
-`FEEDBACK.md` sigue sin entradas `nuevo` reales (fila plantilla vacía): nada que convertir.
-`auditoriacontinua.md` trae una pasada limpia de hoy: de 24 hallazgos totales, 23 siguen `RESUELTO`
-y el único que sigue **ABIERTO** es **#8** (RGPD artículo 9, `motivo_justificacion` de R-02) —
-vigésimo primer ciclo consecutivo sin novedad de fondo en la pregunta #16 de §6: sigue sin ser una
-decisión que el PM pueda tomar, y sigue sin bloquear nada del resto del roadmap.
+**Última actualización:** 2026-09-28 — trigésimo quinto ciclo del PM: **abre la Oleada v17 con R-34 y
+R-35.** Protocolo primero: `git checkout develop && git pull origin develop`. Cambia lo que los cinco
+ciclos anteriores esperaban: R-33 (Oleada v16) ya está en código (commit `444889b`, solo pendiente de la
+migración `020`, §3), así que la cola de programador está vacía y ya no hay una cabeza de cola sin código
+por delante. `FEEDBACK.md` sigue sin entradas `nuevo` reales; `auditoriacontinua.md` (pasada de hoy) sigue
+con **#8** como único hallazgo ABIERTO (pregunta #16 de §6, decisión del dueño, sin novedad).
 
-**R-33 (Oleada v16) sigue `PENDIENTE`**, exactamente como la dejó el ciclo anterior: `git log
-0f0c010..HEAD` (desde que se abrió su spec) confirma que los dos únicos commits de por medio son el
-propio cierre del ciclo 33.º y la pasada del auditor de hoy, ninguno de código ni de SQL — ningún
-programador la ha tomado todavía. Mismo criterio ya aplicado en los ciclos 19.º, 20.º, 26.º, 27.º y
-33.º (todos "sin R-XX nueva" con la cabeza de cola de §1 sin empezar): abrir ya la Oleada v17
-encolaría una tarea nueva por delante de una que todavía no tiene ni una línea de código, sin que
-ninguna entrada de `FEEDBACK.md` ni ningún hallazgo del auditor lo justifique. R-32 (Oleada v15)
-sigue `COMPLETADA` en código, sin ninguna fila de migración propia pendiente en §3. El MVP (T-00 a
-T-25) sigue sin estar completo (T-25 `BLOQUEADA` a falta del paso a producción, fila 12 de §3), así
-que, como en cada ciclo anterior, nada se mueve todavía a `ROADMAP_HISTORICO.md`.
-
-Revisado el roadmap completo contra la visión de producto y el ICP (repasadas también R-30, R-31,
-R-32 y la propia R-33, sin encontrar ningún rodeo autoseñalado sin cerrar): ningún hueco nuevo que
-amerite forzar una R-XX solo por tener una este ciclo. La disciplina de este documento es abrir la
-siguiente oleada cuando la cabeza de cola actual llegue a `COMPLETADA` en código (o cuando el
-feedback/la auditoría lo exijan antes), no por calendario — y R-33 todavía no ha recibido ninguna
-sesión de programador.
+Sin feedback ni auditoría que lo empujen, la oleada nace de dos huecos comprobados sobre el código y el
+roadmap vigentes (`grep` sobre `src/` y este documento): (1) las exportaciones de R-10/R-16 no llevan
+ninguna huella de integridad, y el objetivo del producto es un registro con fiabilidad legal; (2) no
+existe ningún cierre de sesión por inactividad, en un producto que se usa en móviles y tablets
+compartidos de aula con datos de menores. Ambas son solo de cliente, sin migración, sin dato personal
+nuevo y sin tocar al rol `student`. Nada se mueve a `ROADMAP_HISTORICO.md`: ninguna oleada está
+desplegada en producción (T-25 sigue `BLOQUEADA`).
 
 Sin ningún commit de código — sesión de producto, no de programador.
 
@@ -457,6 +444,28 @@ aplica ese patrón ya probado a la asignatura/grupo. No añade ningún dato pers
 asistencia ni toca al rol `student`.
 
 - **F-24 — Catálogo de asignaturas y grupos.** R-33.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
+
+---
+
+### Oleada v17 — Un registro que se puede demostrar, en un dispositivo que se comparte
+
+**Arranca cuando la oleada v16 (R-33) esté COMPLETADA/DESPLEGADA EN PRODUCCIÓN** — el estado real se
+sigue en §1 de `SEGUIMIENTO.md`, no aquí. Las dos R-XX son solo de cliente y no dependen entre sí.
+
+Por qué esta oleada: hasta aquí el producto ha cerrado el ciclo diario (pasar lista, corregir, avisar,
+planificar). Quedan dos promesas de la visión que hoy se cumplen «por construcción» pero no se pueden
+mostrar ni garantizar en el uso real. La de *registro legal*: el histórico es inmutable en la base de
+datos, pero el fichero que se entrega a una familia, una inspección o una copia de seguridad no permite
+comprobar que sigue siendo el que salió del sistema. La de *datos de menores*: la sesión permanece
+abierta indefinidamente en un móvil o una tablet que en un aula pasa de mano en mano. Ambas son también
+argumentos de venta concretos para el ICP (una academia que debe justificar horas y proteger datos).
+
+- **F-25 — Sello de integridad de las exportaciones.** R-34.
+- **F-26 — Cierre de sesión por inactividad.** R-35.
 
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
@@ -1949,3 +1958,86 @@ un texto tecleado a mano una sola vez (R-27) o editado en bloque (R-25); un cent
 dado de alta ninguna asignatura puede seguir creando su primer slot sin quedar bloqueado, dando de alta
 la primera entrada del catálogo sobre la marcha; `teacher` lee el catálogo activo pero no puede crear ni
 renombrar ninguna entrada; `student` no tiene ningún acceso a la tabla.
+
+---
+
+### R-34 — Sello de integridad en las exportaciones JSON
+**Oleada / Fase:** v17 / F-25 · **Migración:** No · **Depende de:** R-10 (`COMPLETADA`), R-16 (`COMPLETADA`)
+**Origen:** roadmap
+
+**Objetivo:** que `administrator` pueda demostrar que un fichero exportado —el expediente de un alumno
+(R-10) o el volcado del centro (R-16)— no ha sido modificado desde que salió del sistema, y comprobarlo
+él mismo en segundos sin herramientas externas. Es lo que convierte «el histórico es inmutable» de una
+propiedad interna en algo que se puede enseñar a una familia o a una inspección, y da a la academia un
+argumento de confianza frente al papel y la hoja de cálculo, donde nada de esto es posible.
+
+**Requisitos:**
+1. Cada exportación JSON de R-10 y R-16 incorpora un bloque `sello` con el algoritmo (`SHA-256`) y la
+   huella calculada sobre el contenido de datos en forma canónica (claves ordenadas, sin espacios
+   superfluos, para que el resultado no dependa del formato). Cálculo con `crypto.subtle` nativo del
+   navegador: sin librería, sin dependencia de runtime. El sello cubre también fecha de generación y
+   autor (ya incluidos por R-10/R-16), de modo que cambiarlos invalida la huella.
+2. Al terminar la exportación se muestra la huella en pantalla, en texto copiable, con una indicación
+   clara: *guárdala aparte del fichero (en el correo enviado, en un acta); un sello guardado solo dentro
+   del propio fichero prueba coherencia interna, no procedencia.* Sin esa advertencia la función
+   prometería más de lo que garantiza.
+3. Pantalla «Verificar exportación» (exclusiva de `administrator`): elige un fichero JSON local, se
+   recalcula la huella y se compara con el bloque `sello` del fichero y, opcionalmente, con una huella
+   pegada por el usuario. Resultados distinguibles con texto (no solo color): «coincide», «no coincide»
+   y «sin sello / formato no reconocido». El fichero se procesa solo en el navegador: no se sube a
+   ningún servidor ni se registra su contenido.
+4. Las exportaciones existentes siguen siendo válidas y legibles: un fichero anterior a esta tarea da
+   «sin sello», no un error. No cambia ningún dato exportado ni su estructura, salvo añadir `sello`.
+5. Ni la fotografía ni ningún dato nuevo entran en el fichero (R-10/R-16, requisito 2, intactos). El CSV
+   de T-23 queda fuera: no tiene dónde alojar un sello sin romper su compatibilidad con hojas de cálculo.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** exportar el centro sintético de R-16 y verificarlo inmediatamente da
+«coincide»; cambiar un solo carácter de un dato, o la fecha de generación, da «no coincide»; reordenar
+las claves o reformatear el JSON sin tocar datos sigue dando «coincide»; un fichero previo sin sello da
+«sin sello»; un `teacher` no accede a la pantalla; el fichero verificado no genera ninguna petición de
+red.
+
+---
+
+### R-35 — Cierre de sesión por inactividad en dispositivos compartidos
+**Oleada / Fase:** v17 / F-26 · **Migración:** No · **Depende de:** T-09 (`COMPLETADA`), R-07 (`COMPLETADA`)
+**Origen:** roadmap
+
+**Objetivo:** que un móvil o una tablet de aula olvidado, prestado o perdido con la sesión abierta no dé
+acceso a fichas, contactos y fotografías de menores. Hoy la sesión se renueva de forma proactiva y no
+caduca nunca por falta de uso. La medida debe ser invisible para el profesor que trabaja y cero coste
+para el que pasa lista: un aviso previo con un toque para continuar, y ninguna pérdida de trabajo.
+
+**Requisitos:**
+1. Tras un periodo sin actividad (toques, teclado, desplazamiento) la sesión se cierra por completo con
+   el mismo mecanismo que «cerrar sesión» (T-09), volviendo al login. Los periodos son constantes de
+   dominio por rol, valores de partida conservadores: `administrator` 20 min, `teacher` 60 min (el
+   profesor deja el móvil entre sesiones; un plazo corto le estorbaría en el uso más frecuente). Ver
+   pregunta #19 de §6.
+2. Sesenta segundos antes del cierre aparece un aviso accesible (`role="alertdialog"`, foco al botón,
+   anunciado a lectores de pantalla) con cuenta atrás y un único botón grande «Seguir conectado». Cualquier
+   otra interacción también lo cancela. El aviso no tapa ni bloquea la pantalla de pasar lista más de lo
+   imprescindible.
+3. El cálculo usa marcas de tiempo (reloj inyectado, como el resto del dominio) y se reevalúa al volver
+   la pestaña a primer plano (`visibilitychange`), no solo un temporizador: los navegadores móviles
+   retrasan los temporizadores en segundo plano y una tablet dormida no debe seguir abierta por eso.
+4. **Sin pérdida de trabajo:** si hay toques de asistencia pendientes en la cola offline (R-07), el
+   cierre NO los descarta —la cola sigue particionada por profesor (hallazgo #13, resuelto)— y el
+   aviso previo lo dice («hay N registros sin enviar, se enviarán al volver a entrar»). Un envío en curso
+   no se interrumpe: el cierre espera a que termine o falle.
+5. Al cerrar por inactividad, el login muestra un mensaje neutro («Por seguridad, la sesión se cerró
+   tras un rato sin actividad») y se limpia todo estado en memoria de datos personales. Ningún dato
+   personal ni identificador de alumno va al log ni al informador de errores (T-02/T-05).
+6. Sin dato nuevo, sin cambios de esquema ni de RLS; no toca al rol `student` (sin acceso, sin sesión
+   útil). No sustituye a la caducidad del token del servidor: es una capa de cliente adicional.
+
+**Bloqueo humano:** ninguno (los valores por defecto se pueden ajustar tras la pregunta #19 de §6).
+
+**Criterio de aceptación:** con reloj simulado, un `teacher` inactivo 59 min sigue dentro y a los 60 vuelve
+al login; a los 59 min aparece el aviso y «Seguir conectado» reinicia el contador; un `administrator`
+inactivo 20 min es cerrado; una pestaña que vuelve a primer plano pasado el plazo cierra al instante;
+con 3 toques en la cola offline el cierre no los pierde y tras volver a entrar el mismo profesor se
+sincronizan; otro profesor en el mismo dispositivo no los ve ni los envía; los textos son legibles por
+lector de pantalla.
