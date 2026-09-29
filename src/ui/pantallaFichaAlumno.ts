@@ -42,7 +42,6 @@ import {
 } from '../dominio/pausaAlumno.ts';
 import {
   construirDatosExpedienteAlumno,
-  generarJsonExpediente,
   filasCabeceraExpediente,
   filaPersonaReferenciaExpediente,
   filaHistoricoExpediente,
@@ -59,6 +58,8 @@ import type { DatosNuevoSlot, CambiosSlot, ResultadoEscrituraSlot } from '../dat
 import type { ResultadoGuardarAsignatura } from '../datos/asignaturas.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import { crearCampoTexto, crearZonaMensaje, crearBoton, crearMensajeErrorCampo } from './formularios.ts';
+import { sellarDocumento } from '../dominio/selloIntegridad.ts';
+import { mostrarHuellaSello } from './avisoSello.ts';
 import { crearElemento, type Descargador, type AbridorVentanaImpresion } from './dom.ts';
 import { montarComboboxAsignatura } from './comboboxAsignatura.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
@@ -1394,6 +1395,8 @@ function construirTablaExpediente(docImpresion: Document, cabeceras: readonly st
 function montarBloqueExpediente(contenedorBloque: HTMLElement, deps: DependenciasBloqueExpediente, ficha: AlumnoConCentroYPersonas): void {
   const documento = contenedorBloque.ownerDocument;
   const zonaMensaje = crearZonaMensaje(documento, 'alert');
+  const zonaSello = crearElemento(documento, 'div');
+  zonaSello.setAttribute('role', 'status');
   const botonJson = crearBoton(documento, 'Descargar JSON', 'button');
   const botonImprimir = crearBoton(documento, 'Imprimir / PDF', 'button');
   contenedorBloque.append(
@@ -1404,6 +1407,7 @@ function montarBloqueExpediente(contenedorBloque: HTMLElement, deps: Dependencia
     botonJson,
     botonImprimir,
     zonaMensaje,
+    zonaSello,
   );
 
   async function construirDatos(): Promise<DatosExpedienteAlumno> {
@@ -1453,9 +1457,12 @@ function montarBloqueExpediente(contenedorBloque: HTMLElement, deps: Dependencia
   botonJson.addEventListener('click', () => {
     void (async () => {
       zonaMensaje.textContent = '';
+      zonaSello.textContent = '';
       try {
         const datos = await construirDatos();
-        deps.descargador.descargar(generarJsonExpediente(datos), `expediente-${ficha.id}.json`, TIPO_MIME_JSON);
+        const sellado = await sellarDocumento(datos);
+        deps.descargador.descargar(sellado.json, `expediente-${ficha.id}.json`, TIPO_MIME_JSON);
+        mostrarHuellaSello(zonaSello, sellado.huella);
       } catch (error) {
         zonaMensaje.textContent = mensajeAmigable(error);
       }

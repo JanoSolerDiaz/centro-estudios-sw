@@ -154,6 +154,7 @@ void test('hashDeRuta es el inverso exacto de analizarRuta para cada forma de ru
     { nombre: 'informe-horas' },
     { nombre: 'primeros-pasos' },
     { nombre: 'auditoria' },
+    { nombre: 'verificar-exportacion' },
     { nombre: 'bajas-profesor' },
     { nombre: 'bajas-profesor', profesorId: 'prof-1' },
   ];

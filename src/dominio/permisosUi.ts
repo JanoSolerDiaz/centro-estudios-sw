@@ -208,3 +208,9 @@ export function puedeGestionarAsignaturas(rol: Rol): boolean {
 export function puedeVerRegistroAuditoria(rol: Rol): boolean {
   return rol === 'administrator';
 }
+
+/** Verificar exportación (R-34): recalcula la huella de un fichero JSON exportado y la compara con
+ * su sello. Exclusivamente `administrator`, como las exportaciones que verifica (R-10/R-16). */
+export function puedeVerificarExportacion(rol: Rol): boolean {
+  return rol === 'administrator';
+}

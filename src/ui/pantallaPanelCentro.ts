@@ -69,7 +69,6 @@ import {
 } from '../dominio/panelCentro.ts';
 import {
   construirDatosExportacionCentro,
-  generarJsonExportacionCentro,
   type AlumnoParaExportacionCentro,
 } from '../dominio/exportacionCentro.ts';
 import { fechaLocalISO, fechaHoraLocalLegible, ZONA_HORARIA_CENTRO_POR_DEFECTO } from '../dominio/slots.ts';
@@ -77,6 +76,8 @@ import { limitesDelMes } from '../dominio/informeMensualAlumno.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { FiltroHistorico } from '../datos/asistencia.ts';
 import type { Asistencia } from '../dominio/tipos.ts';
+import { sellarDocumento } from '../dominio/selloIntegridad.ts';
+import { mostrarHuellaSello } from './avisoSello.ts';
 import { crearElemento, type Descargador } from './dom.ts';
 import { crearBoton, crearZonaMensaje } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
@@ -478,6 +479,8 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
   // --- Bloque 4: exportación completa del centro (R-16) ---
   const seccionExportacion = documento.createElement('section');
   const zonaMensajeExportacion = crearZonaMensaje(documento, 'alert');
+  const zonaSelloExportacion = crearElemento(documento, 'div');
+  zonaSelloExportacion.setAttribute('role', 'status');
   const botonExportar = crearBoton(documento, 'Exportar todo el centro', 'button');
   let exportando = false;
 
@@ -514,11 +517,14 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
           generadoPor: deps.nombreUsuarioActual,
           zonaHoraria,
         });
+        const sellado = await sellarDocumento(datosExportacion);
+        zonaSelloExportacion.textContent = '';
         deps.descargador.descargar(
-          generarJsonExportacionCentro(datosExportacion),
+          sellado.json,
           `exportacion-centro-${fechaLocalISO(deps.reloj.ahora(), zonaHoraria)}.json`,
           'application/json;charset=utf-8',
         );
+        mostrarHuellaSello(zonaSelloExportacion, sellado.huella);
       } catch (error) {
         zonaMensajeExportacion.textContent = mensajeAmigable(error);
       } finally {
@@ -534,6 +540,7 @@ export function mostrarPantallaPanelCentro(contenedor: HTMLElement, deps: Depend
     }),
     botonExportar,
     zonaMensajeExportacion,
+    zonaSelloExportacion,
   );
 
   contenedor.append(

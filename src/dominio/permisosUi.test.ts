@@ -27,6 +27,7 @@ import {
   puedeVerPersonasReferencia,
   puedeVerAsistentePrimerosPasos,
   puedeVerRegistroAuditoria,
+  puedeVerificarExportacion,
 } from './permisosUi.ts';
 
 const ROLES: readonly Rol[] = ['administrator', 'teacher', 'student'];
@@ -160,4 +161,10 @@ void test('puedeGestionarBajasProfesor: exclusivamente administrator, ni siquier
   assert.equal(puedeGestionarBajasProfesor('administrator'), true);
   assert.equal(puedeGestionarBajasProfesor('teacher'), false);
   assert.equal(puedeGestionarBajasProfesor('student'), false);
+});
+
+void test('puedeVerificarExportacion: exclusivamente administrator (R-34)', () => {
+  assert.equal(puedeVerificarExportacion('administrator'), true);
+  assert.equal(puedeVerificarExportacion('teacher'), false);
+  assert.equal(puedeVerificarExportacion('student'), false);
 });

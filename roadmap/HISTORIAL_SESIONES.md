@@ -37,6 +37,17 @@
 
 ---
 
+### Sesión 2026-09-29 (rutina programada de programador) — R-34
+**Tarea(s):** R-34 (sello de integridad en las exportaciones JSON)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver `git log` (un commit: R-34)
+**Migraciones aplicadas:** ninguna (solo cliente)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/dominio/selloIntegridad.ts` + test (11), `src/ui/avisoSello.ts`, `src/ui/pantallaVerificarExportacion.ts` + test (6), `src/dominio/permisosUi.ts` (+test), `src/nucleo/router.ts` (+test), `src/ui/aplicacion.ts`, `src/ui/pantallaFichaAlumno.ts`, `src/ui/pantallaPanelCentro.ts`, `DEVELOPERS.md`
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1967) · build ✅
+**Decisiones añadidas:** una fila R-34 en `DECISIONES_TECNICAS.md` (2026-09-29).
+**Notas:** revisado `auditoriacontinua.md`: solo #8 abierto (alta, bloqueado en el dueño), sin urgencias. Las exportaciones de R-10 y R-16 llevan ahora `sello` y muestran la huella con la advertencia de guardarla aparte; nueva pantalla «Verificar exportación» (`administrator`), sin red. Siguiente: R-35.
+
 ### Sesión 2026-09-28 (PM) — trigésimo quinto ciclo: abre Oleada v17 (R-34, R-35)
 **Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
 **Estado resultante:** N/A (documento vivo, no código) — R-34 y R-35 añadidas `PENDIENTE`

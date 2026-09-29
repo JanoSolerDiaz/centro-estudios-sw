@@ -135,6 +135,7 @@ import { mostrarPantallaHorarioCentro } from './pantallaHorarioCentro.ts';
 import { mostrarPantallaInformeHorasProfesor } from './pantallaInformeHorasProfesor.ts';
 import { mostrarPantallaMisHorasProfesor } from './pantallaMisHorasProfesor.ts';
 import { mostrarPantallaAsistentePrimerosPasos } from './pantallaAsistentePrimerosPasos.ts';
+import { mostrarPantallaVerificarExportacion } from './pantallaVerificarExportacion.ts';
 import { mostrarPantallaRegistroAuditoria } from './pantallaRegistroAuditoria.ts';
 import { mostrarPantallaBajasProfesor } from './pantallaBajasProfesor.ts';
 import { crearBoton } from './formularios.ts';
@@ -285,6 +286,10 @@ function mostrarAppAdministrador(
   enlaceAuditoria.addEventListener('click', () => {
     router.navegar({ nombre: 'auditoria' });
   });
+  const enlaceVerificarExportacion = crearBoton(documento, 'Verificar exportación', 'button');
+  enlaceVerificarExportacion.addEventListener('click', () => {
+    router.navegar({ nombre: 'verificar-exportacion' });
+  });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
@@ -304,6 +309,7 @@ function mostrarAppAdministrador(
     enlaceImportacion,
     enlaceInformeHoras,
     enlaceAuditoria,
+    enlaceVerificarExportacion,
     botonSalir,
   );
 
@@ -523,6 +529,11 @@ function mostrarAppAdministrador(
         descargador: crearDescargadorNavegador(documento),
         abridorImpresion,
       });
+      return;
+    }
+
+    if (ruta.nombre === 'verificar-exportacion') {
+      mostrarPantallaVerificarExportacion(areaPantalla, { rol: perfil.rol, leerFichero: crearLectorFicheroNavegador() });
       return;
     }
 

@@ -323,6 +323,9 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     sistema sin ningún `administrator` activo llega como `ErrorDeValidacion` con el mensaje del
     propio trigger (sin `errcode` de permiso a propósito, para no perder ese mensaje detrás de un
     `SinPermiso` genérico). Sin alta de usuario: eso es procedimiento manual, ver más abajo.
+  - Sello de integridad (R-34): `dominio/selloIntegridad.ts` añade `sello` (SHA-256 sobre el JSON
+    canónico) a los JSON de R-10/R-16 vía `sellarDocumento`; `verificarDocumentoSellado` lo
+    comprueba (pantalla `#/verificar-exportacion`, solo `administrator`, sin red).
   - `asignaturas.ts` (R-33, nuevo) — `listarAsignaturas`/`crearAsignatura`/`editarNombreAsignatura`/
     `desactivarAsignatura`/`reactivarAsignatura` sobre `postgrest.ts`, tabla `asignatura`
     (`db/020_catalogo_asignaturas.sql`, sin aplicar todavía). Mismo patrón exacto que
