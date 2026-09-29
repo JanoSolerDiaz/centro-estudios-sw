@@ -6242,3 +6242,20 @@ COMPLETADA/DESPLEGADA EN PRODUCCIÓN, la cola continúa por R-01. El siguiente c
 revisar si hay hallazgos ABIERTOS en `auditoriacontinua.md` y entradas `nuevo` en `FEEDBACK.md`
 para convertir; y, si el dueño ha respondido las preguntas #1 o #2 de §6, ajustar el roadmap en
 consecuencia (P. ej. #1 puede convertirse en una R-XX de envío automático de avisos).
+
+### Sesión 2026-09-29 (PM, ciclo 36)
+**Tarea(s):** Ciclo de Product Manager — sin T-XX/R-XX de desarrollo, gestión de roadmap
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión (roadmap: ciclo 36 sin oleada nueva)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** N/A — solo documentación
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** no abrir Oleada v18: sin feedback ni hallazgos nuevos, y con nueve migraciones
+sin aplicar y T-25 bloqueada, más código latente aumenta el riesgo de integración.
+**Hallazgos del auditor atendidos:** ninguno nuevo; #8 sigue ABIERTO (pregunta #16 de §6)
+**Hallazgos:** `FEEDBACK.md` sin entradas `nuevo`
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el dueño aplica migraciones y responde #16 a #19 de §6; el siguiente ciclo de PM
+abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.

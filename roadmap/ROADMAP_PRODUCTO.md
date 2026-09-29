@@ -8,20 +8,22 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-28 — trigésimo quinto ciclo del PM: **abre la Oleada v17 con R-34 y
-R-35.** Protocolo primero: `git checkout develop && git pull origin develop`. Cambia lo que los cinco
-ciclos anteriores esperaban: R-33 (Oleada v16) ya está en código (commit `444889b`, solo pendiente de la
-migración `020`, §3), así que la cola de programador está vacía y ya no hay una cabeza de cola sin código
-por delante. `FEEDBACK.md` sigue sin entradas `nuevo` reales; `auditoriacontinua.md` (pasada de hoy) sigue
-con **#8** como único hallazgo ABIERTO (pregunta #16 de §6, decisión del dueño, sin novedad).
+**Última actualización:** 2026-09-29 — trigésimo sexto ciclo del PM: **sin oleada nueva, a propósito.**
+Protocolo primero: `git checkout develop && git pull origin develop`. Estado comprobado: R-34 y R-35
+(Oleada v17) ya están en código; la cola del programador está vacía (§1 de `SEGUIMIENTO.md`);
+`FEEDBACK.md` sin entradas `nuevo`; `auditoriacontinua.md` (pasada de hoy, sin hallazgos nuevos desde
+el #24) sigue con **#8** como único ABIERTO, ya trasladado a la pregunta #16 de §6 (decisión del
+dueño).
 
-Sin feedback ni auditoría que lo empujen, la oleada nace de dos huecos comprobados sobre el código y el
-roadmap vigentes (`grep` sobre `src/` y este documento): (1) las exportaciones de R-10/R-16 no llevan
-ninguna huella de integridad, y el objetivo del producto es un registro con fiabilidad legal; (2) no
-existe ningún cierre de sesión por inactividad, en un producto que se usa en móviles y tablets
-compartidos de aula con datos de menores. Ambas son solo de cliente, sin migración, sin dato personal
-nuevo y sin tocar al rol `student`. Nada se mueve a `ROADMAP_HISTORICO.md`: ninguna oleada está
-desplegada en producción (T-25 sigue `BLOQUEADA`).
+Por qué no se abre la Oleada v18: no hay feedback real, ni hallazgo, ni hueco comprobado que la
+justifique, y el cuello de botella ya no es el código sino la activación. Hay nueve migraciones
+escritas y sin aplicar (filas 13 a 23 de §3: `010` a `020`) y T-25 (paso a producción) sigue
+`BLOQUEADA`: ninguna de las 35 R-XX está en manos de un usuario real. Añadir más funcionalidad
+latente solo aumentaría el riesgo de integración del día que se apliquen. Lo que más valor aporta
+ahora al roadmap está fuera de este documento y es del dueño: aplicar migraciones, resolver las
+preguntas #16, #17, #18 y #19 de §6 y desbloquear T-25. Con el primer feedback real de un profesor
+tras una clase (`FEEDBACK.md`) se abrirá la siguiente oleada, priorizando lo que pidan sobre lo que
+imagine este documento. Nada se mueve a `ROADMAP_HISTORICO.md`: ninguna oleada está desplegada.
 
 Sin ningún commit de código — sesión de producto, no de programador.
 
