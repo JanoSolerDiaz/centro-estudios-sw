@@ -883,3 +883,104 @@ void test('teacher: desde mi horario, "Pasar lista" solo se ofrece en el slot en
   assert.ok(contenedor.querySelector('button[data-clave]'), 'debe mostrar las cards de pasar lista, no mi horario');
   assert.equal(contenedor.querySelectorAll('section').length, 0, 'mi horario ya no debe seguir montado');
 });
+
+// --- R-35: cierre de sesión por inactividad. ---
+
+function crearEntornoInactividad() {
+  let ahoraMs = Date.UTC(2026, 8, 29, 8, 0, 0);
+  const programador = crearProgramadorIntervaloDePrueba();
+  const actividad = new Set<() => void>();
+  const dom = new JSDOM('<!doctype html><body><div id="app"></div><div id="aviso"></div></body>');
+  const contenedor = dom.window.document.querySelector<HTMLElement>('#app');
+  const contenedorAviso = dom.window.document.querySelector<HTMLElement>('#aviso');
+  assert.ok(contenedor && contenedorAviso);
+  return {
+    contenedor,
+    contenedorAviso,
+    inactividad: {
+      reloj: { ahora: () => new Date(ahoraMs) },
+      programador,
+      fuente: {
+        alActividad: (e: () => void) => {
+          actividad.add(e);
+          return () => actividad.delete(e);
+        },
+        alVolverAPrimerPlano: () => () => undefined,
+      },
+      contenedorAviso,
+    },
+    avanzar: (ms: number) => {
+      ahoraMs += ms;
+      programador.disparar();
+    },
+  };
+}
+
+void test('R-35: administrator inactivo 20 min vuelve al login con el mensaje neutro; 19 min sigue dentro', async () => {
+  const { contenedor, inactividad, avanzar } = crearEntornoInactividad();
+  const { gestor, emitir } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+  gestor.cerrarSesion = () => {
+    emitir({ tipo: 'sin_sesion' });
+    return Promise.resolve();
+  };
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', inactividad });
+
+  avanzar(19 * 60 * 1000);
+  assert.match(contenedor.textContent, /Ana Admin/);
+  avanzar(60 * 1000);
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /Ana Admin/);
+  assert.match(contenedor.textContent, /Por seguridad, la sesión se cerró tras un rato sin actividad/);
+  assert.ok(contenedor.querySelector('input[type="password"]'));
+});
+
+void test('R-35: el mensaje de inactividad no persiste tras volver a entrar y salir a mano', () => {
+  const { contenedor, inactividad, avanzar } = crearEntornoInactividad();
+  const { gestor, emitir } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+  gestor.cerrarSesion = () => {
+    emitir({ tipo: 'sin_sesion' });
+    return Promise.resolve();
+  };
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', inactividad });
+  avanzar(20 * 60 * 1000);
+  emitir({ tipo: 'autenticado', perfil: PERFIL_ADMIN });
+  emitir({ tipo: 'sin_sesion' });
+  assert.doesNotMatch(contenedor.textContent, /rato sin actividad/);
+});
+
+void test('R-35: teacher a 59 min ve el aviso con «Seguir conectado»; pulsarlo evita el cierre', () => {
+  const { contenedor, contenedorAviso, inactividad, avanzar } = crearEntornoInactividad();
+  const { app } = crearAppProfesorFalso(() => ({ estado: 200, cuerpo: [] }));
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: PERFIL_TEACHER });
+  let cierres = 0;
+  gestor.cerrarSesion = () => {
+    cierres += 1;
+    return Promise.resolve();
+  };
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', appProfesor: app, inactividad });
+
+  avanzar(58 * 60 * 1000);
+  const aviso = contenedorAviso.querySelector<HTMLElement>('[role="alertdialog"]');
+  assert.ok(aviso);
+  assert.equal(aviso.hidden, true);
+  avanzar(60 * 1000);
+  assert.equal(aviso.hidden, false);
+  contenedorAviso.querySelector('button')?.click();
+  assert.equal(aviso.hidden, true);
+  avanzar(30 * 60 * 1000);
+  assert.equal(cierres, 0);
+});
+
+void test('R-35: un student no tiene vigilante de inactividad', () => {
+  const { contenedor, inactividad, avanzar } = crearEntornoInactividad();
+  const { gestor } = crearGestorSesionFalso({ tipo: 'autenticado', perfil: { ...PERFIL_ADMIN, rol: 'student' } });
+  let cierres = 0;
+  gestor.cerrarSesion = () => {
+    cierres += 1;
+    return Promise.resolve();
+  };
+  iniciarAplicacion(contenedor, { gestorSesion: gestor, hashUrl: '', inactividad });
+  avanzar(24 * 60 * 60 * 1000);
+  assert.equal(cierres, 0);
+});

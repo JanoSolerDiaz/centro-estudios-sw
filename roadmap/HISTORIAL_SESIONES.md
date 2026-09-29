@@ -37,6 +37,19 @@
 
 ---
 
+### Sesión 2026-09-29 (rutina programada de programador) — R-35
+**Tarea(s):** R-35 (cierre de sesión por inactividad en dispositivos compartidos)
+**Estado resultante:** COMPLETADA
+**Commits a `develop`:** ver `git log` (un commit: R-35)
+**Migraciones aplicadas:** ninguna (solo cliente)
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `src/dominio/inactividadSesion.ts` (+test), `src/nucleo/vigilanteInactividad.ts` (+test), `src/ui/avisoInactividad.ts` (+test), `src/ui/aplicacion.ts` (+4 tests), `src/ui/pantallaLogin.ts` (mensaje inicial), `src/ui/main.ts`, `index.html` (`#aviso-inactividad`)
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (1990) · build ✅
+**Decisiones tomadas:** fila R-35 de `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno (el único alta abierto, #8, espera respuesta del dueño a la pregunta #16 de §6)
+**Hallazgos:** ninguno nuevo
+**Tareas autopropuestas (P-XX):** ninguna
+
 ### Sesión 2026-09-29 (rutina programada de programador) — R-34
 **Tarea(s):** R-34 (sello de integridad en las exportaciones JSON)
 **Estado resultante:** COMPLETADA

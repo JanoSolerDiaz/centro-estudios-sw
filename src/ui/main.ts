@@ -14,6 +14,8 @@ import { crearClientePostgrest } from '../datos/postgrest.ts';
 import { crearClienteAlmacenamiento } from '../datos/almacenamiento.ts';
 import { crearFabricaProcesadoImagenNavegador } from '../datos/avatarAlumno.ts';
 import { crearLimitadorTasa } from '../nucleo/limitadorTasa.ts';
+import { crearFuenteActividadNavegador } from '../nucleo/vigilanteInactividad.ts';
+import { crearAlmacenColaAsistenciaIndexedDB } from '../nucleo/colaAsistenciaOffline.ts';
 import { relojDelSistema } from '../nucleo/reloj.ts';
 import { programadorIntervaloReal } from '../nucleo/programadorIntervalo.ts';
 import { registrarServiceWorker } from '../nucleo/registroServiceWorker.ts';
@@ -134,8 +136,22 @@ if (contenedorApp) {
   if (gestorSesion) {
     const appAdministrador = crearAppAdministradorSiHayConfiguracion();
     const appProfesor = crearAppProfesorSiHayConfiguracion();
+    // R-35: el contenedor del aviso está SIEMPRE en `index.html`, fuera de `#app`.
+    const contenedorAvisoInactividad = document.querySelector<HTMLElement>('#aviso-inactividad');
     iniciarAplicacion(contenedorApp, {
       gestorSesion,
+      ...(contenedorAvisoInactividad
+        ? {
+            inactividad: {
+              reloj: relojDelSistema,
+              programador: programadorIntervaloReal,
+              fuente: crearFuenteActividadNavegador(document),
+              contenedorAviso: contenedorAvisoInactividad,
+              contarPendientes: async (perfilId: string) =>
+                (await crearAlmacenColaAsistenciaIndexedDB(window.indexedDB, perfilId).listar()).length,
+            },
+          }
+        : {}),
       hashUrl: window.location.hash,
       // `exactOptionalPropertyTypes`: omitir la clave, no copiar un valor que podría ser
       // `undefined` (mismo patrón que `postgrest.ts`/`almacenamiento.ts` con `obtenerTokenSesion`).

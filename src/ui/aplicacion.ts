@@ -74,6 +74,9 @@ import {
   listarTodosLosAlumnosParaExportacion,
 } from '../datos/alumnos.ts';
 import { crearRebote } from '../nucleo/rebote.ts';
+import { MENSAJE_SESION_CERRADA_POR_INACTIVIDAD, plazoInactividadMs } from '../dominio/inactividadSesion.ts';
+import { crearVigilanteInactividad, type FuenteActividad, type VigilanteInactividad } from '../nucleo/vigilanteInactividad.ts';
+import { montarAvisoInactividad } from './avisoInactividad.ts';
 import { crearAlmacenColaAsistenciaIndexedDB } from '../nucleo/colaAsistenciaOffline.ts';
 import { crearDetectorConexionNavegador } from '../nucleo/detectorConexion.ts';
 import {
@@ -181,6 +184,18 @@ export interface DependenciasAplicacion {
   readonly hashUrl: string;
   readonly appAdministrador?: DependenciasAppAdministrador;
   readonly appProfesor?: DependenciasAppProfesor;
+  /** R-35: cierre por inactividad. Sin esta dependencia, la aplicación no vigila la inactividad. */
+  readonly inactividad?: DependenciasInactividad;
+}
+
+export interface DependenciasInactividad {
+  readonly reloj: Reloj;
+  readonly programador: ProgramadorIntervalo;
+  readonly fuente: FuenteActividad;
+  /** Contenedor del aviso previo, fuera de `#app`. */
+  readonly contenedorAviso: HTMLElement;
+  /** Registros de asistencia sin enviar del profesor `perfilId` (cola offline de R-07). */
+  readonly contarPendientes?: (perfilId: string) => Promise<number>;
 }
 
 function tieneAppPropia(rol: Perfil['rol']): boolean {
@@ -943,6 +958,43 @@ export function iniciarAplicacion(contenedor: HTMLElement, deps: DependenciasApl
   }
 
   let modoSinSesion: 'login' | 'recuperar' = 'login';
+  let mensajeLogin: string | undefined;
+  let vigilante: { readonly perfilId: string; readonly controlador: VigilanteInactividad } | undefined;
+
+  function detenerVigilante(): void {
+    vigilante?.controlador.detener();
+    vigilante = undefined;
+  }
+
+  function vigilarInactividad(perfil: Perfil): void {
+    const inactividad = deps.inactividad;
+    const plazoMs = plazoInactividadMs(perfil.rol);
+    if (!inactividad || plazoMs === undefined || vigilante?.perfilId === perfil.id) {
+      return;
+    }
+    detenerVigilante();
+    const aviso = montarAvisoInactividad(inactividad.contenedorAviso, () => {
+      vigilante?.controlador.continuar();
+    });
+    const controlador = crearVigilanteInactividad({
+      plazoMs,
+      reloj: inactividad.reloj,
+      programador: inactividad.programador,
+      fuente: inactividad.fuente,
+      ...(inactividad.contarPendientes ? { contarPendientes: () => inactividad.contarPendientes?.(perfil.id) ?? Promise.resolve(0) } : {}),
+      mostrarAviso: (segundos, pendientes) => {
+        aviso.mostrar(segundos, pendientes);
+      },
+      ocultarAviso: () => {
+        aviso.ocultar();
+      },
+      alCaducar: () => {
+        mensajeLogin = MENSAJE_SESION_CERRADA_POR_INACTIVIDAD;
+        void deps.gestorSesion.cerrarSesion();
+      },
+    });
+    vigilante = { perfilId: perfil.id, controlador };
+  }
 
   function renderizar(estado: EstadoSesion): void {
     if (estado.tipo === 'restaurando') {
@@ -951,6 +1003,7 @@ export function iniciarAplicacion(contenedor: HTMLElement, deps: DependenciasApl
     }
 
     if (estado.tipo === 'sin_sesion') {
+      detenerVigilante();
       if (modoSinSesion === 'recuperar') {
         mostrarPantallaRecuperarContrasena(contenedor, {
           solicitarRecuperacion: (email) => deps.gestorSesion.solicitarRecuperacionContrasena(email),
@@ -962,6 +1015,7 @@ export function iniciarAplicacion(contenedor: HTMLElement, deps: DependenciasApl
         return;
       }
       mostrarPantallaLogin(contenedor, {
+        ...(mensajeLogin ? { mensajeInicial: mensajeLogin } : {}),
         iniciarSesion: (email, contrasena) => deps.gestorSesion.iniciarSesion(email, contrasena),
         irARecuperarContrasena: () => {
           modoSinSesion = 'recuperar';
@@ -972,6 +1026,8 @@ export function iniciarAplicacion(contenedor: HTMLElement, deps: DependenciasApl
     }
 
     const { perfil } = estado;
+    mensajeLogin = undefined;
+    vigilarInactividad(perfil);
     if (!tieneAppPropia(perfil.rol)) {
       mostrarPantallaSinAcceso(contenedor, perfil);
       return;

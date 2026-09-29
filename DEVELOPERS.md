@@ -326,6 +326,10 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
   - Sello de integridad (R-34): `dominio/selloIntegridad.ts` añade `sello` (SHA-256 sobre el JSON
     canónico) a los JSON de R-10/R-16 vía `sellarDocumento`; `verificarDocumentoSellado` lo
     comprueba (pantalla `#/verificar-exportacion`, solo `administrator`, sin red).
+  - Cierre por inactividad (R-35): `dominio/inactividadSesion.ts` (plazos: administrator 20 min,
+    teacher 60 min, aviso de 60 s) + `nucleo/vigilanteInactividad.ts` (reloj y programador
+    inyectados) + `ui/avisoInactividad.ts`; se activa pasando `inactividad` a `iniciarAplicacion`
+    (`main.ts` lo cablea; sin él no hay vigilancia). Cambiar un plazo es cambiar una constante.
   - `asignaturas.ts` (R-33, nuevo) — `listarAsignaturas`/`crearAsignatura`/`editarNombreAsignatura`/
     `desactivarAsignatura`/`reactivarAsignatura` sobre `postgrest.ts`, tabla `asignatura`
     (`db/020_catalogo_asignaturas.sql`, sin aplicar todavía). Mismo patrón exacto que

@@ -14,6 +14,8 @@ import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 export interface DependenciasPantallaLogin {
   iniciarSesion(email: string, contrasena: string): Promise<void>;
   irARecuperarContrasena(): void;
+  /** Aviso neutro previo al formulario (R-35: sesión cerrada por inactividad). */
+  readonly mensajeInicial?: string;
 }
 
 export function mostrarPantallaLogin(contenedor: HTMLElement, deps: DependenciasPantallaLogin): void {
@@ -25,6 +27,9 @@ export function mostrarPantallaLogin(contenedor: HTMLElement, deps: Dependencias
 
   const subtitulo = documento.createElement('p');
   subtitulo.textContent = 'Inicia sesión con tu email y contraseña.';
+
+  const avisoInicial = crearZonaMensaje(documento, 'status');
+  avisoInicial.textContent = deps.mensajeInicial ?? '';
 
   const formulario = documento.createElement('form');
 
@@ -62,5 +67,5 @@ export function mostrarPantallaLogin(contenedor: HTMLElement, deps: Dependencias
   });
 
   formulario.append(campoEmail.contenedor, campoContrasena.contenedor, botonEntrar);
-  contenedor.append(titulo, subtitulo, formulario, enlaceRecuperar, zonaError);
+  contenedor.append(titulo, subtitulo, avisoInicial, formulario, enlaceRecuperar, zonaError);
 }
