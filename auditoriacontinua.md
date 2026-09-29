@@ -76,6 +76,60 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-09-29
+
+**Alcance real de esta pasada — desde `9fb5f6e` (auditoría 2026-09-28):** `444889b` (R-33, catálogo de
+asignaturas y grupos, con `db/020_catalogo_asignaturas.sql` y 27 ficheros tocados), `e96c2ae` (corrección
+documental del campo de health check), cuatro commits de "cola vacía" del programador y `3cbd752` (el PM
+abre Oleada v17 con R-34 y R-35, solo roadmap). `git checkout develop && git pull origin develop`
+limpio. Es la primera pasada con código nuevo desde el 2026-09-25.
+
+**Cierre del término de comparación de ayer:** R-33 sigue sin tomarse el lunes por la mañana solo porque
+la rutina del auditor corre antes de la primera ventana del programador. El programador la tomó el mismo
+2026-09-28 (`444889b`), como predecía la cadencia documentada. Sin desviación que escalar.
+
+**R-33 contrastado contra lo decidido y contra el modelo (leído el SQL y el código, no el resumen):**
+- `020`: tabla `asignatura` con RLS habilitada, `revoke all ... from anon, authenticated, service_role`
+  explícito y solo `select, insert, update` a `authenticated`. **Sin `TRUNCATE` ni `DELETE`** para
+  `anon`/`authenticated`. Cuatro políticas (`teacher` lee solo `activo`; `administrator` lee, inserta y
+  actualiza), **ninguna para `student`**, sin política de `DELETE`. Sin RPC, mismo patrón que
+  `centro_estudios` y `cierre_centro`.
+- Sin columna nueva en `slot_horario` ni en `asistencia`, y sin clave foránea: el histórico y el snapshot
+  del slot no se tocan (no-retroactividad intacta). El catálogo solo contiene nombres de asignaturas; no
+  introduce ningún dato personal nuevo (alcance de §0.2 intacto).
+- `db/pruebas_rls.sql`: `asignatura` añadida a los tres barridos genéricos (`student`, `TRUNCATE`, `anon`),
+  más sección 8q específica (admin inserta/edita; teacher rechazado en INSERT/UPDATE, lee la activa y no
+  la inactiva). No se repite el patrón de los hallazgos #10 y #21 (tabla nueva fuera de los barridos).
+- `DECISIONES_TECNICAS.md`: fila nueva en la matriz rol × tabla × operación y fila de decisión del
+  2026-09-28 sobre la baja sin confirmación. `db/MODELO.md`, `db/APLICADAS.md` y `DEVELOPERS.md`
+  actualizados en el mismo commit (no se repite el patrón de #4, #5, #11, #24). `020` figura como
+  pendiente de aplicar; nada se ha aplicado a producción (T-25 sigue `BLOQUEADA`).
+- Código: `src/datos/asignaturas.ts` usa solo `ClientePostgrest`, sin `fetch` nuevo fuera de la capa de
+  datos. `puedeGestionarAsignaturas` es solo presentación; la protección real es la RLS. El combobox
+  acepta el texto heredado de un slot existente mientras no se edite, así que el catálogo no bloquea
+  guardar slots anteriores. Sin avatar ni ningún dato del alumno en los nuevos combobox.
+
+**Puntos de control permanentes:** sin cambios bajo `db/000`-`019` desde la pasada anterior (el diff
+solo añade `020`, `MODELO.md`, `APLICADAS.md` y `pruebas_rls.sql`), así que los invariantes de
+`asistencia` (triggers `BEFORE`/`AFTER UPDATE`, `asistencia_historial` append-only, sin INSERT/UPDATE
+directo), el rol `student` cerrado, el bucket de avatares, `persona_referencia` solo administrator y la
+superficie de columnas del `teacher` siguen como en la auditoría 2026-09-28. Runner: `--entorno=prod` más
+`PERMITIR_PROD=1` sigue exigido. Barrido de secretos: sin credenciales reales; solo `.env.ejemplo`
+versionado. `package.json` sin `dependencies`.
+
+**Calidad, verificada en ejecución:** `npm ci`, `typecheck`, `lint`, `npm test` (**1949 pruebas, 0
+fallidas**, +48 respecto a ayer, repartidas entre datos, dominio, combobox y pantalla nuevos) y
+`npm run build`, todo limpio. Las pruebas nuevas ejercitan comportamiento (duplicado acento-insensible,
+alta sobre la marcha, texto heredado, baja lógica) y no son triviales.
+
+**Nota (no es hallazgo):** el PM abre Oleada v17 (R-34 sello de integridad, R-35 cierre por
+inactividad). No hay código de ellas que auditar todavía. Se revisarán contra §0.2 y las reglas de
+secretos cuando lleguen.
+
+**Conclusión:** pasada limpia, sin hallazgo nuevo. R-33 se ha implementado de forma coherente con lo
+decidido. El único hallazgo `ABIERTO` (#8, artículo 9 en R-02) sigue igual, a la espera de la pregunta #16
+de §6 para el dueño.
+
 ### Auditoría 2026-09-28
 
 **Alcance real de esta pasada — un solo commit desde la anterior (`d21b9df`, 2026-09-27):**
