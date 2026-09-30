@@ -37,6 +37,11 @@
 
 ---
 
+### Sesión 2026-09-30 (rutina programada de programador) — cola vacía
+**Tarea(s):** ninguna (ninguna fila `PENDIENTE` en §1; R-34 y R-35 `COMPLETADA`)
+**Estado resultante:** sin cambios de estado
+Único hallazgo `ABIERTO` de `auditoriacontinua.md`: #8 (alta, RGPD art. 9), bloqueado en la pregunta #16 del dueño; no es P-XX tratable. Sin decisiones nuevas. Solo documentación: no se tocó `src/`, por lo que no se repitió la verificación pre-push. Sin tocar `master`.
+
 ### Sesión 2026-09-29 (rutina programada de programador) — R-35
 **Tarea(s):** R-35 (cierre de sesión por inactividad en dispositivos compartidos)
 **Estado resultante:** COMPLETADA

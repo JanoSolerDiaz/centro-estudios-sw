@@ -10,7 +10,7 @@
 
 **Hoja de ruta de referencia:** `HOJA_DE_RUTA.md` v1.0 (2026-08-25)
 **Modo de operación:** AUTONOMÍA TOTAL
-**Última actualización:** 2026-09-29 (rutina programada de programador: R-35 `COMPLETADA`; cola sin tareas `PENDIENTE`). Anterior: 2026-09-29 (R-34 `COMPLETADA`). 2026-09-28 (ciclo del PM: abre Oleada v17, R-34 y R-35 `PENDIENTE`, §1 y pregunta #19 de §6). Anterior: 2026-09-28 (rutina programada de programador, quinta pasada del día —
+**Última actualización:** 2026-09-30 (rutina programada de programador: cola vacía, sin trabajo de código). Anterior: 2026-09-29 (rutina programada de programador: R-35 `COMPLETADA`; cola sin tareas `PENDIENTE`). Anterior: 2026-09-29 (R-34 `COMPLETADA`). 2026-09-28 (ciclo del PM: abre Oleada v17, R-34 y R-35 `PENDIENTE`, §1 y pregunta #19 de §6). Anterior: 2026-09-28 (rutina programada de programador, quinta pasada del día —
 cola vacía, nada que hacer): protocolo primero — `git checkout develop && git pull origin develop`
 fast-forward limpio desde la pasada anterior de esta misma rutina (`102c58f`, sin commits entre
 medias — ni del dueño ni del PM ni del auditor: `git log 102c58f..HEAD --oneline` no trae nada antes
