@@ -76,6 +76,56 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-09-30
+
+**Alcance real de esta pasada — desde `3494092` (auditoría 2026-09-29):** `2f0707c` (R-34, sello de
+integridad SHA-256 en las exportaciones JSON y pantalla «Verificar exportación»), `ae28bcd` (R-35, cierre
+de sesión por inactividad con aviso previo) y `79aa826` (ciclo 36 del PM: sin oleada nueva). `git checkout
+develop && git pull origin develop` limpio. **Cero cambios bajo `db/`, `herramientas/`, `legal/`,
+`package.json`, `sw.js` ni `_headers`** (`git diff 3494092..HEAD --stat` sobre esas rutas, vacío): ambas
+tareas son solo cliente, sin migración.
+
+**R-34 contrastado (leído el código, no el resumen):** `dominio/selloIntegridad.ts` calcula SHA-256 con
+`crypto.subtle` nativo (sin librería, `dependencies` sigue vacío) sobre JSON canónico; la verificación
+trabaja sobre el texto ya leído en memoria, sin red. Alcance descrito con honestidad en el propio código
+y en el aviso al usuario (coherencia interna, no procedencia: la huella se muestra aparte). La pantalla
+de verificación se restringe a `administrator` (`puedeVerificarExportacion`), igual que las exportaciones
+que verifica. No añade ningún dato personal ni toca el esquema; el sello solo cubre datos que ya se
+exportaban. Fichero corrupto o sin sello devuelve `sin-sello`, no excepción.
+
+**R-35 contrastado:** plazos por rol como constantes de dominio (administrator 20 min, teacher 60 min,
+student sin plazo: rol cerrado, sin sesión útil), aviso previo de 60 s, reloj inyectado, reevaluación al
+volver la pestaña a primer plano y **antes** de contar un toque como actividad (una tablet dormida pasado
+el plazo cierra la sesión, no la reactiva). El cierre llama a `gestorSesion.cerrarSesion()` y el login
+muestra un mensaje neutro. El aviso informa de los registros sin enviar de la cola offline, que sigue
+particionada por `perfil.id` (corrección del hallazgo #13 intacta), así que se reenvían al volver a
+entrar el mismo profesor. Sin `fetch` nuevo; sin ningún dato nuevo en el aviso.
+
+**Puntos de control permanentes:** sin ningún cambio en `db/`, los invariantes de `asistencia` (triggers
+`BEFORE`/`AFTER UPDATE`, `asistencia_historial` append-only, sin INSERT/UPDATE/DELETE directos), rol
+`student` cerrado, bucket de avatares, `persona_referencia` solo administrator, superficie de columnas del
+`teacher`, RLS completa (sin tabla nueva), privilegios de tabla sin `TRUNCATE` y no-retroactividad siguen
+como en la pasada 2026-09-29. Runner: sin cambios, `--entorno=prod` más `PERMITIR_PROD=1` sigue exigido.
+Barrido de secretos: solo aparecen las menciones de «service_role»/token como advertencias en
+`.env.ejemplo`, `config.ejemplo.js` y documentación; ningún valor real, `.env`/`config.js` sin versionar.
+`package.json` sin `dependencies`; el único `fetch(` fuera de tests está en `eslint.config.js` (la regla
+que lo restringe a la capa de datos).
+
+**Calidad, verificada en ejecución:** `npm ci`, `typecheck`, `lint`, `npm test` (**1990 pruebas, 0
+fallidas**, +41 respecto a la pasada anterior) y `npm run build`, todo limpio. Las pruebas nuevas
+ejercitan comportamiento (huella estable ante reordenado de claves y distinta ante un dato cambiado,
+`sin-sello` ante entradas inválidas, transición activa/aviso/caducada, reloj que retrocede, toque tras el
+plazo, aviso con pendientes) y no son triviales.
+
+**Nota (no es hallazgo):** el PM constata que no hay tareas ejecutables para el programador y que el cuello
+de botella es la activación (migraciones `011`-`020` sin aplicar y T-25 `BLOQUEADA`), dependiente del
+dueño. Es coherente con lo decidido; sin desvío que escalar. `#8` sigue esperando la pregunta #16 de §6
+(`011_justificacion_ausencia.sql` mantiene `'enfermedad'`/`'cita_medica'` y la nota libre, todavía sin
+aplicar).
+
+**Conclusión:** pasada limpia, sin hallazgo nuevo. R-34 y R-35 son coherentes con §0.2 y con las reglas de
+secretos y stack. Único hallazgo `ABIERTO`: #8 (artículo 9 en R-02), sin cambios.
+
 ### Auditoría 2026-09-29
 
 **Alcance real de esta pasada — desde `9fb5f6e` (auditoría 2026-09-28):** `444889b` (R-33, catálogo de
