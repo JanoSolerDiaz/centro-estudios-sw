@@ -6264,3 +6264,18 @@ sin aplicar y T-25 bloqueada, más código latente aumenta el riesgo de integrac
 **Tareas autopropuestas (P-XX):** ninguna
 **Próximo paso:** el dueño aplica migraciones y responde #16 a #19 de §6; el siguiente ciclo de PM
 abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
+
+### Sesión 2026-09-30 (PM, ciclo 37)
+**Tarea(s):** Ciclo de Product Manager — gestión de roadmap, sin oleada nueva
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** N/A — solo documentación
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** no abrir Oleada v18; misma razón que el ciclo 36 (sin feedback, sin hallazgo nuevo, sin respuestas del dueño; el límite es la activación)
+**Hallazgos del auditor atendidos:** ninguno nuevo; #8 sigue ABIERTO (pregunta #16 de §6)
+**Hallazgos:** `FEEDBACK.md` sin entradas `nuevo`
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el dueño aplica migraciones y responde #16 a #19 de §6; abrir oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.

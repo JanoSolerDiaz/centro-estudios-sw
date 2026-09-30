@@ -8,22 +8,13 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-29 — trigésimo sexto ciclo del PM: **sin oleada nueva, a propósito.**
-Protocolo primero: `git checkout develop && git pull origin develop`. Estado comprobado: R-34 y R-35
-(Oleada v17) ya están en código; la cola del programador está vacía (§1 de `SEGUIMIENTO.md`);
-`FEEDBACK.md` sin entradas `nuevo`; `auditoriacontinua.md` (pasada de hoy, sin hallazgos nuevos desde
-el #24) sigue con **#8** como único ABIERTO, ya trasladado a la pregunta #16 de §6 (decisión del
-dueño).
-
-Por qué no se abre la Oleada v18: no hay feedback real, ni hallazgo, ni hueco comprobado que la
-justifique, y el cuello de botella ya no es el código sino la activación. Hay nueve migraciones
-escritas y sin aplicar (filas 13 a 23 de §3: `010` a `020`) y T-25 (paso a producción) sigue
-`BLOQUEADA`: ninguna de las 35 R-XX está en manos de un usuario real. Añadir más funcionalidad
-latente solo aumentaría el riesgo de integración del día que se apliquen. Lo que más valor aporta
-ahora al roadmap está fuera de este documento y es del dueño: aplicar migraciones, resolver las
-preguntas #16, #17, #18 y #19 de §6 y desbloquear T-25. Con el primer feedback real de un profesor
-tras una clase (`FEEDBACK.md`) se abrirá la siguiente oleada, priorizando lo que pidan sobre lo que
-imagine este documento. Nada se mueve a `ROADMAP_HISTORICO.md`: ninguna oleada está desplegada.
+**Última actualización:** 2026-09-30 — trigésimo séptimo ciclo del PM: **sin oleada nueva, a propósito.**
+Protocolo primero: `git checkout develop && git pull origin develop`. Desde el ciclo 36 solo hay una
+pasada del auditor (sin hallazgos nuevos; **#8** sigue como único ABIERTO, ya en la pregunta #16 de §6)
+y una rutina de programador con la cola vacía. `FEEDBACK.md` sin entradas `nuevo`; sin respuestas del
+dueño en §6. Se mantiene el razonamiento del ciclo 36: el cuello de botella es la activación (nueve
+migraciones sin aplicar, T-25 `BLOQUEADA`), no la falta de funcionalidad. Nada se mueve a
+`ROADMAP_HISTORICO.md`: ninguna oleada está desplegada.
 
 Sin ningún commit de código — sesión de producto, no de programador.
 
