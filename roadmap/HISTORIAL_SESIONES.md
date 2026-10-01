@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-01 (interactiva, decisiones del dueño)
+**Tarea(s):** registro de dos decisiones del dueño
+**Estado resultante:** R-02 `COMPLETADA`. T-25 gana una condición previa
+**Commits a `develop`:** el de este registro
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), ahora condicionada a la prueba local del dueño
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera, §1 R-02, §3 fila 12, §6 #16), esta entrada
+**Verificaciones pre-push:** ver el mensaje del commit (sin cambios de código)
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** del dueño, no técnicas: (1) pregunta #16 → opción (a), «dejarlo como está»; (2) «antes de pasar nada a producción quiero probarlo todo en local»
+**Hallazgos del auditor atendidos:** #8 queda respondido por el dueño; lo cierra el auditor en su próxima pasada
+**Hallazgos:** la opción (a) no cierra del todo el asunto legal: los textos de `legal/` y el inventario de `PRODUCCION_T25.md` siguen diciendo «cero dato de salud» y hay que corregirlos dentro de T-25
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** el dueño prueba la aplicación en local contra `dev` (se le deja arrancada en esta misma sesión). Lo que encuentre, a `FEEDBACK.md` o como incidencia. T-25 no se ejecuta hasta que dé esa prueba por buena
+
 ### Sesión 2026-10-01 (interactiva, cierre — verificación completa de `010`-`021`)
 **Tarea(s):** cierre de las filas 13-24 de §3, verificación de P-35
 **Estado resultante:** R-01, R-03, R-06, R-08, R-12, R-14, R-21, R-22, R-29 y R-33 `COMPLETADA`. R-02 `BLOQUEADA` solo por la pregunta #16 de §6. P-33, P-34 y P-35 cerradas
