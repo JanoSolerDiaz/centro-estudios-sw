@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-01 (interactiva, prueba local del dueño — continuación)
+**Tarea(s):** registro de P-37 y de la pregunta #20
+**Estado resultante:** P-36 funciona en uso real (el dueño entra y pasa lista en local). P-37 `PENDIENTE` para el agente programador
+**Commits a `develop`:** el de este registro (sin cambios de código)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio — sigue condicionada a la prueba local del dueño
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera, §5 P-37, §6 #20), esta entrada
+**Verificaciones pre-push:** las del gancho de pre-commit
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** del dueño: P-37 la hace el agente programador, no esta sesión
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:** (1) «Marcar salida» y «Justificar» siguen ocultos por el bloqueo temporal de P-30 (detalle en P-37). (2) La tarjeta «Extra» no tiene «Marcar salida» ni «Anular» (pregunta #20). (3) Observado en los pantallazos, sin registrar como tarea: en la card de pasar lista la foto del alumno queda superpuesta a sus iniciales y a su nombre, y la aplicación no tiene ninguna hoja de estilos (aspecto por defecto del navegador)
+**Tareas autopropuestas (P-XX):** P-37, registrada, sin implementar
+**Próximo paso:** el agente programador ataca P-37 (urgente, §0.3) antes que la cola. El dueño sigue con la prueba local
+
 ### Sesión 2026-10-01 (interactiva, prueba local del dueño — P-36)
 **Tarea(s):** P-36 (urgente)
 **Estado resultante:** P-36 `IMPLEMENTADA`, pendiente de que el dueño confirme que inicia sesión en local
