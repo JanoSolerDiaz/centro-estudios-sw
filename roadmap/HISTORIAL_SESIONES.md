@@ -6387,3 +6387,19 @@ abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
 **Hallazgos:** `FEEDBACK.md` sin entradas `nuevo`
 **Tareas autopropuestas (P-XX):** ninguna
 **Próximo paso:** el dueño aplica migraciones y responde #16 a #19 de §6; abrir oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
+
+---
+### Sesión 2026-10-01 (PM, ciclo 38)
+**Tarea(s):** Ciclo de Product Manager — gestión de roadmap, sin oleada nueva
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera), `roadmap/HISTORIAL_SESIONES.md`
+**Verificaciones pre-push:** N/A — solo documentación
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** no abrir Oleada v18. Pregunta #20 (tarjeta extra) sin respuesta: no se especifica R-XX hasta que el dueño decida
+**Hallazgos del auditor atendidos:** ninguno ABIERTO (#8 ASUMIDO)
+**Hallazgos:** `FEEDBACK.md` sin entradas `nuevo`
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** programador cierra P-37; dueño responde #20 y avanza T-25.

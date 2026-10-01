@@ -8,13 +8,16 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-09-30 — trigésimo séptimo ciclo del PM: **sin oleada nueva, a propósito.**
-Protocolo primero: `git checkout develop && git pull origin develop`. Desde el ciclo 36 solo hay una
-pasada del auditor (sin hallazgos nuevos; **#8** sigue como único ABIERTO, ya en la pregunta #16 de §6)
-y una rutina de programador con la cola vacía. `FEEDBACK.md` sin entradas `nuevo`; sin respuestas del
-dueño en §6. Se mantiene el razonamiento del ciclo 36: el cuello de botella es la activación (nueve
-migraciones sin aplicar, T-25 `BLOQUEADA`), no la falta de funcionalidad. Nada se mueve a
-`ROADMAP_HISTORICO.md`: ninguna oleada está desplegada.
+**Última actualización:** 2026-10-01 — trigésimo octavo ciclo del PM: **sin oleada nueva, a propósito.**
+Protocolo primero: `git checkout develop && git pull origin develop`. Desde el ciclo 37: migraciones
+aplicadas y `probar-rls` 238/0/0, hallazgo **#8** pasa a ASUMIDO (pregunta #16 opción a, R-02
+COMPLETADA), y la prueba local del dueño destapó P-33 a P-37 (urgentes, del programador; P-37 sigue
+pendiente) y la pregunta **#20** de §6 (tarjeta de alumno extra sin «Marcar salida»/«Anular»), todavía
+sin respuesta. Hallazgos del auditor ABIERTOS: ninguno. `FEEDBACK.md` sin entradas `nuevo`. No se
+especifica R-XX para #20: depende de una decisión del dueño y su valor por defecto es dejarlo como está;
+si responde que sí, la R-XX nace en el siguiente ciclo. El cuello de botella es cerrar P-37 y T-25
+(producción), no la falta de funcionalidad. Nada se mueve a `ROADMAP_HISTORICO.md`: ninguna oleada está
+desplegada en producción.
 
 Sin ningún commit de código — sesión de producto, no de programador.
 
