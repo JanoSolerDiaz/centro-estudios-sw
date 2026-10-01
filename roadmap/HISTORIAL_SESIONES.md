@@ -15,6 +15,20 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-01 (interactiva, cierre — verificación completa de `010`-`021`)
+**Tarea(s):** cierre de las filas 13-24 de §3, verificación de P-35
+**Estado resultante:** R-01, R-03, R-06, R-08, R-12, R-14, R-21, R-22, R-29 y R-33 `COMPLETADA`. R-02 `BLOQUEADA` solo por la pregunta #16 de §6. P-33, P-34 y P-35 cerradas
+**Commits a `develop`:** el de este cierre (solo registro)
+**Migraciones aplicadas:** ninguna nueva en esta parte; `021` confirmada en el ledger con `--estado` (hash `544736173579`, idéntico al disco). `dev` queda en `esquema_version()` = 21 y sin ninguna migración pendiente
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio — las diez migraciones `000`-`009` que lista siguen siendo las de su paso a producción; `010`-`021` se añadirán a esa propagación cuando T-25 se ejecute
+**Archivos creados/modificados:** `db/APLICADAS.md`, `roadmap/SEGUIMIENTO.md` (cabecera, §1, §3 filas 13-24, §5 P-35), esta entrada
+**Verificaciones pre-push:** ver el mensaje del commit (sin cambios de código)
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** ninguna nueva. R-02 no pasa a `COMPLETADA` pese a tener código y migración verificados: la pregunta #16 puede obligar a rehacerla
+**Hallazgos:** `npm run probar-rls` del 2026-10-01 tras `021`: 238 comprobaciones, 0 omitidas, 0 fallidas — la primera ejecución de la batería con todas sus secciones en verde y ninguna omitida
+**Tareas autopropuestas (P-XX):** ninguna nueva
+**Próximo paso:** el programador retoma la cola normal; la oleada v1 ya tiene esquema real en `dev`. Pendientes del dueño: pregunta #16 (bloquea R-02 y los textos legales de T-25), el resto de preguntas abiertas de §6 y T-25 (fila 12 de §3)
+
 ### Sesión 2026-10-01 (interactiva, continuación — verificación de `021`, P-34 y P-35)
 **Tarea(s):** P-33 (verificación), P-34 y P-35 (urgentes)
 **Estado resultante:** P-33 `VERIFICADA`; P-34 `IMPLEMENTADA`; P-35 `IMPLEMENTADA`, pendiente de verificación en ejecución. Las once R-XX siguen `BLOQUEADA` hasta una ejecución de `probar-rls` con 0 fallidas
