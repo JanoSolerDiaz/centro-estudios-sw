@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-01 (interactiva, prueba local del dueño — P-36)
+**Tarea(s):** P-36 (urgente)
+**Estado resultante:** P-36 `IMPLEMENTADA`, pendiente de que el dueño confirme que inicia sesión en local
+**Commits a `develop`:** el de P-36
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio — sigue condicionada a la prueba local del dueño
+**Archivos creados/modificados:** `src/datos/peticionHttp.ts`, `src/datos/autenticacion.ts`, `src/datos/postgrest.ts`, `src/datos/almacenamiento.ts`, `src/datos/erroresDominio.ts`, `src/datos/fetchGlobal.test.ts` (nuevo), `eslint.config.js`, `roadmap/SEGUIMIENTO.md` (cabecera, §5 P-36), `roadmap/DECISIONES_TECNICAS.md`, esta entrada
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ · build ✅
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** fila P-36 del 2026-10-01 en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:** primera ejecución de la aplicación en un navegador contra Supabase: ninguna petición salía a la red (`Illegal invocation`, oculto como «No se ha podido conectar»). Además, el `config.js` local que pide `DEVELOPERS.md` hacía fallar `npm run lint`. Las dos cosas, arregladas en P-36
+**Tareas autopropuestas (P-XX):** P-36, registrada e implementada con el visto bueno del dueño
+**Próximo paso:** el dueño recarga en local (Ctrl+Shift+R, por la caché del service worker) e inicia sesión con los usuarios de la semilla. Si entra, P-36 se cierra; si aparece otro fallo, se trata como incidencia propia. La prueba local sigue siendo condición previa de T-25
+
 ### Sesión 2026-10-01 (Programador, cola vacía; textos legales)
 **Tarea(s):** sin tarea en cola (solo T-25, `BLOQUEADA`); se refleja la decisión del dueño sobre la pregunta #16 en los textos
 **Estado resultante:** sin cambios de estado en §1

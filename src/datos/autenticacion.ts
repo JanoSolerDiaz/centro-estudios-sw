@@ -16,6 +16,7 @@
 
 import type { FetchSimulado } from './pruebas/dobleHttp.ts';
 import { leerCuerpoJson, errorDeRespuesta, esFalloDeRed, ErrorDeRed, ErrorDelServidor, NoAutenticado } from './erroresDominio.ts';
+import { fetchGlobal } from './peticionHttp.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
 import { relojDelSistema } from '../nucleo/reloj.ts';
 
@@ -83,7 +84,7 @@ async function peticionGoTrue(
     });
   } catch (error) {
     if (esFalloDeRed(error)) {
-      throw new ErrorDeRed();
+      throw new ErrorDeRed(undefined, { cause: error });
     }
     throw error;
   }
@@ -124,7 +125,7 @@ export function crearClienteAutenticacion(opcionesEntrada: OpcionesClienteAutent
   const opciones = {
     urlBase: opcionesEntrada.urlBase,
     claveAnonima: opcionesEntrada.claveAnonima,
-    fetchImpl: opcionesEntrada.fetchImpl ?? fetch,
+    fetchImpl: opcionesEntrada.fetchImpl ?? fetchGlobal,
   };
   const reloj = opcionesEntrada.reloj ?? relojDelSistema;
 

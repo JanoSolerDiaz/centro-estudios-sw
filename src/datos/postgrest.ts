@@ -24,7 +24,7 @@
 import type { FetchSimulado } from './pruebas/dobleHttp.ts';
 import { codificarValorFiltro, codificarListaFiltro } from './codificadorValores.ts';
 import { leerCuerpoJson, ErrorDelServidor } from './erroresDominio.ts';
-import { peticionAutenticada, type OpcionesAutenticacion } from './peticionHttp.ts';
+import { fetchGlobal, peticionAutenticada, type OpcionesAutenticacion } from './peticionHttp.ts';
 
 export type ValorFiltro = string | number | boolean;
 
@@ -262,7 +262,7 @@ export function crearClientePostgrest(opcionesEntrada: OpcionesClientePostgrest)
   const opciones: OpcionesAutenticacion = {
     urlBase: opcionesEntrada.urlBase,
     claveAnonima: opcionesEntrada.claveAnonima,
-    fetchImpl: opcionesEntrada.fetchImpl ?? fetch,
+    fetchImpl: opcionesEntrada.fetchImpl ?? fetchGlobal,
     // `exactOptionalPropertyTypes`: no se puede asignar `obtenerTokenSesion: undefined`
     // explícitamente a una propiedad opcional, así que se omite la clave por completo cuando no
     // hay función, en vez de copiar el valor (posiblemente `undefined`) tal cual.

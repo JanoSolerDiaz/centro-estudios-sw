@@ -25,7 +25,7 @@
 
 import type { FetchSimulado } from './pruebas/dobleHttp.ts';
 import { leerCuerpoJson, ErrorDelServidor } from './erroresDominio.ts';
-import { peticionAutenticada, type OpcionesAutenticacion } from './peticionHttp.ts';
+import { fetchGlobal, peticionAutenticada, type OpcionesAutenticacion } from './peticionHttp.ts';
 
 export interface ArchivoParaSubir {
   readonly datos: Blob | ArrayBuffer | Uint8Array;
@@ -74,7 +74,7 @@ export function crearClienteAlmacenamiento(opcionesEntrada: OpcionesClienteAlmac
   const opciones: OpcionesAutenticacion = {
     urlBase: opcionesEntrada.urlBase,
     claveAnonima: opcionesEntrada.claveAnonima,
-    fetchImpl: opcionesEntrada.fetchImpl ?? fetch,
+    fetchImpl: opcionesEntrada.fetchImpl ?? fetchGlobal,
     // Ver el mismo comentario en `postgrest.ts`: `exactOptionalPropertyTypes` exige omitir la
     // clave, no copiar un valor que podría ser `undefined`.
     ...(opcionesEntrada.obtenerTokenSesion !== undefined

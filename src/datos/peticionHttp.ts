@@ -12,6 +12,16 @@
 import type { FetchSimulado } from './pruebas/dobleHttp.ts';
 import { errorDeRespuesta, esFalloDeRed, ErrorDeRed } from './erroresDominio.ts';
 
+/** `fetch` del entorno, invocado siempre como función suelta (P-36). Es el valor por defecto de
+ * `fetchImpl` en los tres clientes (`autenticacion.ts`, `postgrest.ts`, `almacenamiento.ts`).
+ *
+ * No vale guardar `fetch` tal cual en un objeto de opciones: en un navegador, `fetch` exige que su
+ * `this` sea el objeto global, y llamarlo como `opciones.fetchImpl(...)` lanza `TypeError: Illegal
+ * invocation` sin llegar a la red — que `esFalloDeRed` traducía a "No se ha podido conectar". Node
+ * no lo exige, así que ningún test ni CLI lo vio hasta la primera prueba en un navegador real
+ * (2026-10-01). */
+export const fetchGlobal: FetchSimulado = (url, init) => fetch(url, init);
+
 export interface OpcionesAutenticacion {
   readonly urlBase: string;
   readonly claveAnonima: string;
@@ -70,7 +80,7 @@ export async function peticionAutenticada(
     });
   } catch (error) {
     if (esFalloDeRed(error)) {
-      throw new ErrorDeRed();
+      throw new ErrorDeRed(undefined, { cause: error });
     }
     throw error;
   }

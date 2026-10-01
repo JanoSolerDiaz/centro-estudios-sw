@@ -203,8 +203,11 @@ export default tseslint.config(
   // etiqueta `<script>` normal (sin módulos, sin `tsc`): asigna `window.__CONFIG__`, así que
   // necesita el global de navegador `window`, que `eslint.configs.recommended` no conoce por
   // defecto fuera de `src/` (que sí lo tiene vía los tipos de TypeScript, no vía ESLint).
+  // `config.js` (no commiteado) es la copia rellena de la plantilla y tiene la misma forma: sin él
+  // aquí, `npm run lint` —y con él el gancho de pre-commit— fallaba en cualquier máquina que
+  // siguiera `DEVELOPERS.md` y creara su `config.js` para probar en local (P-36, 2026-10-01).
   {
-    files: ['config.ejemplo.js'],
+    files: ['config.ejemplo.js', 'config.js'],
     languageOptions: {
       globals: { window: 'writable' },
     },

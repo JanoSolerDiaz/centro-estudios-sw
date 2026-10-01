@@ -47,8 +47,11 @@ export class ErrorDeValidacion extends Error {
 }
 
 export class ErrorDeRed extends Error {
-  constructor(mensaje = 'No se ha podido conectar. Comprueba tu conexión a internet.') {
-    super(mensaje);
+  /** `opciones.cause` lleva el error original de `fetch` (P-36): `esFalloDeRed` acepta cualquier
+   * `TypeError`, así que sin él un error de programación —p. ej. `Illegal invocation`— quedaba
+   * oculto tras el mensaje de "comprueba tu conexión". */
+  constructor(mensaje = 'No se ha podido conectar. Comprueba tu conexión a internet.', opciones?: ErrorOptions) {
+    super(mensaje, opciones);
     this.name = 'ErrorDeRed';
   }
 }
