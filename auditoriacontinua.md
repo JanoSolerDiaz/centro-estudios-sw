@@ -76,6 +76,34 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-01
+
+**Alcance real de esta pasada — desde `10a9489` (auditoría 2026-09-30):** solo `dfe9f48` (rutina del
+programador, cola vacía) y `2506ff6` (ciclo 37 del PM, sin oleada nueva). `git checkout develop && git
+pull origin develop` limpio. **Cero cambios bajo `db/`, `herramientas/`, `src/`, `legal/` ni
+`package.json`** (`git diff 10a9489..HEAD --stat` sobre esas rutas, vacío): los tres ficheros tocados son
+`roadmap/HISTORIAL_SESIONES.md`, `ROADMAP_PRODUCTO.md` y `SEGUIMIENTO.md`, solo texto de estado.
+
+**Puntos de control permanentes:** al no haber cambio de código ni de SQL, los invariantes de
+`asistencia` (escritura solo por RPC, triggers `BEFORE`/`AFTER UPDATE`, `asistencia_historial`
+append-only), rol `student` cerrado, bucket de avatares, `persona_referencia`, superficie de columnas del
+`teacher`, RLS completa, privilegios de tabla (sin `TRUNCATE`; `grep` de `grant` en `db/*.sql` sin
+concesiones fuera de patrón) y no-retroactividad siguen exactamente como en la pasada 2026-09-30. Runner
+sin cambios (`PERMITIR_PROD` sigue exigido). Barrido de secretos (patrones de JWT y de token `sbp_`) sin
+coincidencias; `package.json` sin `dependencies`.
+
+**Calidad, verificada en ejecución:** `npm ci`, `typecheck`, `lint`, `npm test` (**1990 pruebas, 0
+fallidas**, igual que ayer) y `npm run build`, todo limpio; el árbol de trabajo queda sin cambios tras el
+build.
+
+**Coherencia:** el ciclo 37 del PM se mantiene en «sin oleada nueva» con la misma razón que el 36 (el
+cuello de botella es la activación: migraciones `010`-`020` sin aplicar y T-25 `BLOQUEADA`, ambas en
+manos del dueño). Es coherente con lo decidido y no hay desvío que escalar. Sin respuestas del dueño en
+§6; `#8` sigue esperando la pregunta #16 (`011_justificacion_ausencia.sql`, todavía sin aplicar).
+
+**Conclusión:** pasada limpia, sin hallazgo nuevo y sin cambios de estado en el registro. Único hallazgo
+`ABIERTO`: #8 (artículo 9 en R-02), sin cambios.
+
 ### Auditoría 2026-09-30
 
 **Alcance real de esta pasada — desde `3494092` (auditoría 2026-09-29):** `2f0707c` (R-34, sello de
