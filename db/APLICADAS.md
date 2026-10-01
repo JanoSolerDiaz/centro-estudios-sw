@@ -27,6 +27,17 @@
 | 007 | `007_rpc_buscar_alumnos.sql` | 2026-09-02 | | `792e0a398c55` | T-20: RPC `buscar_alumnos_activos(p_texto, p_limite)`, `SECURITY DEFINER`, tipo de retorno explícito que hace estructuralmente imposible devolver contacto, personas de referencia o avatar. Aplicada por el dueño con `npm run migrate` (fila 9 de §3 de `SEGUIMIENTO.md`, **RESUELTA 2026-09-02**). **Verificada:** `npm run migrate -- --estado` la lista con el hash de arriba (el ledger llegó a `esquema_version()` = `8` porque el dueño aplicó `007` y `008` en la misma pasada); `npm run probar-rls` confirma la sección 8b entera en `[OK]` (cinco comprobaciones, incluidas "sin contacto ni personas de referencia" y "un `student` no puede llamarla") |
 | 008 | `008_rpc_actualizar_asistencia.sql` | 2026-09-02 | | `d7e1a1f47001` | T-21: RPC `actualizar_asistencia(...)`, `SECURITY DEFINER`, única vía de modificación de un registro de asistencia ya existente (cambiar alumno, ajustar hora, cambiar el slot atribuido, anular con motivo, editar la nota); reutiliza `aplicar_limite_tasa()` de `005`. Aplicada por el dueño con `npm run migrate` (fila 10 de §3 de `SEGUIMIENTO.md`, **RESUELTA 2026-09-02**). **Verificada:** `esquema_version()` = `8`; `npm run probar-rls` — 89 comprobaciones, 0 omitidas, 0 fallidas, sección 8c completa (edición propia/ajena, ventana de 7 días, anular exige motivo, dos modificaciones dejan dos filas de historial, cambio de alumno/slot con sus rechazos) y sección 5 ampliada con `UPDATE`/`DELETE` directo denegados |
 | 009 | `009_administracion_usuarios.sql` | **aplicada** ≤ 2026-09-03 (fecha exacta no registrada; verificada el 2026-09-04) | | `0d996c48420d` | T-24: columna `perfil.actualizado_por` (la fija el trigger, nunca el cliente) y trigger `perfil_before_update`, que sustituye a `perfil_tocar_actualizado_en` del bootstrap y aborta un `UPDATE` que dejaría al sistema sin ningún `administrator` activo. Aplicada por el dueño con `npm run migrate` (fila 11 de §3 de `SEGUIMIENTO.md`, **RESUELTA 2026-09-04**). **Verificada el 2026-09-04 con `npm run migrate -- --estado`:** el ledger de `dev` trae la fila `009 009_administracion_usuarios` con hash `0d996c48420d06a528a34841eb10735bb678c8733870f986e3d3f8bf0e4bd882`, idéntico al SHA-256 del fichero en disco. **El instante exacto de aplicación no es recuperable**: `esquema_migracion` no lo guarda, y esta fila llega dos días tarde porque nadie la anotó en su momento. La prueba de que ya estaba aplicada el 2026-09-03 es la ejecución de `npm run probar-rls` de ese día (105 comprobaciones, 0 omitidas, 0 fallidas): las dos comprobaciones de la sección 8e sobre `perfil_before_update` exigen `%último administrator%` en `sqlerrm` y habrían fallado si el trigger no existiera. Ver la entrada del 2026-09-04 en `HISTORIAL_SESIONES.md` |
+| 010 | `010_registro_ausencias.sql` | 2026-10-01 | | `be97ac63a703` | R-01: `'ausente'` en el `CHECK` de `asistencia.estado`, índice de duplicado `asistencia_uq_alumno_slot_dia_activa` (sustituye al de `005`) y RPC `registrar_ausencia`. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Sección 8g de `probar-rls` **sin verificar en ejecución todavía**: omitida en cascada por P-33 |
+| 011 | `011_justificacion_ausencia.sql` | 2026-10-01 | | `8ead5eb81568` | R-02: `asistencia.motivo_justificacion`/`nota_justificacion`, trigger de historial y `actualizar_asistencia` ampliados. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. ⚠️ **Aplicada sin respuesta a la pregunta #16 de §6** (hallazgo #8 de auditoría: `enfermedad`/`cita_medica` son dato de salud, art. 9 RGPD). Ya es inmutable: si el dueño decide reformular o retirar el campo, irá en una migración nueva. Sección 8h: dos comprobaciones `[OK]`, el resto omitidas en cascada por P-33 |
+| 012 | `012_registro_salida.sql` | 2026-10-01 | | `3c2f2b8eeb60` | R-03: `asistencia.ocurrido_en_salida` y `actualizar_asistencia` con marcar/ajustar salida. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Sección 8i: dos comprobaciones `[OK]`, el resto omitidas en cascada por P-33 |
+| 013 | `013_excepcion_slot.sql` | 2026-10-01 | | `0c7e06d97cdf` | R-06: tabla `excepcion_slot`, política nueva `slot_horario_teacher_leer_sustituciones`, RPC `declarar_excepcion_slot`/`desactivar_excepcion_slot` y `registrar_asistencia` ampliada. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. ⚠️ **Aplicada CON un bug**, destapado por `npm run probar-rls` el mismo día: su política sobre `slot_horario` y la de `excepcion_slot` se consultan mutuamente (`infinite recursion detected in policy for relation "slot_horario"`), lo que tumba toda lectura de `slot_horario` con cualquier rol. Inmutable tal cual; el arreglo es la `021` (P-33) |
+| 014 | `014_calendario_cierres.sql` | 2026-10-01 | | `5bb66585f661` | R-12: tabla `cierre_centro` con sus políticas. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Sección 8j de `probar-rls` completa en `[OK]` el 2026-10-01 |
+| 015 | `015_aviso_cancelacion_slot.sql` | 2026-10-01 | | `7d63f474c80d` | R-14: columnas `aviso_familias_quien`/`aviso_familias_en` en `excepcion_slot` y RPC `registrar_aviso_cancelacion_slot`. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Sección 8l omitida en cascada por P-33 |
+| 016 | `016_resolver_profesor_por_email.sql` | 2026-10-01 | | `cc3aa1a9d2bb` | R-08: RPC `resolver_profesor_por_email`. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Su sección de `probar-rls` completa en `[OK]` el 2026-10-01 |
+| 017 | `017_pausa_alumno.sql` | 2026-10-01 | | `78b1b65c156b` | R-21: tabla `pausa_alumno` y RPC `declarar_`/`cancelar_`/`acortar_pausa_alumno`. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Su política de `teacher` lee `slot_horario` y cae en la recursión de `013` (P-33); sección 8n omitida en cascada |
+| 018 | `018_baja_profesor.sql` | 2026-10-01 | | `f35b2ddf4cf9` | R-22: tabla `baja_profesor`, columna `excepcion_slot.baja_profesor_id` y RPC `declarar_`/`cancelar_`/`acortar_baja_profesor`. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Sección 8o omitida en cascada por P-33 |
+| 019 | `019_aviso_ausencia_profesor.sql` | 2026-10-01 | | `d06d913a761a` | R-29: tabla `aviso_ausencia_profesor` y RPC `avisar_ausencia_profesor`/`marcar_aviso_ausencia_atendido`. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Sección 8p omitida en cascada por P-33 |
+| 020 | `020_catalogo_asignaturas.sql` | 2026-10-01 | | `f823a057af6f` | R-33: tabla `asignatura` con sus políticas. Aplicada por el dueño con `npm run migrate` el 2026-10-01, en la misma pasada que `010`-`020` (filas 13-23 de §3 de `SEGUIMIENTO.md`). **Verificada en el ledger** con `npm run migrate -- --estado`: hash completo idéntico al SHA-256 del fichero en disco. Barridos de `student`/`anon`/`TRUNCATE` en `[OK]`; la sección 8q no llegó a verse (la salida del 2026-10-01 llegó cortada) |
 
 ---
 
@@ -70,202 +81,19 @@ Lo que **no** cubren: que el valor de esta tabla corresponda al del ledger remot
 > que el agente tenga que fabricar un hash de una migración que no está aplicada. Se mueve a la
 > tabla de arriba, con su hash real, en cuanto el dueño confirme (§3 de `SEGUIMIENTO.md`).
 
-**`010_registro_ausencias.sql`** (R-01, "registro explícito de ausencias") — escrita y empujada a
-`develop` el 2026-09-04, todavía sin aplicar. Añade `'ausente'` al `CHECK` de `asistencia.estado`,
-sustituye el índice de duplicado `asistencia_uq_alumno_slot_dia_valida` (`005`, inmutable, no se
-edita) por uno más amplio (`asistencia_uq_alumno_slot_dia_activa`, cubre también `'ausente'`) y añade
-la RPC `registrar_ausencia(...)`, `SECURITY DEFINER`. Qué debe ver el dueño al terminar: `git pull` +
-`npm run migrate` en local, comprobar que `esquema_version()` devuelve `10`, y ejecutar también
-`npm run probar-rls` (nueva sección 8g de `db/pruebas_rls.sql`: alta de ausencia por `teacher`,
-duplicado alumno+slot+día contra la nueva restricción, `student` sin acceso). Fila 13 de §3 de
-`SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `010` es posterior y no forma parte
-de las diez migraciones de su paso a producción.
+**`021_arreglo_recursion_excepcion_slot.sql`** (P-33, arreglo urgente de `013`) — escrita y empujada a
+`develop` el 2026-10-01, todavía sin aplicar. Rompe el ciclo de políticas `slot_horario` ↔
+`excepcion_slot` que dejó `013`: función nueva `es_sustituto_activo_de_slot(uuid)` (`SECURITY
+DEFINER`, `stable`, `search_path` fijado) y `slot_horario_teacher_leer_sustituciones` borrada y
+recreada con el mismo nombre y la misma semántica, llamando a la función en vez de leer
+`excepcion_slot`. No toca ninguna otra política, tabla ni RPC. Qué debe ver el dueño al terminar: `git
+pull` + `npm run migrate` en local (solo aplica `021`), comprobar que `esquema_version()` devuelve
+`21`, y ejecutar `npm run probar-rls`: ninguna línea `infinite recursion`, la sección 4 crea su slot
+de prueba y las secciones 8g-8q dejan de salir omitidas en cascada. Fila 24 de §3 de
+`SEGUIMIENTO.md`.
 
-**`011_justificacion_ausencia.sql`** (R-02, "justificación de una ausencia") — escrita y empujada a
-`develop` el 2026-09-04, todavía sin aplicar. Añade dos columnas a `asistencia`/`asistencia_historial`
-(`motivo_justificacion`, lista corta cerrada con `CHECK`; `nota_justificacion`, texto libre), sustituye
-el trigger de copia a historial (`asistencia_copiar_a_historial()`, `001`, inmutable, no se edita ese
-fichero) para que incluya las dos columnas nuevas, y sustituye `actualizar_asistencia` (`008`,
-inmutable) por una versión con tres parámetros nuevos (`p_justificar`, `p_motivo_justificacion`,
-`p_nota_justificacion`) — `drop function` + `create function` con la firma completa, no una segunda
-sobrecarga. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local, comprobar que
-`esquema_version()` devuelve `11`, y ejecutar también `npm run probar-rls` (nueva sección 8h de
-`db/pruebas_rls.sql`: justificar dentro de la ventana de edición del profesor, fuera de la ventana
-rechazado para `teacher` y aceptado para `administrator`, motivo fuera de la lista cerrada rechazado,
-justificar un registro que no está ausente rechazado). Fila 14 de §3 de `SEGUIMIENTO.md`. T-25
-(BLOQUEADA, ver fila 12) queda inafectada: `011` es posterior y no forma parte de las diez migraciones
-de su paso a producción.
-
-**`012_registro_salida.sql`** (R-03, "registro de salida y cómputo de horas reales") — escrita y
-empujada a `develop` el 2026-09-04, todavía sin aplicar. Añade la columna `ocurrido_en_salida` a
-`asistencia`/`asistencia_historial` (`CHECK`: nula, o posterior a `ocurrido_en`), sustituye el trigger
-de copia a historial (`asistencia_copiar_a_historial()`, `001`, inmutable, no se edita ese fichero)
-para que incluya la columna nueva, y sustituye `actualizar_asistencia` (`011`, inmutable) por una
-versión con dos parámetros nuevos (`p_marcar_salida`, con la hora real del servidor vía
-`clock_timestamp()`; `p_ocurrido_en_salida`, para ajustar una salida ya marcada) — `drop function` +
-`create function` con la firma completa, no una segunda sobrecarga. Qué debe ver el dueño al
-terminar: `git pull` + `npm run migrate` en local, comprobar que `esquema_version()` devuelve `12`, y
-ejecutar también `npm run probar-rls` (nueva sección 8i de `db/pruebas_rls.sql`: marcar salida dentro
-de la ventana del profesor, ajustar una salida ya marcada, marcar dos veces rechazado, ajustar a una
-hora anterior o igual a la entrada rechazado, marcar y ajustar combinados en la misma llamada
-rechazado, ajustar una salida no marcada rechazado, marcar salida de una ausencia rechazado, fuera de
-la ventana rechazado para `teacher` y aceptado para `administrator`). Fila 15 de §3 de
-`SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `012` es posterior y no forma parte
-de las diez migraciones de su paso a producción.
-
-**`013_excepcion_slot.sql`** (R-06, "excepción puntual de un slot: sustitución o cancelación") —
-escrita y empujada a `develop` el 2026-09-07, todavía sin aplicar. Tabla nueva `excepcion_slot`
-(`slot_id`, `fecha`, `tipo` sustitucion/cancelacion, `profesor_sustituto_id`, `motivo`, `activo`), con
-sus propias políticas RLS en el mismo fichero (`administrator` lee todas; `teacher` solo las activas
-que le afectan, como titular o como sustituto) — sin ningún GRANT de INSERT/UPDATE a `authenticated`:
-toda escritura pasa por `declarar_excepcion_slot()`/`desactivar_excepcion_slot()` (`SECURITY
-DEFINER`), que comprueban de forma atómica que el slot no tenga ya ningún registro de asistencia esa
-fecha antes de escribir. `slot_horario` (`003`, inmutable) gana una política nueva
-(`slot_horario_teacher_leer_sustituciones`) para que el sustituto pueda leer el slot ajeno que cubre.
-`registrar_asistencia` (`005`, inmutable) se sustituye con `create or replace` —MISMA firma exacta,
-sin parámetros nuevos— para que una cancelación bloquee a cualquiera y una sustitución permita al
-profesor sustituto registrar en el slot ajeno. `registrar_ausencia` (`010`, todavía sin aplicar) se
-edita directamente en el mismo commit con la misma comprobación —ver la nota de cabecera de
-`010_registro_ausencias.sql` y la entrada de R-06 en `DECISIONES_TECNICAS.md` sobre por qué editarla
-es correcto mientras siga sin aplicar—. Qué debe ver el dueño al terminar: `git pull` + `npm run
-migrate` en local (aplica `010` y `013` en la misma pasada, en ese orden — no depende de `011`/`012`,
-pero el runner va siempre en orden numérico), comprobar que `esquema_version()` devuelve `13` (o más,
-si `011`/`012` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8k de
-`db/pruebas_rls.sql`: administrator declara sustitución/cancelación, teacher/student rechazados,
-fecha que no coincide con el día de la semana rechazada, cancelación sin motivo rechazada, retroactiva
-sobre un slot con registros rechazada, cancelación bloquea registrar_asistencia/registrar_ausencia a
-cualquiera, el titular no registra el día que le sustituyen, el sustituto SÍ registra y SÍ lee el slot
-ajeno, desactivar rechazada con registros y permitida sin ellos; más la tabla añadida a los barridos
-obligatorios de `student`, sección 6, y `anon`, sección 8f). Fila 17 de §3 de `SEGUIMIENTO.md`. T-25
-(BLOQUEADA, ver fila 12) queda inafectada: `013` es posterior y no forma parte de las diez migraciones
-de su paso a producción.
-
-**`014_calendario_cierres.sql`** (R-12, "calendario de cierres del centro: festivos y vacaciones") —
-escrita y empujada a `develop` el 2026-09-07, todavía sin aplicar. Tabla nueva `cierre_centro`
-(`fecha_inicio`, `fecha_fin`, `motivo`, `activo`), con sus propias políticas RLS en el mismo fichero
-(`administrator` gestiona; `teacher` solo lee los cierres activos; ninguna política para `student`).
-Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local, comprobar que
-`esquema_version()` devuelve `14`, y ejecutar también `npm run probar-rls` (nueva sección 8j de
-`db/pruebas_rls.sql`: alta y edición por `administrator`, rechazadas para `teacher`, el `teacher` lee
-un cierre activo pero no uno inactivo; más las dos tablas añadidas a los barridos obligatorios de
-`student`, sección 6, y `anon`, sección 8f). Fila 16 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver
-fila 12) queda inafectada: `014` es posterior y no forma parte de las diez migraciones de su paso a
-producción.
-
-**`015_aviso_cancelacion_slot.sql`** (R-14, "aviso de clase cancelada a las familias") — escrita y
-empujada a `develop` el 2026-09-08, todavía sin aplicar. No crea ninguna tabla: amplía `excepcion_slot`
-(`013`, también sin aplicar) con dos columnas, `aviso_familias_quien`/`aviso_familias_en` (una sola
-anotación por excepción, nunca una por alumno — requisito 3), con dos `CHECK` nuevos (solo sobre una
-cancelación; los dos campos siempre juntos, nunca uno sin el otro). Única vía de escritura:
-`registrar_aviso_cancelacion_slot()` (`SECURITY DEFINER`, `administrator` únicamente, mismo patrón que
-`declarar_excepcion_slot()`/`desactivar_excepcion_slot()` de `013`) — rechaza un `quien` vacío, una
-excepción inexistente o desactivada, y una excepción de tipo `sustitucion` (requisito 4: no aplica).
-Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local (aplica `013` y `015` en la
-misma pasada, en ese orden — el runner va siempre en orden numérico), comprobar que
-`esquema_version()` devuelve `15` (o más, si `011`/`012` ya se resolvieron), y ejecutar también `npm
-run probar-rls` (nueva sección 8l de `db/pruebas_rls.sql`: administrator anota el aviso sobre una
-cancelación propia, teacher/student rechazados, quien vacío rechazado, y una sustitución rechazada por
-no admitir aviso). Fila 18 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada:
-`015` es posterior y no forma parte de las diez migraciones de su paso a producción.
-
-**`016_resolver_profesor_por_email.sql`** (R-08, "importación masiva de alumnos y horarios") —
-escrita y empujada a `develop` el 2026-09-08, todavía sin aplicar. La spec de R-08 declara
-`Migración: No`, pero el requisito 3 ("horario... profesor por email de una cuenta que ya existe")
-resultó depender de una comprobación real de esquema: `perfil` no guarda el email (vive en
-`auth.users`) y ninguna vista ni columna lo expone a `authenticated` — mismo patrón que T-24 ya
-detectó antes de esta tarea ("comprobar la dependencia real antes de dar la spec de 'Migración: No'
-por buena"). No crea ninguna tabla ni columna: una única función nueva,
-`resolver_profesor_por_email(p_email)` (`SECURITY DEFINER`, `administrator` únicamente, mismo patrón
-que `registrar_intento_fallido()` de `002` para leer `auth.users.email` de forma segura), que
-devuelve como mucho una fila (id + nombre) del profesor activo con ese email, o ninguna si no existe,
-no es `teacher`, o está inactivo. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate`
-en local, comprobar que `esquema_version()` devuelve `16` (o más, si `011`/`012` ya se resolvieron), y
-ejecutar también `npm run probar-rls` (nueva sección: administrator resuelve el email de un teacher
-activo, teacher/student rechazados, un email sin cuenta o de un administrator/teacher inactivo no
-devuelve ninguna fila). Fila 19 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda
-inafectada: `016` es posterior y no forma parte de las diez migraciones de su paso a producción.
-
-**`017_pausa_alumno.sql`** (R-21, "pausa programada de un alumno") — escrita y empujada a `develop`
-el 2026-09-15, todavía sin aplicar. Tabla nueva `pausa_alumno` (RLS y políticas en el mismo fichero,
-sin precedente que aplazarlas) más tres RPC `SECURITY DEFINER` exclusivas de `administrator`:
-`declarar_pausa_alumno` (rechaza un rango que se solape con un registro de asistencia ya existente
-del alumno, requisito 4), `cancelar_pausa_alumno` (solo si todavía no ha empezado) y
-`acortar_pausa_alumno` (solo sobre una pausa en curso, adelantando su fin). No sustituye ninguna RPC
-existente: a diferencia de R-06, `registrar_asistencia`/`registrar_ausencia` no cambian — la pausa
-actúa solo como filtro de cliente sobre "quién se ofrece como pendiente" (decisión razonada, ver
-`DECISIONES_TECNICAS.md`). Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en
-local, comprobar que `esquema_version()` devuelve `17` (o más, si `011`/`012` ya se resolvieron), y
-ejecutar también `npm run probar-rls` (nueva sección 8n: administrator declara/cancela/acorta una
-pausa, teacher/student rechazados en las tres RPC, rango invertido rechazado, solape con un registro
-de asistencia existente rechazado, cancelar una pausa ya empezada rechazado, acortar una que todavía
-no ha empezado o que ya terminó rechazado, teacher lee las pausas activas de sus propios alumnos y no
-las de otro profesor; más `pausa_alumno` añadida a los barridos obligatorios de `student` —sección
-6— y de `anon` —sección 8f/TRUNCATE). Fila 20 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila
-12) queda inafectada: `017` es posterior y no forma parte de las diez migraciones de su paso a
-producción.
-
-**`018_baja_profesor.sql`** (R-22, "baja programada de un profesor: excepción en bloque para varios
-días") — escrita y empujada a `develop` el 2026-09-16, todavía sin aplicar. Tabla nueva
-`baja_profesor` (RLS y políticas en el mismo fichero, exclusiva de lectura/escritura de
-`administrator` — a diferencia de `excepcion_slot`/`pausa_alumno`, sin ninguna política de `teacher`:
-ve el EFECTO de la baja, no la baja en sí) más columna nueva `excepcion_slot.baja_profesor_id`
-(añadida por `ALTER TABLE`, no editando `013`: ver el razonamiento completo en la cabecera del propio
-fichero) y tres RPC `SECURITY DEFINER` exclusivas de `administrator`: `declarar_baja_profesor`
-(calcula las combinaciones slot×fecha del rango y reutiliza `declarar_excepcion_slot` de R-06 tal
-cual para cada una que no tenga ya asistencia o excepción activa ese día, devolviendo una fila por
-combinación creada o excluida), `cancelar_baja_profesor` (solo si todavía no ha empezado, anula en
-bloque las excepciones que generó) y `acortar_baja_profesor` (solo sobre una baja en curso, anula las
-excepciones de los días que quedan fuera del nuevo rango). Depende de `013_excepcion_slot.sql`
-(también sin aplicar todavía — R-06 sigue `BLOQUEADA`): el runner aplica siempre en orden numérico,
-así que `013` entrará antes en la misma invocación. Qué debe ver el dueño al terminar: `git pull` +
-`npm run migrate` en local, comprobar que `esquema_version()` devuelve `18` (o más, si `010`-`012`/
-`014`-`017` ya se resolvieron), y ejecutar también `npm run probar-rls` (nueva sección 8o:
-administrator declara una baja de cancelación y otra de sustitución, teacher/student rechazados en
-las tres RPC, tipo inválido/sustituto igual al titular/motivo en sustitución rechazados, un día con
-asistencia ya registrada queda excluido sin bloquear el resto, cancelar una baja ya empezada
-rechazado, acortar una que todavía no ha empezado o que ya terminó rechazado, cancelar/acortar
-desactivan en bloque las excepciones generadas, administrator lee `baja_profesor` y teacher no).
-Fila 21 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `018` es posterior
-y no forma parte de las diez migraciones de su paso a producción.
-
-**`019_aviso_ausencia_profesor.sql`** (R-29, "el profesor avisa de que falta un día, sin salir de la
-aplicación") — escrita y empujada a `develop` el 2026-09-23, todavía sin aplicar. Tabla nueva
-`aviso_ausencia_profesor` (RLS y políticas en el mismo fichero, sin precedente que aplazarlas):
-`teacher` inserta y lee solo sus propios avisos, `administrator` lee todos, sin ninguna política de
-`student`. Dos RPC `SECURITY DEFINER`: `avisar_ausencia_profesor` (`teacher` únicamente, sobre su
-propio slot; rechaza una fecha que no coincida con el día de la semana del slot, un slot no vigente
-esa fecha, una sesión pasada o de hoy ya en curso, y un segundo aviso `pendiente` de la MISMA sesión
-—mismo profesor/fecha/tramo horario, no el mismo `slot_id`— mientras el primero siga sin atender) y
-`marcar_aviso_ausencia_atendido` (`administrator` únicamente, sin más acción asociada). Puramente
-informativo: no sustituye a R-06 ni crea/modifica ningún `slot_horario`/`excepcion_slot` por sí
-mismo. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local, comprobar que
-`esquema_version()` devuelve `19` (o más, si alguna migración anterior ya se resolvió), y ejecutar
-también `npm run probar-rls` (nueva sección 8p: teacher avisa de una sesión futura propia,
-administrator/student rechazados en `avisar_ausencia_profesor`, slot ajeno rechazado, fecha que no
-coincide con el día de la semana rechazada, motivo solo espacios rechazado, sesión pasada y sesión de
-hoy ya en curso rechazadas, un segundo aviso de la misma sesión con OTRO alumno mientras el primero
-sigue pendiente rechazado y permitido de nuevo una vez atendido, teacher/student rechazados en
-`marcar_aviso_ausencia_atendido`, administrator marca atendido y un segundo intento rechazado, lectura
-aislada entre profesores y administrator ve todos; más `aviso_ausencia_profesor` añadida a los
-barridos obligatorios de `student` —sección 6— y de `anon`/TRUNCATE —sección 8—). Fila nueva de §3 de
-`SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda inafectada: `019` es posterior y no forma parte
-de las diez migraciones de su paso a producción.
-
-**`020_catalogo_asignaturas.sql`** (R-33, "catálogo de asignaturas y grupos") — escrita y empujada a
-`develop` el 2026-09-28, todavía sin aplicar. Tabla nueva `asignatura` (RLS y políticas en el mismo
-fichero, sin precedente que aplazarlas): `administrator` inserta y edita el nombre (sin `DELETE`, baja
-lógica), `teacher` solo lee las activas, sin ninguna política de `student`. Sin ninguna RPC: mismo
-patrón que `centro_estudios` (T-11) y `cierre_centro` (R-12) — el `INSERT`/`UPDATE` directo de
-`administrator` ya queda aislado por RLS. Sin ninguna columna nueva en `slot_horario` ni en
-`asistencia`: `asignatura_o_grupo` sigue siendo el mismo campo de texto, sin relación de clave foránea
-con el catálogo nuevo. Qué debe ver el dueño al terminar: `git pull` + `npm run migrate` en local,
-comprobar que `esquema_version()` devuelve `20` (o más, si alguna migración anterior ya se resolvió), y
-ejecutar también `npm run probar-rls` (nueva sección 8q: administrator inserta y edita el nombre de una
-asignatura, teacher rechazado en INSERT/UPDATE, teacher lee una asignatura activa y no una inactiva;
-más `asignatura` añadida a los barridos obligatorios de `student` —sección 6—, `TRUNCATE` —sección 8—
-y `anon` —sección 8f—). Fila 23 de §3 de `SEGUIMIENTO.md`. T-25 (BLOQUEADA, ver fila 12) queda
-inafectada: `020` es posterior y no forma parte de las diez migraciones de su paso a producción.
-
+*(`010` a `020` salieron de aquí el 2026-10-01 al confirmarse aplicadas con `npm run migrate --
+--estado`; sus filas están en la tabla de arriba.)*
 *(`009_administracion_usuarios.sql` salió de aquí el 2026-09-04 al confirmarse aplicada; su fila está
 en la tabla de arriba.)*
 

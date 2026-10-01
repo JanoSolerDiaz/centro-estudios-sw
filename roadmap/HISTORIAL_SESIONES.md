@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-01 (interactiva, a petición del dueño — aplicación de `010`-`020` y P-33)
+**Tarea(s):** P-33 (urgente). Registro de las filas 13-23 de §3
+**Estado resultante:** P-33 `IMPLEMENTADA`, pendiente de verificación en ejecución. Las once R-XX con migración (R-01, R-02, R-03, R-06, R-08, R-12, R-14, R-21, R-22, R-29, R-33) siguen `BLOQUEADA`, ahora por verificación y no por aplicación
+**Commits a `develop`:** el de esta sesión (P-33: `021`, dos tests y registro)
+**Migraciones aplicadas:** `010`-`020` en `dev`, aplicadas por el dueño con `npm run migrate` de una sola pasada. `npm run migrate -- --estado` lista las once con hash completo idéntico al SHA-256 del fichero en disco (comprobado uno a uno en local). `021` escrita, sin aplicar
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `db/021_arreglo_recursion_excepcion_slot.sql` (nuevo), `herramientas/migraciones/politicasSinCiclos.test.ts` (nuevo), `herramientas/migraciones/arregloRecursionExcepcionSlot.test.ts` (nuevo), `db/APLICADAS.md`, `roadmap/SEGUIMIENTO.md` (§1, §3 filas 13-24, §5 P-33, §6 #16), `roadmap/DECISIONES_TECNICAS.md`, esta entrada
+**Verificaciones pre-push:** ver el mensaje del commit
+**Health check post-deploy:** no aplica (sin despliegue; `prod` no existe)
+**Decisiones tomadas:** dos filas P-33 del 2026-10-01 en `DECISIONES_TECNICAS.md` (dónde se rompe el ciclo, y la norma de políticas sin ciclos)
+**Hallazgos del auditor atendidos:** ninguno. #8 sigue `ABIERTO`; la pregunta #16 gana una nota: `011` ya está aplicada y es inmutable, así que reformular o retirar el campo exigiría una migración nueva
+**Hallazgos:** (1) el primer `npm run migrate` falló con `544 … Connection terminated due to connection timeout` sin aplicar nada (falló al leer el ledger). Lo más probable es que el proyecto `dev` estuviera pausado por inactividad del plan gratuito (última actividad del dueño: 2026-09-04); el dueño reintentó y entró. (2) `npm run probar-rls` tras aplicar: `infinite recursion detected in policy for relation "slot_horario"`, causa en `013` (detalle en P-33). Afecta a la aplicación, no solo a la batería: en `dev` falla toda lectura de `slot_horario`. (3) El runner no tiene forma de aplicar solo hasta una migración concreta, así que `011` entró sin respuesta a la #16; si el patrón «no aplicar todavía la NNN» se repite, convendría una opción `--hasta=NNN`. (4) La salida de `probar-rls` pegada llegó cortada antes del resumen final: puede haber más `[FALLO]` por debajo de la sección 8p
+**Tareas autopropuestas (P-XX):** P-33, registrada en §5 e implementada en esta misma sesión
+**Próximo paso:** el dueño aplica `021` (`npm run migrate`) y ejecuta `npm run probar-rls`, y pega la salida **completa** (fila 24 de §3). Con 0 fallidas: cerrar las filas 13-24, cerrar P-33 y pasar las once R-XX a `COMPLETADA`. Si queda algún `[FALLO]` por debajo de lo que se vio hoy, se trata como P-XX propia. Pregunta #16 sigue en manos del dueño
+
 ### Sesión YYYY-MM-DD HH:MM
 **Tarea(s):** T-XX / R-XX / P-XX
 **Estado resultante:** EN CURSO / COMPLETADA / DESPLEGADA EN PRODUCCIÓN / BLOQUEADA
