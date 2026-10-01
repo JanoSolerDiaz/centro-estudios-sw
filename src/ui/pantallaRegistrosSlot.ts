@@ -297,7 +297,10 @@ function horaLocalHHMM(iso: string, zonaHoraria: string = ZONA_HORARIA_CENTRO_PO
  * zona horaria del centro — el inverso aproximado de `horaLocalHHMM`/`fechaLocalISO`, suficiente
  * para un formulario (el usuario nunca elige un instante en el filo exacto de un cambio de hora). */
 function instanteDesdeFechaYHora(fechaIso: string, horaHHMM: string, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): Date {
-  const candidato = new Date(`${fechaIso}T${horaHHMM}:00`);
+  // La `Z` es imprescindible (P-34): sin ella, el navegador interpreta la cadena en SU zona horaria,
+  // y la corrección de abajo restaba el desfase una segunda vez — en un navegador en España, una
+  // salida a las 16:45 se guardaba como 14:45. Con ella, el resultado no depende del navegador.
+  const candidato = new Date(`${fechaIso}T${horaHHMM}:00Z`);
   const enZona = new Intl.DateTimeFormat('en-CA', {
     timeZone: zonaHoraria,
     hour12: false,

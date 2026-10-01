@@ -1108,14 +1108,16 @@ begin
       end;
 
       -- Segundo registro del MISMO alumno en el MISMO slot el MISMO día, con un peticion_id
-      -- distinto: choca con asistencia_uq_alumno_slot_dia_valida (requisito 4 de T-18).
+      -- distinto: choca con asistencia_uq_alumno_slot_dia_activa (requisito 4 de T-18; el índice
+      -- original de 005, asistencia_uq_alumno_slot_dia_valida, lo sustituyó 010 por este, que cubre
+      -- también las ausencias — P-35).
       begin
         perform public.registrar_asistencia(
           p_alumno_id => v_alumno_id, p_origen => 'slot', p_peticion_id => gen_random_uuid(), p_slot_id => v_slot_id
         );
         perform pg_temp.registrar('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', 'prohibido', false, 'se insertó sin error');
       exception when others then
-        perform pg_temp.registrar_prohibido('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', array['%asistencia_uq_alumno_slot_dia_valida%'], sqlerrm);
+        perform pg_temp.registrar_prohibido('registrar_asistencia / duplicado mismo alumno+slot+día (debe fallar)', array['%asistencia_uq_alumno_slot_dia_activa%'], sqlerrm);
       end;
 
       -- Mismo peticion_id que el primer registro exitoso: choca con asistencia_peticion_id_unico.
@@ -3325,25 +3327,27 @@ begin
     perform pg_temp.registrar_prohibido('declarar_baja_profesor / cancelación sin motivo (debe fallar)', array['%exige un motivo%'], sqlerrm);
   end;
 
-  -- Requisito 2/3: cancelación real hoy..hoy+1 — v_slot_a_id (día = hoy) es el único que cae en
-  -- "hoy" y ya tiene asistencia, así que su combinación queda EXCLUIDA; v_slot_b_id (día = mañana)
-  -- es el único que cae en "hoy+1" y está limpio, así que su combinación se crea de verdad
-  -- reutilizando declarar_excepcion_slot.
+  -- Requisito 2/3: cancelación real hoy..hoy+1 — la combinación de v_slot_a_id (día = hoy) ya tiene
+  -- asistencia, así que queda EXCLUIDA; la de v_slot_b_id (día = mañana) está limpia, así que se
+  -- crea de verdad reutilizando declarar_excepcion_slot.
+  --
+  -- Solo se cuentan las filas de v_slot_a_id/v_slot_b_id (P-35): toda la batería corre en una sola
+  -- transacción y las secciones anteriores (8g, 8i, 8k, 8l, 8n) ya han dado al MISMO teacher otros
+  -- slots, algunos en el día de la semana de hoy o de mañana según cuándo se ejecute. La RPC recorre
+  -- todos los slots del profesor, así que un recuento global cambiaba con el calendario.
   begin
     v_creadas := 0;
     v_excluidas := 0;
     for v_fila in select * from public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 1, 'cancelacion', null, '__prueba_rls__baja_cancelacion') loop
       v_baja_cancel := v_fila.out_baja_profesor_id;
-      if v_fila.out_slot_id is null then
-        continue;
-      end if;
-      if v_fila.out_excluido then
+      if v_fila.out_slot_id = v_slot_a_id and v_fila.out_fecha = v_hoy and v_fila.out_excluido then
         v_excluidas := v_excluidas + 1;
-      else
+      elsif v_fila.out_slot_id = v_slot_b_id and v_fila.out_fecha = v_hoy + 1 and not v_fila.out_excluido then
         v_creadas := v_creadas + 1;
-        if v_fila.out_slot_id = v_slot_b_id then
-          v_exc_dentro_id := v_fila.out_excepcion_id; -- reutilizada más abajo solo para el chequeo de marcado
-        end if;
+        v_exc_dentro_id := v_fila.out_excepcion_id; -- reutilizada más abajo solo para el chequeo de marcado
+      elsif v_fila.out_slot_id in (v_slot_a_id, v_slot_b_id) then
+        -- Cualquier otra fila de los dos slots propios es un resultado inesperado: invalida el caso.
+        v_creadas := -100;
       end if;
     end loop;
     perform pg_temp.registrar(
@@ -3369,17 +3373,18 @@ begin
   -- sigue excluido por la misma asistencia; hoy+1 en v_slot_b_id ahora tiene una excepción ACTIVA de
   -- la llamada anterior, así que también queda excluido, esta vez por duplicado) — las dos
   -- combinaciones limpias de este rango (v_slot_a_id/hoy+7 y v_slot_b_id/hoy+8) sí se crean.
+  -- Igual que arriba, solo cuentan las filas de los dos slots propios (P-35).
   begin
     v_creadas := 0;
     for v_fila in select * from public.declarar_baja_profesor(v_teacher_id, v_hoy, v_hoy + 8, 'sustitucion', v_teacher2_id, null) loop
       v_baja_encurso := v_fila.out_baja_profesor_id;
-      if v_fila.out_slot_id is null or v_fila.out_excluido then
+      if v_fila.out_slot_id is null or v_fila.out_slot_id not in (v_slot_a_id, v_slot_b_id) or v_fila.out_excluido then
         continue;
       end if;
       v_creadas := v_creadas + 1;
-      if v_fila.out_slot_id = v_slot_a_id then
+      if v_fila.out_slot_id = v_slot_a_id and v_fila.out_fecha = v_hoy + 7 then
         v_exc_dentro_id := v_fila.out_excepcion_id; -- hoy+7, DENTRO del rango tras acortar a hoy+7
-      elsif v_fila.out_slot_id = v_slot_b_id then
+      elsif v_fila.out_slot_id = v_slot_b_id and v_fila.out_fecha = v_hoy + 8 then
         v_exc_fuera_id := v_fila.out_excepcion_id; -- hoy+8, FUERA del rango tras acortar a hoy+7
       end if;
     end loop;

@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-01 (interactiva, continuación — verificación de `021`, P-34 y P-35)
+**Tarea(s):** P-33 (verificación), P-34 y P-35 (urgentes)
+**Estado resultante:** P-33 `VERIFICADA`; P-34 `IMPLEMENTADA`; P-35 `IMPLEMENTADA`, pendiente de verificación en ejecución. Las once R-XX siguen `BLOQUEADA` hasta una ejecución de `probar-rls` con 0 fallidas
+**Commits a `develop`:** el de esta continuación (P-34 + P-35 + registro)
+**Migraciones aplicadas:** `021_arreglo_recursion_excepcion_slot` en `dev`, aplicada por el dueño con `npm run migrate`. Hash del ledger todavía no consultado (`--estado`): sigue en «Pendiente de aplicar» de `db/APLICADAS.md` hasta entonces
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `db/pruebas_rls.sql` (secciones 7b y 8o), `src/ui/pantallaRegistrosSlot.ts`, `src/ui/pantallaRegistrosSlot.test.ts`, `roadmap/SEGUIMIENTO.md` (cabecera, §3 fila 24, §5 P-33/P-34/P-35), `roadmap/DECISIONES_TECNICAS.md`, esta entrada
+**Verificaciones pre-push:** tipos ✅ · lint ✅ · tests ✅ (2001/2001 en cuatro zonas horarias) · build ✅
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** filas P-34 y P-35 del 2026-10-01 en `DECISIONES_TECNICAS.md`
+**Hallazgos del auditor atendidos:** ninguno (#8 sigue `ABIERTO`, pregunta #16 sin responder)
+**Hallazgos:** `probar-rls` tras `021`: 238 comprobaciones, 0 omitidas, 3 fallidas — sin recursión, y los tres fallos son de la batería (P-35). Además, la verificación en la máquina del dueño destapó P-34: un defecto real de R-03 invisible en UTC, que es donde corren las rutinas
+**Tareas autopropuestas (P-XX):** P-34 y P-35, registradas en §5 e implementadas en esta sesión con el visto bueno del dueño
+**Próximo paso:** el dueño ejecuta `npm run migrate -- --estado` (hash de `021`) y `npm run probar-rls`. Con 0 fallidas y 0 omitidas: `021` a la tabla de `db/APLICADAS.md`, cerrar las filas 13-24 de §3 y P-35, y pasar R-01, R-02, R-03, R-06, R-08, R-12, R-14, R-21, R-22, R-29 y R-33 a `COMPLETADA` (R-02 conserva la pregunta #16 abierta)
+
 ### Sesión 2026-10-01 (interactiva, a petición del dueño — aplicación de `010`-`020` y P-33)
 **Tarea(s):** P-33 (urgente). Registro de las filas 13-23 de §3
 **Estado resultante:** P-33 `IMPLEMENTADA`, pendiente de verificación en ejecución. Las once R-XX con migración (R-01, R-02, R-03, R-06, R-08, R-12, R-14, R-21, R-22, R-29, R-33) siguen `BLOQUEADA`, ahora por verificación y no por aplicación

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import process from 'node:process';
 import { JSDOM } from 'jsdom';
 import { mostrarPantallaRegistrosSlot, type DependenciasPantallaRegistrosSlot } from './pantallaRegistrosSlot.ts';
 import type { AlumnoParaPropuesta, SlotConAlumno } from '../dominio/slots.ts';
@@ -951,6 +952,43 @@ void test('ajustar la salida: llama a actualizar con ocurridoEnSalida en el inst
   assert.ok(entrada.ocurridoEnSalida instanceof Date);
   // '16:45' es hora LOCAL (Europe/Madrid, CEST = UTC+2 en agosto): el instante UTC resultante es 14:45.
   assert.equal(entrada.ocurridoEnSalida.toISOString(), '2026-08-26T14:45:00.000Z');
+});
+
+void test('ajustar la salida: el instante guardado no depende de la zona horaria del navegador (P-34)', async () => {
+  // Hasta P-34 este cálculo solo acertaba si el proceso corría en UTC: las rutinas en la nube lo
+  // daban por bueno y en un navegador en España guardaba la salida dos horas antes (16:45 → 14:45
+  // locales). Se fuerza aquí la zona del proceso para que el defecto no vuelva a esconderse.
+  const zonaOriginal = process.env.TZ;
+  try {
+    for (const zonaNavegador of ['UTC', 'Europe/Madrid', 'America/New_York', 'Asia/Tokyo']) {
+      process.env.TZ = zonaNavegador;
+      let entradaRecibida: unknown;
+      const contenedor = await montarConUnRegistro({
+        listarRegistros: () => Promise.resolve([crearAsistencia({ estado: 'valida', ocurrido_en_salida: '2026-08-26T16:30:00.000Z' })]),
+        actualizar: (_id, entrada) => {
+          entradaRecibida = entrada;
+          return Promise.resolve(crearAsistencia({ ocurrido_en_salida: '2026-08-26T14:45:00.000Z' }));
+        },
+      });
+
+      const campoSalida = contenedor.querySelector<HTMLInputElement>('#salida-asistencia-1');
+      assert.ok(campoSalida);
+      campoSalida.value = '16:45';
+      dispararEvento(campoSalida, 'input');
+      botonPorTexto(contenedor, 'Guardar salida').click();
+      await esperarMicrotareas();
+
+      const entrada = entradaRecibida as { ocurridoEnSalida: Date } | undefined;
+      assert.ok(entrada, `con el navegador en ${zonaNavegador} no se llamó a actualizar`);
+      assert.equal(entrada.ocurridoEnSalida.toISOString(), '2026-08-26T14:45:00.000Z', `navegador en ${zonaNavegador}`);
+    }
+  } finally {
+    if (zonaOriginal === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = zonaOriginal;
+    }
+  }
 });
 
 void test('la fila muestra la hora de salida y la duración real una vez marcada', async () => {
