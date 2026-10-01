@@ -133,11 +133,13 @@ alumno de baja por ninguna vía directa a PostgREST, solo a través de lo que su
 | Teléfono de la persona de referencia | `persona_referencia.telefono_referencia` | **sí, obligatorio** | solo administrator |
 | Email de la persona de referencia | `persona_referencia.email_referencia` | no | solo administrator |
 | Registro de asistencia (fecha/hora real, profesor, estado, motivo de anulación) | `asistencia.*` | — (es el propio registro) | administrator (todo); teacher (solo lo suyo) |
+| Motivo de justificación de una ausencia (**dato de salud, art. 9 RGPD**: `enfermedad`, `cita_medica`; autorizado por el dueño el 2026-10-01, pregunta #16 opción a) | `asistencia.motivo_justificacion` (lista cerrada, `011`) | no | administrator (todo); teacher (solo lo suyo) |
+| Nota de justificación (texto libre; no debe contener detalle médico) | `asistencia.nota_justificacion` (`011`) | no | administrator (todo); teacher (solo lo suyo) |
 | Historial de cambios de un registro de asistencia | `asistencia_historial.*` | — | solo administrator |
 
 No hay ningún otro campo personal en el esquema. Confirmado con una lectura de
 `db/001_esquema_inicial.sql` completa (las siete tablas nuevas) más el bootstrap: cero columnas de
-notas o calificaciones, cero dato de salud, cero dato bancario, cero categoría del artículo 9.
+notas o calificaciones, cero dato bancario y ninguna categoría del artículo 9 salvo `asistencia.motivo_justificacion` (`011`, excepción autorizada por el dueño; ver filas de arriba).
 
 ### 3.2 Retención propuesta
 

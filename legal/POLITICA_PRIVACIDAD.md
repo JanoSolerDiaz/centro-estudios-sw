@@ -20,6 +20,11 @@
 - Una fotografía (opcional).
 - Registro de asistencia: fecha, hora real de llegada, profesor que la tomó, y su historial de
   modificaciones (quién cambió qué y cuándo).
+- Justificación de una ausencia (opcional): un motivo de una lista cerrada (enfermedad, cita
+  médica, motivo familiar, otro) y una nota de texto libre. **Los motivos «enfermedad» y «cita
+  médica» son datos de salud (categoría especial, artículo 9 del RGPD).** El dueño decidió
+  mantenerlos (decisión del 2026-10-01, pregunta #16). Solo los ven el profesor que tomó el
+  registro y la administración. La nota libre no debe contener diagnósticos ni detalle médico.
 
 **De sus personas de referencia** (padre, madre o tutor legal):
 - Nombre, primer y segundo apellido (el segundo, opcional).
@@ -30,15 +35,16 @@
 aplicación, y el registro de qué acción de asistencia realizó cada uno y cuándo.
 
 No se trata ningún otro dato. En particular, **no se guardan** notas ni calificaciones
-académicas, datos de salud, datos bancarios, ni ninguna categoría especial del artículo 9 del
-RGPD. Añadir cualquiera de estos exige una decisión expresa del dueño (regla permanente,
-`HOJA_DE_RUTA.md` §0.2).
+académicas, datos bancarios, ni ninguna categoría especial del artículo 9 del RGPD **salvo la
+excepción autorizada** del motivo de justificación de ausencias descrita arriba. Añadir cualquier
+otro exige una decisión expresa del dueño (regla permanente, `HOJA_DE_RUTA.md` §0.2).
 
 ## 3. Finalidad y base jurídica
 
 | Finalidad | Base jurídica (a confirmar por el dueño) |
 |---|---|
 | Registrar la asistencia real del alumno a sus clases, con valor administrativo y probatorio ante la familia | `<pendiente — probablemente interés legítimo / ejecución de un contrato de servicios educativos con la familia>` |
+| Justificar una ausencia con su motivo (incluye dato de salud, art. 9 RGPD) | `<pendiente — requiere base del art. 9.2 (p. ej. consentimiento explícito del tutor); a confirmar por el dueño/asesor legal>` |
 | Contactar con la persona de referencia del alumno si es necesario | `<pendiente — interés legítimo>` |
 | Mostrar la fotografía del alumno al profesorado para identificarlo al pasar lista | **Consentimiento específico** del tutor legal (ver [Consentimiento de imagen del menor](./CONSENTIMIENTO_IMAGEN_MENOR.md)) — distinto del resto de finalidades |
 | Gestión de cuentas de usuario del personal del centro | `<pendiente — interés legítimo / relación laboral>` |

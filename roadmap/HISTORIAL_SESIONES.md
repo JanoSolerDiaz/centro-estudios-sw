@@ -15,6 +15,18 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-01 (Programador, cola vacía; textos legales)
+**Tarea(s):** sin tarea en cola (solo T-25, `BLOQUEADA`); se refleja la decisión del dueño sobre la pregunta #16 en los textos
+**Estado resultante:** sin cambios de estado en §1
+**Commits a `develop`:** el de este registro
+**Migraciones aplicadas:** ninguna
+**Archivos creados/modificados:** `legal/POLITICA_PRIVACIDAD.md` (declara `motivo_justificacion` como dato de salud art. 9, base jurídica pendiente de confirmar por el dueño), `roadmap/PRODUCCION_T25.md` (inventario), `auditoriacontinua.md` (#8 → ASUMIDO), `roadmap/SEGUIMIENTO.md` (cabecera)
+**Verificaciones pre-push:** typecheck, lint, test, build (solo documentación)
+**Decisiones tomadas:** ninguna técnica
+**Hallazgos del auditor atendidos:** #8 marcado `ASUMIDO` por decisión expresa del dueño
+**Tareas autopropuestas (P-XX):** ninguna
+**Pendiente del dueño:** aprobar los textos legales (fila 12 de §3), incluida la base del art. 9.2 para el motivo de justificación
+
 ### Sesión 2026-10-01 (interactiva, decisiones del dueño)
 **Tarea(s):** registro de dos decisiones del dueño
 **Estado resultante:** R-02 `COMPLETADA`. T-25 gana una condición previa
