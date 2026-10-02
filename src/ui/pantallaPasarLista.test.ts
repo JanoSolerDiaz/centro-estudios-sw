@@ -2734,3 +2734,167 @@ void test('R-07: tras un ErrorLimiteAlcanzado en el primer elemento, el SIGUIENT
   assert.equal(llamadasReales, 1);
   assert.equal((await colaOffline.listar()).length, 2);
 });
+
+// --- Controles de la card "Extra": Marcar salida y Anular (pregunta #20, dueño 2026-10-02) -------
+
+const FILA_EXTRA = (): Asistencia =>
+  crearAsistencia({
+    id: 'asistencia-extra',
+    alumno_id: 'alumno-extra-1',
+    origen: 'manual',
+    slot_id: null,
+    registrado_en: '2026-08-26T15:05:00.000Z',
+  });
+
+const ALUMNO_EXTRA_PARA_TARJETA = {
+  id: 'alumno-extra-1',
+  nombre: 'Luis',
+  primer_apellido: 'Martín',
+  segundo_apellido: null,
+  avatar_ruta: null,
+  activo: true,
+};
+
+async function montarConExtraRegistrado(overrides: Partial<DependenciasPantallaPasarLista>): Promise<HTMLElement> {
+  const contenedor = crearContenedorDePruebas();
+  const rebote = crearReboteDePrueba();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([]),
+      rebote,
+      buscarAlumnosExtra: () => Promise.resolve([ALUMNO_EXTRA_BUSCADO]),
+      registrar: () => Promise.resolve(FILA_EXTRA()),
+      obtenerAlumnoParaTarjeta: () => Promise.resolve(ALUMNO_EXTRA_PARA_TARJETA),
+      ...overrides,
+    }),
+  );
+  await esperarMicrotareas();
+  await buscarYSeleccionarExtra(contenedor, rebote);
+  return contenedor;
+}
+
+async function anularEnPantalla(contenedor: HTMLElement, motivo: string): Promise<void> {
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  const campoMotivo = campoMotivoAnular(contenedor);
+  assert.ok(campoMotivo);
+  campoMotivo.value = motivo;
+  dispararEvento(campoMotivo, 'input');
+  await esperarMicrotareas();
+  botonAnularPorTexto(contenedor, 'Confirmar anulación')?.click();
+  await esperarMicrotareas();
+}
+
+void test('la card Extra registrada ofrece "Marcar salida" y "Anular"', async () => {
+  const contenedor = await montarConExtraRegistrado({});
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 1);
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 1);
+});
+
+void test('"Marcar salida" en una card Extra llama a deps.marcarSalida con su id y pinta la hora de salida', async () => {
+  let idRecibido: string | undefined;
+  const contenedor = await montarConExtraRegistrado({
+    marcarSalida: (id) => {
+      idRecibido = id;
+      return Promise.resolve({ ...FILA_EXTRA(), ocurrido_en_salida: '2026-08-26T16:00:00.000Z' });
+    },
+  });
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.equal(idRecibido, 'asistencia-extra');
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Salida a las/);
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 0, 'con la salida ya marcada no se ofrece de nuevo');
+});
+
+void test('un fallo al marcar la salida de un Extra muestra el error y deja reintentar', async () => {
+  let llamadas = 0;
+  const contenedor = await montarConExtraRegistrado({
+    marcarSalida: () => {
+      llamadas += 1;
+      return Promise.reject(new ErrorDeRed());
+    },
+    cargarAsistenciaDeHoy: () => Promise.resolve([FILA_EXTRA()]),
+  });
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  assert.match(contenedor.textContent, /No se ha podido conectar/);
+
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  assert.equal(llamadas, 2);
+});
+
+void test('si la salida del Extra ya estaba escrita (respuesta perdida), se reconcilia por id de registro sin error', async () => {
+  const conSalida = { ...FILA_EXTRA(), ocurrido_en_salida: '2026-08-26T16:00:00.000Z' };
+  const contenedor = await montarConExtraRegistrado({
+    marcarSalida: () => Promise.reject(new ErrorDeRed()),
+    cargarAsistenciaDeHoy: () => Promise.resolve([conSalida]),
+  });
+  botonSalidaDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+
+  assert.doesNotMatch(contenedor.textContent, /No se ha podido conectar/);
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Salida a las/);
+});
+
+void test('anular una card Extra llama a deps.anular con id y motivo, y la card desaparece', async () => {
+  let recibido: readonly [string, string] | undefined;
+  const contenedor = await montarConExtraRegistrado({
+    anular: (id, motivo) => {
+      recibido = [id, motivo];
+      return Promise.resolve({ ...FILA_EXTRA(), estado: 'anulada', motivo_anulacion: motivo });
+    },
+  });
+
+  await anularEnPantalla(contenedor, 'Alumno equivocado');
+
+  assert.deepEqual(recibido, ['asistencia-extra', 'Alumno equivocado']);
+  assert.equal(botonesDeTarjeta(contenedor).length, 0);
+  assert.doesNotMatch(contenedor.textContent, /Extra\b.*Luis/);
+});
+
+void test('un fallo al anular un Extra deja la card, el motivo y el error, y reintentar funciona', async () => {
+  let llamadas = 0;
+  const contenedor = await montarConExtraRegistrado({
+    anular: () => {
+      llamadas += 1;
+      return Promise.reject(new ErrorDeRed());
+    },
+  });
+
+  await anularEnPantalla(contenedor, 'Alumno equivocado');
+
+  assert.equal(llamadas, 1);
+  assert.equal(botonesDeTarjeta(contenedor).length, 1);
+  assert.match(contenedor.textContent, /No se ha podido conectar/);
+  assert.equal(campoMotivoAnular(contenedor)?.value, 'Alumno equivocado');
+  botonAnularPorTexto(contenedor, 'Confirmar anulación')?.click();
+  await esperarMicrotareas();
+  assert.equal(llamadas, 2);
+});
+
+void test('"Cancelar" en una card Extra cierra el formulario sin llamar a deps.anular', async () => {
+  const contenedor = await montarConExtraRegistrado({
+    anular: () => Promise.reject(new Error('no se esperaba llamar a anular')),
+  });
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  botonAnularPorTexto(contenedor, 'Cancelar')?.click();
+  await esperarMicrotareas();
+
+  assert.equal(campoMotivoAnular(contenedor), null);
+  assert.equal(botonAnularPorTexto(contenedor, 'Anular')?.textContent, 'Anular');
+});
+
+void test('sin motivo válido, "Confirmar anulación" de un Extra está deshabilitado', async () => {
+  const contenedor = await montarConExtraRegistrado({
+    anular: () => Promise.reject(new Error('no se esperaba llamar a anular')),
+  });
+  botonAnularDeTarjeta(contenedor)[0]?.click();
+  await esperarMicrotareas();
+  assert.equal(botonAnularPorTexto(contenedor, 'Confirmar anulación')?.disabled, true);
+});

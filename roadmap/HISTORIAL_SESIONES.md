@@ -15,6 +15,20 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-02 (Programador, rutina programada — P-38)
+**Tarea(s):** cola de §1 vacía y sin hallazgos ABIERTOS de severidad alta (#25/#26 medias, #27 baja); se atiende la decisión del dueño de la pregunta #20 de §6 como **P-38**
+**Estado resultante:** la card «Extra» de pasar lista ofrece «Marcar salida» y «Anular» igual que la de slot. P-38 `IMPLEMENTADA` (pendiente de que el dueño lo confirme en local). Hallazgo #26 queda cubierto por P-37 (ya implementada)
+**Commits a `develop`:** el de P-38 y este registro
+**Migraciones aplicadas:** ninguna (sin cambio de esquema; misma RPC `actualizar_asistencia`)
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `src/ui/pantallaPasarLista.ts`, `src/ui/pantallaPasarLista.test.ts`, `roadmap/SEGUIMIENTO.md`, esta entrada
+**Verificaciones pre-push:** typecheck, lint, test (2009/2009, antes 2001) y build en verde
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md` (reutiliza las de R-03/R-24); detalle de diseño: anular un extra hace desaparecer la card; el error de salida se reconcilia por `id` de registro, no por clave alumno+slot
+**Hallazgos del auditor atendidos:** ninguno directamente (#25 y #27 siguen abiertos sin tarea; #26 lo cubre P-37)
+**Tareas autopropuestas (P-XX):** P-38
+**Pendiente / fuera de alcance:** un extra sigue sin aparecer en «Registros» (FEEDBACK 2026-10-01, para el PM); #25 (prueba de humo en navegador real) y #27/estilo Gauss esperan al PM
+
 ### Sesión 2026-10-02 (interactiva — skill de estilo Gauss)
 **Tarea(s):** ninguna de la hoja de ruta: petición del dueño de crear una guía de estilo a partir de gausscastellon.com
 **Estado resultante:** skill `estilo-gauss` creada en `.claude/skills/estilo-gauss/`. Ninguna pantalla cambia todavía

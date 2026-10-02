@@ -201,7 +201,7 @@ export interface DependenciasPantallaPasarLista {
 
 type FaseTarjeta = 'pendiente' | 'enviando' | 'registrado' | 'ausente' | 'pendiente_offline' | 'error';
 
-interface EstadoTarjeta {
+interface EstadoTarjeta extends ControlesPostRegistro {
   readonly alumno: AlumnoParaPropuesta;
   readonly slot: SlotHorario;
   readonly fase: FaseTarjeta;
@@ -245,15 +245,27 @@ interface FocoTarjeta {
   readonly control: 'principal' | 'ausente' | 'salida' | 'anular';
 }
 
+/** Campos que comparten la card de slot y la de "alumno extra" para "Marcar salida" (R-03) y
+ * "Anular" (R-24) — ver `añadirControlesSalidaYAnular`. */
+interface ControlesPostRegistro {
+  readonly fase: FaseTarjeta;
+  readonly asistencia?: Asistencia;
+  readonly salidaEnviando?: boolean;
+  readonly salidaError?: string;
+  readonly mostrandoAnular?: boolean;
+  readonly motivoAnulacion?: string;
+  readonly anulando?: boolean;
+  readonly anularError?: string;
+}
+
 /** "Alumno extra" (T-20): sin slot, nunca pasa por la fase 'pendiente' — seleccionarlo en el
  * combobox YA dispara el registro (requisito 5), así que nace directamente en 'enviando'. Nota
  * opcional (requisito 8) y marcador visual "Extra" (`crearTarjetaExtraElemento`). */
-interface EstadoTarjetaExtra {
+interface EstadoTarjetaExtra extends ControlesPostRegistro {
   readonly alumno: AlumnoParaPropuesta;
   readonly fase: Exclude<FaseTarjeta, 'pendiente'>;
   readonly peticionId: string;
   readonly nota: string | null;
-  readonly asistencia?: Asistencia;
   readonly mensajeError?: string;
 }
 
@@ -479,6 +491,116 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     return avatarWrap;
   }
 
+  /** Tercer y cuarto control de una card —"Marcar salida" (R-03) y "Anular" (R-24)—, compartidos por
+   * la card de slot y la de "alumno extra" (pregunta #20, decisión del dueño 2026-10-02): mismos
+   * botones, misma ventana de edición, misma RPC `actualizar_asistencia`. */
+  function añadirControlesSalidaYAnular(
+    contenedorTarjeta: HTMLElement,
+    clave: string,
+    alumno: AlumnoParaPropuesta,
+    estado: ControlesPostRegistro,
+  ): void {
+    // Tercer control, hermano de los otros dos (R-03, requisito 1: "un segundo toque sobre la card
+    // ya registrada") — solo ofrecido mientras `puedeMarcarSalida`, nunca sobre una ausencia ni
+    // antes de que exista un registro de presencia real que cerrar.
+    if (
+      estado.fase === 'registrado' &&
+      estado.asistencia &&
+      puedeMarcarSalida(estado.asistencia)
+    ) {
+      const botonSalida = documento.createElement('button');
+      botonSalida.type = 'button';
+      botonSalida.dataset.salidaClave = clave;
+      botonSalida.style.minHeight = '44px';
+      botonSalida.style.padding = '4px 8px';
+      botonSalida.style.border = '2px dashed #1D4ED8';
+      botonSalida.style.borderRadius = '8px';
+      botonSalida.style.fontSize = '13px';
+      botonSalida.style.backgroundColor = '#FFFFFF';
+      botonSalida.textContent = estado.salidaEnviando ? 'Marcando salida…' : 'Marcar salida';
+      botonSalida.setAttribute(
+        'aria-label',
+        `Marcar salida a ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`,
+      );
+      botonSalida.disabled = estado.salidaEnviando === true;
+      botonSalida.addEventListener('click', () => {
+        void obtenerProtectorSalida(clave)();
+      });
+      contenedorTarjeta.append(botonSalida);
+      if (estado.salidaError) {
+        contenedorTarjeta.append(crearElemento(documento, 'span', { texto: estado.salidaError }));
+      }
+    }
+
+    // Cuarto control, hermano de los otros tres (R-24, requisito 1: "distinguible del resto de
+    // controles... nunca el mismo gesto") — solo ofrecido dentro de la ventana de edición
+    // (requisito 4: `puedeEditarAsistencia` sobre el registro real, mismo criterio preventivo que
+    // `puedeMarcarSalida` de arriba), y solo sobre una card ya resuelta como presente o ausente.
+    if (
+      (estado.fase === 'registrado' || estado.fase === 'ausente') &&
+      estado.asistencia &&
+      puedeEditarAsistencia(
+        { profesorId: estado.asistencia.profesor_id, registradoEn: new Date(estado.asistencia.registrado_en) },
+        { id: deps.profesorId, rol: deps.rol },
+        deps.reloj,
+      )
+    ) {
+      const nombreAlumno = `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`;
+      const bloqueAnular = documento.createElement('div');
+      if (estado.mostrandoAnular) {
+        const campoMotivo = crearCampoTexto(documento, `motivo-anular-${clave}`, 'Motivo de la anulación', 'text', 'off');
+        campoMotivo.input.value = estado.motivoAnulacion ?? '';
+        campoMotivo.input.dataset.anularClave = clave;
+        campoMotivo.input.disabled = estado.anulando === true;
+        campoMotivo.input.addEventListener('input', () => {
+          actualizarMotivoAnular(clave, campoMotivo.input.value);
+        });
+
+        const botonConfirmarAnular = documento.createElement('button');
+        botonConfirmarAnular.type = 'button';
+        botonConfirmarAnular.dataset.anularClave = clave;
+        botonConfirmarAnular.style.minHeight = '44px';
+        botonConfirmarAnular.textContent = estado.anulando ? 'Anulando…' : 'Confirmar anulación';
+        botonConfirmarAnular.disabled = estado.anulando === true || !motivoAnulacionValido(estado.motivoAnulacion ?? '');
+        botonConfirmarAnular.addEventListener('click', () => {
+          void obtenerProtectorAnular(clave)();
+        });
+
+        const botonCancelarAnular = documento.createElement('button');
+        botonCancelarAnular.type = 'button';
+        botonCancelarAnular.dataset.anularClave = clave;
+        botonCancelarAnular.style.minHeight = '44px';
+        botonCancelarAnular.textContent = 'Cancelar';
+        botonCancelarAnular.disabled = estado.anulando === true;
+        botonCancelarAnular.addEventListener('click', () => {
+          cancelarAnular(clave);
+        });
+
+        bloqueAnular.append(campoMotivo.contenedor, botonConfirmarAnular, botonCancelarAnular);
+        if (estado.anularError) {
+          bloqueAnular.append(crearElemento(documento, 'span', { texto: estado.anularError }));
+        }
+      } else {
+        const botonAnular = documento.createElement('button');
+        botonAnular.type = 'button';
+        botonAnular.dataset.anularClave = clave;
+        botonAnular.style.minHeight = '44px';
+        botonAnular.style.padding = '4px 8px';
+        botonAnular.style.border = '2px dashed #991B1B';
+        botonAnular.style.borderRadius = '8px';
+        botonAnular.style.fontSize = '13px';
+        botonAnular.style.backgroundColor = '#FFFFFF';
+        botonAnular.textContent = 'Anular';
+        botonAnular.setAttribute('aria-label', `Anular el registro de ${nombreAlumno}`);
+        botonAnular.addEventListener('click', () => {
+          abrirAnular(clave);
+        });
+        bloqueAnular.append(botonAnular);
+      }
+      contenedorTarjeta.append(bloqueAnular);
+    }
+  }
+
   /** Card de slot (T-19) más el control secundario de R-01. El toque simple (botón principal, el
    * mismo de siempre — requisito 3 de T-19, "la card entera es el objetivo táctil") registra
    * presencia; "Marcar ausente" es un `<button>` HERMANO, nunca anidado dentro del principal (un
@@ -579,105 +701,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
     contenedorTarjeta.append(boton, botonAusente);
 
-    // Tercer control, hermano de los otros dos (R-03, requisito 1: "un segundo toque sobre la card
-    // ya registrada") — solo ofrecido mientras `puedeMarcarSalida`, nunca sobre una ausencia ni
-    // antes de que exista un registro de presencia real que cerrar.
-    if (
-      tarjeta.fase === 'registrado' &&
-      tarjeta.asistencia &&
-      puedeMarcarSalida(tarjeta.asistencia)
-    ) {
-      const botonSalida = documento.createElement('button');
-      botonSalida.type = 'button';
-      botonSalida.dataset.salidaClave = clave;
-      botonSalida.style.minHeight = '44px';
-      botonSalida.style.padding = '4px 8px';
-      botonSalida.style.border = '2px dashed #1D4ED8';
-      botonSalida.style.borderRadius = '8px';
-      botonSalida.style.fontSize = '13px';
-      botonSalida.style.backgroundColor = '#FFFFFF';
-      botonSalida.textContent = tarjeta.salidaEnviando ? 'Marcando salida…' : 'Marcar salida';
-      botonSalida.setAttribute(
-        'aria-label',
-        `Marcar salida a ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`,
-      );
-      botonSalida.disabled = tarjeta.salidaEnviando === true;
-      botonSalida.addEventListener('click', () => {
-        void obtenerProtectorSalida(clave)();
-      });
-      contenedorTarjeta.append(botonSalida);
-      if (tarjeta.salidaError) {
-        contenedorTarjeta.append(crearElemento(documento, 'span', { texto: tarjeta.salidaError }));
-      }
-    }
-
-    // Cuarto control, hermano de los otros tres (R-24, requisito 1: "distinguible del resto de
-    // controles... nunca el mismo gesto") — solo ofrecido dentro de la ventana de edición
-    // (requisito 4: `puedeEditarAsistencia` sobre el registro real, mismo criterio preventivo que
-    // `puedeMarcarSalida` de arriba), y solo sobre una card ya resuelta como presente o ausente.
-    if (
-      (tarjeta.fase === 'registrado' || tarjeta.fase === 'ausente') &&
-      tarjeta.asistencia &&
-      puedeEditarAsistencia(
-        { profesorId: tarjeta.asistencia.profesor_id, registradoEn: new Date(tarjeta.asistencia.registrado_en) },
-        { id: deps.profesorId, rol: deps.rol },
-        deps.reloj,
-      )
-    ) {
-      const nombreAlumno = `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`;
-      const bloqueAnular = documento.createElement('div');
-      if (tarjeta.mostrandoAnular) {
-        const campoMotivo = crearCampoTexto(documento, `motivo-anular-${clave}`, 'Motivo de la anulación', 'text', 'off');
-        campoMotivo.input.value = tarjeta.motivoAnulacion ?? '';
-        campoMotivo.input.dataset.anularClave = clave;
-        campoMotivo.input.disabled = tarjeta.anulando === true;
-        campoMotivo.input.addEventListener('input', () => {
-          actualizarMotivoAnular(clave, campoMotivo.input.value);
-        });
-
-        const botonConfirmarAnular = documento.createElement('button');
-        botonConfirmarAnular.type = 'button';
-        botonConfirmarAnular.dataset.anularClave = clave;
-        botonConfirmarAnular.style.minHeight = '44px';
-        botonConfirmarAnular.textContent = tarjeta.anulando ? 'Anulando…' : 'Confirmar anulación';
-        botonConfirmarAnular.disabled = tarjeta.anulando === true || !motivoAnulacionValido(tarjeta.motivoAnulacion ?? '');
-        botonConfirmarAnular.addEventListener('click', () => {
-          void obtenerProtectorAnular(clave)();
-        });
-
-        const botonCancelarAnular = documento.createElement('button');
-        botonCancelarAnular.type = 'button';
-        botonCancelarAnular.dataset.anularClave = clave;
-        botonCancelarAnular.style.minHeight = '44px';
-        botonCancelarAnular.textContent = 'Cancelar';
-        botonCancelarAnular.disabled = tarjeta.anulando === true;
-        botonCancelarAnular.addEventListener('click', () => {
-          cancelarAnular(clave);
-        });
-
-        bloqueAnular.append(campoMotivo.contenedor, botonConfirmarAnular, botonCancelarAnular);
-        if (tarjeta.anularError) {
-          bloqueAnular.append(crearElemento(documento, 'span', { texto: tarjeta.anularError }));
-        }
-      } else {
-        const botonAnular = documento.createElement('button');
-        botonAnular.type = 'button';
-        botonAnular.dataset.anularClave = clave;
-        botonAnular.style.minHeight = '44px';
-        botonAnular.style.padding = '4px 8px';
-        botonAnular.style.border = '2px dashed #991B1B';
-        botonAnular.style.borderRadius = '8px';
-        botonAnular.style.fontSize = '13px';
-        botonAnular.style.backgroundColor = '#FFFFFF';
-        botonAnular.textContent = 'Anular';
-        botonAnular.setAttribute('aria-label', `Anular el registro de ${nombreAlumno}`);
-        botonAnular.addEventListener('click', () => {
-          abrirAnular(clave);
-        });
-        bloqueAnular.append(botonAnular);
-      }
-      contenedorTarjeta.append(bloqueAnular);
-    }
+    añadirControlesSalidaYAnular(contenedorTarjeta, clave, alumno, tarjeta);
 
     return contenedorTarjeta;
   }
@@ -695,7 +719,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     extra: EstadoTarjetaExtra,
     avatares: ReadonlyMap<string, string>,
     ausenciasRepetidas: ReadonlyMap<string, number>,
-  ): HTMLButtonElement {
+  ): HTMLElement {
     const { alumno } = extra;
     const boton = documento.createElement('button');
     boton.type = 'button';
@@ -754,7 +778,17 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       void obtenerProtectorExtra(clave)();
     });
 
-    return boton;
+    // Pregunta #20 (decisión del dueño, 2026-10-02): la card extra ofrece también "Marcar salida" y
+    // "Anular", con los mismos controles de la card de slot. Sin ellos, el botón principal va solo.
+    const contenedorTarjeta = documento.createElement('div');
+    contenedorTarjeta.setAttribute('role', 'group');
+    contenedorTarjeta.setAttribute('aria-label', `Extra. ${alumno.nombre} ${alumno.primer_apellido}`);
+    contenedorTarjeta.style.display = 'flex';
+    contenedorTarjeta.style.flexDirection = 'column';
+    contenedorTarjeta.style.gap = '4px';
+    contenedorTarjeta.append(boton);
+    añadirControlesSalidaYAnular(contenedorTarjeta, clave, alumno, extra);
+    return contenedorTarjeta;
   }
 
   function elementoConFoco(): FocoTarjeta | null {
@@ -846,7 +880,8 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const elemento = crearTarjetaExtraElemento(clave, extra, estado.avatares, estado.ausenciasRepetidas);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
-        elemento.focus();
+        const selector = foco?.control === 'salida' ? '[data-salida-clave]' : foco?.control === 'anular' ? '[data-anular-clave]' : '[data-clave]';
+        elemento.querySelector<HTMLElement>(selector)?.focus();
       }
     }
   }
@@ -1492,7 +1527,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   async function manejarSalida(clave: string): Promise<void> {
     const tarjeta = almacen.obtener().tarjetas.get(clave);
     if (!tarjeta) {
-      return;
+      return manejarSalidaExtra(clave);
     }
     if (tarjeta.fase !== 'registrado' || !tarjeta.asistencia || !puedeMarcarSalida(tarjeta.asistencia) || tarjeta.salidaEnviando) {
       return;
@@ -1533,6 +1568,89 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     }
   }
 
+  /** "Marcar salida" (R-03) sobre una card "extra" (pregunta #20): misma RPC que la de slot. Un
+   * extra no tiene la clave alumno+slot+día, así que ante un error se relee `cargarAsistenciaDeHoy`
+   * y se busca la fila por su `id` de registro, para
+   * distinguir una respuesta perdida de un primer toque que sí llegó a escribirse. */
+  async function manejarSalidaExtra(clave: string): Promise<void> {
+    const extra = almacen.obtener().extras.get(clave);
+    if (!extra) {
+      return;
+    }
+    if (extra.fase !== 'registrado' || !extra.asistencia || !puedeMarcarSalida(extra.asistencia) || extra.salidaEnviando) {
+      return;
+    }
+    const { alumno, fase, peticionId, nota } = extra;
+    const idRegistro = extra.asistencia.id;
+    fijarExtra(clave, { alumno, fase, peticionId, nota, asistencia: extra.asistencia, salidaEnviando: true });
+    try {
+      const fila = await deps.marcarSalida(extra.asistencia.id);
+      fijarExtra(clave, { alumno, fase, peticionId, nota, asistencia: fila, salidaEnviando: false });
+    } catch (error) {
+      let real: Asistencia | undefined;
+      try {
+        const registros = await deps.cargarAsistenciaDeHoy(almacen.obtener().instante);
+        real = registros.find((registro) => registro.id === idRegistro);
+      } catch {
+        real = undefined;
+      }
+      fijarExtra(clave, {
+        alumno,
+        fase,
+        peticionId,
+        nota,
+        asistencia: real ?? extra.asistencia,
+        salidaEnviando: false,
+        ...(real?.ocurrido_en_salida ? {} : { salidaError: mensajeAmigable(error) }),
+      });
+    }
+  }
+
+  /** "Anular" (R-24) confirmado sobre una card "extra" (pregunta #20). Con éxito la card DESAPARECE
+   * (un extra no tiene estado "pendiente" al que volver: nació del registro que se acaba de anular);
+   * un fallo la deja como estaba, con el motivo escrito y el error, lista para reintentar. */
+  async function manejarAnularExtra(clave: string): Promise<void> {
+    const extra = almacen.obtener().extras.get(clave);
+    if (!extra?.asistencia || (extra.fase !== 'registrado' && extra.fase !== 'ausente') || extra.anulando) {
+      return;
+    }
+    if (
+      !puedeEditarAsistencia(
+        { profesorId: extra.asistencia.profesor_id, registradoEn: new Date(extra.asistencia.registrado_en) },
+        { id: deps.profesorId, rol: deps.rol },
+        deps.reloj,
+      )
+    ) {
+      return;
+    }
+    const motivo = extra.motivoAnulacion ?? '';
+    if (!motivoAnulacionValido(motivo)) {
+      return;
+    }
+    const { alumno, fase, peticionId, nota, asistencia } = extra;
+    fijarExtra(clave, { alumno, fase, peticionId, nota, asistencia, mostrandoAnular: true, motivoAnulacion: motivo, anulando: true });
+    try {
+      await deps.anular(asistencia.id, motivo);
+      almacen.actualizar((actual) => {
+        const nuevoMapa = new Map(actual.extras);
+        nuevoMapa.delete(clave);
+        return { ...actual, extras: nuevoMapa };
+      });
+    } catch (error) {
+      fijarExtra(clave, {
+        alumno,
+        fase,
+        peticionId,
+        nota,
+        asistencia,
+        mostrandoAnular: true,
+        motivoAnulacion: motivo,
+        anulando: false,
+        anularError: mensajeAmigable(error),
+      });
+    }
+  }
+
   /** Protector de doble toque INDEPENDIENTE (mismo criterio que `obtenerProtectorAusencia`): un
    * doble toque en "Marcar salida" no comparte el `enCurso` de ningún otro control de la card. */
   function obtenerProtectorSalida(clave: string): () => Promise<void> {
@@ -1550,6 +1668,10 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   function abrirAnular(clave: string): void {
     const tarjeta = almacen.obtener().tarjetas.get(clave);
     if (!tarjeta) {
+      const extra = almacen.obtener().extras.get(clave);
+      if (extra) {
+        fijarExtra(clave, { ...extra, mostrandoAnular: true });
+      }
       return;
     }
     fijarTarjeta(clave, { ...tarjeta, mostrandoAnular: true });
@@ -1562,6 +1684,10 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   function actualizarMotivoAnular(clave: string, motivo: string): void {
     const tarjeta = almacen.obtener().tarjetas.get(clave);
     if (!tarjeta) {
+      const extra = almacen.obtener().extras.get(clave);
+      if (extra) {
+        fijarExtra(clave, { ...extra, motivoAnulacion: motivo });
+      }
       return;
     }
     fijarTarjeta(clave, { ...tarjeta, motivoAnulacion: motivo });
@@ -1575,6 +1701,19 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   function cancelarAnular(clave: string): void {
     const tarjeta = almacen.obtener().tarjetas.get(clave);
     if (!tarjeta) {
+      const extra = almacen.obtener().extras.get(clave);
+      if (extra) {
+        const { alumno, fase, peticionId, nota, asistencia, salidaEnviando, salidaError } = extra;
+        fijarExtra(clave, {
+          alumno,
+          fase,
+          peticionId,
+          nota,
+          ...(asistencia ? { asistencia } : {}),
+          ...(salidaEnviando !== undefined ? { salidaEnviando } : {}),
+          ...(salidaError !== undefined ? { salidaError } : {}),
+        });
+      }
       return;
     }
     const { alumno, slot, fase, peticionId, peticionIdAusente, asistencia, salidaEnviando, salidaError } = tarjeta;
@@ -1603,6 +1742,9 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
    * cabecera del módulo): anular no es una escritura que pudiera perderse sin dejar rastro, la fila
    * ya existe de verdad en el servidor. */
   async function manejarAnular(clave: string): Promise<void> {
+    if (!almacen.obtener().tarjetas.has(clave)) {
+      return manejarAnularExtra(clave);
+    }
     const tarjeta = almacen.obtener().tarjetas.get(clave);
     if (!tarjeta?.asistencia || (tarjeta.fase !== 'registrado' && tarjeta.fase !== 'ausente') || tarjeta.anulando) {
       return;
