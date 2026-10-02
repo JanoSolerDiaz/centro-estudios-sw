@@ -8,16 +8,15 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-10-01 — trigésimo octavo ciclo del PM: **sin oleada nueva, a propósito.**
-Protocolo primero: `git checkout develop && git pull origin develop`. Desde el ciclo 37: migraciones
-aplicadas y `probar-rls` 238/0/0, hallazgo **#8** pasa a ASUMIDO (pregunta #16 opción a, R-02
-COMPLETADA), y la prueba local del dueño destapó P-33 a P-37 (urgentes, del programador; P-37 sigue
-pendiente) y la pregunta **#20** de §6 (tarjeta de alumno extra sin «Marcar salida»/«Anular»), todavía
-sin respuesta. Hallazgos del auditor ABIERTOS: ninguno. `FEEDBACK.md` sin entradas `nuevo`. No se
-especifica R-XX para #20: depende de una decisión del dueño y su valor por defecto es dejarlo como está;
-si responde que sí, la R-XX nace en el siguiente ciclo. El cuello de botella es cerrar P-37 y T-25
-(producción), no la falta de funcionalidad. Nada se mueve a `ROADMAP_HISTORICO.md`: ninguna oleada está
-desplegada en producción.
+**Última actualización:** 2026-10-02 — trigésimo noveno ciclo del PM: **se abre la Oleada v18** (R-36 a
+R-39), la primera tras el MVP que nace de la prueba local del dueño y no de una idea del PM.
+Entradas de `FEEDBACK.md` volcadas: «corregir desde el Histórico» → **R-36**; «estilo Gauss en todas
+las pantallas» → **R-37 a R-39** (cimientos, pasar lista y profesor, resto de pantallas). Hallazgos del
+auditor: **#25** (sin prueba de humo en navegador real) → backlog **P-39**; **#26** ya resuelto por
+P-37 (`IMPLEMENTADA`); **#27** (aplicación sin estilos) → R-37 a R-39. Pregunta nueva **#21** de §6
+(¿sigue teniendo sentido «Registros» como pantalla aparte?). Nada pasa a `ROADMAP_HISTORICO.md`: ninguna
+oleada está desplegada en producción (el cuello de botella sigue siendo T-25). Prioridad de ejecución:
+R-36 y R-37 son independientes y pueden ir en paralelo; R-38 y R-39 esperan a R-37.
 
 Sin ningún commit de código — sesión de producto, no de programador.
 
@@ -466,6 +465,28 @@ argumentos de venta concretos para el ICP (una academia que debe justificar hora
 > Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
 > el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
 > histórico, y el multi-centro.
+
+### Oleada v18 — Corregir donde se mira, y una cara reconocible
+
+**Arranca ya** (v17 está `COMPLETADA`; el estado real se sigue en §1 de `SEGUIMIENTO.md`, no aquí).
+R-36 y R-37 no dependen entre sí; R-38 y R-39 dependen de R-37.
+
+Por qué esta oleada: la primera prueba real del dueño con la aplicación en un navegador (2026-10-01/02)
+destapó dos cosas que ningún test de tareas anteriores veía. **(1) Un sitio único donde corregir.**
+Hoy el Histórico solo consulta y toda edición vive en «Registros», que obliga a elegir slot y fecha antes
+de ver nada, y un registro de clase extra no aparece en ninguna parte editable. Para el profesor que sale
+de clase y quiere arreglar un toque, eso son pasos de más; para el administrador, un hueco. **(2) Una
+cara.** La aplicación se ve con el aspecto por defecto del navegador y la foto del alumno pisa su nombre
+en pasar lista. Una academia que va a enseñarla a sus profesores y familias, y a usarla como argumento
+de confianza, necesita que parezca de la casa (la guía `estilo-gauss` ya existe). El estilo se reparte en
+tres R-XX para entregarlo gradualmente: primero los cimientos, luego la pantalla que el profesor abre
+cada día y por último el resto, sin que el piloto de T-25 tenga que esperar a todas.
+
+- **F-27 — Corregir desde el Histórico.** R-36.
+- **F-28 — Identidad visual de Gauss.** R-37 (cimientos), R-38 (profesor), R-39 (resto).
+
+> Backlog de calidad asociado, fuera de las oleadas: **P-39** (prueba de humo en navegador real,
+> hallazgo #25 del auditor), en §5 de `SEGUIMIENTO.md`.
 
 ---
 
@@ -2037,3 +2058,181 @@ inactivo 20 min es cerrado; una pestaña que vuelve a primer plano pasado el pla
 con 3 toques en la cola offline el cierre no los pierde y tras volver a entrar el mismo profesor se
 sincronizan; otro profesor en el mismo dispositivo no los ve ni los envía; los textos son legibles por
 lector de pantalla.
+
+---
+
+### R-36 — Corregir y anular un registro desde el propio Histórico
+**Oleada / Fase:** v18 / F-27 · **Migración:** No · **Depende de:** T-21, T-23, R-02, R-03, R-24 (todas `COMPLETADA`) y P-38
+**Origen:** feedback del dueño 2026-10-01 («Corregir un registro desde el propio Histórico»)
+
+**Objetivo:** que quien ve un registro en el Histórico pueda corregirlo o anularlo ahí mismo, sin tener
+que ir a «Registros» y reconstruir slot y fecha. Es lo que el dueño pidió con sus palabras («el típico
+botón del lápiz» y «un botón de basura» con confirmación), y cierra de paso un hueco real: un registro de
+clase extra (`origen = manual`, sin slot) no aparece en «Registros» y hoy no se puede corregir en ninguna
+pantalla. No cambia ninguna regla de fondo: la edición reutiliza `actualizar_asistencia` tal cual.
+
+**Requisitos:**
+1. **Controles por fila.** Cada fila del Histórico muestra un botón «Editar» (icono de lápiz) y otro
+   «Anular» (icono de papelera), ambos con texto accesible (`aria-label`) y zona táctil ≥ 44 px. Solo se
+   pintan si el usuario PUEDE usarlos: `administrator` siempre; `teacher` solo en filas suyas dentro de
+   la ventana de edición vigente (`VENTANA_EDICION_TEACHER_DIAS`, 7 días desde `registrado_en`). Fuera
+   de ventana la fila no ofrece los controles y muestra, en texto, «Solo el administrador puede
+   modificar este registro». La decisión se toma con la misma función de dominio que usa «Registros»
+   (no se duplica la regla); la RLS y la RPC siguen siendo la barrera real.
+2. **Editar.** Abre un panel o diálogo con los mismos campos y límites que «Registros» (T-21): estado,
+   hora real (`ocurrido_en`), hora de salida (R-03), justificación (R-02) y nota. El formulario se
+   extrae a un componente de UI compartido que usan Histórico y «Registros» (un solo sitio donde viven las
+   reglas de validación; prohibido copiar la lógica). `registrado_en` no se muestra editable ni se
+   envía; el origen y la marca de **retroactivo** de la fila no cambian al editar. Una fila anulada no
+   se edita (se muestra tachada con su motivo, como en T-21).
+3. **Anular, con confirmación y motivo.** La papelera abre una confirmación modal accesible
+   (`<dialog>` o `role="alertdialog"` con foco atrapado, como `avisoInactividad`) con el texto
+   «¿Seguro que quieres anular este registro? No se borra: queda marcado como anulado y se conserva el
+   rastro», un campo **motivo obligatorio** y los botones «Cancelar» (foco inicial) y «Anular registro».
+   Se usa un diálogo propio y no `window.confirm()` porque la RPC exige `motivo_anulacion` y un `confirm()`
+   nativo no puede recogerlo (además de no poder estilarse y de bloquearse en algunas vistas instaladas);
+   la intención del dueño —no anular por accidente— queda íntegra. La fila nunca se elimina (DELETE sigue
+   revocado). Textos en español; el motivo nunca va al log ni al informador de errores.
+4. **Los extras aparecen y se corrigen.** Las filas con `slot_id` nulo se muestran con la etiqueta «Clase
+   extra» y admiten editar y anular igual que el resto. Se verifica con un caso de prueba propio.
+5. **Sin perder el sitio.** Tras guardar o anular, la fila se actualiza en su lugar y se conservan filtros,
+   página y posición de desplazamiento; un mensaje breve confirma el resultado y los errores salen con el
+   mensaje amigable existente (límite de tasa, sin permiso, ventana vencida). La edición exige conexión:
+   sin red los controles explican «Necesitas conexión para modificar un registro»; la cola offline de R-07
+   sigue siendo solo para registrar en pasar lista y no se extiende aquí.
+6. **Rastro.** Cada cambio queda en `asistencia_historial` (ya automático) y es visible para el
+   administrador en el registro de auditoría de R-20; este requisito no añade tabla ni columna.
+7. **«Registros» no se toca** en esta tarea: sigue funcionando igual. Si conviene retirarla, lo decide el
+   dueño (pregunta #21 de §6); mientras tanto ambas pantallas comparten el componente del requisito 2.
+8. Sin dato personal nuevo y **sin fotografía** en el Histórico (la regla de diseño no cambia: texto
+   donde el conjunto es transitorio).
+
+**Bloqueo humano:** ninguno. La pregunta #21 no bloquea: su valor por defecto es dejar «Registros» como está.
+
+**Criterio de aceptación:** un `administrator` abre el Histórico, pulsa el lápiz de una fila, cambia la
+hora real y guarda: la fila muestra la hora nueva, sigue marcada como retroactiva si lo era, `registrado_en`
+no cambia y aparece una fila en el registro de auditoría. Un `teacher` ve los controles solo en sus filas de
+los últimos 7 días; en una de hace 8 días ve el texto «Solo el administrador…» y una llamada forzada es
+rechazada por la RPC. Pulsar la papelera abre la confirmación; «Cancelar» no cambia nada; «Anular registro»
+sin motivo no se envía; con motivo la fila queda tachada y sigue en el histórico y en su exportación. Un
+registro de clase extra aparece en el Histórico, se edita y se anula. Filtros y página se conservan tras
+cada operación. Los controles se manejan con teclado y se anuncian por lector de pantalla.
+
+---
+
+### R-37 — Identidad visual de Gauss: cimientos comunes
+**Oleada / Fase:** v18 / F-28 · **Migración:** No · **Depende de:** —
+**Origen:** feedback del dueño 2026-10-02 («Dar el estilo de Gauss a todas las pantallas»); auditoría #27
+
+**Objetivo:** que la aplicación deje de verse con el aspecto por defecto del navegador y se reconozca como
+de la casa, estableciendo UNA fuente de verdad visual sobre la que se montan las pantallas. Es también la
+primera impresión del piloto y de cualquier demostración a profesores y familias. Esta tarea solo pone los
+cimientos y las pantallas de entrada; las demás las cubren R-38 y R-39. La guía a seguir es la skill
+`.claude/skills/estilo-gauss/` (tokens, componentes, reglas del proyecto) y su hoja de partida
+`assets/estilos-base.css`.
+
+**Requisitos:**
+1. **Una sola hoja `estilos.css`** en la raíz, partiendo de `assets/estilos-base.css`, enlazada desde
+   `index.html`. Sin bloques `<style>` ni atributos `style` en HTML: la CSP de T-25 (`style-src 'self'`)
+   los bloquearía en producción. Sin CDN ni fuentes remotas.
+2. **Fuentes autoalojadas** Outfit (titulares) y Karla (texto) en `fuentes/`, en `.woff2` con su licencia
+   (OFL) al lado, `font-display: swap`, solo los pesos y el subconjunto latino que se usen. Todo el CSS y las
+   fuentes entran en el `CASCARON` de `sw.js` (R-09) para que la aplicación siga arrancando sin red, y se
+   incrementa la versión de la caché para que las instalaciones existentes recojan el cambio.
+3. **Componentes comunes con clases, no con `element.style`.** `crearBoton`, `crearCampoTexto`,
+   `crearZonaMensaje` y los auxiliares de `ui/dom.ts` y `ui/formularios.ts` emiten las clases de la guía
+   (botón primario/secundario/peligro, campo con etiqueta y error asociado, avisos de éxito/error/información).
+   Las pantallas que ya los usan mejoran sin tocarse una a una.
+4. **Cascarón de aplicación.** Cabecera con logo (los recortes de `marca/`), navegación por rol y
+   contenedor principal, responsive desde 360 px sin desplazamiento horizontal.
+5. **Pantallas incluidas aquí:** login, recuperar y establecer contraseña, pantalla inicial, sin acceso,
+   aviso de inactividad (R-35), aviso de nueva versión (R-09) y aviso de sello (R-34).
+6. **Accesibilidad como requisito, no como retoque:** contraste AA en todos los pares de colores usados
+   (incluidos estados deshabilitados y avisos), foco visible en todo control, `prefers-reduced-motion`
+   respetado, tamaños táctiles ≥ 44 px en botones principales, tamaño de texto base legible y sin depender
+   del color para transmitir estado.
+7. **Sin regresión funcional:** no cambia ninguna lógica, texto de negocio ni flujo; los tests existentes
+   siguen verdes. Se migran a clases los `element.style.*` de los ficheros tocados.
+8. Sin dato personal nuevo; la fotografía del alumno no se lleva a ningún sitio nuevo (cabecera y navegación
+   no la muestran).
+
+**Bloqueo humano:** ninguno (el logo y la guía ya los ha aportado el dueño).
+
+**Criterio de aceptación:** al abrir la aplicación con los dos roles, el login, la pantalla inicial y los
+avisos usan la paleta y las tipografías de la guía; `grep` no encuentra `<style>` ni `style="` en
+`index.html`; con la red cortada tras la primera visita, la aplicación arranca con sus fuentes y estilos; un
+comprobador de contraste (en la propia sesión del programador) no da ningún par por debajo de AA; en un
+ancho de 360 px no aparece desplazamiento horizontal.
+
+---
+
+### R-38 — Identidad visual de Gauss: lo que el profesor usa cada día
+**Oleada / Fase:** v18 / F-28 · **Migración:** No · **Depende de:** R-37
+**Origen:** feedback del dueño 2026-10-02; auditoría #27
+
+**Objetivo:** que las dos pantallas del usuario de mayor frecuencia, pasar lista y «Mi horario», sean las
+primeras bien resueltas: legibles de pie, con una mano, en un móvil, y sin el defecto que vio el dueño
+(la foto del alumno superpuesta a sus iniciales y a su nombre).
+
+**Requisitos:**
+1. **Pasar lista (T-19, R-17, R-23, R-24, P-38):** cards de alumno con la receta de tarjeta y de avatar de
+   la guía (`references/componentes.md`): la foto y las iniciales **nunca se solapan** con el nombre (si hay
+   foto se muestra la foto; si no, las iniciales; el nombre siempre en su sitio), estado visible por texto
+   e icono además de color, y los controles «Marcar salida», «Anular» y «Presente en bloque / Ausentes en
+   bloque» con zona táctil ≥ 44 px y separación suficiente para no tocar el equivocado. La card «Extra»
+   (P-38) usa exactamente la misma maqueta que la del horario.
+2. **El flujo de tres toques no se alarga:** el estilo no añade pasos, confirmaciones ni modales a
+   registrar un alumno; la cola offline (R-07) y el aviso de conexión se ven con claridad y sin ocupar
+   media pantalla.
+3. **Mi horario (T-22, R-13, R-26, R-28, R-29):** lista de sesiones del día con el estado de cada una
+   (pendiente de lista, en curso, hecha, cancelada, sustitución) distinguible a golpe de vista; avisos
+   (sesión sin lista, ausencias repetidas, recordatorio) con el estilo de aviso común de R-37.
+4. **Fotografía:** sigue en los dos únicos sitios permitidos (ficha del alumno para `administrator` y cards
+   de pasar lista del propio slot del profesor). Este cambio no la lleva a «Mi horario» ni a ningún listado.
+5. Se migran a clases los `element.style.*` de estas pantallas; la maqueta funciona de 360 px a tablet, en
+   vertical y apaisado.
+6. Sin cambio de lógica ni de textos de negocio; los tests existentes siguen verdes y se añade uno que
+   compruebe que el nombre del alumno y su avatar son elementos hermanos y no se superponen en el DOM
+   (estructura), ya que el solape visual no se puede medir en `jsdom`.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** en un móvil de 360 px, una card de alumno con foto muestra foto, nombre y
+estado sin ningún solape; todos los botones de la card miden al menos 44 px; pasar lista a un alumno sigue
+siendo un toque; «Mi horario» distingue los cinco estados por texto además de color; el programador adjunta
+capturas de ambas pantallas en la sesión (no en el repositorio, `pantallazos/` está en `.gitignore`).
+
+---
+
+### R-39 — Identidad visual de Gauss: el resto de pantallas
+**Oleada / Fase:** v18 / F-28 · **Migración:** No · **Depende de:** R-37 (y coordinar con R-36 si aún no está entregada)
+**Origen:** feedback del dueño 2026-10-02; auditoría #27
+
+**Objetivo:** completar el estilo en todas las pantallas restantes, con el patrón de tablas y formularios de
+la guía, para que no queden zonas «sin vestir» que rompan la imagen del producto.
+
+**Requisitos:**
+1. **Histórico y «Registros»** (T-21, T-23, R-36): tabla responsive (en móvil, filas en forma de tarjeta
+   o desplazamiento horizontal controlado solo dentro de la tabla), filtros agrupados y diálogos de
+   editar/anular (R-36) con el estilo de diálogo común. Registros anulados tachados y con su motivo
+   legible; marca de «retroactivo» y de «clase extra» visibles como etiquetas.
+2. **Gestión de datos del administrador:** ficha de alumno (único sitio con avatar grande, con su aviso de
+   consentimiento del tutor), listado de alumnos y de usuarios (**solo texto**, sin foto), centros,
+   asignaturas y grupos, horario del centro, cierres, bajas de profesor, importaciones, asistente de primeros
+   pasos.
+3. **Informes y control:** panel de centro, informes de horas, informe mensual, registro de auditoría,
+   exportación completa y verificación de sello. Cualquier gráfico o indicador (si lo hay) sigue la guía de
+   color con contraste AA y no depende solo del color.
+4. **Impresión:** el horario imprimible (R-32) y los informes mantienen una hoja de estilos de impresión
+   limpia, sin cabecera ni navegación, y en blanco y negro legible.
+5. Se migran a clases todos los `element.style.*` restantes de `src/ui/`; al terminar, un `grep` de
+   `\.style\.` en `src/ui/` solo puede encontrar `setProperty` de variables CSS calculadas.
+6. Sin cambio de lógica, de textos de negocio ni de permisos; los tests existentes siguen verdes.
+
+**Bloqueo humano:** ninguno.
+
+**Criterio de aceptación:** todas las pantallas de `src/ui/` usan `estilos.css`; ningún `element.style`
+asignado directamente salvo variables CSS calculadas; la fotografía del alumno sigue apareciendo
+exclusivamente en la ficha (administrator) y en las cards de pasar lista del propio slot; las tablas largas
+se usan en 360 px sin desplazar la página entera; el informe imprimible sale limpio en vista previa de
+impresión.

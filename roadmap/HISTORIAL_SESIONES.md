@@ -6460,3 +6460,20 @@ abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
 **Hallazgos:** `FEEDBACK.md` sin entradas `nuevo`
 **Tareas autopropuestas (P-XX):** ninguna
 **Próximo paso:** programador cierra P-37; dueño responde #20 y avanza T-25.
+
+---
+### Sesión 2026-10-02 (PM, ciclo 39)
+**Tarea(s):** Ciclo de Product Manager — apertura de la Oleada v18
+**Estado resultante:** N/A (documento vivo, no código)
+**Commits a `develop`:** ver commit de esta sesión
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** ninguna
+**Archivos creados/modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera, Oleada v18, R-36 a R-39), `roadmap/SEGUIMIENTO.md` (cabecera, §1, P-39, pregunta #21), `roadmap/FEEDBACK.md`, esta entrada
+**Verificaciones pre-push:** N/A — solo documentación
+**Health check post-deploy:** N/A
+**Decisiones tomadas:** (1) R-36: editar/anular desde el Histórico reutilizando `actualizar_asistencia`; la confirmación es un diálogo propio con motivo obligatorio porque `confirm()` no puede recoger el motivo (misma intención que pidió el dueño); (2) el estilo Gauss se reparte en tres R-XX (cimientos, profesor, resto) para entregarlo gradualmente y no frenar el piloto; (3) «Registros» no se retira sin decisión del dueño: pregunta #21; (4) no se duplica el MVP ni se abre trabajo para `student`
+**Hallazgos del auditor atendidos:** #25 → P-39 (backlog); #26 ya resuelto por P-37; #27 → R-37 a R-39
+**Hallazgos:** `FEEDBACK.md`: dos entradas `nuevo` volcadas a `en_roadmap`. Nada pasa a `ROADMAP_HISTORICO.md` (ninguna oleada desplegada)
+**Tareas autopropuestas (P-XX):** P-39 registrada como backlog del auditor
+**Próximo paso:** el programador toma R-36 y R-37 (independientes) y P-39 antes de repartir estilo; el dueño responde #21 y avanza T-25
+
