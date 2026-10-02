@@ -19,10 +19,8 @@ import {
   listarHistorialDeCentro,
   listarHistoricoAsistencia,
   listarHistoricoAsistenciaCompleto,
-  justificarAusenciaDisponible,
-  marcarSalidaDisponible,
 } from './asistencia.ts';
-import { AccionNoDisponibleTodavia, Conflicto, ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
+import { Conflicto, ErrorDeValidacion, SinPermiso } from './erroresDominio.ts';
 import type { Asistencia, AsistenciaHistorial } from '../dominio/tipos.ts';
 
 const FILA: Asistencia = {
@@ -355,9 +353,8 @@ void test('actualizarAsistencia llama a la RPC actualizar_asistencia con el cuer
   assert.ok(peticion);
   assert.equal(peticion.url, 'https://proyecto.supabase.co/rest/v1/rpc/actualizar_asistencia');
   assert.equal(peticion.metodo, 'POST');
-  // Solo los 8 parámetros de la firma REAL desplegada en `dev` (`008_rpc_actualizar_asistencia.sql`)
-  // — nunca los de R-02/R-03 (`011`/`012`, todavía sin aplicar): enviar un nombre que la función no
-  // declara hace fallar la resolución COMPLETA de la llamada (hallazgo #22 de auditoriacontinua.md).
+  // Los 13 parámetros de la firma vigente (`012_registro_salida.sql`): PostgREST resuelve por
+  // coincidencia exacta de nombres, así que el cuerpo debe llevar exactamente estos.
   assert.deepEqual(peticion.cuerpo, {
     p_asistencia_id: 'as1',
     p_alumno_id: null,
@@ -367,25 +364,13 @@ void test('actualizarAsistencia llama a la RPC actualizar_asistencia con el cuer
     p_motivo_anulacion: null,
     p_nota: 'Llegó tarde',
     p_nota_provista: true,
+    p_justificar: false,
+    p_motivo_justificacion: null,
+    p_nota_justificacion: null,
+    p_marcar_salida: false,
+    p_ocurrido_en_salida: null,
   });
   assert.deepEqual(fila, { ...FILA, nota: 'Llegó tarde' });
-});
-
-void test('actualizarAsistencia: el cuerpo nunca lleva las claves de R-02/R-03 (p_justificar, p_marcar_salida...), estén o no aplicadas sus migraciones', async () => {
-  let peticion: PeticionSimulada | undefined;
-  const postgrest = crearCliente((p) => {
-    peticion = p;
-    return { estado: 200, cuerpo: FILA };
-  });
-
-  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', nota: 'x', notaProvista: true });
-
-  assert.ok(peticion);
-  const claves = Object.keys(peticion.cuerpo as Record<string, unknown>);
-  assert.deepEqual(
-    [...claves].sort(),
-    ['p_alumno_id', 'p_anular', 'p_asistencia_id', 'p_motivo_anulacion', 'p_nota', 'p_nota_provista', 'p_ocurrido_en', 'p_slot_id'].sort(),
-  );
 });
 
 void test('actualizarAsistencia: sin notaProvista, p_nota viaja null aunque se pase un valor (no se toca la nota)', async () => {
@@ -420,24 +405,27 @@ void test('actualizarAsistencia: anular envía p_anular y p_motivo_anulacion', a
   assert.equal(fila.estado, 'anulada');
 });
 
-void test('actualizarAsistencia: justificar (R-02) lanza AccionNoDisponibleTodavia SIN llamar a la red (011 sin aplicar)', async () => {
-  let llamadas = 0;
-  const postgrest = crearCliente(() => {
-    llamadas += 1;
+void test('actualizarAsistencia: justificar (R-02) envía p_justificar, el motivo y la nota de justificación', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
     return { estado: 200, cuerpo: FILA };
   });
 
-  await assert.rejects(
-    () =>
-      actualizarAsistencia({ postgrest }, 'p1', {
-        asistenciaId: 'as1',
-        justificar: true,
-        motivoJustificacion: 'cita_medica',
-        notaJustificacion: 'Justificante en papel',
-      }),
-    AccionNoDisponibleTodavia,
-  );
-  assert.equal(llamadas, 0);
+  await actualizarAsistencia({ postgrest }, 'p1', {
+    asistenciaId: 'as1',
+    justificar: true,
+    motivoJustificacion: 'cita_medica',
+    notaJustificacion: 'Justificante en papel',
+  });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_justificar, true);
+  assert.equal(cuerpo.p_motivo_justificacion, 'cita_medica');
+  assert.equal(cuerpo.p_nota_justificacion, 'Justificante en papel');
+  assert.equal(cuerpo.p_marcar_salida, false);
+  assert.equal(cuerpo.p_ocurrido_en_salida, null);
 });
 
 void test('actualizarAsistencia: anular sin motivo llega como ErrorDeValidacion (400)', async () => {
@@ -498,62 +486,81 @@ void test('actualizarAsistencia: el limitador de cliente (T-06) se comprueba con
   }, ErrorLimiteAlcanzado);
 });
 
-void test('actualizarAsistencia: marcar salida (R-03) lanza AccionNoDisponibleTodavia SIN llamar a la red (012 sin aplicar)', async () => {
-  let llamadas = 0;
-  const postgrest = crearCliente(() => {
-    llamadas += 1;
+void test('actualizarAsistencia: marcar salida (R-03) envía p_marcar_salida y ninguna hora de salida', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
     return { estado: 200, cuerpo: FILA };
   });
 
-  await assert.rejects(
-    () => actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', marcarSalida: true }),
-    AccionNoDisponibleTodavia,
-  );
-  assert.equal(llamadas, 0);
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', marcarSalida: true });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_marcar_salida, true);
+  assert.equal(cuerpo.p_ocurrido_en_salida, null);
+  assert.equal(cuerpo.p_justificar, false);
 });
 
-void test('actualizarAsistencia: ajustar la salida (R-03) lanza AccionNoDisponibleTodavia SIN llamar a la red (012 sin aplicar)', async () => {
-  let llamadas = 0;
-  const postgrest = crearCliente(() => {
-    llamadas += 1;
+void test('actualizarAsistencia: ajustar la salida (R-03) envía p_ocurrido_en_salida en ISO', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
     return { estado: 200, cuerpo: FILA };
   });
   const ocurridoEnSalida = new Date('2026-08-31T10:15:00.000Z');
 
-  await assert.rejects(
-    () => actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', ocurridoEnSalida }),
-    AccionNoDisponibleTodavia,
-  );
-  assert.equal(llamadas, 0);
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', ocurridoEnSalida });
+
+  assert.ok(peticion);
+  const cuerpo = peticion.cuerpo as Record<string, unknown>;
+  assert.equal(cuerpo.p_ocurrido_en_salida, ocurridoEnSalida.toISOString());
+  assert.equal(cuerpo.p_marcar_salida, false);
 });
 
-void test('marcarSalidaAsistencia: lanza AccionNoDisponibleTodavia SIN llamar a la red ni consumir el límite de cliente (012 sin aplicar)', async () => {
-  let llamadas = 0;
-  const reloj = crearRelojFijo(new Date('2026-08-31T09:00:00.000Z'));
-  const limitador = crearLimitadorTasa({ maximo: 1, ventanaMs: 60_000, reloj });
-  const postgrest = crearCliente(() => {
-    llamadas += 1;
+void test('actualizarAsistencia: la llamada lleva exactamente los 13 parámetros de 012_registro_salida.sql', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const postgrest = crearCliente((p) => {
+    peticion = p;
     return { estado: 200, cuerpo: FILA };
   });
 
-  await assert.rejects(() => marcarSalidaAsistencia({ postgrest, limitador }, 'profesor-dueno', 'as1'), AccionNoDisponibleTodavia);
-  assert.equal(llamadas, 0);
-  // No consumió el límite: el profesor conserva su cuota íntegra.
-  limitador.comprobar('asistencia:profesor-dueno');
+  await actualizarAsistencia({ postgrest }, 'p1', { asistenciaId: 'as1', nota: 'x', notaProvista: true });
+
+  assert.ok(peticion);
+  assert.deepEqual(Object.keys(peticion.cuerpo as object).sort(), [
+    'p_alumno_id',
+    'p_anular',
+    'p_asistencia_id',
+    'p_justificar',
+    'p_marcar_salida',
+    'p_motivo_anulacion',
+    'p_motivo_justificacion',
+    'p_nota',
+    'p_nota_justificacion',
+    'p_nota_provista',
+    'p_ocurrido_en',
+    'p_ocurrido_en_salida',
+    'p_slot_id',
+  ]);
 });
 
-// --- Señales de disponibilidad, hallazgo #23 de auditoriacontinua.md ------------------------------
-// P-30 ya cortaba la llamada de red; ninguna pantalla consultaba estas señales ANTES de pintar el
-// control (`pantallaRegistrosSlot.ts`/`pantallaPasarLista.ts`, que las reciben inyectadas y
-// consultan por su cuenta, ver sus propios tests). Aquí solo se fija que, mientras `011`/`012`
-// sigan sin aplicar, ambas devuelven `false` — mismo motivo exacto que `accionPendienteDeMigracion`.
+void test('marcarSalidaAsistencia: llama a la RPC con p_marcar_salida y consume el límite de cliente', async () => {
+  let peticion: PeticionSimulada | undefined;
+  const reloj = crearRelojFijo(new Date('2026-08-31T09:00:00.000Z'));
+  const limitador = crearLimitadorTasa({ maximo: 1, ventanaMs: 60_000, reloj });
+  const postgrest = crearCliente((p) => {
+    peticion = p;
+    return { estado: 200, cuerpo: FILA };
+  });
 
-void test('justificarAusenciaDisponible: false mientras 011_justificacion_ausencia.sql no esté aplicada', () => {
-  assert.equal(justificarAusenciaDisponible(), false);
-});
+  await marcarSalidaAsistencia({ postgrest, limitador }, 'profesor-dueno', 'as1');
 
-void test('marcarSalidaDisponible: false mientras 012_registro_salida.sql no esté aplicada', () => {
-  assert.equal(marcarSalidaDisponible(), false);
+  assert.ok(peticion);
+  assert.equal((peticion.cuerpo as Record<string, unknown>).p_marcar_salida, true);
+  assert.throws(() => {
+    limitador.comprobar('asistencia:profesor-dueno');
+  }, ErrorLimiteAlcanzado);
 });
 
 void test('anularAsistencia: llama a actualizarAsistencia con anular:true y el motivo, sin tocar ningún otro campo', async () => {

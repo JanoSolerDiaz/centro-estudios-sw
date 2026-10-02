@@ -15,6 +15,19 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-02 (rutina programada de programador — P-37)
+**Tarea(s):** P-37 (urgente §0.3): retirar el bloqueo temporal de P-30 sobre R-02/R-03
+**Estado resultante:** P-37 `IMPLEMENTADA`; pendiente de confirmación del dueño en local. Sin hallazgos de auditoría `ABIERTO` de severidad alta que atender
+**Commits a `develop`:** el de esta sesión
+**Migraciones aplicadas:** ninguna (`011`/`012` ya estaban aplicadas en `dev`)
+**Propagación a prod pendiente:** sin cambio (fila 12 de §3, T-25)
+**Archivos creados/modificados:** `src/datos/asistencia.ts`, `src/ui/aplicacion.ts`, `src/ui/pantallaPasarLista.ts`, `src/ui/pantallaRegistrosSlot.ts` y sus tests, `roadmap/SEGUIMIENTO.md`, esta entrada
+**Verificaciones pre-push:** typecheck + lint + test (2001/2001) + build, en verde
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`; se retiran `accionPendienteDeMigracion`, `justificarAusenciaDisponible` y `marcarSalidaDisponible` en vez de dejarlas devolviendo `true`. `AccionNoDisponibleTodavia` se conserva como error genérico
+**Hallazgos del auditor atendidos:** ninguno
+**Tareas autopropuestas (P-XX):** P-37 cerrada. La pregunta #20 de §6 sigue abierta, sin tocar
+
 ### Sesión 2026-10-01 (interactiva, prueba local del dueño — continuación)
 **Tarea(s):** registro de P-37 y de la pregunta #20
 **Estado resultante:** P-36 funciona en uso real (el dueño entra y pasa lista en local). P-37 `PENDIENTE` para el agente programador
