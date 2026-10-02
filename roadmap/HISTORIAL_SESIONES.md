@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-02 (interactiva, prueba local del dueño)
+**Tarea(s):** registro de decisiones del dueño (pregunta #20 y feedback sobre el Histórico)
+**Estado resultante:** pregunta #20 respondida; entrada `nuevo` en `FEEDBACK.md`
+**Commits a `develop`:** el de este registro (sin cambios de código)
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera, §6 #20), `roadmap/FEEDBACK.md`, esta entrada
+**Verificaciones pre-push:** las del gancho de pre-commit
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** del dueño: (1) tarjetas «Extra» con «Marcar salida» y «Anular»; (2) feedback: editar (lápiz) y anular (papelera con confirmación) desde el Histórico
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:** un registro extra (`origen = manual`, `slot_id` nulo) no aparece en «Registros», que filtra por slot: hoy no se puede corregir en ninguna pantalla, ni como `teacher` ni como `administrator`. Además, el dueño vio que pasar lista no ofrece nada que editar fuera de una clase en curso: es lo previsto, pero confirma que echa en falta un sitio único donde corregir
+**Tareas autopropuestas (P-XX):** ninguna — los dos cambios son de producto: el de la #20 para el programador, el del Histórico para el PM
+**Próximo paso:** el PM evalúa la entrada de `FEEDBACK.md` (Histórico editable) y el programador implementa la respuesta a la #20. El dueño confirma P-37 en local (marcar salida en una tarjeta de horario y editar en «Registros»)
+
 ### Sesión 2026-10-02 (rutina programada de programador — P-37)
 **Tarea(s):** P-37 (urgente §0.3): retirar el bloqueo temporal de P-30 sobre R-02/R-03
 **Estado resultante:** P-37 `IMPLEMENTADA`; pendiente de confirmación del dueño en local. Sin hallazgos de auditoría `ABIERTO` de severidad alta que atender
