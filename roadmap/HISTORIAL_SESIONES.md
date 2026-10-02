@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-02 (interactiva — skill de estilo Gauss)
+**Tarea(s):** ninguna de la hoja de ruta: petición del dueño de crear una guía de estilo a partir de gausscastellon.com
+**Estado resultante:** skill `estilo-gauss` creada en `.claude/skills/estilo-gauss/`. Ninguna pantalla cambia todavía
+**Commits a `develop`:** el de la skill y este registro
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `.claude/skills/estilo-gauss/` (`SKILL.md`, `references/tokens.md`, `references/componentes.md`, `assets/estilos-base.css`), `roadmap/DECISIONES_TECNICAS.md`, esta entrada
+**Verificaciones pre-push:** las del gancho de pre-commit (la skill no toca `src/`)
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** fila del 2026-10-02 en `DECISIONES_TECNICAS.md` (skill de estilo)
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:** la propia revisión de la vista previa encontró dos trampas, ya corregidas en la plantilla y documentadas: un `.solo-lector` dentro de una tabla ensancha la página en móvil si el contenedor no es `position: relative`, y el azul Gauss sobre el bloque oscuro no llega a AA en texto pequeño
+**Tareas autopropuestas (P-XX):** ninguna
+**Próximo paso:** aplicar el estilo a las pantallas es trabajo de producto: lo planifica el PM si el dueño lo pide (entrada de `FEEDBACK.md`). Faltan del dueño los ficheros del logo (`marca/`); las fuentes `.woff2` las descarga quien monte `estilos.css`
+
 ### Sesión 2026-10-02 (interactiva, prueba local del dueño)
 **Tarea(s):** registro de decisiones del dueño (pregunta #20 y feedback sobre el Histórico)
 **Estado resultante:** pregunta #20 respondida; entrada `nuevo` en `FEEDBACK.md`
