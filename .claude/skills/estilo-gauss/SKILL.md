@@ -96,6 +96,9 @@ emojis como iconos; el verde WhatsApp como fondo de texto blanco (no llega a AA:
 ## Marca
 
 - Nombre: «Gauss Centro de Estudios»; la aplicación se llama «GestorAcademia».
-- Logo: `marca/gauss-logo.png` (fondo claro) y `marca/gauss-logo-blanco.png` (sobre `--gauss-tinta`),
-  42-52 px de alto. Si todavía no están en el repositorio, usa el nombre en Outfit 800 como
-  logotipo de texto y pide los ficheros al dueño; no los dibujes ni los descargues de la web.
+- Logo: `marca/gauss-logo.png` (negro, para fondo claro) y `marca/gauss-logo-blanco.png` (blanco,
+  sobre `--gauss-tinta`). PNG con transparencia, 354×139 px (proporción 2,55:1), ya recortados del
+  original cuadrado. En la cabecera, 42-48 px de alto con `width: auto`; nunca estirados ni
+  recoloreados. El `alt` es «Gauss Centro de Estudios». Añádelos a `CASCARON` de `sw.js` al usarlos.
+- Los originales y la copia de la web están en `docs/`, que no se versiona: no los enlaces desde la
+  aplicación.

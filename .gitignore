@@ -5,3 +5,8 @@ config.js
 dist/
 *.log
 *.tsbuildinfo
+pantallazos/
+docs/
+# Material de referencia local del dueño (copia de la web, logos originales, vistas previas):
+# no se versiona. Los logos que usa la aplicación están recortados en marca/.
+docs/
