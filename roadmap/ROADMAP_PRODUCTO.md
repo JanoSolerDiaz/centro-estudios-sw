@@ -8,7 +8,7 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-10-02 — trigésimo noveno ciclo del PM: **se abre la Oleada v18** (R-36 a
+**Última actualización:** 2026-10-03 — cuadragésimo ciclo del PM: sin entradas `nuevo` en `FEEDBACK.md`, hallazgos #25 y #27 ya incorporados (P-39, R-37 a R-39) y v18 aún sin ejecutar, así que no se añade ninguna R-XX nueva; solo se explicita en R-37 el orden P-39 → R-37 recomendado por el auditor. Antes, el trigésimo noveno ciclo del PM: **se abre la Oleada v18** (R-36 a
 R-39), la primera tras el MVP que nace de la prueba local del dueño y no de una idea del PM.
 Entradas de `FEEDBACK.md` volcadas: «corregir desde el Histórico» → **R-36**; «estilo Gauss en todas
 las pantallas» → **R-37 a R-39** (cimientos, pasar lista y profesor, resto de pantallas). Hallazgos del
@@ -2123,6 +2123,7 @@ cada operación. Los controles se manejan con teclado y se anuncian por lector d
 ### R-37 — Identidad visual de Gauss: cimientos comunes
 **Oleada / Fase:** v18 / F-28 · **Migración:** No · **Depende de:** —
 **Origen:** feedback del dueño 2026-10-02 («Dar el estilo de Gauss a todas las pantallas»); auditoría #27
+**Orden recomendado (auditoría 2026-10-03, #25):** ejecutar antes **P-39** (prueba de humo en navegador real). Esta tarea cambia el `CASCARON` del Service Worker y la carga de hojas y fuentes bajo la CSP de `_headers`, justo el tipo de rotura que los tests con `jsdom` no ven. No es dependencia dura: si P-39 se retrasa, R-37 puede seguir, pero verificándola a mano en un navegador.
 
 **Objetivo:** que la aplicación deje de verse con el aspecto por defecto del navegador y se reconozca como
 de la casa, estableciendo UNA fuente de verdad visual sobre la que se montan las pantallas. Es también la

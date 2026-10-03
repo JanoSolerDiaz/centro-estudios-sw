@@ -6477,3 +6477,14 @@ abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
 **Tareas autopropuestas (P-XX):** P-39 registrada como backlog del auditor
 **Próximo paso:** el programador toma R-36 y R-37 (independientes) y P-39 antes de repartir estilo; el dueño responde #21 y avanza T-25
 
+
+---
+
+## 2026-10-03 — Product Manager (ciclo 40)
+
+**Rol:** Product Manager (solo documentación, sin código)
+**Hallazgos del auditor atendidos:** #25 → P-39 (ya en backlog; ahora enlazado desde R-37 como orden recomendado); #27 → R-37 a R-39 (ya abiertas); #26 resuelto. Ninguno nuevo.
+**FEEDBACK.md:** sin entradas `nuevo`.
+**Decisiones tomadas:** (1) no se abren R-XX nuevas: la oleada v18 (R-36 a R-39) está entera sin ejecutar y T-25 sigue sin cerrarse, así que ampliar el roadmap ahora solo acumularía especificación sin validar con el piloto; (2) nada pasa a `ROADMAP_HISTORICO.md`, porque ninguna oleada está desplegada en producción; (3) R-37 gana una nota de orden recomendado (P-39 antes), no una dependencia dura.
+**Archivos modificados:** `roadmap/ROADMAP_PRODUCTO.md`, esta entrada
+**Próximo paso:** el programador toma P-39, luego R-36 y R-37; el dueño responde #21 y avanza T-25.
