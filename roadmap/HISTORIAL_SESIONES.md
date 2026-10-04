@@ -6488,3 +6488,15 @@ abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
 **Decisiones tomadas:** (1) no se abren R-XX nuevas: la oleada v18 (R-36 a R-39) está entera sin ejecutar y T-25 sigue sin cerrarse, así que ampliar el roadmap ahora solo acumularía especificación sin validar con el piloto; (2) nada pasa a `ROADMAP_HISTORICO.md`, porque ninguna oleada está desplegada en producción; (3) R-37 gana una nota de orden recomendado (P-39 antes), no una dependencia dura.
 **Archivos modificados:** `roadmap/ROADMAP_PRODUCTO.md`, esta entrada
 **Próximo paso:** el programador toma P-39, luego R-36 y R-37; el dueño responde #21 y avanza T-25.
+
+
+---
+
+## 2026-10-04 — Product Manager (ciclo 41)
+
+**Rol:** Product Manager (solo documentación, sin código)
+**Hallazgos del auditor atendidos:** pasada del 2026-10-04 sin hallazgos nuevos; los dos ABIERTOS (#25 → P-39, #27 → R-37 a R-39) ya están convertidos en tarea. Ninguno de severidad alta.
+**FEEDBACK.md:** sin entradas `nuevo`.
+**Decisiones tomadas:** no se abren R-XX nuevas ni se mueve nada a `ROADMAP_HISTORICO.md`. Desde el ciclo 40 no hay commits de código: la oleada v18 (R-36 a R-39) sigue sin ejecutar y T-25 sin cerrar, así que ampliar el roadmap solo acumularía especificación sin validar con el piloto.
+**Archivos modificados:** esta entrada
+**Próximo paso:** el programador toma P-39, luego R-36 y R-37; el dueño responde #21 y avanza T-25.
