@@ -79,6 +79,28 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-04
+
+**Alcance real de esta pasada — desde `9d7b883` (auditoría 2026-10-03):** un único commit (`1ceae3c`, PM ciclo 40),
+dos ficheros, **solo documentación** (`HISTORIAL_SESIONES.md`, `ROADMAP_PRODUCTO.md`). Nada bajo `db/`, `src/`,
+`herramientas/`, `sw.js`, `_headers` ni `package.json`. `git checkout develop && git pull origin develop` limpio.
+
+**Lo ocurrido:** el PM no abre oleada nueva (v18, R-36 a R-39, sin ejecutar; T-25 sin cerrar) y añade a R-37 la nota
+de orden P-39 → R-37 que recomendó el auditor. Decisión coherente: no acumula especificación sin validar con el piloto.
+No se ha ejecutado ninguna tarea de código desde la pasada anterior.
+
+**Puntos de control permanentes:** al no haber cambios en `db/` ni en el código, la verificación de la pasada
+2026-10-03 sigue vigente (escritura solo por RPC, triggers de inmutabilidad y rastro, `student` cerrado, bucket,
+personas de referencia, RLS, `PERMITIR_PROD`). Re-comprobado hoy: ningún `GRANT … TRUNCATE` en `db/*.sql`; `dependencies`
+vacío; sin tokens `sbp_` ni JWT reales en el repositorio. No se re-ejecutó `db/pruebas_rls.sql` (sin credenciales; el
+último resultado del dueño es 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` y `npm test` (**2009 pruebas, 0 fallidas**) limpios.
+
+**Hallazgos:** sin nuevos. **#25 (media)** persiste: P-39 sigue sin implementar y R-37 (que toca `CASCARON` y CSP) puede
+ejecutarse antes; la nota de orden del PM es recomendación, no dependencia. **#27 (baja)** persiste (R-37 a R-39 `PENDIENTE`).
+Ninguno de severidad alta. Pasada de bajo contenido: el proyecto está en espera del programador y de las respuestas del dueño (#21, T-25).
+
 ### Auditoría 2026-10-03
 
 **Alcance real de esta pasada — desde `0430b4b` (auditoría 2026-10-02):** nueve commits, 19 ficheros. Nada bajo
