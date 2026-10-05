@@ -15,6 +15,7 @@
     "migrate": "node herramientas/migrar.ts",
     "seed": "node herramientas/seed.ts",
     "probar-rls": "node herramientas/probarRls.ts",
+    "humo": "node herramientas/humo.ts",
     "generar-iconos": "node herramientas/iconos/generarIconos.ts"
   },
   "devDependencies": {

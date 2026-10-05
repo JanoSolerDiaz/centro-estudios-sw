@@ -15,6 +15,17 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-05 (Programador, rutina programada — P-39)
+**Tarea(s):** P-39 (única pendiente de la cola; sin hallazgos ABIERTOS de severidad alta: #8 `ASUMIDO`, #25 media, #27 baja)
+**Estado resultante:** P-39 `IMPLEMENTADA`. Sin tareas `PENDIENTE` en §1
+**Commits a `develop`:** el de P-39
+**Migraciones aplicadas:** ninguna (sin cambio de esquema)
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `herramientas/humo.ts`, `package.json` (script `humo`), `DEVELOPERS.md`, `roadmap/SEGUIMIENTO.md`
+**Verificaciones pre-push:** typecheck, lint, test (2045) y build en verde; `npm run humo` en verde (12 comprobaciones) y en rojo al quitar el host de Supabase de `connect-src`
+**Decisiones tomadas:** ninguna nueva (Playwright no es dependencia para no tocar `package-lock.json` ni CI)
+**Pendiente / fuera de alcance:** Playwright en CI; flujos de administrator; el dueño puede correr `npm run humo` tras `npm run build` si tiene Playwright. #25 sigue `ABIERTO` para que lo valore el auditor
+
 ### Sesión 2026-10-05 (Programador, rutina programada — R-39)
 **Tarea(s):** R-39 (primera `PENDIENTE` de §1; sin hallazgos ABIERTOS de severidad alta)
 **Estado resultante:** R-39 `COMPLETADA`. Sin `element.style` directo en `src/ui/`; pantallas de gestión e informes vestidas con CSS por elemento en `main.pagina`; impresión limpia en blanco y negro; `sw.js` `v4`

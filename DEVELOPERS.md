@@ -1223,6 +1223,19 @@ específico para esa ruta que añade esa única excepción al veto general de pa
 `src/` — cualquier otro import de tercero en un test sigue fallando el lint igual que en el resto
 del código.
 
+## Prueba de humo en navegador (P-39)
+
+`npm run build && npm run humo` arranca Chromium headless contra `index.html` servido en local
+con la CSP real de `_headers` y un doble de Supabase (`page.route`, sin red ni credenciales).
+Comprueba lo que jsdom no puede: carga de módulos ES, login, pasar lista (la RPC lleva el token),
+Service Worker activo, cola offline en IndexedDB sin red, `crypto.subtle` (sello R-34), ninguna
+violación de CSP, fuentes cargadas y consola limpia. Un fallo sale con código 1.
+
+Playwright no es dependencia del proyecto: `herramientas/humo.ts` lo busca en `node_modules`, en
+`PLAYWRIGHT_MODULO` o en la instalación global del entorno, y usa `PLAYWRIGHT_BROWSERS_PATH` para
+Chromium. Queda fuera de `npm test` y de CI. Córrela antes de tocar CSP, fuentes, Service Worker o
+la carga de módulos.
+
 ## Integración continua (T-04)
 
 `.github/workflows/ci.yml` ejecuta `npm ci` seguido de `typecheck`, `lint`, `test` y `build`, en
