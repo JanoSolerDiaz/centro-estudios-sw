@@ -8,7 +8,7 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-10-03 — cuadragésimo ciclo del PM: sin entradas `nuevo` en `FEEDBACK.md`, hallazgos #25 y #27 ya incorporados (P-39, R-37 a R-39) y v18 aún sin ejecutar, así que no se añade ninguna R-XX nueva; solo se explicita en R-37 el orden P-39 → R-37 recomendado por el auditor. Antes, el trigésimo noveno ciclo del PM: **se abre la Oleada v18** (R-36 a
+**Última actualización:** 2026-10-05 — cuadragésimo segundo ciclo del PM: la Oleada v18 (R-36 a R-39) y P-39 figuran `COMPLETADA` en §1 de `SEGUIMIENTO.md`; sin entradas `nuevo` en `FEEDBACK.md` y sin hallazgos del auditor por convertir (#25 y #27 ya tienen tarea implementada; los cierra el auditor). No se añade ninguna R-XX: el cuello de botella sigue siendo T-25 y la oleada v18 aún no se ha validado con el piloto. Nada pasa a `ROADMAP_HISTORICO.md` (no hay oleada desplegada en producción). Antes, el cuadragésimo ciclo del PM: sin entradas `nuevo` en `FEEDBACK.md`, hallazgos #25 y #27 ya incorporados (P-39, R-37 a R-39) y v18 aún sin ejecutar, así que no se añade ninguna R-XX nueva; solo se explicita en R-37 el orden P-39 → R-37 recomendado por el auditor. Antes, el trigésimo noveno ciclo del PM: **se abre la Oleada v18** (R-36 a
 R-39), la primera tras el MVP que nace de la prueba local del dueño y no de una idea del PM.
 Entradas de `FEEDBACK.md` volcadas: «corregir desde el Histórico» → **R-36**; «estilo Gauss en todas
 las pantallas» → **R-37 a R-39** (cimientos, pasar lista y profesor, resto de pantallas). Hallazgos del
