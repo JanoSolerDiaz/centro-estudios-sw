@@ -241,7 +241,7 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     return estado;
   }
 
-  const tituloPantalla = crearElemento(documento, 'h2', { texto: 'Mi horario' });
+  const tituloPantalla = crearElemento(documento, 'h2', { texto: 'Mi horario', atributos: { class: 'pantalla-titulo' } });
   // R-32: independiente del resto de la pantalla, siempre disponible — mismo criterio que los
   // botones de descarga/impresión de R-15.
   const botonImprimir = crearBoton(documento, 'Imprimir mi horario', 'button');
@@ -249,10 +249,14 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     imprimirMiHorario();
   });
   const zonaRecordatorio = documento.createElement('div');
+  zonaRecordatorio.className = 'tarjeta';
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaEstado = documento.createElement('div');
+  zonaEstado.className = 'estado-cargando';
   const zonaResumen = documento.createElement('div');
+  zonaResumen.className = 'bloque-oscuro';
   const zonaAvisos = documento.createElement('div');
+  zonaAvisos.className = 'aviso aviso--atencion';
   const listaDias = documento.createElement('div');
 
   function recordatorioDisponible(): boolean {
@@ -428,11 +432,14 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     }
     zonaAvisos.append(crearElemento(documento, 'h3', { texto: 'Sesiones sin pasar lista' }));
     const lista = documento.createElement('ul');
+    lista.className = 'lista-sesiones';
     for (const aviso of avisos) {
       const li = documento.createElement('li');
+      li.className = 'sesion sesion--aviso';
       const tramo = `${aviso.fecha} ${aviso.slot.hora_inicio}–${aviso.slot.hora_fin}`;
       li.append(crearElemento(documento, 'span', { texto: `${tramo} — ${nombreCompletoAlumno(aviso.slot.alumno)}` }));
       const boton = crearBoton(documento, 'Completar registro', 'button');
+      boton.className = 'boton boton--primario';
       boton.addEventListener('click', () => {
         deps.irARegistros(aviso.slot.id, aviso.fecha);
       });
@@ -522,9 +529,10 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     }
     const ui = obtenerEstadoAvisoAusencia(slot.id);
     const contenedor = documento.createElement('div');
+    contenedor.className = 'sesion__aviso';
 
     if (ui.enviado) {
-      contenedor.append(crearElemento(documento, 'span', { texto: 'Aviso enviado.' }));
+      contenedor.append(crearElemento(documento, 'span', { texto: 'Aviso enviado.', atributos: { class: 'insignia insignia--info' } }));
       return contenedor;
     }
 
@@ -565,22 +573,23 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
 
     contenedor.append(campoMotivo, botonConfirmar, botonCancelar);
     if (ui.error) {
-      contenedor.append(crearElemento(documento, 'span', { texto: ui.error }));
+      contenedor.append(crearElemento(documento, 'span', { texto: ui.error, atributos: { class: 'campo__error' } }));
     }
     return contenedor;
   }
 
   function pintarFilaSlot(slot: SlotSemanal, instante: Date): HTMLLIElement {
     const li = documento.createElement('li');
+    li.className = 'sesion';
     li.append(
-      crearElemento(documento, 'span', { texto: `${slot.hora_inicio}–${slot.hora_fin}` }),
-      crearElemento(documento, 'span', { texto: slot.asignatura_o_grupo ?? '—' }),
-      crearElemento(documento, 'span', { texto: nombreCompletoAlumno(slot.alumno) }),
+      crearElemento(documento, 'span', { texto: `${slot.hora_inicio}–${slot.hora_fin}`, atributos: { class: 'sesion__hora' } }),
+      crearElemento(documento, 'span', { texto: slot.asignatura_o_grupo ?? '—', atributos: { class: 'texto-atenuado' } }),
+      crearElemento(documento, 'span', { texto: nombreCompletoAlumno(slot.alumno), atributos: { class: 'sesion__alumno' } }),
     );
     // R-28: indicador discreto junto al nombre — ver dominio/avisoAusenciasRepetidas.ts.
     const ausencias = almacen.obtener().ausenciasRepetidas.get(slot.alumno.id);
     if (ausencias !== undefined) {
-      li.append(crearElemento(documento, 'span', { texto: `⚠ ${String(ausencias)} ausencias sin justificar` }));
+      li.append(crearElemento(documento, 'span', { texto: `⚠ ${String(ausencias)} ausencias sin justificar`, atributos: { class: 'insignia insignia--extra' } }));
     }
     // R-06/R-21, requisito 6 de R-21: una excepción o una pausa de hoy mandan sobre "en
     // curso"/"siguiente" — nunca ninguna combinación de las dos a la vez, y "Pasar lista" no se
@@ -589,22 +598,28 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
     const excepcion = excepcionDeHoy(slot, instante);
     const pausa = excepcion ? undefined : pausaDeHoy(slot, instante);
     if (excepcion) {
-      li.append(crearElemento(documento, 'span', { texto: etiquetaExcepcion(excepcion) }));
+      li.classList.add('sesion--excepcion');
+      li.append(crearElemento(documento, 'span', { texto: etiquetaExcepcion(excepcion), atributos: { class: 'insignia insignia--anulada' } }));
     } else if (pausa) {
-      li.append(crearElemento(documento, 'span', { texto: `En pausa hasta ${pausa.fecha_fin}` }));
+      li.classList.add('sesion--pausa');
+      li.append(crearElemento(documento, 'span', { texto: `En pausa hasta ${pausa.fecha_fin}`, atributos: { class: 'insignia insignia--neutra' } }));
     } else if (slot.esActual) {
-      li.append(crearElemento(documento, 'span', { texto: 'En curso' }));
+      li.classList.add('sesion--en-curso');
+      li.append(crearElemento(documento, 'span', { texto: 'En curso', atributos: { class: 'insignia insignia--presente' } }));
     } else if (slot.esSiguiente) {
-      li.append(crearElemento(documento, 'span', { texto: 'Siguiente' }));
+      li.classList.add('sesion--siguiente');
+      li.append(crearElemento(documento, 'span', { texto: 'Siguiente', atributos: { class: 'insignia insignia--info' } }));
     }
     if (slot.esActual && !excepcion && !pausa) {
       const botonPasarLista = crearBoton(documento, 'Pasar lista', 'button');
+      botonPasarLista.className = 'boton boton--primario';
       botonPasarLista.addEventListener('click', () => {
         deps.irAPasarLista();
       });
       li.append(botonPasarLista);
     }
     const botonRegistros = crearBoton(documento, 'Ver registros', 'button');
+    botonRegistros.className = 'boton boton--texto';
     botonRegistros.addEventListener('click', () => {
       deps.irARegistros(slot.id);
     });
@@ -625,11 +640,13 @@ export function mostrarPantallaMiHorario(contenedor: HTMLElement, deps: Dependen
       const slotsDelDia = vista.filter((slot) => slot.dia_semana === diaSemana).sort((a, b) => compararAlumnosParaOrden(a.alumno, b.alumno));
 
       const seccion = documento.createElement('section');
+      seccion.className = 'seccion';
       seccion.append(crearElemento(documento, 'h3', { texto: ETIQUETA_DIA_SEMANA[diaSemana] }));
       if (slotsDelDia.length === 0) {
-        seccion.append(crearElemento(documento, 'p', { texto: 'Sin clases este día.' }));
+        seccion.append(crearElemento(documento, 'p', { texto: 'Sin clases este día.', atributos: { class: 'estado-vacio' } }));
       } else {
         const lista = documento.createElement('ul');
+        lista.className = 'lista-sesiones';
         for (const slot of slotsDelDia) {
           lista.append(pintarFilaSlot(slot, instante));
         }

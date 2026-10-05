@@ -1190,3 +1190,26 @@ void test('si el navegador bloquea la ventana emergente, "Imprimir mi horario" a
 
   assert.match(contenedor.textContent, /bloqueado la ventana de impresión/);
 });
+
+// --- R-38: estados de cada sesión por texto y por clase, sin estilos en línea --------------------
+
+void test('R-38: «Mi horario» marca la sesión en curso con texto, clase y sin estilos en línea', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaMiHorario(
+    contenedor,
+    crearDepsFalsas({ cargarSlots: () => Promise.resolve([crearSlot({ dia_semana: 1, hora_inicio: '16:00', hora_fin: '17:00' })]) }),
+  );
+  await esperarMicrotareas();
+
+  assert.equal(contenedor.querySelectorAll('[style]').length, 0);
+  const enCurso = contenedor.querySelector('li.sesion--en-curso');
+  if (enCurso) {
+    assert.match(enCurso.textContent, /En curso/);
+    assert.ok(enCurso.querySelector('.insignia'));
+  }
+  for (const fila of Array.from(contenedor.querySelectorAll('li.sesion'))) {
+    assert.ok(fila.querySelector('.sesion__hora'));
+    // Ninguna fila lleva foto: la fotografía no sale de pasar lista ni de la ficha.
+    assert.equal(fila.querySelector('img'), null);
+  }
+});

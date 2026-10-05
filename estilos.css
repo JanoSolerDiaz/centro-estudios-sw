@@ -542,6 +542,7 @@ img {
 .insignia--ausente { background: var(--gauss-rojo-fondo); color: var(--gauss-rojo-oscuro); }
 .insignia--extra { background: var(--gauss-aviso-fondo); color: var(--gauss-aviso-texto); }
 .insignia--info { background: var(--gauss-azul-suave); color: var(--gauss-azul-oscuro); }
+.insignia--neutra { background: var(--gauss-fondo-hundido); color: var(--gauss-texto-secundario); }
 .insignia--anulada { background: var(--gauss-fondo-hundido); color: var(--gauss-texto-atenuado); text-decoration: line-through; }
 
 /* ---------------------------------------------------------------- Tarjetas y bloques */
@@ -783,6 +784,10 @@ img {
 .tarjeta-alumno--enviando {
   opacity: 0.7;
 }
+.tarjeta-alumno--extra {
+  border-style: dashed;
+  border-color: var(--gauss-ambar);
+}
 .tarjeta-alumno--error {
   border-style: dashed;
   border-color: var(--gauss-rojo);
@@ -812,8 +817,10 @@ img {
   flex-direction: column;
   gap: var(--gauss-esp-2);
 }
-.tarjeta-alumno__acciones .boton {
+.tarjeta-alumno__acciones .boton,
+.tarjeta-alumno-grupo > .boton {
   width: 100%;
+  min-height: var(--gauss-altura-tactil);
   font-size: 14px;
   padding: var(--gauss-esp-2) var(--gauss-esp-4);
   border-radius: var(--gauss-radio-campo);
@@ -830,7 +837,7 @@ img {
   height: 80px;
   border-radius: var(--gauss-radio-pildora);
   overflow: hidden;
-  background: var(--gauss-tinta-fuerte);
+  background: var(--avatar-fondo, var(--gauss-tinta-fuerte));
   color: var(--gauss-blanco);
   font-family: var(--gauss-fuente-titulos);
   font-size: 26px;
@@ -1035,4 +1042,54 @@ img {
 .app:not(:has(*)) {
   padding: var(--gauss-separacion-secciones) var(--gauss-margen-pagina);
   color: var(--gauss-texto-secundario);
+}
+
+/* ---------------------------------------------------------------- Mi horario (R-38) */
+.bloque-oscuro:empty,
+.tarjeta:empty {
+  display: none;
+}
+.lista-sesiones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gauss-esp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sesion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gauss-esp-3) var(--gauss-esp-5);
+  padding: var(--gauss-esp-5);
+  background: var(--gauss-superficie);
+  border: 1px solid var(--gauss-linea);
+  border-left: 5px solid var(--gauss-borde-control);
+  border-radius: var(--gauss-radio-boton);
+}
+.sesion--en-curso { border-left-color: var(--gauss-verde-solido); background: var(--gauss-verde-fondo); }
+.sesion--siguiente { border-left-color: var(--gauss-azul); }
+.sesion--excepcion { border-left-color: var(--gauss-rojo); }
+.sesion--pausa { border-left-color: var(--gauss-ambar); }
+.sesion--aviso { border-left-color: var(--gauss-ambar); }
+.sesion__hora {
+  font-family: var(--gauss-fuente-titulos);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sesion__alumno {
+  font-weight: 600;
+}
+.sesion__aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gauss-esp-3);
+  flex-basis: 100%;
+}
+.sesion__aviso textarea {
+  flex-basis: 100%;
+  min-height: 72px;
+  font-size: 16px;
 }

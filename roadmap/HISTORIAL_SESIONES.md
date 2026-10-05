@@ -15,6 +15,22 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-05 (Programador, rutina programada — R-38)
+**Tarea(s):** R-38 (primera `PENDIENTE` de §1; sin hallazgos ABIERTOS de severidad alta: #25 media y #27 baja)
+**Estado resultante:** R-38 `COMPLETADA`. Pasar lista (cards de slot y «Extra») y «Mi horario» usan las clases de `estilos.css`; avatar en un único círculo con iniciales e imagen dentro (la foto ya no tapa el nombre); controles «Marcar ausente/salida/Anular» con `boton` (≥ 44 px por la hoja); cero `element.style` en ambas pantallas salvo la variable CSS `--avatar-fondo`.
+**Commits a `develop`:** el de R-38 y este registro
+**Migraciones aplicadas:** ninguna (sin cambio de esquema)
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `src/ui/pantallaPasarLista.ts`, `src/ui/pantallaMiHorario.ts`, `estilos.css` (bloque «Mi horario», variante `--extra`, `--avatar-fondo`), `sw.js` (`v3`), `src/ui/pantallaPasarLista.test.ts`, `src/ui/pantallaMiHorario.test.ts`, `src/ui/estiloGauss.test.ts`
+**Verificaciones pre-push:** typecheck, lint, test (2043/2043) y build en verde
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** una fila en `DECISIONES_TECNICAS.md` (R-38)
+**Hallazgos del auditor atendidos:** #27 parcialmente (siguen R-39 y P-39)
+**Tareas autopropuestas (P-XX):** ninguna
+**Pendiente / fuera de alcance:** no se adjuntaron capturas (no se arrancó navegador en esta sesión; el dueño debe revisar a 360 px); los estados «pendiente de lista» y «hecha» de «Mi horario» requieren lógica nueva (ver decisión R-38)
+
+---
+
 ### Sesión 2026-10-05 (Programador, rutina programada — R-37)
 **Tarea(s):** R-37 (primera `PENDIENTE` de §1; sin hallazgos ABIERTOS de severidad alta: #25 media y #27 baja). P-39 (recomendada antes por el auditor) no es dependencia dura; se verificó a mano en Chromium (login a 360 px: sin desplazamiento horizontal, Outfit/Karla cargadas, sin errores de consola)
 **Estado resultante:** R-37 `COMPLETADA`. Aplicación con `estilos.css`, fuentes autoalojadas, cabecera con logo y navegación en píldora para los dos roles, y login/recuperar/establecer contraseña/sin acceso y avisos (inactividad, nueva versión, sello) con el estilo Gauss

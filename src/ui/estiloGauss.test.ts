@@ -89,6 +89,7 @@ void test('contraste AA de los pares de colores usados como texto y como borde d
     ['--gauss-blanco', '--gauss-rojo'],
     ['--gauss-rojo-oscuro', '--gauss-rojo-fondo'],
     ['--gauss-aviso-texto', '--gauss-aviso-fondo'],
+    ['--gauss-texto-secundario', '--gauss-fondo-hundido'],
   ];
   for (const [texto, fondo] of textos) {
     const ratio = contraste(c(texto), c(fondo));

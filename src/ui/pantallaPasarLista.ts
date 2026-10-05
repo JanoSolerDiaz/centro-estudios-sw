@@ -361,6 +361,25 @@ function textoEstadoTarjeta(tarjeta: ConEstadoDeTarjeta, zonaHoraria: string): s
   }
 }
 
+/** Variante visual de la card según su fase. El estado se dice también con texto en la propia card
+ * (`textoEstadoTarjeta`), nunca solo con el color. */
+function claseVarianteTarjeta(fase: ConEstadoDeTarjeta['fase']): string {
+  switch (fase) {
+    case 'registrado':
+      return 'tarjeta-alumno--presente';
+    case 'ausente':
+      return 'tarjeta-alumno--ausente';
+    case 'enviando':
+      return 'tarjeta-alumno--enviando';
+    case 'error':
+      return 'tarjeta-alumno--error';
+    case 'pendiente_offline':
+      return 'tarjeta-alumno--sin-conexion';
+    case 'pendiente':
+      return 'tarjeta-alumno--pendiente';
+  }
+}
+
 export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: DependenciasPantallaPasarLista): void {
   contenedor.textContent = '';
   const documento = contenedor.ownerDocument;
@@ -396,6 +415,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
   const zonaError = crearZonaMensaje(documento, 'alert');
   const cabecera = documento.createElement('div');
+  cabecera.className = 'barra-estado';
   const horaEl = crearElemento(documento, 'p', {});
   // R-07, requisito 3: indicador de conexión y de cuántos registros quedan por enviar — oculto por
   // completo si `deps.detectorConexion` no está inyectada (mismo criterio que el resto de bloques
@@ -417,9 +437,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
   const mensajeCargando = crearElemento(documento, 'p', { texto: 'Cargando…' });
   const rejilla = documento.createElement('div');
-  rejilla.style.display = 'grid';
-  rejilla.style.gridTemplateColumns = 'repeat(auto-fill, minmax(160px, 1fr))';
-  rejilla.style.gap = '12px';
+  rejilla.className = 'rejilla-alumnos';
   // R-21, requisito 6: nunca una card de pendiente (el alumno no se ofrece), pero sí una nota aparte
   // para que no parezca que ha dejado de existir en su slot de hoy.
   const zonaPausados = documento.createElement('div');
@@ -441,19 +459,10 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
   }
 
   function crearMonograma(alumno: AlumnoParaPropuesta): HTMLElement {
-    const monograma = crearElemento(documento, 'div', {
+    const monograma = crearElemento(documento, 'span', {
       texto: inicialesAlumno(alumno),
-      atributos: { 'aria-hidden': 'true' },
+      atributos: { 'aria-hidden': 'true', class: 'avatar__iniciales' },
     });
-    monograma.style.backgroundColor = colorMonograma(alumno.id);
-    monograma.style.color = '#FFFFFF';
-    monograma.style.display = 'flex';
-    monograma.style.alignItems = 'center';
-    monograma.style.justifyContent = 'center';
-    monograma.style.width = '96px';
-    monograma.style.height = '96px';
-    monograma.style.borderRadius = '50%';
-    monograma.style.fontSize = '28px';
     return monograma;
   }
 
@@ -461,10 +470,11 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
    * comportamiento exacto — monograma primero, imagen que sustituye al cargar, imagen que falla se
    * quita sin dejar hueco roto (requisito 4 de T-19). */
   function crearAvatarWrap(alumno: AlumnoParaPropuesta, avatares: ReadonlyMap<string, string>): HTMLElement {
-    const avatarWrap = documento.createElement('div');
-    avatarWrap.style.position = 'relative';
-    avatarWrap.style.width = '96px';
-    avatarWrap.style.height = '96px';
+    // El círculo contiene iniciales e imagen: la foto sustituye a las iniciales DENTRO del círculo y
+    // nunca se superpone al nombre (R-38). El color de fondo es un valor calculado por alumno.
+    const avatarWrap = documento.createElement('span');
+    avatarWrap.className = 'avatar';
+    avatarWrap.style.setProperty('--avatar-fondo', colorMonograma(alumno.id));
     const monograma = crearMonograma(alumno);
     avatarWrap.append(monograma);
 
@@ -476,8 +486,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       imagen.width = 96;
       imagen.height = 96;
       imagen.hidden = true;
-      imagen.style.borderRadius = '50%';
-      imagen.style.objectFit = 'cover';
+      imagen.className = 'avatar__imagen';
       imagen.addEventListener('load', () => {
         monograma.hidden = true;
         imagen.hidden = false;
@@ -511,12 +520,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const botonSalida = documento.createElement('button');
       botonSalida.type = 'button';
       botonSalida.dataset.salidaClave = clave;
-      botonSalida.style.minHeight = '44px';
-      botonSalida.style.padding = '4px 8px';
-      botonSalida.style.border = '2px dashed #1D4ED8';
-      botonSalida.style.borderRadius = '8px';
-      botonSalida.style.fontSize = '13px';
-      botonSalida.style.backgroundColor = '#FFFFFF';
+      botonSalida.className = 'boton boton--borde';
       botonSalida.textContent = estado.salidaEnviando ? 'Marcando salida…' : 'Marcar salida';
       botonSalida.setAttribute(
         'aria-label',
@@ -528,7 +532,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       });
       contenedorTarjeta.append(botonSalida);
       if (estado.salidaError) {
-        contenedorTarjeta.append(crearElemento(documento, 'span', { texto: estado.salidaError }));
+        contenedorTarjeta.append(crearElemento(documento, 'span', { texto: estado.salidaError, atributos: { class: 'campo__error' } }));
       }
     }
 
@@ -547,6 +551,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     ) {
       const nombreAlumno = `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`;
       const bloqueAnular = documento.createElement('div');
+      bloqueAnular.className = 'tarjeta-alumno__acciones';
       if (estado.mostrandoAnular) {
         const campoMotivo = crearCampoTexto(documento, `motivo-anular-${clave}`, 'Motivo de la anulación', 'text', 'off');
         campoMotivo.input.value = estado.motivoAnulacion ?? '';
@@ -559,7 +564,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         const botonConfirmarAnular = documento.createElement('button');
         botonConfirmarAnular.type = 'button';
         botonConfirmarAnular.dataset.anularClave = clave;
-        botonConfirmarAnular.style.minHeight = '44px';
+        botonConfirmarAnular.className = 'boton boton--peligro-solido';
         botonConfirmarAnular.textContent = estado.anulando ? 'Anulando…' : 'Confirmar anulación';
         botonConfirmarAnular.disabled = estado.anulando === true || !motivoAnulacionValido(estado.motivoAnulacion ?? '');
         botonConfirmarAnular.addEventListener('click', () => {
@@ -569,7 +574,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
         const botonCancelarAnular = documento.createElement('button');
         botonCancelarAnular.type = 'button';
         botonCancelarAnular.dataset.anularClave = clave;
-        botonCancelarAnular.style.minHeight = '44px';
+        botonCancelarAnular.className = 'boton boton--borde';
         botonCancelarAnular.textContent = 'Cancelar';
         botonCancelarAnular.disabled = estado.anulando === true;
         botonCancelarAnular.addEventListener('click', () => {
@@ -578,18 +583,13 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
 
         bloqueAnular.append(campoMotivo.contenedor, botonConfirmarAnular, botonCancelarAnular);
         if (estado.anularError) {
-          bloqueAnular.append(crearElemento(documento, 'span', { texto: estado.anularError }));
+          bloqueAnular.append(crearElemento(documento, 'span', { texto: estado.anularError, atributos: { class: 'campo__error' } }));
         }
       } else {
         const botonAnular = documento.createElement('button');
         botonAnular.type = 'button';
         botonAnular.dataset.anularClave = clave;
-        botonAnular.style.minHeight = '44px';
-        botonAnular.style.padding = '4px 8px';
-        botonAnular.style.border = '2px dashed #991B1B';
-        botonAnular.style.borderRadius = '8px';
-        botonAnular.style.fontSize = '13px';
-        botonAnular.style.backgroundColor = '#FFFFFF';
+        botonAnular.className = 'boton boton--peligro';
         botonAnular.textContent = 'Anular';
         botonAnular.setAttribute('aria-label', `Anular el registro de ${nombreAlumno}`);
         botonAnular.addEventListener('click', () => {
@@ -619,55 +619,37 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const contenedorTarjeta = documento.createElement('div');
     contenedorTarjeta.setAttribute('role', 'group');
     contenedorTarjeta.setAttribute('aria-label', `${alumno.nombre} ${alumno.primer_apellido}`);
-    contenedorTarjeta.style.display = 'flex';
-    contenedorTarjeta.style.flexDirection = 'column';
-    contenedorTarjeta.style.gap = '4px';
+    contenedorTarjeta.className = 'tarjeta-alumno-grupo';
 
     const boton = documento.createElement('button');
     boton.type = 'button';
     boton.dataset.clave = clave;
-    boton.style.minHeight = '44px';
-    boton.style.minWidth = '44px';
-    boton.style.display = 'flex';
-    boton.style.flexDirection = 'column';
-    boton.style.alignItems = 'center';
-    boton.style.gap = '4px';
-    boton.style.padding = '8px';
-    boton.style.border = '2px solid #374151';
-    boton.style.borderRadius = '8px';
-    boton.style.fontSize = '16px';
-    boton.style.backgroundColor =
-      tarjeta.fase === 'registrado'
-        ? '#DCFCE7'
-        : tarjeta.fase === 'ausente'
-          ? '#FEF3C7'
-          : tarjeta.fase === 'error'
-            ? '#FEE2E2'
-            : tarjeta.fase === 'pendiente_offline'
-              ? '#DBEAFE'
-              : '#FFFFFF';
+    boton.className = `tarjeta-alumno ${claseVarianteTarjeta(tarjeta.fase)}`;
 
     boton.append(crearAvatarWrap(alumno, avatares));
 
-    const nombreEl = crearElemento(documento, 'span', { texto: `${alumno.nombre} ${alumno.primer_apellido}` });
-    nombreEl.style.fontWeight = 'bold';
+    const nombreEl = crearElemento(documento, 'span', {
+      texto: `${alumno.nombre} ${alumno.primer_apellido}`,
+      atributos: { class: 'tarjeta-alumno__nombre' },
+    });
     boton.append(nombreEl);
 
     if (alumno.segundo_apellido) {
-      boton.append(crearElemento(documento, 'span', { texto: alumno.segundo_apellido }));
+      boton.append(crearElemento(documento, 'span', { texto: alumno.segundo_apellido, atributos: { class: 'tarjeta-alumno__estado' } }));
     }
 
     // R-28: indicador discreto junto al nombre — ver dominio/avisoAusenciasRepetidas.ts.
     const ausencias = ausenciasRepetidas.get(alumno.id);
     if (ausencias !== undefined) {
-      const indicadorAusencias = crearElemento(documento, 'span', { texto: `⚠ ${String(ausencias)} ausencias sin justificar` });
-      indicadorAusencias.style.fontSize = '12px';
-      indicadorAusencias.style.color = '#92400E';
+      const indicadorAusencias = crearElemento(documento, 'span', {
+        texto: `⚠ ${String(ausencias)} ausencias sin justificar`,
+        atributos: { class: 'insignia insignia--extra' },
+      });
       boton.append(indicadorAusencias);
     }
 
     const textoEstado = textoEstadoTarjeta(tarjeta, zonaHoraria);
-    boton.append(crearElemento(documento, 'span', { texto: textoEstado }));
+    boton.append(crearElemento(documento, 'span', { texto: textoEstado, atributos: { class: 'tarjeta-alumno__estado' } }));
     const sufijoAusencias = ausencias !== undefined ? ` ${String(ausencias)} ausencias sin justificar recientes.` : '';
     boton.setAttribute(
       'aria-label',
@@ -682,12 +664,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const botonAusente = documento.createElement('button');
     botonAusente.type = 'button';
     botonAusente.dataset.ausenteClave = clave;
-    botonAusente.style.minHeight = '44px';
-    botonAusente.style.padding = '4px 8px';
-    botonAusente.style.border = '2px dashed #92400E';
-    botonAusente.style.borderRadius = '8px';
-    botonAusente.style.fontSize = '13px';
-    botonAusente.style.backgroundColor = tarjeta.fase === 'ausente' ? '#FEF3C7' : '#FFFFFF';
+    botonAusente.className = 'boton boton--borde';
     botonAusente.textContent = tarjeta.fase === 'ausente' ? 'Marcado ausente' : 'Marcar ausente';
     botonAusente.setAttribute(
       'aria-label',
@@ -724,49 +701,37 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const boton = documento.createElement('button');
     boton.type = 'button';
     boton.dataset.clave = clave;
-    boton.style.minHeight = '44px';
-    boton.style.minWidth = '44px';
-    boton.style.display = 'flex';
-    boton.style.flexDirection = 'column';
-    boton.style.alignItems = 'center';
-    boton.style.gap = '4px';
-    boton.style.padding = '8px';
-    boton.style.border = '2px dashed #92400E';
-    boton.style.borderRadius = '8px';
-    boton.style.fontSize = '16px';
-    boton.style.backgroundColor =
-      extra.fase === 'registrado' ? '#DCFCE7' : extra.fase === 'error' ? '#FEE2E2' : extra.fase === 'pendiente_offline' ? '#DBEAFE' : '#FFFBEB';
+    boton.className = `tarjeta-alumno ${claseVarianteTarjeta(extra.fase)} tarjeta-alumno--extra`;
 
     boton.append(crearAvatarWrap(alumno, avatares));
 
-    const etiquetaExtra = crearElemento(documento, 'span', { texto: 'Extra' });
-    etiquetaExtra.style.fontSize = '12px';
-    etiquetaExtra.style.fontWeight = 'bold';
-    etiquetaExtra.style.color = '#92400E';
-    boton.append(etiquetaExtra);
+    boton.append(crearElemento(documento, 'span', { texto: 'Extra', atributos: { class: 'insignia insignia--extra' } }));
 
-    const nombreEl = crearElemento(documento, 'span', { texto: `${alumno.nombre} ${alumno.primer_apellido}` });
-    nombreEl.style.fontWeight = 'bold';
+    const nombreEl = crearElemento(documento, 'span', {
+      texto: `${alumno.nombre} ${alumno.primer_apellido}`,
+      atributos: { class: 'tarjeta-alumno__nombre' },
+    });
     boton.append(nombreEl);
 
     if (alumno.segundo_apellido) {
-      boton.append(crearElemento(documento, 'span', { texto: alumno.segundo_apellido }));
+      boton.append(crearElemento(documento, 'span', { texto: alumno.segundo_apellido, atributos: { class: 'tarjeta-alumno__estado' } }));
     }
     if (extra.nota) {
-      boton.append(crearElemento(documento, 'span', { texto: extra.nota }));
+      boton.append(crearElemento(documento, 'span', { texto: extra.nota, atributos: { class: 'tarjeta-alumno__estado' } }));
     }
 
     // R-28: mismo indicador discreto que la card de slot — ver dominio/avisoAusenciasRepetidas.ts.
     const ausencias = ausenciasRepetidas.get(alumno.id);
     if (ausencias !== undefined) {
-      const indicadorAusencias = crearElemento(documento, 'span', { texto: `⚠ ${String(ausencias)} ausencias sin justificar` });
-      indicadorAusencias.style.fontSize = '12px';
-      indicadorAusencias.style.color = '#92400E';
+      const indicadorAusencias = crearElemento(documento, 'span', {
+        texto: `⚠ ${String(ausencias)} ausencias sin justificar`,
+        atributos: { class: 'insignia insignia--extra' },
+      });
       boton.append(indicadorAusencias);
     }
 
     const textoEstado = textoEstadoTarjeta(extra, zonaHoraria);
-    boton.append(crearElemento(documento, 'span', { texto: textoEstado }));
+    boton.append(crearElemento(documento, 'span', { texto: textoEstado, atributos: { class: 'tarjeta-alumno__estado' } }));
     const sufijoAusencias = ausencias !== undefined ? ` ${String(ausencias)} ausencias sin justificar recientes.` : '';
     boton.setAttribute(
       'aria-label',
@@ -783,9 +748,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const contenedorTarjeta = documento.createElement('div');
     contenedorTarjeta.setAttribute('role', 'group');
     contenedorTarjeta.setAttribute('aria-label', `Extra. ${alumno.nombre} ${alumno.primer_apellido}`);
-    contenedorTarjeta.style.display = 'flex';
-    contenedorTarjeta.style.flexDirection = 'column';
-    contenedorTarjeta.style.gap = '4px';
+    contenedorTarjeta.className = 'tarjeta-alumno-grupo';
     contenedorTarjeta.append(boton);
     añadirControlesSalidaYAnular(contenedorTarjeta, clave, alumno, extra);
     return contenedorTarjeta;

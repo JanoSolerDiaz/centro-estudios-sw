@@ -2898,3 +2898,70 @@ void test('sin motivo válido, "Confirmar anulación" de un Extra está deshabil
   await esperarMicrotareas();
   assert.equal(botonAnularPorTexto(contenedor, 'Confirmar anulación')?.disabled, true);
 });
+
+// --- R-38: maqueta de la card (estructura; el solape visual no se mide en jsdom) ------------------
+
+void test('R-38: avatar y nombre son elementos hermanos dentro de la card, y la foto vive dentro del círculo del avatar', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const slot = crearSlot({}, { avatar_ruta: 'alumno/alumno-1/uuid/' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([slot]),
+      obtenerUrlsAvataresMini: () => Promise.resolve(new Map([[slot.alumno.id, 'https://ejemplo.test/avatar.jpg']])),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const boton = botonesDeTarjeta(contenedor)[0];
+  assert.ok(boton);
+  const avatar = boton.querySelector('.avatar');
+  const nombre = boton.querySelector('.tarjeta-alumno__nombre');
+  assert.ok(avatar && nombre);
+  assert.equal(avatar.parentElement, boton);
+  assert.equal(nombre.parentElement, boton);
+  assert.equal(avatar.contains(nombre), false);
+  assert.equal(nombre.contains(avatar), false);
+  assert.equal(avatar.querySelector('img.avatar__imagen')?.parentElement, avatar);
+  assert.equal(avatar.querySelector('.avatar__iniciales')?.parentElement, avatar);
+  // El estado se dice también con texto, no solo con la variante de color.
+  const estados = boton.querySelectorAll('.tarjeta-alumno__estado');
+  assert.match(estados[estados.length - 1]?.textContent ?? '', /Pendiente/);
+});
+
+void test('R-38: la card y sus controles no llevan estilos en línea salvo la variable CSS del color del monograma', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPasarLista(contenedor, crearDepsFalsas({ cargarPropuesta: () => Promise.resolve([crearSlot()]) }));
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.querySelector('.rejilla-alumnos'));
+  assert.ok(contenedor.querySelector('.tarjeta-alumno-grupo > button.tarjeta-alumno'));
+  const conStyle = Array.from(contenedor.querySelectorAll('.rejilla-alumnos [style], .rejilla-alumnos[style]'));
+  for (const el of conStyle) {
+    assert.match(el.getAttribute('style') ?? '', /^--avatar-fondo:[^;]+;?$/);
+  }
+  const ausente = contenedor.querySelector('button[data-ausente-clave]');
+  assert.match(ausente?.className ?? '', /\bboton\b/);
+});
+
+void test('R-38: la variante de la card cambia con la fase y sigue siendo un solo toque', async () => {
+  const contenedor = crearContenedorDePruebas();
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([crearSlot()]),
+      registrar: () => Promise.resolve(crearAsistencia({ registrado_en: '2026-08-26T15:31:42.000Z' })),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const boton = botonesDeTarjeta(contenedor)[0];
+  assert.ok(boton);
+  assert.match(boton.className, /tarjeta-alumno--pendiente/);
+  boton.click();
+  await esperarMicrotareas();
+  const registrada = botonesDeTarjeta(contenedor)[0];
+  assert.ok(registrada);
+  assert.match(registrada.className, /tarjeta-alumno--presente/);
+  assert.match(registrada.textContent, /Registrado a las/);
+});
