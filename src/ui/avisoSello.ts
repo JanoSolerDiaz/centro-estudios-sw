@@ -11,8 +11,7 @@ export function mostrarHuellaSello(zona: HTMLElement, huella: string): void {
   const documento = zona.ownerDocument;
   zona.textContent = '';
   const codigo = crearElemento(documento, 'code', { texto: huella });
-  codigo.style.wordBreak = 'break-all';
-  codigo.style.userSelect = 'all';
+  codigo.className = 'codigo-copiable';
   zona.append(
     crearElemento(documento, 'p', { texto: `Huella de integridad (${ALGORITMO_SELLO}):` }),
     codigo,

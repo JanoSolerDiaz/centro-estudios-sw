@@ -7,7 +7,7 @@
  * (`CredencialesInvalidas` produce el mismo mensaje exista o no la cuenta, requisito 9).
  */
 
-import { crearCampoTexto, crearZonaMensaje, crearBoton } from './formularios.ts';
+import { crearCampoTexto, crearZonaMensaje, crearBoton, montarPanelEntrada } from './formularios.ts';
 import { crearProtectorDobleToque } from '../nucleo/proteccionDobleToque.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
@@ -26,12 +26,14 @@ export function mostrarPantallaLogin(contenedor: HTMLElement, deps: Dependencias
   titulo.textContent = 'GestorAcademia';
 
   const subtitulo = documento.createElement('p');
+  subtitulo.className = 'texto-secundario';
   subtitulo.textContent = 'Inicia sesión con tu email y contraseña.';
 
   const avisoInicial = crearZonaMensaje(documento, 'status');
   avisoInicial.textContent = deps.mensajeInicial ?? '';
 
   const formulario = documento.createElement('form');
+  formulario.className = 'formulario';
 
   const campoEmail = crearCampoTexto(documento, 'login-email', 'Email', 'email', 'username');
   const campoContrasena = crearCampoTexto(documento, 'login-contrasena', 'Contraseña', 'password', 'current-password');
@@ -43,7 +45,7 @@ export function mostrarPantallaLogin(contenedor: HTMLElement, deps: Dependencias
   const enlaceRecuperar = documento.createElement('button');
   enlaceRecuperar.type = 'button';
   enlaceRecuperar.textContent = '¿Has olvidado tu contraseña?';
-  enlaceRecuperar.style.minHeight = '44px';
+  enlaceRecuperar.className = 'boton boton--texto';
   enlaceRecuperar.addEventListener('click', () => {
     deps.irARecuperarContrasena();
   });
@@ -67,5 +69,5 @@ export function mostrarPantallaLogin(contenedor: HTMLElement, deps: Dependencias
   });
 
   formulario.append(campoEmail.contenedor, campoContrasena.contenedor, botonEntrar);
-  contenedor.append(titulo, subtitulo, avisoInicial, formulario, enlaceRecuperar, zonaError);
+  montarPanelEntrada(contenedor).append(titulo, subtitulo, avisoInicial, formulario, enlaceRecuperar, zonaError);
 }

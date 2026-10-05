@@ -15,6 +15,22 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-05 (Programador, rutina programada — R-37)
+**Tarea(s):** R-37 (primera `PENDIENTE` de §1; sin hallazgos ABIERTOS de severidad alta: #25 media y #27 baja). P-39 (recomendada antes por el auditor) no es dependencia dura; se verificó a mano en Chromium (login a 360 px: sin desplazamiento horizontal, Outfit/Karla cargadas, sin errores de consola)
+**Estado resultante:** R-37 `COMPLETADA`. Aplicación con `estilos.css`, fuentes autoalojadas, cabecera con logo y navegación en píldora para los dos roles, y login/recuperar/establecer contraseña/sin acceso y avisos (inactividad, nueva versión, sello) con el estilo Gauss
+**Commits a `develop`:** el de R-37 y este registro
+**Migraciones aplicadas:** ninguna (sin cambio de esquema)
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `estilos.css`, `fuentes/*` (6 `.woff2` + 2 OFL), `index.html`, `sw.js` (CASCARON + `v2`), `src/ui/formularios.ts` (clases + `montarPanelEntrada`), `aplicacion.ts` (cabecera común `crearCabeceraAplicacion`, `main.pagina`), pantallas de entrada, tres avisos, `avisoSello.ts`, `src/ui/estiloGauss.test.ts` (7 pruebas nuevas)
+**Verificaciones pre-push:** typecheck, lint, test y build en verde
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** una fila en `DECISIONES_TECNICAS.md` (R-37)
+**Hallazgos del auditor atendidos:** #27 parcialmente (cimientos; siguen R-38 y R-39)
+**Tareas autopropuestas (P-XX):** ninguna
+**Pendiente / fuera de alcance:** el resto de pantallas conservan sus `element.style` hasta R-38/R-39; la navegación no marca aún la pestaña activa con `aria-current="page"` (candidato a R-38/R-39); el dueño debe revisar el aspecto en local y con la red cortada tras la primera visita
+
+---
+
 ### Sesión 2026-10-05 (Programador, rutina programada — R-36)
 **Tarea(s):** R-36 (primera de la cola de §1; sin hallazgos ABIERTOS de severidad alta: #25 media y #27 baja siguen abiertos; el auditor recomienda P-39 antes de R-37, que no es dependencia dura de R-36)
 **Estado resultante:** R-36 `COMPLETADA`. El Histórico permite editar (hora real, salida, nota, justificación) y anular (motivo obligatorio, diálogo propio) cada fila según rol y ventana de 7 días; las clases extra se ven y se corrigen; sin conexión los controles se desactivan con explicación

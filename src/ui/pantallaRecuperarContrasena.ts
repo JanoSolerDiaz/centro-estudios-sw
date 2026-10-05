@@ -5,7 +5,7 @@
  * no añade ninguna rama que sí distinga.
  */
 
-import { crearCampoTexto, crearZonaMensaje, crearBoton } from './formularios.ts';
+import { crearCampoTexto, crearZonaMensaje, crearBoton, montarPanelEntrada } from './formularios.ts';
 import { crearProtectorDobleToque } from '../nucleo/proteccionDobleToque.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
@@ -27,20 +27,23 @@ export function mostrarPantallaRecuperarContrasena(
   titulo.textContent = 'Recuperar contraseña';
 
   const instrucciones = documento.createElement('p');
+  instrucciones.className = 'texto-secundario';
   instrucciones.textContent = 'Escribe tu email. Si tiene una cuenta, te enviaremos un enlace para elegir una contraseña nueva.';
 
   const formulario = documento.createElement('form');
+  formulario.className = 'formulario';
   const campoEmail = crearCampoTexto(documento, 'recuperar-email', 'Email', 'email', 'username');
 
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaConfirmacion = crearZonaMensaje(documento, 'status');
+  zonaConfirmacion.classList.add('aviso--exito');
 
   const botonEnviar = crearBoton(documento, 'Enviar enlace');
 
   const botonVolver = documento.createElement('button');
   botonVolver.type = 'button';
   botonVolver.textContent = 'Volver al inicio de sesión';
-  botonVolver.style.minHeight = '44px';
+  botonVolver.className = 'boton boton--texto';
   botonVolver.addEventListener('click', () => {
     deps.volverALogin();
   });
@@ -67,5 +70,5 @@ export function mostrarPantallaRecuperarContrasena(
   });
 
   formulario.append(campoEmail.contenedor, botonEnviar);
-  contenedor.append(titulo, instrucciones, formulario, botonVolver, zonaConfirmacion, zonaError);
+  montarPanelEntrada(contenedor).append(titulo, instrucciones, formulario, botonVolver, zonaConfirmacion, zonaError);
 }

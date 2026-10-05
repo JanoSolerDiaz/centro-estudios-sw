@@ -18,14 +18,17 @@ export function montarAvisoInactividad(contenedor: HTMLElement, alContinuar: () 
   const documento = contenedor.ownerDocument;
 
   const aviso = documento.createElement('div');
+  aviso.className = 'aviso-flotante';
   aviso.setAttribute('role', 'alertdialog');
   aviso.setAttribute('aria-labelledby', 'aviso-inactividad-texto');
   aviso.hidden = true;
 
   const texto = documento.createElement('p');
   texto.id = 'aviso-inactividad-texto';
+  texto.className = 'aviso';
 
   const boton = crearBoton(documento, 'Seguir conectado', 'button');
+  boton.className = 'boton boton--primario';
   boton.addEventListener('click', () => {
     alContinuar();
   });

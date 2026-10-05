@@ -7,6 +7,7 @@
  */
 
 import type { Perfil } from '../dominio/tipos.ts';
+import { montarPanelEntrada } from './formularios.ts';
 
 export function mostrarPantallaSinAcceso(contenedor: HTMLElement, perfil: Perfil): void {
   contenedor.textContent = '';
@@ -16,8 +17,9 @@ export function mostrarPantallaSinAcceso(contenedor: HTMLElement, perfil: Perfil
   titulo.textContent = `Hola, ${perfil.nombre}`;
 
   const mensaje = documento.createElement('p');
+  mensaje.className = 'texto-secundario';
   mensaje.textContent =
     'Tu perfil todavía no tiene acceso a GestorAcademia. Habla con el administrador del centro para que te asigne un rol.';
 
-  contenedor.append(titulo, mensaje);
+  montarPanelEntrada(contenedor).append(titulo, mensaje);
 }

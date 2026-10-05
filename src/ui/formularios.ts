@@ -14,8 +14,10 @@
  * contenedor con `jsdom` sin depender de ningún global de Node.
  */
 
-const ALTURA_TACTIL_MINIMA = '44px';
-const TAMANO_FUENTE_SIN_ZOOM_IOS = '16px';
+/* R-37: el aspecto vive en `estilos.css` (clases `campo`, `boton`, `aviso`…), no en `element.style`.
+ * Los mínimos de accesibilidad que antes se fijaban aquí —objetivo táctil de 44 px
+ * (`--gauss-altura-tactil`) y campos a 16 px para que iOS no haga zoom— están ahora en esas clases;
+ * los tests de `formularios.test.ts` comprueban que cada helper emite la clase que los lleva. */
 
 export interface CampoTexto {
   readonly contenedor: HTMLDivElement;
@@ -30,8 +32,10 @@ export function crearCampoTexto(
   autocomplete: AutoFill,
 ): CampoTexto {
   const contenedor = documento.createElement('div');
+  contenedor.className = 'campo';
 
   const etiqueta = documento.createElement('label');
+  etiqueta.className = 'campo__etiqueta';
   etiqueta.setAttribute('for', id);
   etiqueta.textContent = etiquetaTexto;
 
@@ -40,9 +44,6 @@ export function crearCampoTexto(
   input.type = tipo;
   input.required = true;
   input.autocomplete = autocomplete;
-  input.style.minHeight = ALTURA_TACTIL_MINIMA;
-  input.style.fontSize = TAMANO_FUENTE_SIN_ZOOM_IOS;
-  input.style.display = 'block';
 
   contenedor.append(etiqueta, input);
   return { contenedor, input };
@@ -53,18 +54,19 @@ export function crearCampoTexto(
  * forme parte del orden de tabulación normal, para poder llevar el foco ahí tras un envío. */
 export function crearZonaMensaje(documento: Document, rol: 'alert' | 'status'): HTMLParagraphElement {
   const zona = documento.createElement('p');
+  zona.className = rol === 'alert' ? 'aviso aviso--error' : 'aviso';
   zona.setAttribute('role', rol);
   zona.tabIndex = -1;
   return zona;
 }
 
+/** Un botón `submit` es la acción que cierra el formulario (primario, amarillo); uno `button` es una
+ * acción normal (con borde). Quien necesite otra jerarquía (peligro, texto…) sustituye `className`. */
 export function crearBoton(documento: Document, texto: string, tipo: 'submit' | 'button' = 'submit'): HTMLButtonElement {
   const boton = documento.createElement('button');
+  boton.className = tipo === 'submit' ? 'boton boton--primario' : 'boton boton--borde';
   boton.type = tipo;
   boton.textContent = texto;
-  boton.style.minHeight = ALTURA_TACTIL_MINIMA;
-  boton.style.minWidth = ALTURA_TACTIL_MINIMA;
-  boton.style.fontSize = TAMANO_FUENTE_SIN_ZOOM_IOS;
   return boton;
 }
 
@@ -86,6 +88,7 @@ export function crearMensajeErrorCampo(
 ): MensajeErrorCampo {
   const elemento = documento.createElement('p');
   elemento.id = idError;
+  elemento.className = 'campo__error';
   elemento.setAttribute('role', 'alert');
   campo.setAttribute('aria-describedby', idError);
   campo.setAttribute('aria-invalid', 'false');
@@ -101,4 +104,23 @@ export function crearMensajeErrorCampo(
       campo.setAttribute('aria-invalid', 'false');
     },
   };
+}
+
+/** Envuelve una pantalla de entrada (login, recuperar y establecer contraseña, sin acceso) en el
+ * panel centrado de Gauss: logo, y el contenido en una tarjeta elevada. Devuelve el panel, donde
+ * quien llama añade título, formulario y avisos. */
+export function montarPanelEntrada(contenedor: HTMLElement): HTMLElement {
+  const documento = contenedor.ownerDocument;
+  const marco = documento.createElement('div');
+  marco.className = 'entrada';
+  const panel = documento.createElement('div');
+  panel.className = 'entrada__panel tarjeta tarjeta--elevada';
+  const logo = documento.createElement('img');
+  logo.className = 'entrada__marca';
+  logo.src = './marca/gauss-logo.png';
+  logo.alt = 'Gauss Centro de Estudios';
+  panel.append(logo);
+  marco.append(panel);
+  contenedor.append(marco);
+  return panel;
 }

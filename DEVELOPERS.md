@@ -624,8 +624,11 @@ reglas de estilo de `typescript-eslint` (`stylisticTypeChecked`).
     `crearZonaMensaje` (`role="alert"`/`"status"`, enfocable por programa), `crearBoton`, y desde
     T-16 `crearMensajeErrorCampo(documento, campo, idError)` (mensaje de error de UN campo concreto,
     enlazado por `aria-describedby`/`aria-invalid` — distinto de `crearZonaMensaje`, que es un único
-    mensaje para todo el formulario). Objetivos táctiles ≥44px y 16px de fuente (evita el zoom de
-    iOS) fijados aquí, en estilos en línea — el proyecto no tiene todavía ninguna hoja de estilos.
+    mensaje para todo el formulario). Desde R-37 emiten clases (`campo`, `boton`, `aviso`…) de
+    `estilos.css`, la hoja única (estilo Gauss, skill `.claude/skills/estilo-gauss/`): los 44 px y los 16 px
+    de fuente (evita el zoom de iOS) viven en la hoja, no en `style.*`. `crearBoton` submit = primario,
+    button = con borde. `montarPanelEntrada` da el marco de las pantallas de entrada. Fuentes en
+    `fuentes/`; si cambia el CSS visible, sube `NOMBRE_CACHE` en `sw.js`.
   - `dom.ts` (T-16, ampliado en T-23 y R-04) — `crearElemento(documento, etiqueta, opciones, hijos)`:
     helper de creación de elementos con texto/atributos/hijos en una llamada, siempre por
     `textContent`/`createElement` (nunca `innerHTML`). Complementa a `formularios.ts` para el resto

@@ -139,7 +139,7 @@ import { mostrarPantallaAsistentePrimerosPasos } from './pantallaAsistentePrimer
 import { mostrarPantallaVerificarExportacion } from './pantallaVerificarExportacion.ts';
 import { mostrarPantallaRegistroAuditoria } from './pantallaRegistroAuditoria.ts';
 import { mostrarPantallaBajasProfesor } from './pantallaBajasProfesor.ts';
-import { crearBoton } from './formularios.ts';
+import { crearBoton, montarPanelEntrada } from './formularios.ts';
 
 /** Todo lo que la aplicación real de `administrator` necesita para funcionar, ya construido por
  * `main.ts` a partir de la configuración de entorno — nunca un `fetch` a medio configurar. Ausente
@@ -200,6 +200,31 @@ function tieneAppPropia(rol: Perfil['rol']): boolean {
   return rol === 'administrator' || rol === 'teacher';
 }
 
+/** Cabecera de aplicación común a los dos roles (R-37): logo de Gauss, nombre y rol, quién ha
+ * iniciado sesión y el `nav` vacío para que cada rol añada sus botones. */
+function crearCabeceraAplicacion(documento: Document, perfil: Perfil): { cabecera: HTMLElement; nav: HTMLElement } {
+  const cabecera = documento.createElement('header');
+  cabecera.className = 'app-cabecera';
+
+  const marca = documento.createElement('div');
+  marca.className = 'app-cabecera__marca';
+  const logo = documento.createElement('img');
+  logo.src = './marca/gauss-logo.png';
+  logo.alt = 'Gauss Centro de Estudios';
+  const titulo = documento.createElement('h1');
+  titulo.textContent = `GestorAcademia — ${ETIQUETA_ROL[perfil.rol]}`;
+  marca.append(logo, titulo);
+
+  const saludo = documento.createElement('p');
+  saludo.className = 'app-cabecera__usuario';
+  saludo.textContent = `Sesión iniciada como ${perfil.nombre}.`;
+
+  const nav = documento.createElement('nav');
+  nav.className = 'app-nav';
+  cabecera.append(marca, saludo, nav);
+  return { cabecera, nav };
+}
+
 /** Marcador de posición de T-09, todavía vigente para `teacher` (T-19/T-22 construyen su
  * aplicación real) y para `administrator` en cualquier test que no pase `appAdministrador`. */
 function mostrarPantallaAppTemporal(contenedor: HTMLElement, perfil: Perfil, cerrarSesion: () => Promise<void>): void {
@@ -217,7 +242,7 @@ function mostrarPantallaAppTemporal(contenedor: HTMLElement, perfil: Perfil, cer
     void cerrarSesion();
   });
 
-  contenedor.append(titulo, saludo, botonSalir);
+  montarPanelEntrada(contenedor).append(titulo, saludo, botonSalir);
 }
 
 /** Monta la aplicación real de `administrator` (T-16): barra de navegación fija por hash + una de
@@ -238,74 +263,84 @@ function mostrarAppAdministrador(
   const ventanaAdmin = documento.defaultView;
   const detectorConexionAdmin = ventanaAdmin ? crearDetectorConexionNavegador(ventanaAdmin) : undefined;
 
-  const cabecera = documento.createElement('header');
-  const titulo = documento.createElement('h1');
-  titulo.textContent = `GestorAcademia — ${ETIQUETA_ROL[perfil.rol]}`;
-  const saludo = documento.createElement('p');
-  saludo.textContent = `Sesión iniciada como ${perfil.nombre}.`;
-
-  const nav = documento.createElement('nav');
+  const { cabecera, nav } = crearCabeceraAplicacion(documento, perfil);
   const enlacePrimerosPasos = crearBoton(documento, 'Primeros pasos', 'button');
+  enlacePrimerosPasos.className = 'app-nav__boton';
   enlacePrimerosPasos.addEventListener('click', () => {
     router.navegar({ nombre: 'primeros-pasos' });
   });
   const enlacePanel = crearBoton(documento, 'Panel', 'button');
+  enlacePanel.className = 'app-nav__boton';
   enlacePanel.addEventListener('click', () => {
     router.navegar({ nombre: 'panel' });
   });
   const enlaceCentros = crearBoton(documento, 'Centros', 'button');
+  enlaceCentros.className = 'app-nav__boton';
   enlaceCentros.addEventListener('click', () => {
     router.navegar({ nombre: 'centros' });
   });
   const enlaceAsignaturas = crearBoton(documento, 'Asignaturas', 'button');
+  enlaceAsignaturas.className = 'app-nav__boton';
   enlaceAsignaturas.addEventListener('click', () => {
     router.navegar({ nombre: 'asignaturas' });
   });
   const enlaceAlumnos = crearBoton(documento, 'Alumnos', 'button');
+  enlaceAlumnos.className = 'app-nav__boton';
   enlaceAlumnos.addEventListener('click', () => {
     router.navegar({ nombre: 'alumnos' });
   });
   const enlaceHorarioCentro = crearBoton(documento, 'Horario del centro', 'button');
+  enlaceHorarioCentro.className = 'app-nav__boton';
   enlaceHorarioCentro.addEventListener('click', () => {
     router.navegar({ nombre: 'horario-centro' });
   });
   const enlaceRegistros = crearBoton(documento, 'Registros', 'button');
+  enlaceRegistros.className = 'app-nav__boton';
   enlaceRegistros.addEventListener('click', () => {
     router.navegar({ nombre: 'registros' });
   });
   const enlaceHistorico = crearBoton(documento, 'Histórico', 'button');
+  enlaceHistorico.className = 'app-nav__boton';
   enlaceHistorico.addEventListener('click', () => {
     router.navegar({ nombre: 'historico' });
   });
   const enlaceUsuarios = crearBoton(documento, 'Usuarios', 'button');
+  enlaceUsuarios.className = 'app-nav__boton';
   enlaceUsuarios.addEventListener('click', () => {
     router.navegar({ nombre: 'usuarios' });
   });
   const enlaceBajasProfesor = crearBoton(documento, 'Bajas de profesor', 'button');
+  enlaceBajasProfesor.className = 'app-nav__boton';
   enlaceBajasProfesor.addEventListener('click', () => {
     router.navegar({ nombre: 'bajas-profesor' });
   });
   const enlaceCierres = crearBoton(documento, 'Cierres', 'button');
+  enlaceCierres.className = 'app-nav__boton';
   enlaceCierres.addEventListener('click', () => {
     router.navegar({ nombre: 'cierres' });
   });
   const enlaceImportacion = crearBoton(documento, 'Importación', 'button');
+  enlaceImportacion.className = 'app-nav__boton';
   enlaceImportacion.addEventListener('click', () => {
     router.navegar({ nombre: 'importacion' });
   });
   const enlaceInformeHoras = crearBoton(documento, 'Horas por profesor', 'button');
+  enlaceInformeHoras.className = 'app-nav__boton';
   enlaceInformeHoras.addEventListener('click', () => {
     router.navegar({ nombre: 'informe-horas' });
   });
   const enlaceAuditoria = crearBoton(documento, 'Auditoría', 'button');
+  enlaceAuditoria.className = 'app-nav__boton';
   enlaceAuditoria.addEventListener('click', () => {
     router.navegar({ nombre: 'auditoria' });
   });
   const enlaceVerificarExportacion = crearBoton(documento, 'Verificar exportación', 'button');
+  enlaceVerificarExportacion.className = 'app-nav__boton';
   enlaceVerificarExportacion.addEventListener('click', () => {
     router.navegar({ nombre: 'verificar-exportacion' });
   });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
+  botonSalir.className = 'app-nav__boton app-nav__salir';
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
@@ -328,9 +363,8 @@ function mostrarAppAdministrador(
     botonSalir,
   );
 
-  cabecera.append(titulo, saludo, nav);
-
-  const areaPantalla = documento.createElement('div');
+  const areaPantalla = documento.createElement('main');
+  areaPantalla.className = 'pagina';
 
   function pintarRuta(ruta: Ruta): void {
     areaPantalla.textContent = '';
@@ -722,46 +756,46 @@ function mostrarAppProfesor(
   const colaAsistenciaOffline = ventana?.indexedDB ? crearAlmacenColaAsistenciaIndexedDB(ventana.indexedDB, perfil.id) : undefined;
   const detectorConexion = ventana ? crearDetectorConexionNavegador(ventana) : undefined;
 
-  const cabecera = documento.createElement('header');
-  const titulo = documento.createElement('h1');
-  titulo.textContent = `GestorAcademia — ${ETIQUETA_ROL[perfil.rol]}`;
-  const saludo = documento.createElement('p');
-  saludo.textContent = `Sesión iniciada como ${perfil.nombre}.`;
-
-  const nav = documento.createElement('nav');
+  const { cabecera, nav } = crearCabeceraAplicacion(documento, perfil);
   const enlacePasarLista = crearBoton(documento, 'Pasar lista', 'button');
+  enlacePasarLista.className = 'app-nav__boton';
   enlacePasarLista.addEventListener('click', () => {
     router.navegar({ nombre: 'pasar-lista' });
   });
   const enlaceHorario = crearBoton(documento, 'Mi horario', 'button');
+  enlaceHorario.className = 'app-nav__boton';
   enlaceHorario.addEventListener('click', () => {
     router.navegar({ nombre: 'horario' });
   });
   const enlaceRegistros = crearBoton(documento, 'Registros', 'button');
+  enlaceRegistros.className = 'app-nav__boton';
   enlaceRegistros.addEventListener('click', () => {
     router.navegar({ nombre: 'registros' });
   });
   const enlaceHistorico = crearBoton(documento, 'Histórico', 'button');
+  enlaceHistorico.className = 'app-nav__boton';
   enlaceHistorico.addEventListener('click', () => {
     router.navegar({ nombre: 'historico' });
   });
   const enlaceCierres = crearBoton(documento, 'Cierres', 'button');
+  enlaceCierres.className = 'app-nav__boton';
   enlaceCierres.addEventListener('click', () => {
     router.navegar({ nombre: 'cierres' });
   });
   const enlaceMisHoras = crearBoton(documento, 'Mis horas', 'button');
+  enlaceMisHoras.className = 'app-nav__boton';
   enlaceMisHoras.addEventListener('click', () => {
     router.navegar({ nombre: 'mis-horas' });
   });
   const botonSalir = crearBoton(documento, 'Cerrar sesión', 'button');
+  botonSalir.className = 'app-nav__boton app-nav__salir';
   botonSalir.addEventListener('click', () => {
     void cerrarSesion();
   });
   nav.append(enlacePasarLista, enlaceHorario, enlaceRegistros, enlaceHistorico, enlaceCierres, enlaceMisHoras, botonSalir);
 
-  cabecera.append(titulo, saludo, nav);
-
-  const areaPantalla = documento.createElement('div');
+  const areaPantalla = documento.createElement('main');
+  areaPantalla.className = 'pagina';
 
   function pintarRuta(ruta: RutaProfesor): void {
     areaPantalla.textContent = '';

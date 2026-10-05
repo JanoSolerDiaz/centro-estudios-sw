@@ -26,11 +26,13 @@ export function montarAvisoNuevaVersion(contenedor: HTMLElement, alActualizar: (
   mensaje.textContent = 'Hay una versión nueva de GestorAcademia lista.';
 
   const boton = crearBoton(documento, 'Actualizar ahora', 'button');
+  boton.className = 'boton boton--primario';
   boton.addEventListener('click', () => {
     alActualizar();
   });
 
   const aviso = documento.createElement('div');
+  aviso.className = 'aviso-flotante';
   aviso.append(mensaje, boton);
   aviso.hidden = true;
   contenedor.append(aviso);

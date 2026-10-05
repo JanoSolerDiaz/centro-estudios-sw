@@ -8,7 +8,7 @@
  * cortesía").
  */
 
-import { crearCampoTexto, crearZonaMensaje, crearBoton } from './formularios.ts';
+import { crearCampoTexto, crearZonaMensaje, crearBoton, montarPanelEntrada } from './formularios.ts';
 import { crearProtectorDobleToque } from '../nucleo/proteccionDobleToque.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
 
@@ -29,12 +29,14 @@ export function mostrarPantallaEstablecerContrasenaNueva(
   titulo.textContent = 'Elige tu nueva contraseña';
 
   const formulario = documento.createElement('form');
+  formulario.className = 'formulario';
   const campoNueva = crearCampoTexto(documento, 'contrasena-nueva', 'Contraseña nueva', 'password', 'new-password');
   campoNueva.input.minLength = LONGITUD_MINIMA_CONTRASENA;
   const campoRepetir = crearCampoTexto(documento, 'contrasena-repetir', 'Repite la contraseña', 'password', 'new-password');
 
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaConfirmacion = crearZonaMensaje(documento, 'status');
+  zonaConfirmacion.classList.add('aviso--exito');
   const botonGuardar = crearBoton(documento, 'Guardar contraseña');
 
   const enviar = crearProtectorDobleToque(async () => {
@@ -71,5 +73,5 @@ export function mostrarPantallaEstablecerContrasenaNueva(
   });
 
   formulario.append(campoNueva.contenedor, campoRepetir.contenedor, botonGuardar);
-  contenedor.append(titulo, formulario, zonaConfirmacion, zonaError);
+  montarPanelEntrada(contenedor).append(titulo, formulario, zonaConfirmacion, zonaError);
 }

@@ -33,9 +33,30 @@
  */
 
 const PREFIJO_CACHE = 'gestoracademia-cascaron-';
-const NOMBRE_CACHE = `${PREFIJO_CACHE}v1`;
+const NOMBRE_CACHE = `${PREFIJO_CACHE}v2`;
 
-const CASCARON = ['./', './index.html', './manifest.json', './config.js', './iconos/icono-192.png', './iconos/icono-512.png', './iconos/icono-512-maskable.png', './iconos/icono-apple-touch.png'];
+// R-37: la hoja de estilos, las fuentes autoalojadas (Outfit/Karla, solo los pesos usados) y los
+// logos de `marca/` entran en el cascarón para que la aplicación arranque con su aspecto sin red.
+// Al cambiar el CSS de forma visible, sube la versión de NOMBRE_CACHE (v2 desde R-37).
+const CASCARON = [
+  './',
+  './index.html',
+  './estilos.css',
+  './fuentes/outfit-latin-600-normal.woff2',
+  './fuentes/outfit-latin-700-normal.woff2',
+  './fuentes/outfit-latin-800-normal.woff2',
+  './fuentes/karla-latin-400-normal.woff2',
+  './fuentes/karla-latin-500-normal.woff2',
+  './fuentes/karla-latin-700-normal.woff2',
+  './marca/gauss-logo.png',
+  './marca/gauss-logo-blanco.png',
+  './manifest.json',
+  './config.js',
+  './iconos/icono-192.png',
+  './iconos/icono-512.png',
+  './iconos/icono-512-maskable.png',
+  './iconos/icono-apple-touch.png',
+];
 
 // P-26 (hallazgo #17 de auditoriacontinua.md): función, no una `Response` compartida a nivel de
 // módulo — el cuerpo de una `Response` es de un solo uso, y este `fallback` puede necesitarse más
