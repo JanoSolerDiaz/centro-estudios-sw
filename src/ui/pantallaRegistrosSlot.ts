@@ -528,8 +528,7 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
   cabecera.append(zonaError, zonaEstado);
 
   const listaRegistros = crearElemento(documento, 'ul', { atributos: { 'aria-label': 'Registros del slot y día elegidos' } });
-  listaRegistros.style.listStyle = 'none';
-  listaRegistros.style.padding = '0';
+  listaRegistros.className = 'lista-limpia';
 
   const zonaExcepcion = crearElemento(documento, 'div');
   const zonaOlvidado = crearElemento(documento, 'div');
@@ -700,7 +699,7 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
       if (filaEstado.resultadosBusquedaAlumno.length > 0) {
         const listaResultados = crearElemento(documento, 'ul');
-        listaResultados.style.listStyle = 'none';
+        listaResultados.className = 'lista-limpia';
         for (const resultado of filaEstado.resultadosBusquedaAlumno) {
           const item = documento.createElement('li');
           const botonResultado = crearBoton(documento, nombreCompletoAlumno(resultado), 'button');
@@ -973,7 +972,7 @@ export function mostrarPantallaRegistrosSlot(contenedor: HTMLElement, deps: Depe
 
       const info = crearElemento(documento, 'span', { texto: lineaTexto });
       if (registro.estado === 'anulada') {
-        info.style.textDecoration = 'line-through';
+        info.className = 'texto-tachado';
       }
       li.append(info);
 

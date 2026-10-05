@@ -1020,6 +1020,159 @@ img {
   font-size: 14px;
 }
 
+/* ---------------------------------------------------------------- Resto de pantallas (R-39) */
+/* Las pantallas de gestión (administrador, informes) se construyen con elementos simples dentro de
+ * `main.pagina`; se visten aquí por elemento para no repetir clases en cada una. */
+.lista-limpia {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.texto-tachado {
+  color: var(--gauss-texto-atenuado);
+  text-decoration: line-through;
+}
+.combobox__opcion--activa {
+  background: var(--gauss-azul-suave);
+  color: var(--gauss-azul-oscuro);
+}
+.avatar--grande {
+  width: 96px;
+  height: 96px;
+  font-size: 32px;
+}
+.avatar-foto {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--gauss-radio-pildora);
+  object-fit: cover;
+}
+main.pagina > form,
+main.pagina > div,
+main.pagina > section,
+main.pagina > fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gauss-esp-5);
+}
+main.pagina fieldset {
+  margin: 0;
+  padding: var(--gauss-esp-6);
+  border: 1px solid var(--gauss-linea);
+  border-radius: var(--gauss-radio-tarjeta);
+  background: var(--gauss-superficie);
+}
+main.pagina legend {
+  padding: 0 var(--gauss-esp-3);
+  font-weight: 700;
+}
+main.pagina label {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--gauss-texto-secundario);
+}
+main.pagina select,
+main.pagina textarea,
+main.pagina input:not([type='checkbox']):not([type='radio']):not([type='file']) {
+  max-width: 100%;
+  min-height: var(--gauss-altura-tactil);
+  padding: 11px 14px;
+  border: 1.5px solid var(--gauss-borde-control);
+  border-radius: var(--gauss-radio-campo);
+  background: var(--gauss-campo);
+  color: var(--gauss-tinta);
+  font-family: var(--gauss-fuente-texto);
+  font-size: 16px;
+}
+main.pagina input[type='checkbox'],
+main.pagina input[type='radio'] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gauss-azul);
+}
+main.pagina button:not(.boton):not(.boton-icono) {
+  min-height: var(--gauss-altura-tactil);
+  padding: 10px 18px;
+  border: 1.5px solid var(--gauss-borde-control);
+  border-radius: var(--gauss-radio-boton);
+  background: var(--gauss-superficie);
+  color: var(--gauss-tinta);
+  font-family: var(--gauss-fuente-texto);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+main.pagina ul:not([role='listbox']),
+main.pagina ol {
+  margin: 0;
+  padding-left: var(--gauss-esp-8);
+}
+main.pagina li {
+  padding: var(--gauss-esp-2) 0;
+}
+main.pagina table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  border: 1px solid var(--gauss-linea);
+  border-radius: var(--gauss-radio-tarjeta);
+  background: var(--gauss-superficie);
+  font-size: 14.5px;
+}
+main.pagina table:not(.tabla) th {
+  padding: var(--gauss-esp-5) var(--gauss-esp-6);
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gauss-texto-atenuado);
+  background: var(--gauss-superficie-suave);
+  border-bottom: 1px solid var(--gauss-linea);
+  white-space: nowrap;
+}
+main.pagina table:not(.tabla) td {
+  padding: var(--gauss-esp-4) var(--gauss-esp-6);
+  border-bottom: 1px solid var(--gauss-linea-suave);
+  vertical-align: middle;
+}
+main.pagina caption {
+  padding: var(--gauss-esp-4) var(--gauss-esp-6);
+  text-align: left;
+  font-weight: 700;
+}
+main.pagina [role='alert']:not(:empty),
+main.pagina [role='status']:not(:empty) {
+  padding: var(--gauss-esp-4) var(--gauss-esp-6);
+  border-left: 4px solid var(--gauss-azul);
+  border-radius: var(--gauss-radio-campo);
+  background: var(--gauss-superficie-suave);
+}
+main.pagina [role='alert']:not(:empty) {
+  border-left-color: var(--gauss-rojo);
+  background: var(--gauss-rojo-fondo);
+}
+main.pagina details {
+  padding: var(--gauss-esp-4) var(--gauss-esp-6);
+  border: 1px solid var(--gauss-linea);
+  border-radius: var(--gauss-radio-tarjeta);
+  background: var(--gauss-superficie);
+}
+main.pagina summary {
+  min-height: var(--gauss-altura-tactil);
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  cursor: pointer;
+}
+main.pagina pre,
+main.pagina code {
+  font-size: 13.5px;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
 /* ---------------------------------------------------------------- Movimiento e impresión */
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -1036,6 +1189,18 @@ img {
   .boton-icono { display: none; }
   .tarjeta,
   .tabla-contenedor { border-color: var(--gauss-borde-control); }
+  body,
+  main.pagina,
+  main.pagina table { background: var(--gauss-blanco); color: #000; }
+  main.pagina { padding: 0; max-width: none; }
+  main.pagina table { display: table; overflow: visible; border-color: #000; }
+  main.pagina table:not(.tabla) th,
+  main.pagina table:not(.tabla) td,
+  .tabla th,
+  .tabla td { border-bottom: 1px solid #000; color: #000; background: none; }
+  main.pagina select,
+  main.pagina input,
+  main.pagina textarea { border-color: #000; }
 }
 
 /* Pantalla mínima de arranque (sin config.js): solo texto en #app, sin marcado propio. */

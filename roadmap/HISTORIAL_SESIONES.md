@@ -15,6 +15,17 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-05 (Programador, rutina programada — R-39)
+**Tarea(s):** R-39 (primera `PENDIENTE` de §1; sin hallazgos ABIERTOS de severidad alta)
+**Estado resultante:** R-39 `COMPLETADA`. Sin `element.style` directo en `src/ui/`; pantallas de gestión e informes vestidas con CSS por elemento en `main.pagina`; impresión limpia en blanco y negro; `sw.js` `v4`
+**Commits a `develop`:** el de R-39
+**Migraciones aplicadas:** ninguna (sin cambio de esquema)
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `estilos.css`, `sw.js`, `src/ui/{pantallaRegistrosSlot,pantallaHistorico,pantallaFichaAlumno,comboboxAlumnoExtra,comboboxAsignatura}.ts`, `src/ui/pantallaRegistrosSlot.test.ts`, `src/ui/estiloGauss.test.ts`
+**Verificaciones pre-push:** typecheck, lint, test (2047) y build en verde
+**Decisiones tomadas:** ninguna nueva
+**Pendiente / fuera de alcance:** sin capturas (no se arrancó navegador); revisar a 360 px y en vista previa de impresión; la ventana de impresión de informes no enlaza `estilos.css`
+
 ### Sesión 2026-10-05 (Programador, rutina programada — R-38)
 **Tarea(s):** R-38 (primera `PENDIENTE` de §1; sin hallazgos ABIERTOS de severidad alta: #25 media y #27 baja)
 **Estado resultante:** R-38 `COMPLETADA`. Pasar lista (cards de slot y «Extra») y «Mi horario» usan las clases de `estilos.css`; avatar en un único círculo con iniciales e imagen dentro (la foto ya no tapa el nombre); controles «Marcar ausente/salida/Anular» con `boton` (≥ 44 px por la hoja); cero `element.style` en ambas pantallas salvo la variable CSS `--avatar-fondo`.

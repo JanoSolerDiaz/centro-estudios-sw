@@ -453,7 +453,7 @@ void test('un registro anulado se muestra tachado y con su motivo', async () => 
 
   const item = contenedor.querySelector('li[data-registro-id="asistencia-1"] span');
   assert.ok(item);
-  assert.equal((item as HTMLElement).style.textDecoration, 'line-through');
+  assert.ok(item.classList.contains('texto-tachado'));
   assert.match(contenedor.textContent, /Registrado por error/);
 });
 
@@ -476,7 +476,7 @@ void test('un registro de ausencia (R-01) se distingue en el listado, sin el tac
   const item = contenedor.querySelector('li[data-registro-id="asistencia-1"] span');
   assert.ok(item);
   assert.match(item.textContent, /\(ausente\)/);
-  assert.notEqual((item as HTMLElement).style.textDecoration, 'line-through');
+  assert.ok(!item.classList.contains('texto-tachado'));
 });
 
 // --- Acciones de edición --------------------------------------------------------------------------

@@ -104,12 +104,11 @@ export function montarComboboxAsignatura(documento: Document, deps: Dependencias
   listbox.id = idListbox;
   listbox.setAttribute('role', 'listbox');
   listbox.setAttribute('aria-label', 'Asignaturas del catálogo');
-  listbox.style.listStyle = 'none';
-  listbox.style.padding = '0';
-  listbox.style.margin = '0';
+  listbox.className = 'combobox__lista';
   listbox.hidden = true;
 
   const contenedor = documento.createElement('div');
+  contenedor.className = 'combobox';
   contenedor.append(campo.contenedor, zonaEstado, listbox);
 
   function totalOpciones(estado: EstadoCombobox): number {
@@ -258,12 +257,8 @@ export function montarComboboxAsignatura(documento: Document, deps: Dependencias
       item.id = `${idListbox}-opt-${String(indice)}`;
       item.setAttribute('role', 'option');
       item.setAttribute('aria-selected', indice === estado.indiceActivo ? 'true' : 'false');
-      item.style.minHeight = '44px';
-      item.style.display = 'flex';
-      item.style.alignItems = 'center';
-      item.style.padding = '8px';
-      item.style.cursor = 'pointer';
-      item.style.backgroundColor = indice === estado.indiceActivo ? '#E5E7EB' : 'transparent';
+      item.className = 'combobox__opcion';
+      item.classList.toggle('combobox__opcion--activa', indice === estado.indiceActivo);
       item.append(documento.createTextNode(opcion.nombre));
       item.addEventListener('mousedown', (evento) => {
         evento.preventDefault();
@@ -278,12 +273,8 @@ export function montarComboboxAsignatura(documento: Document, deps: Dependencias
       item.id = `${idListbox}-opt-${String(indice)}`;
       item.setAttribute('role', 'option');
       item.setAttribute('aria-selected', indice === estado.indiceActivo ? 'true' : 'false');
-      item.style.minHeight = '44px';
-      item.style.display = 'flex';
-      item.style.alignItems = 'center';
-      item.style.padding = '8px';
-      item.style.cursor = 'pointer';
-      item.style.backgroundColor = indice === estado.indiceActivo ? '#E5E7EB' : 'transparent';
+      item.className = 'combobox__opcion';
+      item.classList.toggle('combobox__opcion--activa', indice === estado.indiceActivo);
       item.append(documento.createTextNode(`Crear «${campo.input.value.trim()}» en el catálogo`));
       item.addEventListener('mousedown', (evento) => {
         evento.preventDefault();

@@ -648,7 +648,7 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     }
     if (fila.estado === 'anulada') {
       tr.setAttribute('data-anulada', 'true');
-      tr.style.textDecoration = 'line-through';
+      tr.classList.add('fila--anulada');
     }
     if (deps.actualizarRegistro) {
       tr.append(pintarCeldaAcciones(fila, nombres, estado));

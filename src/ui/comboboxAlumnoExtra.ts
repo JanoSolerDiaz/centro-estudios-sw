@@ -83,6 +83,7 @@ let contadorIds = 0;
 
 export function montarComboboxAlumnoExtra(contenedor: HTMLElement, deps: DependenciasComboboxAlumnoExtra): void {
   const documento = contenedor.ownerDocument;
+  contenedor.classList.add('combobox');
   const idBase = `combobox-alumno-extra-${String((contadorIds += 1))}`;
   const idListbox = `${idBase}-listbox`;
 
@@ -108,9 +109,7 @@ export function montarComboboxAlumnoExtra(contenedor: HTMLElement, deps: Depende
   listbox.id = idListbox;
   listbox.setAttribute('role', 'listbox');
   listbox.setAttribute('aria-label', 'Resultados de la búsqueda de alumnos');
-  listbox.style.listStyle = 'none';
-  listbox.style.padding = '0';
-  listbox.style.margin = '0';
+  listbox.className = 'combobox__lista';
   listbox.hidden = true;
 
   function cancelarPeticionEnCurso(): void {
@@ -245,12 +244,8 @@ export function montarComboboxAlumnoExtra(contenedor: HTMLElement, deps: Depende
       opcion.id = `${idListbox}-opt-${String(indice)}`;
       opcion.setAttribute('role', 'option');
       opcion.setAttribute('aria-selected', indice === estado.indiceActivo ? 'true' : 'false');
-      opcion.style.minHeight = '44px';
-      opcion.style.display = 'flex';
-      opcion.style.alignItems = 'center';
-      opcion.style.padding = '8px';
-      opcion.style.cursor = 'pointer';
-      opcion.style.backgroundColor = indice === estado.indiceActivo ? '#E5E7EB' : 'transparent';
+      opcion.className = 'combobox__opcion';
+      opcion.classList.toggle('combobox__opcion--activa', indice === estado.indiceActivo);
       const texto = esHomonimo
         ? `${nombreCompletoAlumno(resultado)} (${resultado.centro_nombre})`
         : nombreCompletoAlumno(resultado);

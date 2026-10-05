@@ -33,7 +33,7 @@
  */
 
 const PREFIJO_CACHE = 'gestoracademia-cascaron-';
-const NOMBRE_CACHE = `${PREFIJO_CACHE}v3`;
+const NOMBRE_CACHE = `${PREFIJO_CACHE}v4`;
 
 // R-37: la hoja de estilos, las fuentes autoalojadas (Outfit/Karla, solo los pesos usados) y los
 // logos de `marca/` entran en el cascarón para que la aplicación arranque con su aspecto sin red.

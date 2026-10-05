@@ -605,14 +605,8 @@ function montarBloqueAvatar(contenedorBloque: HTMLElement, deps: DependenciasBlo
       texto: iniciales,
       atributos: { 'aria-label': `${nombreCompleto} no tiene fotografía` },
     });
-    monograma.style.backgroundColor = color;
-    monograma.style.color = '#FFFFFF';
-    monograma.style.display = 'inline-flex';
-    monograma.style.alignItems = 'center';
-    monograma.style.justifyContent = 'center';
-    monograma.style.width = '96px';
-    monograma.style.height = '96px';
-    monograma.style.borderRadius = '50%';
+    monograma.className = 'avatar avatar--grande';
+    monograma.style.setProperty('--avatar-fondo', color);
     return monograma;
   }
 
@@ -636,6 +630,7 @@ function montarBloqueAvatar(contenedorBloque: HTMLElement, deps: DependenciasBlo
     imagen.alt = `Fotografía de ${nombreCompleto}`;
     imagen.width = 96;
     imagen.height = 96;
+    imagen.className = 'avatar-foto';
     previsualizacion.append(imagen);
   }
 

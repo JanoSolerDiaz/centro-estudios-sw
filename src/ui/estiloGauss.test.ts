@@ -137,3 +137,26 @@ void test('montarPanelEntrada pinta el logo y una tarjeta donde colgar el conten
   assert.equal(panel.querySelector('img')?.alt, 'Gauss Centro de Estudios');
   assert.ok(contenedor.contains(panel));
 });
+
+void test('R-39: src/ui no asigna element.style directamente (solo setProperty de variables CSS)', async () => {
+  const { readdirSync } = await import('node:fs');
+  const dir = new URL('./', import.meta.url);
+  for (const nombre of readdirSync(dir)) {
+    if (!nombre.endsWith('.ts') || nombre.endsWith('.test.ts')) {
+      continue;
+    }
+    const fuente = readFileSync(new URL(nombre, dir), 'utf8');
+    for (const m of fuente.matchAll(/\.style\.([A-Za-z]+)/g)) {
+      assert.equal(m[1], 'setProperty', `${nombre}: asignación directa a .style.${m[1] ?? ''}`);
+    }
+    assert.doesNotMatch(fuente, /\.style\s*=|cssText/, `${nombre}: style asignado`);
+  }
+});
+
+void test('R-39: estilos.css viste tablas, formularios y la hoja de impresión de las pantallas de gestión', () => {
+  assert.match(css, /main\.pagina table/);
+  assert.match(css, /main\.pagina select/);
+  assert.match(css, /@media print[\s\S]*main\.pagina/);
+  assert.match(css, /\.avatar--grande/);
+  assert.match(css, /\.combobox__opcion--activa/);
+});
