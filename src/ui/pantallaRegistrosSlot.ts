@@ -71,6 +71,7 @@ import {
 import { mensajeAvisoAusencia, notaConAvisoAusencia } from '../dominio/avisoAusencia.ts';
 import { mensajeAvisoCancelacion } from '../dominio/avisoCancelacion.ts';
 import { etiquetaMotivoJustificacion } from '../dominio/historicoAsistencia.ts';
+import { horaLocalHHMM, instanteDesdeFechaYHora } from '../dominio/edicionAsistencia.ts';
 import { excepcionDelDia, etiquetaExcepcion, fechaCoincideConDiaSemana, motivoCancelacionValido } from '../dominio/excepcionSlot.ts';
 import { puedeEditarAsistenciaDeCualquiera, puedeGestionarExcepcionesSlot, puedeVerPersonasReferencia } from '../dominio/permisosUi.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
@@ -275,36 +276,6 @@ interface EstadoPantalla {
   readonly avisoFamiliasQuien: string;
   readonly avisoFamiliasMensaje: string;
   readonly avisoFamiliasGuardando: boolean;
-}
-
-/** `HH:MM` a partir de un `timestamptz` de PostgREST, en la zona horaria del centro — para
- * prellenar los campos de hora de los formularios de esta pantalla. */
-function horaLocalHHMM(iso: string, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): string {
-  return new Intl.DateTimeFormat('en-GB', { timeZone: zonaHoraria, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(
-    new Date(iso),
-  );
-}
-
-/** Reconstruye un instante UTC a partir de una fecha `AAAA-MM-DD` y una hora `HH:MM`, ambas en la
- * zona horaria del centro — el inverso aproximado de `horaLocalHHMM`/`fechaLocalISO`, suficiente
- * para un formulario (el usuario nunca elige un instante en el filo exacto de un cambio de hora). */
-function instanteDesdeFechaYHora(fechaIso: string, horaHHMM: string, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): Date {
-  // La `Z` es imprescindible (P-34): sin ella, el navegador interpreta la cadena en SU zona horaria,
-  // y la corrección de abajo restaba el desfase una segunda vez — en un navegador en España, una
-  // salida a las 16:45 se guardaba como 14:45. Con ella, el resultado no depende del navegador.
-  const candidato = new Date(`${fechaIso}T${horaHHMM}:00Z`);
-  const enZona = new Intl.DateTimeFormat('en-CA', {
-    timeZone: zonaHoraria,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(candidato);
-  const comoUtc = new Date(`${enZona.replace(', ', 'T')}Z`);
-  return new Date(candidato.getTime() + (candidato.getTime() - comoUtc.getTime()));
 }
 
 function formatearFechaHora(iso: string, zonaHoraria: string = ZONA_HORARIA_CENTRO_POR_DEFECTO): string {

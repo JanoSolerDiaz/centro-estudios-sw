@@ -15,6 +15,22 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-05 (Programador, rutina programada — R-36)
+**Tarea(s):** R-36 (primera de la cola de §1; sin hallazgos ABIERTOS de severidad alta: #25 media y #27 baja siguen abiertos; el auditor recomienda P-39 antes de R-37, que no es dependencia dura de R-36)
+**Estado resultante:** R-36 `COMPLETADA`. El Histórico permite editar (hora real, salida, nota, justificación) y anular (motivo obligatorio, diálogo propio) cada fila según rol y ventana de 7 días; las clases extra se ven y se corrigen; sin conexión los controles se desactivan con explicación
+**Commits a `develop`:** el de R-36 y este registro
+**Migraciones aplicadas:** ninguna (sin cambio de esquema; reutiliza `actualizar_asistencia`)
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `src/dominio/edicionAsistencia.ts` (+test), `src/ui/dialogosAsistencia.ts`, `src/ui/pantallaHistorico.ts`, `src/ui/pantallaHistoricoEdicion.test.ts`, `src/ui/pantallaRegistrosSlot.ts` (solo importa las dos funciones de hora movidas), `src/ui/aplicacion.ts` (cableado en administrator y teacher), `roadmap/SEGUIMIENTO.md`, `roadmap/DECISIONES_TECNICAS.md`, esta entrada
+**Verificaciones pre-push:** typecheck, lint, test (2032/2032, antes 2009 + los 23 nuevos) y build en verde
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** una fila en `DECISIONES_TECNICAS.md` (alcance del componente compartido: se comparte la lógica, no el panel de «Registros»)
+**Hallazgos del auditor atendidos:** ninguno directamente
+**Tareas autopropuestas (P-XX):** ninguna
+**Pendiente / fuera de alcance:** estilo de los diálogos y de la fila tachada queda para R-37 a R-39 (hoy usa `element.style` mínimo, como el resto); P-39 (prueba de humo en navegador) y R-37 siguen pendientes; el dueño debe probar a mano el lápiz y la papelera en `dev`
+
+---
+
 ### Sesión 2026-10-02 (Programador, rutina programada — P-38)
 **Tarea(s):** cola de §1 vacía y sin hallazgos ABIERTOS de severidad alta (#25/#26 medias, #27 baja); se atiende la decisión del dueño de la pregunta #20 de §6 como **P-38**
 **Estado resultante:** la card «Extra» de pasar lista ofrece «Marcar salida» y «Anular» igual que la de slot. P-38 `IMPLEMENTADA` (pendiente de que el dueño lo confirme en local). Hallazgo #26 queda cubierto por P-37 (ya implementada)

@@ -235,6 +235,8 @@ function mostrarAppAdministrador(
   const abridorImpresion = crearAbridorVentanaImpresionNavegador(
     (url, destino, caracteristicas) => documento.defaultView?.open(url, destino, caracteristicas) ?? null,
   );
+  const ventanaAdmin = documento.defaultView;
+  const detectorConexionAdmin = ventanaAdmin ? crearDetectorConexionNavegador(ventanaAdmin) : undefined;
 
   const cabecera = documento.createElement('header');
   const titulo = documento.createElement('h1');
@@ -466,6 +468,8 @@ function mostrarAppAdministrador(
         listarPausasDeAlumnoParaInforme: (alumnoId) => listarPausasDeAlumno(app.postgrest, alumnoId),
         resolverCentroReferenciaIdParaInforme: (alumnoId) => resolverCentroReferenciaIdDeAlumno(app.postgrest, alumnoId),
         abridorImpresion,
+        actualizarRegistro: (profesorDuenoId, entrada) => actualizarAsistencia({ postgrest: app.postgrest }, profesorDuenoId, entrada),
+        ...(detectorConexionAdmin ? { detectorConexion: detectorConexionAdmin } : {}),
       });
       return;
     }
@@ -856,6 +860,13 @@ function mostrarAppProfesor(
         listarExcepcionesEnRangoParaInforme: (desde, hasta) => listarExcepcionesDeProfesorEnRango(app.postgrest, desde, hasta),
         listarPausasDeAlumnoParaInforme: (alumnoId) => listarPausasDeAlumno(app.postgrest, alumnoId),
         abridorImpresion,
+        actualizarRegistro: (profesorDuenoId, entrada) =>
+          actualizarAsistencia(
+            { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+            profesorDuenoId,
+            entrada,
+          ),
+        ...(detectorConexion ? { detectorConexion } : {}),
       });
       return;
     }

@@ -49,12 +49,15 @@ import {
   etiquetaMes,
   type DatosInformeMensual,
 } from '../dominio/informeMensualAlumno.ts';
+import { controlesFilaHistorico, TEXTO_NECESITA_CONEXION, type EntradaEdicionHistorico } from '../dominio/edicionAsistencia.ts';
 import type { Reloj } from '../nucleo/reloj.ts';
+import type { DetectorConexion } from '../nucleo/detectorConexion.ts';
 import type { FiltroHistorico, ResultadoHistorico } from '../datos/asistencia.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import { crearElemento, type Descargador, type AbridorVentanaImpresion } from './dom.ts';
 import { crearCampoTexto, crearBoton, crearZonaMensaje } from './formularios.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
+import { abrirDialogoAnular, abrirDialogoEditar } from './dialogosAsistencia.ts';
 
 export interface ProfesorParaFiltro {
   readonly id: string;
@@ -128,6 +131,11 @@ export interface DependenciasPantallaHistorico {
    * el campo "Centro". */
   resolverCentroReferenciaIdParaInforme?(alumnoId: string): Promise<string | null>;
   readonly abridorImpresion: AbridorVentanaImpresion;
+  /** Corrige o anula un registro (R-36) con `actualizar_asistencia`; `profesorDuenoId` es el
+   * `profesor_id` del registro. Sin esta dependencia la pantalla es de solo lectura (sin controles). */
+  actualizarRegistro?(profesorDuenoId: string, entrada: EntradaEdicionHistorico & { readonly anular?: boolean; readonly motivoAnulacion?: string }): Promise<Asistencia>;
+  /** Conectividad (R-07): sin red, los controles de modificar explican que hace falta conexión. */
+  readonly detectorConexion?: DetectorConexion;
 }
 
 const POR_PAGINA = 20;
@@ -164,6 +172,10 @@ interface EstadoHistorico {
   readonly informeMes: string;
   readonly generandoInforme: boolean;
   readonly errorInforme: string;
+
+  /** R-36: resultado de la última corrección/anulación (mensaje breve, `role=status`). */
+  readonly mensajeModificacion: string;
+  readonly conectado: boolean;
 }
 
 const ESTADO_INICIAL: EstadoHistorico = {
@@ -189,6 +201,8 @@ const ESTADO_INICIAL: EstadoHistorico = {
   informeMes: '',
   generandoInforme: false,
   errorInforme: '',
+  mensajeModificacion: '',
+  conectado: true,
 };
 
 /** Ids únicos de alumno y de profesor presentes en `filas`, en el orden de primera aparición —
@@ -231,6 +245,7 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
   const titulo = crearElemento(documento, 'h1', { texto: 'Histórico de asistencia' });
   const zonaError = crearZonaMensaje(documento, 'alert');
   const zonaErrorExportacion = crearZonaMensaje(documento, 'alert');
+  const zonaModificacion = crearZonaMensaje(documento, 'status');
   const tablaContenedor = documento.createElement('div');
   const paginadorEl = documento.createElement('div');
 
@@ -547,16 +562,82 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     return teorica === null ? '' : `Teórica: ${String(teorica)} min`;
   }
 
-  function pintarFila(fila: Asistencia, nombres: MapaNombres): HTMLTableRowElement {
+  /** Sustituye la fila modificada en su sitio, sin recargar: se conservan filtros, página y posición. */
+  function reemplazarFila(actualizada: Asistencia, mensaje: string): void {
+    const estado = almacen.obtener();
+    almacen.actualizar({
+      filas: estado.filas.map((fila) => (fila.id === actualizada.id ? actualizada : fila)),
+      mensajeModificacion: mensaje,
+    });
+  }
+
+  /** Celda «Acciones» (R-36): lápiz y papelera si el usuario puede usarlos, o el texto que explica por
+   * qué no. La decisión es de dominio (`controlesFilaHistorico`); la RLS y la RPC siguen siendo la
+   * barrera real. */
+  function pintarCeldaAcciones(fila: Asistencia, nombres: MapaNombres, estado: EstadoHistorico): HTMLTableCellElement {
+    const celda = documento.createElement('td');
+    const controles = controlesFilaHistorico(fila, { id: deps.usuarioId, rol: deps.rol }, deps.reloj);
+    if (controles.textoSinPermiso) {
+      celda.append(crearElemento(documento, 'span', { texto: controles.textoSinPermiso }));
+      return celda;
+    }
+    if (!controles.puedeEditar && !controles.puedeAnular) {
+      return celda;
+    }
+    const nombreAlumno = nombreParaMostrar(nombres.alumnos, fila.alumno_id);
+    const botonEditar = crearBoton(documento, '✏️', 'button');
+    botonEditar.setAttribute('aria-label', `Editar el registro de ${nombreAlumno}`);
+    const botonAnular = crearBoton(documento, '🗑️', 'button');
+    botonAnular.setAttribute('aria-label', `Anular el registro de ${nombreAlumno}`);
+    if (!estado.conectado) {
+      botonEditar.disabled = true;
+      botonAnular.disabled = true;
+      celda.append(botonEditar, botonAnular, crearElemento(documento, 'span', { texto: TEXTO_NECESITA_CONEXION }));
+      return celda;
+    }
+    botonEditar.addEventListener('click', () => {
+      abrirDialogoEditar(documento, {
+        registro: fila,
+        nombreAlumno,
+        reloj: deps.reloj,
+        ...(zonaHoraria !== undefined ? { zonaHoraria } : {}),
+        restaurarFoco: botonEditar,
+        guardar: async (entrada) => {
+          const actualizada = await deps.actualizarRegistro?.(fila.profesor_id, entrada);
+          if (actualizada) {
+            reemplazarFila(actualizada, 'Registro actualizado.');
+          }
+        },
+      });
+    });
+    botonAnular.addEventListener('click', () => {
+      abrirDialogoAnular(documento, {
+        nombreAlumno,
+        restaurarFoco: botonAnular,
+        anular: async (motivo) => {
+          const actualizada = await deps.actualizarRegistro?.(fila.profesor_id, { asistenciaId: fila.id, anular: true, motivoAnulacion: motivo });
+          if (actualizada) {
+            reemplazarFila(actualizada, 'Registro anulado.');
+          }
+        },
+      });
+    });
+    celda.append(botonEditar, botonAnular);
+    return celda;
+  }
+
+  function pintarFila(fila: Asistencia, nombres: MapaNombres, estado: EstadoHistorico): HTMLTableRowElement {
     const tr = documento.createElement('tr');
     const celdas = [
       nombreParaMostrar(nombres.alumnos, fila.alumno_id),
       nombres.profesores.get(fila.profesor_id) ?? ETIQUETA_PROFESOR_NO_DISPONIBLE,
       fechaHoraLocalLegible(new Date(fila.ocurrido_en), zonaHoraria),
       fechaHoraLocalLegible(new Date(fila.registrado_en), zonaHoraria),
-      etiquetaOrigenAsistencia(fila.origen),
+      fila.origen === 'manual' ? 'Clase extra' : etiquetaOrigenAsistencia(fila.origen),
       fila.es_retroactivo ? 'Sí' : 'No',
-      etiquetaEstadoAsistencia(fila.estado),
+      fila.estado === 'anulada' && fila.motivo_anulacion
+        ? `${etiquetaEstadoAsistencia(fila.estado)} (motivo: ${fila.motivo_anulacion})`
+        : etiquetaEstadoAsistencia(fila.estado),
       fila.motivo_justificacion ? etiquetaMotivoJustificacion(fila.motivo_justificacion) : fila.estado === 'ausente' ? 'Sin justificar' : '',
       tieneModificaciones(fila) ? 'Sí' : 'No',
       fila.ocurrido_en_salida ? fechaHoraLocalLegible(new Date(fila.ocurrido_en_salida), zonaHoraria) : '',
@@ -564,6 +645,13 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     ];
     for (const texto of celdas) {
       tr.append(crearElemento(documento, 'td', { texto }));
+    }
+    if (fila.estado === 'anulada') {
+      tr.setAttribute('data-anulada', 'true');
+      tr.style.textDecoration = 'line-through';
+    }
+    if (deps.actualizarRegistro) {
+      tr.append(pintarCeldaAcciones(fila, nombres, estado));
     }
     return tr;
   }
@@ -594,6 +682,7 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
   function pintar(estado: EstadoHistorico): void {
     zonaError.textContent = estado.errorCarga;
     zonaErrorExportacion.textContent = estado.errorExportacion;
+    zonaModificacion.textContent = estado.mensajeModificacion;
     botonExportar.disabled = estado.exportando;
     botonExportar.textContent = estado.exportando ? 'Exportando…' : 'Exportar CSV';
 
@@ -634,13 +723,14 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
       'Modificado',
       'Salida',
       'Duración',
+      ...(deps.actualizarRegistro ? ['Acciones'] : []),
     ]) {
       filaCabecera.append(crearElemento(documento, 'th', { texto, atributos: { scope: 'col' } }));
     }
     cabecera.append(filaCabecera);
     const cuerpo = documento.createElement('tbody');
     for (const fila of estado.filas) {
-      cuerpo.append(pintarFila(fila, estado.nombres));
+      cuerpo.append(pintarFila(fila, estado.nombres, estado));
     }
     tabla.append(cabecera, cuerpo);
     tablaContenedor.append(tabla);
@@ -648,6 +738,10 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
   }
 
   almacen.suscribir(pintar);
+  deps.detectorConexion?.alCambiar((conectado) => {
+    almacen.actualizar({ conectado });
+  });
+  almacen.actualizar({ conectado: deps.detectorConexion?.estaConectado() ?? true });
 
   const filtros: (HTMLElement | Text)[] = [
     etiquetaDesde,
@@ -669,7 +763,7 @@ export function mostrarPantallaHistorico(contenedor: HTMLElement, deps: Dependen
     exportacion.unshift(casillaContacto, etiquetaContacto);
   }
 
-  contenedor.append(titulo, zonaError, ...filtros, ...exportacion, tablaContenedor, paginadorEl);
+  contenedor.append(titulo, zonaError, ...filtros, ...exportacion, zonaModificacion, tablaContenedor, paginadorEl);
 
   // Bloque de informe mensual (R-04): mismo criterio de presentación que el resto de esta pantalla
   // (`puedeGenerarInformeMensual` es hoy el mismo conjunto de roles que `puedeVerHistorico`, pero es
