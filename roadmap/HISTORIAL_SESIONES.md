@@ -6589,3 +6589,15 @@ abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
 **Decisiones tomadas:** no se abren R-XX nuevas ni se mueve nada a `ROADMAP_HISTORICO.md`. v18 está implementada pero no desplegada (T-25 sin cerrar) y sin validar con el piloto; ampliar ahora acumularía especificación sin evidencia de uso real. Las preguntas #21 (¿se retira «Registros»?) y T-25 siguen en manos del dueño.
 **Archivos modificados:** `roadmap/ROADMAP_PRODUCTO.md` (cabecera), esta entrada
 **Próximo paso:** el dueño responde #21, prueba v18 en local y avanza T-25; con su feedback, el siguiente ciclo abre la oleada v19.
+
+
+---
+
+## 2026-10-06 — Product Manager (ciclo 43)
+
+**Rol:** Product Manager (solo documentación, sin código)
+**Hallazgos del auditor atendidos:** la pasada del 2026-10-06 cierra #25 y #27 y declara que no queda ningún hallazgo ABIERTO; nada que convertir en tarea.
+**FEEDBACK.md:** sin entradas `nuevo` (las dos existentes siguen `en_roadmap`; pasarán a `entregado` cuando R-36 a R-39 se desplieguen en producción).
+**Decisiones tomadas:** no se abren R-XX nuevas ni se mueve nada a `ROADMAP_HISTORICO.md`. v18 está implementada pero sin desplegar (T-25 sin cerrar) y sin validar con el piloto; ampliar ahora acumularía especificación sin evidencia de uso real.
+**Archivos modificados:** esta entrada
+**Próximo paso:** el dueño responde #21, prueba v18 y avanza T-25 (lanzar `npm run humo` antes de desplegar); con su feedback, el siguiente ciclo abre la oleada v19.
