@@ -15,6 +15,13 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-06 (Programador, rutina programada — cola vacía)
+**Tarea(s):** ninguna. Sin hallazgos ABIERTOS (#8 `ASUMIDO`, #25 y #27 `RESUELTO`) y sin tareas `PENDIENTE` en §1
+**Estado resultante:** sin cambios en §1
+**Migraciones aplicadas:** ninguna. **Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Verificaciones:** typecheck, lint, test (2045/2045) y build en verde
+**Commits a `develop`:** solo esta entrada
+
 ### Sesión 2026-10-05 (Programador, rutina programada — P-39)
 **Tarea(s):** P-39 (única pendiente de la cola; sin hallazgos ABIERTOS de severidad alta: #8 `ASUMIDO`, #25 media, #27 baja)
 **Estado resultante:** P-39 `IMPLEMENTADA`. Sin tareas `PENDIENTE` en §1
