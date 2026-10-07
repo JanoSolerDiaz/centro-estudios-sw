@@ -15,6 +15,21 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-07 (interactiva, prueba local del dueño — pasar lista)
+**Tarea(s):** registro de P-40 (fallo de estilos) y de una entrada de `FEEDBACK.md` (rediseño de las tarjetas de pasar lista)
+**Estado resultante:** P-40 `PENDIENTE` para el programador; entrada `nuevo` en `FEEDBACK.md` para el PM. Sin cambios de código: decisión del dueño de que lo hagan los agentes
+**Commits a `develop`:** el de este registro
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** fila 12 de §3 (T-25), sin cambio
+**Archivos creados/modificados:** `roadmap/SEGUIMIENTO.md` (cabecera, §5 P-40), `roadmap/FEEDBACK.md`, esta entrada
+**Verificaciones pre-push:** las del gancho de pre-commit
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** del dueño: el fallo y el rediseño, para los agentes
+**Hallazgos del auditor atendidos:** ninguno
+**Hallazgos:** en local, pasar lista muestra las tarjetas en una columna y la presente sin verde. Causa: el bloque genérico de R-39 en `estilos.css` (`main.pagina > div`, `main.pagina button:not(.boton)…`) tiene más especificidad que las clases de componente. Comprobado en vivo que envolverlo en `:where()` lo arregla. jsdom no calcula la cascada, así que ningún test lo podía ver; `npm run humo` sí podría
+**Tareas autopropuestas (P-XX):** P-40, registrada, sin implementar
+**Próximo paso:** el programador ataca P-40 (urgente) antes que la cola; el PM evalúa la entrada de `FEEDBACK.md` del 2026-10-07 una vez cerrada P-40
+
 ### Sesión 2026-10-06 (Programador, rutina programada — cola vacía)
 **Tarea(s):** ninguna. Sin hallazgos ABIERTOS (#8 `ASUMIDO`, #25 y #27 `RESUELTO`) y sin tareas `PENDIENTE` en §1
 **Estado resultante:** sin cambios en §1
