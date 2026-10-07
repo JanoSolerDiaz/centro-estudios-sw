@@ -15,6 +15,19 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-07 (programador — P-40)
+**Tarea(s):** P-40, estilos genéricos de R-39 pisaban los componentes
+**Estado resultante:** P-40 `COMPLETADA`. Cola de §1 sin tareas `PENDIENTE`
+**Commits a `develop`:** el de esta sesión
+**Migraciones aplicadas:** ninguna
+**Propagación a prod pendiente:** sin cambio (fila 12 de §3, T-25)
+**Archivos creados/modificados:** `estilos.css`, `herramientas/humo.ts`, `.claude/skills/estilo-gauss/SKILL.md`, `roadmap/SEGUIMIENTO.md`, esta entrada
+**Verificaciones pre-push:** typecheck, lint, test y build en verde; `npm run humo` en verde (y en rojo sin el cambio de CSS)
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** ninguna nueva en `DECISIONES_TECNICAS.md`; la norma «estilos genéricos en `:where()`» queda en la skill `estilo-gauss`
+**Hallazgos del auditor atendidos:** ninguno
+**Tareas autopropuestas (P-XX):** ninguna
+
 ### Sesión 2026-10-07 (interactiva, prueba local del dueño — pasar lista)
 **Tarea(s):** registro de P-40 (fallo de estilos) y de una entrada de `FEEDBACK.md` (rediseño de las tarjetas de pasar lista)
 **Estado resultante:** P-40 `PENDIENTE` para el programador; entrada `nuevo` en `FEEDBACK.md` para el PM. Sin cambios de código: decisión del dueño de que lo hagan los agentes

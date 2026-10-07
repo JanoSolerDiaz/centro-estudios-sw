@@ -49,6 +49,10 @@ funcionamiento sin red, no solo la estética.
 - **Accesibilidad (§0.2):** objetivos táctiles de al menos 44 px (`ALTURA_TACTIL_MINIMA`), campos a
   16 px para que iOS no haga zoom (`TAMANO_FUENTE_SIN_ZOOM_IOS`), foco visible con teclado,
   contraste AA, nada que dependa solo del color (un estado siempre lleva también texto o icono).
+- **Los estilos genéricos por elemento van siempre dentro de `:where()`** (P-40). Una regla como
+  `main.pagina > div` o `main.pagina button:not(.boton)` tiene más especificidad que una clase de
+  componente y la pisa (rejilla sin `grid`, tarjeta sin su fondo). Con `:where(...)` valen 0 y
+  cualquier clase gana. jsdom no calcula la cascada: `npm run humo` lo comprueba en el navegador.
 - **Sin `innerHTML`** (prohibido por lint). Los iconos simples se hacen con CSS (puntos, rombos,
   cuadrados redondeados, como en la web) o con SVG creado por `createElementNS`.
 

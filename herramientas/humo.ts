@@ -197,7 +197,15 @@ async function main(): Promise<void> {
       if (url.pathname === '/rest/v1/perfil') return json([PERFIL]);
       if (url.pathname === '/rest/v1/slot_horario') return json(SLOTS);
       if (url.pathname === '/rest/v1/rpc/registrar_asistencia') {
-        return json({ id: '44444444-4444-4444-4444-444444444444' });
+        const cuerpo = JSON.parse(rq.postData() ?? '{}') as Record<string, string | null>;
+        return json({
+          id: '44444444-4444-4444-4444-444444444444', alumno_id: cuerpo.p_alumno_id, profesor_id: PERFIL_ID,
+          registrado_en: '2026-10-06T14:00:00Z', ocurrido_en: '2026-10-06T14:00:00Z', ocurrido_en_salida: null,
+          es_retroactivo: false, origen: cuerpo.p_origen, slot_id: cuerpo.p_slot_id, slot_dia_semana: 2,
+          slot_hora_inicio: '16:00:00', slot_hora_fin: '17:00:00', slot_asignatura_o_grupo: 'Mates',
+          estado: 'presente', motivo_anulacion: null, motivo_justificacion: null, nota_justificacion: null,
+          nota: null, actualizado_en: null, actualizado_por: null, peticion_id: cuerpo.p_peticion_id,
+        });
       }
       return json([]);
     });
@@ -218,8 +226,21 @@ async function main(): Promise<void> {
 
     // 3. Pasar lista a un alumno.
     await pagina.getByText('Ana Gil').waitFor();
+    // P-40: jsdom no calcula la cascada; aquí se comprueba que los estilos genéricos por elemento no
+    // pisan a los de componente (rejilla en `grid`, tarjeta presente con su fondo verde).
+    const displayRejilla = await pagina.evaluate<string>(
+      `getComputedStyle(document.querySelector('.rejilla-alumnos')).display`,
+    );
+    comprobar(displayRejilla === 'grid', `la rejilla de pasar lista es display:grid (${displayRejilla})`);
     await pagina.getByText('Ana Gil').click();
     await pagina.waitForTimeout(500);
+    const fondoPresente = await pagina.evaluate<string>(
+      `(() => { const t = document.querySelector('.tarjeta-alumno--presente'); if (!t) return 'sin tarjeta: ' + [...document.querySelectorAll('.tarjeta-alumno')].map(x => x.className).join(' / '); return t ? getComputedStyle(t).backgroundColor + '|' + getComputedStyle(document.documentElement).getPropertyValue('--gauss-verde-fondo').trim() : 'sin tarjeta'; })()`,
+    );
+    comprobar(
+      !fondoPresente.startsWith('sin tarjeta') && !/^rgba?\(255, 255, 255|^rgba\(0, 0, 0, 0\)/.test(fondoPresente),
+      `la tarjeta presente tiene fondo propio, no el blanco genérico (${fondoPresente})`,
+    );
     const rpc = peticiones.find((p) => p.ruta === '/rest/v1/rpc/registrar_asistencia');
     comprobar(rpc !== undefined, 'pasar lista envía la RPC registrar_asistencia');
     comprobar(

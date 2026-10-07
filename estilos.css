@@ -1047,33 +1047,28 @@ img {
   border-radius: var(--gauss-radio-pildora);
   object-fit: cover;
 }
-main.pagina > form,
-main.pagina > div,
-main.pagina > section,
-main.pagina > fieldset {
+:where(main.pagina > form, main.pagina > div, main.pagina > section, main.pagina > fieldset) {
   display: flex;
   flex-direction: column;
   gap: var(--gauss-esp-5);
 }
-main.pagina fieldset {
+:where(main.pagina fieldset) {
   margin: 0;
   padding: var(--gauss-esp-6);
   border: 1px solid var(--gauss-linea);
   border-radius: var(--gauss-radio-tarjeta);
   background: var(--gauss-superficie);
 }
-main.pagina legend {
+:where(main.pagina legend) {
   padding: 0 var(--gauss-esp-3);
   font-weight: 700;
 }
-main.pagina label {
+:where(main.pagina label) {
   font-size: 13.5px;
   font-weight: 700;
   color: var(--gauss-texto-secundario);
 }
-main.pagina select,
-main.pagina textarea,
-main.pagina input:not([type='checkbox']):not([type='radio']):not([type='file']) {
+:where(main.pagina select, main.pagina textarea, main.pagina input:not([type='checkbox']):not([type='radio']):not([type='file'])) {
   max-width: 100%;
   min-height: var(--gauss-altura-tactil);
   padding: 11px 14px;
@@ -1084,13 +1079,12 @@ main.pagina input:not([type='checkbox']):not([type='radio']):not([type='file']) 
   font-family: var(--gauss-fuente-texto);
   font-size: 16px;
 }
-main.pagina input[type='checkbox'],
-main.pagina input[type='radio'] {
+:where(main.pagina input[type='checkbox'], main.pagina input[type='radio']) {
   width: 20px;
   height: 20px;
   accent-color: var(--gauss-azul);
 }
-main.pagina button:not(.boton):not(.boton-icono) {
+:where(main.pagina button:not(.boton):not(.boton-icono)) {
   min-height: var(--gauss-altura-tactil);
   padding: 10px 18px;
   border: 1.5px solid var(--gauss-borde-control);
@@ -1102,15 +1096,14 @@ main.pagina button:not(.boton):not(.boton-icono) {
   font-weight: 600;
   cursor: pointer;
 }
-main.pagina ul:not([role='listbox']),
-main.pagina ol {
+:where(main.pagina ul:not([role='listbox']), main.pagina ol) {
   margin: 0;
   padding-left: var(--gauss-esp-8);
 }
-main.pagina li {
+:where(main.pagina li) {
   padding: var(--gauss-esp-2) 0;
 }
-main.pagina table {
+:where(main.pagina table) {
   display: block;
   max-width: 100%;
   overflow-x: auto;
@@ -1120,7 +1113,7 @@ main.pagina table {
   background: var(--gauss-superficie);
   font-size: 14.5px;
 }
-main.pagina table:not(.tabla) th {
+:where(main.pagina table:not(.tabla) th) {
   padding: var(--gauss-esp-5) var(--gauss-esp-6);
   text-align: left;
   font-size: 12px;
@@ -1132,42 +1125,40 @@ main.pagina table:not(.tabla) th {
   border-bottom: 1px solid var(--gauss-linea);
   white-space: nowrap;
 }
-main.pagina table:not(.tabla) td {
+:where(main.pagina table:not(.tabla) td) {
   padding: var(--gauss-esp-4) var(--gauss-esp-6);
   border-bottom: 1px solid var(--gauss-linea-suave);
   vertical-align: middle;
 }
-main.pagina caption {
+:where(main.pagina caption) {
   padding: var(--gauss-esp-4) var(--gauss-esp-6);
   text-align: left;
   font-weight: 700;
 }
-main.pagina [role='alert']:not(:empty),
-main.pagina [role='status']:not(:empty) {
+:where(main.pagina [role='alert']:not(:empty), main.pagina [role='status']:not(:empty)) {
   padding: var(--gauss-esp-4) var(--gauss-esp-6);
   border-left: 4px solid var(--gauss-azul);
   border-radius: var(--gauss-radio-campo);
   background: var(--gauss-superficie-suave);
 }
-main.pagina [role='alert']:not(:empty) {
+:where(main.pagina [role='alert']:not(:empty)) {
   border-left-color: var(--gauss-rojo);
   background: var(--gauss-rojo-fondo);
 }
-main.pagina details {
+:where(main.pagina details) {
   padding: var(--gauss-esp-4) var(--gauss-esp-6);
   border: 1px solid var(--gauss-linea);
   border-radius: var(--gauss-radio-tarjeta);
   background: var(--gauss-superficie);
 }
-main.pagina summary {
+:where(main.pagina summary) {
   min-height: var(--gauss-altura-tactil);
   display: flex;
   align-items: center;
   font-weight: 700;
   cursor: pointer;
 }
-main.pagina pre,
-main.pagina code {
+:where(main.pagina pre, main.pagina code) {
   font-size: 13.5px;
   overflow-x: auto;
   max-width: 100%;
