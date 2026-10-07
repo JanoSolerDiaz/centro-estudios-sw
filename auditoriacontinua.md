@@ -79,6 +79,25 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-07
+
+**Alcance real de esta pasada — desde `960c6d7` (auditoría 2026-10-06):** dos commits (`cbdc8ff` programador, `2db2342` PM
+ciclo 43), un único fichero, **solo documentación** (`roadmap/HISTORIAL_SESIONES.md`, +19 líneas). Nada bajo `db/`, `src/`,
+`herramientas/`, `sw.js`, `_headers` ni `package.json`. `git checkout develop && git pull origin develop` limpio.
+
+**Lo ocurrido:** la cola de tareas está vacía; el programador solo verifica en verde y el PM no abre trabajo nuevo hasta
+validar con el piloto. Decisión coherente con la pasada anterior.
+
+**Puntos de control permanentes:** sin cambios en `db/` ni en el código, la verificación vigente sigue en pie (escritura solo
+por RPC, triggers de inmutabilidad y rastro, `student` cerrado, bucket privado, personas de referencia, RLS, `PERMITIR_PROD`).
+Re-comprobado hoy: ningún `GRANT … TRUNCATE` en `db/*.sql`; `dependencies` ausente; sin tokens `sbp_` en el repositorio.
+No se re-ejecutó `db/pruebas_rls.sql` (sin credenciales; último resultado del dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2045 pruebas, 0 fallidas** (sin cambios).
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO**. Pendientes no bloqueantes, sin cambios: prueba de humo fuera
+de CI, pregunta #21 y cierre de T-25 a la espera del dueño, y el piloto real como siguiente control de calidad.
+
 ### Auditoría 2026-10-06
 
 **Alcance real de esta pasada — desde `137ad8d` (auditoría 2026-10-05):** vuelve el código. R-36 (corregir/anular desde el
