@@ -8,7 +8,7 @@
 > `SEGUIMIENTO.md` (no duplicar). Las oleadas 100% desplegadas se mueven a
 > `ROADMAP_HISTORICO.md` para mantener vivo solo lo pendiente/en curso.
 
-**Última actualización:** 2026-10-05 — cuadragésimo segundo ciclo del PM: la Oleada v18 (R-36 a R-39) y P-39 figuran `COMPLETADA` en §1 de `SEGUIMIENTO.md`; sin entradas `nuevo` en `FEEDBACK.md` y sin hallazgos del auditor por convertir (#25 y #27 ya tienen tarea implementada; los cierra el auditor). No se añade ninguna R-XX: el cuello de botella sigue siendo T-25 y la oleada v18 aún no se ha validado con el piloto. Nada pasa a `ROADMAP_HISTORICO.md` (no hay oleada desplegada en producción). Antes, el cuadragésimo ciclo del PM: sin entradas `nuevo` en `FEEDBACK.md`, hallazgos #25 y #27 ya incorporados (P-39, R-37 a R-39) y v18 aún sin ejecutar, así que no se añade ninguna R-XX nueva; solo se explicita en R-37 el orden P-39 → R-37 recomendado por el auditor. Antes, el trigésimo noveno ciclo del PM: **se abre la Oleada v18** (R-36 a
+**Última actualización:** 2026-10-07 — cuadragésimo cuarto ciclo del PM: **se abre la Oleada v19** con **R-40** (tarjetas de pasar lista compactas, con las acciones como iconos dentro), volcada de la entrada `nuevo` de `FEEDBACK.md` del 2026-10-07 (P-40 ya corregido). Sin hallazgos ABIERTOS del auditor. Antes: 2026-10-05 — cuadragésimo segundo ciclo del PM: la Oleada v18 (R-36 a R-39) y P-39 figuran `COMPLETADA` en §1 de `SEGUIMIENTO.md`; sin entradas `nuevo` en `FEEDBACK.md` y sin hallazgos del auditor por convertir (#25 y #27 ya tienen tarea implementada; los cierra el auditor). No se añade ninguna R-XX: el cuello de botella sigue siendo T-25 y la oleada v18 aún no se ha validado con el piloto. Nada pasa a `ROADMAP_HISTORICO.md` (no hay oleada desplegada en producción). Antes, el cuadragésimo ciclo del PM: sin entradas `nuevo` en `FEEDBACK.md`, hallazgos #25 y #27 ya incorporados (P-39, R-37 a R-39) y v18 aún sin ejecutar, así que no se añade ninguna R-XX nueva; solo se explicita en R-37 el orden P-39 → R-37 recomendado por el auditor. Antes, el trigésimo noveno ciclo del PM: **se abre la Oleada v18** (R-36 a
 R-39), la primera tras el MVP que nace de la prueba local del dueño y no de una idea del PM.
 Entradas de `FEEDBACK.md` volcadas: «corregir desde el Histórico» → **R-36**; «estilo Gauss en todas
 las pantallas» → **R-37 a R-39** (cimientos, pasar lista y profesor, resto de pantallas). Hallazgos del
@@ -487,6 +487,23 @@ cada día y por último el resto, sin que el piloto de T-25 tenga que esperar a 
 
 > Backlog de calidad asociado, fuera de las oleadas: **P-39** (prueba de humo en navegador real,
 > hallazgo #25 del auditor), en §5 de `SEGUIMIENTO.md`.
+
+### Oleada v19 — Pasar lista más compacta: tarjetas con las acciones dentro
+
+**Arranca ya** (v18 está `COMPLETADA`; el estado real se sigue en §1 de `SEGUIMIENTO.md`, no aquí). Una sola R-XX.
+
+Por qué esta oleada: la segunda prueba local del dueño (2026-10-07), ya con el estilo de v18 puesto, destapó
+que la pantalla de mayor frecuencia sigue pidiendo demasiado espacio y demasiados botones sueltos: las
+tarjetas ocupan el ancho entero (parte era el fallo P-40, ya corregido) y «Marcar salida», «Anular» y
+«Ausente» cuelgan fuera de la tarjeta como botones de texto. Un grupo de 12 alumnos no cabe en una
+pantalla de móvil ni de portátil. La mejora es de densidad y de claridad, no de flujo: tocar la tarjeta
+sigue registrando en un toque.
+
+- **F-29 — Tarjetas de pasar lista compactas.** R-40.
+
+> Sigue fuera de todo el roadmap, por depender de una decisión del dueño (§6 de `SEGUIMIENTO.md`):
+> el envío automático de avisos, cualquier acceso del rol `student` o de una familia a su propio
+> histórico, y el multi-centro.
 
 ---
 
@@ -2237,3 +2254,70 @@ asignado directamente salvo variables CSS calculadas; la fotografía del alumno 
 exclusivamente en la ficha (administrator) y en las cards de pasar lista del propio slot; las tablas largas
 se usan en 360 px sin desplazar la página entera; el informe imprimible sale limpio en vista previa de
 impresión.
+
+
+---
+
+### R-40 — Tarjetas de pasar lista compactas, con las acciones como iconos dentro
+**Oleada / Fase:** v19 / F-29 · **Migración:** No · **Depende de:** T-19, R-03, R-24, R-36, R-38, P-38, P-40 (todas `COMPLETADA`)
+**Origen:** feedback del dueño 2026-10-07 («Tarjetas de pasar lista más compactas y con las acciones dentro, como iconos»)
+
+**Objetivo:** que un profesor vea a todo su grupo de un vistazo sin desplazarse y tenga cada acción donde
+la espera: dentro de la tarjeta del alumno. Hoy cada tarjeta es un `<button>` a todo el ancho con los
+controles secundarios como botones de texto fuera de ella. La tarjeta pasa a ser pequeña (6-7 por fila en
+escritorio, 2-3 en móvil), con una fila de iconos de 44 px en su interior. Es el usuario de mayor
+frecuencia del producto; esta tarea mejora densidad y claridad sin alargar el flujo de tres toques.
+
+**Requisitos:**
+1. **Estructura accesible.** Un `<button>` no puede contener otros botones: la tarjeta pasa a ser un
+   contenedor (`<li>`/`<div>` con `role="group"` y el nombre del alumno como etiqueta) con DOS partes
+   hermanas: (a) la **zona de tocar** (un `<button>` con avatar, nombre y estado) que sigue registrando
+   la asistencia con un toque (T-19, requisito 3) y (b) la **fila de acciones** con los iconos. Se
+   conservan el orden de tabulación lógico (zona de tocar → iconos), el foco devuelto tras cada acción
+   y la protección contra doble toque por clave de tarjeta (T-06).
+2. **Maqueta compacta.** Rejilla `auto-fill` con mínimo ~140 px (6-7 columnas en escritorio, 2-3 en un
+   móvil de 360 px, sin desplazamiento horizontal). Avatar de ~56 px y nombre (se admiten dos líneas con
+   elipsis y el nombre completo en `title`/texto accesible), estado por texto corto e icono además de
+   color. La regla de avatar no cambia: foto si existe, iniciales si no, **nunca solapados con el
+   nombre**, y la foto sigue apareciendo solo en estas tarjetas y en la ficha del administrador.
+3. **Acciones como iconos de 44 px** (SVG en línea o carácter, sin librería de iconos ni imágenes
+   externas), cada uno con `aria-label` en español y tooltip, separados lo bastante para no tocar el
+   equivocado: reloj = marcar salida (R-03), **lápiz = editar horas de entrada y salida**, papelera =
+   anular (R-24) y, en la tarjeta pendiente, un icono de ausente (R-01). Cada icono solo se pinta si la
+   acción es posible en ese estado y dentro de la ventana de edición (`VENTANA_EDICION_TEACHER_DIAS`);
+   un estado deshabilitado no depende solo del color.
+4. **El lápiz es funcionalidad nueva en pasar lista.** Abre el mismo componente de edición de R-36
+   (`dialogosAsistencia`/`edicionAsistencia`), con los mismos límites de campos, la misma ventana de 7
+   días para `teacher` y la misma RPC `actualizar_asistencia`; solo se editan `ocurrido_en` y la hora de
+   salida (el resto de campos de R-36 no se ofrecen aquí). No cambian `registrado_en`, el origen ni la
+   marca de retroactivo. Tras guardar, la tarjeta refleja las horas nuevas sin recargar.
+5. **Anular** conserva la confirmación con motivo obligatorio de R-24 (diálogo propio, no `confirm()`),
+   ahora lanzada desde la papelera de la tarjeta; sin red la acción explica por qué no está disponible,
+   igual que hoy. La cola offline de R-07 no se extiende al lápiz ni a la papelera.
+6. **Tarjetas «Extra» (P-38, pregunta #20).** Exactamente la misma maqueta y los mismos iconos que la
+   del horario; la clave de un extra sigue siendo su `peticionId`.
+7. **El flujo de tres toques no se alarga:** registrar a un alumno sigue siendo un único toque sobre la
+   zona de tocar; los iconos no añaden pasos ni modales a ese camino. Las acciones en bloque (R-17,
+   R-23), el aviso de conexión y los indicadores de R-28 mantienen su sitio y su comportamiento.
+8. **Guía de estilo coherente.** Se actualiza a la vez la receta de la tarjeta de alumno en la skill
+   `estilo-gauss` (`references/componentes.md` §9 y `assets/estilos-base.css`) y `estilos.css`, para que la
+   guía no contradiga lo implementado; los estilos genéricos siguen en `:where()` (P-40) y las clases de
+   componente, sin `element.style`.
+9. **Pruebas.** Las de jsdom comprueban la estructura (la zona de tocar y la fila de iconos son hermanas,
+   ningún botón dentro de otro botón), los `aria-label`, la visibilidad de cada icono por estado y
+   ventana, y que el lápiz llama a `actualizar_asistencia` sin enviar `registrado_en`. `npm run humo` (P-39)
+   se amplía para comprobar en el navegador real que la rejilla tiene varias columnas a ancho de
+   escritorio y que cada icono mide al menos 44 px.
+10. Sin dato personal nuevo ni cambio de permisos; los tests existentes siguen verdes.
+
+**Bloqueo humano:** ninguno. Propuesta comentada con el dueño pero no cerrada del todo: el programador
+la implementa con estas medidas y adjunta capturas en la sesión (no en el repositorio, `pantallazos/`
+está en `.gitignore`) para que el dueño ajuste tamaños y densidad.
+
+**Criterio de aceptación:** con un grupo de 12 alumnos, a ancho de escritorio las tarjetas salen en
+6-7 columnas y en un móvil de 360 px en 2-3, sin desplazamiento horizontal; tocar la zona de tocar
+registra al alumno en un toque; el reloj, el lápiz y la papelera aparecen dentro de la tarjeta según su
+estado y miden ≥ 44 px, con `aria-label`; el lápiz cambia la hora de entrada o de salida y la tarjeta la
+muestra al instante, con el rastro de siempre en `asistencia_historial` y `registrado_en` intacto; fuera
+de la ventana de 7 días un `teacher` no ve lápiz ni papelera; la tarjeta Extra es idéntica a la del
+horario; ningún `<button>` contiene a otro.

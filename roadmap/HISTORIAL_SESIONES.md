@@ -6629,3 +6629,16 @@ abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
 **Decisiones tomadas:** no se abren R-XX nuevas ni se mueve nada a `ROADMAP_HISTORICO.md`. v18 está implementada pero sin desplegar (T-25 sin cerrar) y sin validar con el piloto; ampliar ahora acumularía especificación sin evidencia de uso real.
 **Archivos modificados:** esta entrada
 **Próximo paso:** el dueño responde #21, prueba v18 y avanza T-25 (lanzar `npm run humo` antes de desplegar); con su feedback, el siguiente ciclo abre la oleada v19.
+
+
+---
+
+## 2026-10-07 — Product Manager (ciclo 44)
+
+**Rol:** Product Manager (solo documentación, sin código)
+**Hallazgos del auditor atendidos:** la pasada del 2026-10-07 no deja ningún hallazgo ABIERTO (#8 ASUMIDO); nada que convertir en tarea.
+**FEEDBACK.md:** una entrada `nuevo` (tarjetas de pasar lista compactas con las acciones como iconos) → **R-40**, marcada `en_roadmap (#R-40)`.
+**Decisiones tomadas:** (1) se abre la oleada v19 con R-40: la prueba local del dueño es la primera evidencia real de uso y es sobre la pantalla del usuario de mayor frecuencia; (2) el lápiz en pasar lista reutiliza el componente de edición de R-36 y la RPC existente (sin migración), limitado a las horas de entrada y salida; (3) P-40 (la rejilla anulada por el CSS genérico) ya está `COMPLETADA`, por lo que R-40 no lo absorbe; (4) nada pasa a `ROADMAP_HISTORICO.md`: v18 sigue sin desplegarse en producción (T-25 sin cerrar); (5) no se abren más R-XX: sin más evidencia de uso, ampliar acumularía especificación sin validar.
+**Archivos modificados:** `roadmap/ROADMAP_PRODUCTO.md` (oleada v19 y R-40), `roadmap/SEGUIMIENTO.md` (§1, fila R-40), `roadmap/FEEDBACK.md`, esta entrada
+**Próximo paso:** el programador toma R-40 y adjunta capturas en la sesión; el dueño responde #21 y avanza T-25.
+
