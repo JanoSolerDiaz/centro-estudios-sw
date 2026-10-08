@@ -27,7 +27,7 @@ interface Modal {
   cerrar(): void;
 }
 
-function abrirModal(documento: Document, rol: 'dialog' | 'alertdialog', titulo: string, alCancelar: () => void, restaurarFoco?: HTMLElement): Modal {
+function abrirModal(documento: Document, rol: 'dialog' | 'alertdialog', titulo: string, alCancelar: () => void, restaurarFoco?: { focus(): void }): Modal {
   const velo = documento.createElement('div');
   velo.setAttribute('data-dialogo-asistencia', rol);
   const caja = documento.createElement('div');
@@ -80,7 +80,9 @@ export interface OpcionesDialogoEditar {
   readonly nombreAlumno: string;
   readonly reloj: Reloj;
   readonly zonaHoraria?: string;
-  readonly restaurarFoco?: HTMLElement;
+  readonly restaurarFoco?: { focus(): void };
+  /** R-40: solo las horas de entrada y salida (sin nota ni justificación) — el lápiz de pasar lista. */
+  readonly soloHoras?: boolean;
   /** Envía la entrada; si lanza, el diálogo se queda abierto y muestra el mensaje amigable. */
   guardar(entrada: EntradaEdicionHistorico): Promise<void>;
 }
@@ -122,11 +124,13 @@ export function abrirDialogoEditar(documento: Document, opciones: OpcionesDialog
   const campoNota = crearCampoTexto(documento, `edit-nota-${sufijo}`, 'Nota', 'text', 'off');
   campoNota.input.required = false;
   campoNota.input.value = iniciales.nota;
-  bloques.push(campoNota.contenedor);
+  if (opciones.soloHoras !== true) {
+    bloques.push(campoNota.contenedor);
+  }
 
   let selectMotivo: HTMLSelectElement | undefined;
   let campoNotaJustificacion: { readonly input: HTMLInputElement } | undefined;
-  if (puedeJustificarAusencia(registro)) {
+  if (opciones.soloHoras !== true && puedeJustificarAusencia(registro)) {
     selectMotivo = documento.createElement('select');
     selectMotivo.id = `edit-motivo-justificacion-${sufijo}`;
     selectMotivo.append(crearElemento(documento, 'option', { texto: 'Sin justificar', atributos: { value: '' } }));
@@ -187,7 +191,7 @@ export function abrirDialogoEditar(documento: Document, opciones: OpcionesDialog
 
 export interface OpcionesDialogoAnular {
   readonly nombreAlumno: string;
-  readonly restaurarFoco?: HTMLElement;
+  readonly restaurarFoco?: { focus(): void };
   /** Envía el motivo ya validado; si lanza, el diálogo se queda abierto con el mensaje amigable. El
    * motivo nunca se registra en el log ni en el informador de errores. */
   anular(motivo: string): Promise<void>;

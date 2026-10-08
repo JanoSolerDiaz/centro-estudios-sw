@@ -60,7 +60,8 @@ function crearAsistencia(sobrescribir: Partial<Asistencia> = {}): Asistencia {
     alumno_id: 'alumno-1',
     profesor_id: 'profesor-1',
     registrado_en: '2026-08-26T15:30:05.000Z',
-    ocurrido_en: '2026-08-26T15:30:05.000Z',
+    // Un registro en vivo ocurre cuando se registra: sin override propio, ocurrido_en sigue a registrado_en.
+    ocurrido_en: sobrescribir.registrado_en ?? '2026-08-26T15:30:05.000Z',
     ocurrido_en_salida: null,
     es_retroactivo: false,
     origen: 'slot',
@@ -97,6 +98,7 @@ function crearDepsFalsas(overrides: Partial<DependenciasPantallaPasarLista> = {}
     registrarAusencia: overrides.registrarAusencia ?? noImplementado('registrarAusencia'),
     marcarSalida: overrides.marcarSalida ?? noImplementado('marcarSalida'),
     anular: overrides.anular ?? noImplementado('anular'),
+    ...(overrides.actualizarHoras !== undefined ? { actualizarHoras: overrides.actualizarHoras } : {}),
     obtenerUrlsAvataresMini: overrides.obtenerUrlsAvataresMini ?? (() => Promise.resolve(new Map())),
     generarPeticionId:
       overrides.generarPeticionId ??
@@ -725,7 +727,7 @@ void test('cada card ofrece un control "Marcar ausente" distinto del botón prin
   // Dos <button> HERMANOS, nunca uno anidado dentro del otro (un <button> no admite contenido
   // interactivo válido) — requisito 1 de R-01: "un gesto distinguible, nunca el mismo doble".
   assert.equal(botonPrincipal.contains(botonAusente), false);
-  assert.match(botonAusente.textContent, /Marcar ausente/);
+  assert.match(botonAusente.getAttribute('aria-label') ?? '', /Marcar ausente/);
 });
 
 void test('flujo completo: "Marcar ausente" registra la ausencia y la card queda marcada como tal, sin tocar registrar()', async () => {
@@ -1295,7 +1297,7 @@ void test('una card ya registrada ofrece "Marcar salida", un tercer control herm
   assert.notEqual(botonSalida, botonPrincipal);
   assert.notEqual(botonSalida, botonAusente);
   assert.equal(botonPrincipal.contains(botonSalida), false);
-  assert.match(botonSalida.textContent, /Marcar salida/);
+  assert.match(botonSalida.getAttribute('aria-label') ?? '', /Marcar salida/);
 });
 
 void test('una card pendiente (todavía sin registrar) no ofrece "Marcar salida"', async () => {
@@ -1381,7 +1383,7 @@ void test('mientras se marca la salida, el botón queda deshabilitado con un tex
   const botonEnCurso = botonSalidaDeTarjeta(contenedor)[0];
   assert.ok(botonEnCurso);
   assert.equal(botonEnCurso.disabled, true);
-  assert.match(botonEnCurso.textContent, /Marcando salida…/);
+  assert.match(botonEnCurso.getAttribute('aria-label') ?? '', /Marcando salida/);
 
   assert.ok(resolver);
   resolver({ ...fila, ocurrido_en_salida: '2026-08-26T16:00:00.000Z' });
@@ -1489,7 +1491,7 @@ void test('una card ya registrada ofrece "Anular", un cuarto control hermano de 
   assert.notEqual(botonAnular, botonPrincipal);
   assert.notEqual(botonAnular, botonAusente);
   assert.equal(botonPrincipal.contains(botonAnular), false);
-  assert.match(botonAnular.textContent, /Anular/);
+  assert.match(botonAnular.getAttribute('aria-label') ?? '', /Anular el registro/);
 });
 
 void test('una card pendiente (todavía sin registrar) no ofrece "Anular"', async () => {
@@ -1600,7 +1602,7 @@ void test('"Cancelar" cierra el formulario sin llamar a deps.anular; la card sig
 
   assert.equal(llamadas, 0);
   assert.equal(botonAnularDeTarjeta(contenedor).length, 1);
-  assert.match(botonAnularDeTarjeta(contenedor)[0]?.textContent ?? '', /^Anular$/);
+  assert.match(botonAnularDeTarjeta(contenedor)[0]?.getAttribute('aria-label') ?? '', /^Anular el registro de /);
   assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado a las/);
 });
 
@@ -1749,11 +1751,13 @@ void test('un doble toque en "Confirmar anulación" mientras está en curso no l
   dispararEvento(campoMotivo, 'input');
   await esperarMicrotareas();
 
-  // Por índice (no por texto): el botón cambia a "Anulando…" tras el primer toque, mismo criterio
-  // que el doble toque de "Marcar salida" — sigue siendo el primer `button[data-anular-clave]`.
-  botonAnularDeTarjeta(contenedor)[0]?.click();
+  // El botón de confirmar cambia a "Anulando…" tras el primer toque: se localiza por su texto
+  // (el primer `button[data-anular-clave]` es ahora el icono de la papelera, R-40).
+  const botonConfirmar = (): HTMLButtonElement | undefined =>
+    botonAnularDeTarjeta(contenedor).find((b) => /Confirmar anulación|Anulando/.test(b.textContent));
+  botonConfirmar()?.click();
   await esperarMicrotareas();
-  botonAnularDeTarjeta(contenedor)[0]?.click();
+  botonConfirmar()?.click();
   await esperarMicrotareas();
 
   assert.equal(llamadas, 1);
@@ -2887,7 +2891,7 @@ void test('"Cancelar" en una card Extra cierra el formulario sin llamar a deps.a
   await esperarMicrotareas();
 
   assert.equal(campoMotivoAnular(contenedor), null);
-  assert.equal(botonAnularPorTexto(contenedor, 'Anular')?.textContent, 'Anular');
+  assert.match(botonAnularDeTarjeta(contenedor)[0]?.getAttribute('aria-label') ?? '', /^Anular el registro de /);
 });
 
 void test('sin motivo válido, "Confirmar anulación" de un Extra está deshabilitado', async () => {
@@ -2964,4 +2968,154 @@ void test('R-38: la variante de la card cambia con la fase y sigue siendo un sol
   assert.ok(registrada);
   assert.match(registrada.className, /tarjeta-alumno--presente/);
   assert.match(registrada.textContent, /Registrado a las/);
+});
+
+// --- R-40: tarjetas compactas con la fila de acciones como iconos dentro --------------------------
+
+function botonEditarDeTarjeta(contenedor: HTMLElement): HTMLButtonElement[] {
+  return Array.from(contenedor.querySelectorAll<HTMLButtonElement>('button[data-editar-clave]'));
+}
+
+void test('R-40: la zona de tocar y la fila de iconos son hermanas dentro de un grupo, y ningún botón contiene a otro', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([crearSlot()]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      actualizarHoras: () => Promise.resolve(fila),
+    }),
+  );
+  await esperarMicrotareas();
+
+  const grupo = contenedor.querySelector<HTMLElement>('.tarjeta-alumno-grupo');
+  assert.ok(grupo);
+  assert.equal(grupo.getAttribute('role'), 'group');
+  const zona = grupo.querySelector<HTMLElement>(':scope > button.tarjeta-alumno');
+  const iconos = grupo.querySelector<HTMLElement>(':scope > .tarjeta-alumno__acciones');
+  assert.ok(zona);
+  assert.ok(iconos);
+  assert.equal(zona.contains(iconos), false);
+  // Orden de tabulación lógico: zona de tocar antes que los iconos.
+  assert.ok(zona.compareDocumentPosition(iconos) & 4);
+  assert.equal(contenedor.querySelectorAll('button button').length, 0);
+  // Cada icono lleva nombre accesible y tooltip, con el glifo oculto a lectores de pantalla.
+  const botonesIcono = Array.from(iconos.querySelectorAll<HTMLButtonElement>('button.boton-icono'));
+  assert.ok(botonesIcono.length >= 3);
+  for (const boton of botonesIcono) {
+    assert.ok((boton.getAttribute('aria-label') ?? '').length > 5);
+    assert.equal(boton.title, boton.getAttribute('aria-label'));
+    assert.equal(boton.querySelector('[aria-hidden="true"]')?.textContent, boton.textContent);
+  }
+});
+
+void test('R-40: el lápiz solo se ofrece sobre una presencia dentro de la ventana y si hay actualizarHoras', async () => {
+  const montarCon = async (fila: Asistencia | null, conDep: boolean): Promise<HTMLElement> => {
+    const contenedor = crearContenedorDePruebas();
+    mostrarPantallaPasarLista(
+      contenedor,
+      crearDepsFalsas({
+        cargarPropuesta: () => Promise.resolve([crearSlot()]),
+        cargarAsistenciaDeHoy: () => Promise.resolve(fila ? [fila] : []),
+        ...(conDep ? { actualizarHoras: () => Promise.resolve(crearAsistencia()) } : {}),
+      }),
+    );
+    await esperarMicrotareas();
+    return contenedor;
+  };
+  const dentro = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z' });
+  assert.equal(botonEditarDeTarjeta(await montarCon(dentro, true)).length, 1);
+  assert.equal(botonEditarDeTarjeta(await montarCon(dentro, false)).length, 0, 'sin actualizarHoras no se pinta');
+  assert.equal(botonEditarDeTarjeta(await montarCon(null, true)).length, 0, 'tarjeta pendiente: sin lápiz');
+  assert.equal(
+    botonEditarDeTarjeta(await montarCon(crearAsistencia({ registrado_en: '2026-08-19T15:00:00.000Z' }), true)).length,
+    0,
+    'fuera de la ventana de 7 días',
+  );
+  assert.equal(
+    botonEditarDeTarjeta(await montarCon(crearAsistencia({ estado: 'ausente', registrado_en: '2026-08-26T15:05:00.000Z' }), true)).length,
+    0,
+    'una ausencia no tiene horas que editar',
+  );
+});
+
+void test('R-40: el lápiz abre el diálogo solo de horas y guarda con actualizarHoras, sin registrado_en, y la tarjeta lo refleja', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z', ocurrido_en: '2026-08-26T15:00:00.000Z' });
+  const entradas: Record<string, unknown>[] = [];
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([crearSlot()]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      actualizarHoras: (entrada) => {
+        entradas.push({ ...entrada });
+        return Promise.resolve({ ...fila, ocurrido_en: (entrada.ocurridoEn ?? new Date(fila.ocurrido_en)).toISOString() });
+      },
+    }),
+  );
+  await esperarMicrotareas();
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado a las 17:00/);
+
+  botonEditarDeTarjeta(contenedor)[0]?.click();
+  const documento = contenedor.ownerDocument;
+  const dialogo = documento.querySelector('[role="dialog"]');
+  assert.ok(dialogo, 'se abre el diálogo de edición de R-36');
+  assert.equal(dialogo.querySelector('input[type="time"]')?.getAttribute('id')?.startsWith('edit-hora-'), true);
+  assert.equal(dialogo.querySelector('label')?.textContent, 'Hora real');
+  assert.doesNotMatch(dialogo.textContent, /Nota|justificación/i, 'solo horas: sin nota ni justificación');
+
+  const campoHora = dialogo.querySelector<HTMLInputElement>('input[type="time"]');
+  assert.ok(campoHora);
+  campoHora.value = '17:10';
+  const guardar = Array.from(dialogo.querySelectorAll('button')).find((b) => b.textContent === 'Guardar cambios');
+  guardar?.click();
+  await esperarMicrotareas();
+
+  assert.equal(entradas.length, 1);
+  assert.equal(entradas[0]?.asistenciaId, 'asistencia-1');
+  const enviada = entradas[0];
+  assert.ok(enviada);
+  assert.ok(enviada.ocurridoEn instanceof Date);
+  assert.equal('registradoEn' in enviada, false);
+  assert.equal('registrado_en' in enviada, false);
+  assert.equal(documento.querySelector('[role="dialog"]'), null, 'el diálogo se cierra al guardar');
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado a las 17:10/);
+});
+
+void test('R-40: un fallo al guardar las horas deja el diálogo abierto con el error y la tarjeta intacta', async () => {
+  const contenedor = crearContenedorDePruebas();
+  const fila = crearAsistencia({ registrado_en: '2026-08-26T15:05:00.000Z', ocurrido_en: '2026-08-26T15:00:00.000Z' });
+  mostrarPantallaPasarLista(
+    contenedor,
+    crearDepsFalsas({
+      cargarPropuesta: () => Promise.resolve([crearSlot()]),
+      cargarAsistenciaDeHoy: () => Promise.resolve([fila]),
+      actualizarHoras: () => Promise.reject(new Error('sin red')),
+    }),
+  );
+  await esperarMicrotareas();
+  botonEditarDeTarjeta(contenedor)[0]?.click();
+  const dialogo = contenedor.ownerDocument.querySelector('[role="dialog"]');
+  assert.ok(dialogo);
+  const campoHora = dialogo.querySelector<HTMLInputElement>('input[type="time"]');
+  assert.ok(campoHora);
+  campoHora.value = '17:10';
+  Array.from(dialogo.querySelectorAll('button')).find((b) => b.textContent === 'Guardar cambios')?.click();
+  await esperarMicrotareas();
+
+  assert.ok(contenedor.ownerDocument.querySelector('[role="dialog"]'));
+  assert.match(botonesDeTarjeta(contenedor)[0]?.textContent ?? '', /Registrado a las 17:00/);
+});
+
+void test('R-40: la tarjeta Extra lleva la misma fila de iconos, incluido el lápiz', async () => {
+  const contenedor = await montarConExtraRegistrado({ actualizarHoras: () => Promise.resolve(FILA_EXTRA()) });
+  const grupo = contenedor.querySelector<HTMLElement>('.tarjeta-alumno-grupo');
+  assert.ok(grupo);
+  assert.ok(grupo.querySelector(':scope > .tarjeta-alumno__acciones'));
+  assert.equal(botonEditarDeTarjeta(contenedor).length, 1);
+  assert.equal(botonAnularDeTarjeta(contenedor).length, 1);
+  assert.equal(botonSalidaDeTarjeta(contenedor).length, 1);
+  assert.equal(contenedor.querySelectorAll('button button').length, 0);
 });

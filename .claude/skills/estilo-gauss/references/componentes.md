@@ -161,32 +161,40 @@ div.tabla-contenedor              ← borde y radio; overflow-x: auto en móvil
 ## 9. Pasar lista
 
 ```
-div.rejilla-alumnos                       ← auto-fill minmax(150px, 1fr), gap 12 px
-└─ div.tarjeta-alumno-grupo               ← tarjeta + sus controles secundarios
-   ├─ button.tarjeta-alumno (+ variante)  ← toda la tarjeta es el objetivo táctil
-   │  ├─ span.avatar                      ← círculo; dentro, iniciales O imagen
+div.rejilla-alumnos                       ← auto-fill minmax(140px, 1fr), gap 8 px (6-7 columnas en escritorio)
+└─ div.tarjeta-alumno-grupo [role=group]  ← EL MARCO: borde, fondo y color de estado van aquí
+   ├─ button.tarjeta-alumno (+ variante)  ← zona de tocar: registra la asistencia con un toque
+   │  ├─ span.avatar                      ← círculo de 56 px; dentro, iniciales O imagen
    │  │  ├─ span.avatar__iniciales
    │  │  └─ img.avatar__imagen            ← si hay foto: tapa las iniciales DENTRO del círculo
    │  ├─ span.insignia (Extra…)           ← opcional
    │  ├─ span.tarjeta-alumno__nombre
    │  └─ span.tarjeta-alumno__estado      ← «Registrado a las 17:42»
-   └─ div.tarjeta-alumno__acciones        ← Marcar ausente · Marcar salida · Anular
+   ├─ div.tarjeta-alumno__acciones        ← fila de iconos, HERMANA de la zona de tocar
+   │  └─ button.boton-icono--ausente | --salida | --editar | --anular   (44 × 44 px)
+   └─ div.tarjeta-alumno__anular          ← solo con «Anular» abierto: motivo + confirmar + cancelar
 ```
 
-- Variantes: `--pendiente` (blanco, borde `--gauss-linea`), `--presente` (fondo
-  `--gauss-verde-fondo`, borde `--gauss-verde-solido`), `--ausente` (fondo `--gauss-rojo-fondo`,
-  borde `--gauss-rojo`), `--enviando` (opacidad .7), `--error` (borde rojo discontinuo),
-  `--sin-conexion` (fondo `--gauss-aviso-fondo`). El estado se dice también en
+- Variantes de la zona de tocar: `--pendiente`, `--presente`, `--ausente`, `--enviando` (opacidad
+  .7), `--error`, `--sin-conexion`, `--extra`. **El color de estado lo pinta el marco**
+  (`.tarjeta-alumno-grupo:has(.tarjeta-alumno--presente)`…): `--presente` fondo `--gauss-verde-fondo` y
+  borde `--gauss-verde-solido`; `--ausente` fondo `--gauss-rojo-fondo` y borde `--gauss-rojo`;
+  `--error` borde rojo discontinuo; `--extra` borde ámbar discontinuo; `--sin-conexion` fondo
+  `--gauss-aviso-fondo`. La zona de tocar es transparente y sin borde. El estado se dice también en
   `tarjeta-alumno__estado`, nunca solo con el color.
-- **El avatar**: `.avatar` es `position: relative` con `overflow: hidden` y tamaño fijo; la
+- **El avatar**: `.avatar` es `position: relative` con `overflow: hidden` y tamaño fijo (56 px); la
   imagen va `position: absolute; inset: 0; object-fit: cover` **dentro** del círculo. Así la foto
   sustituye a las iniciales sin tapar el nombre (fallo visto en local el 2026-10-01, cuando la foto
   quedaba superpuesta a nombre e iniciales). Si la imagen falla al cargar, se quita y quedan
   las iniciales.
-- Nombre en Outfit 600 a 16 px, dos líneas como mucho (`-webkit-line-clamp: 2`); estado a 13 px.
-- Los controles secundarios van **fuera** del `button` principal (un botón no puede contener
-  otro), en `.tarjeta-alumno__acciones`, como `boton--borde` pequeño de ancho completo; «Anular»
-  como `boton--peligro`.
+- Nombre en Outfit 600 a 15 px, dos líneas como mucho (`-webkit-line-clamp: 2`); estado a 12.5 px.
+- **Iconos** (`.boton-icono`, R-40): cuadrados de 44 px (`--gauss-altura-tactil`), glifo de carácter
+  en un `span aria-hidden` y el nombre en `aria-label` + `title` («Marcar salida a …», «Editar las
+  horas de …», «Anular el registro de …», «Marcar ausente a …»). Reloj = salida, lápiz = editar
+  horas, papelera = anular (texto en `--gauss-rojo-oscuro`), ✕ = ausente. Un icono solo se pinta si
+  la acción es posible en ese estado; el deshabilitado se ve atenuado **y con borde discontinuo**,
+  no solo por el color. Sin librería de iconos ni imágenes externas.
+- Los iconos van **fuera** del `button` de la zona de tocar (un botón no puede contener otro).
 - Contraste alto «a un brazo de distancia»: no bajes el tamaño del nombre ni uses texto atenuado
   sobre los fondos de estado.
 

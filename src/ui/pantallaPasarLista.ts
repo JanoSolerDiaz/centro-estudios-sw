@@ -115,6 +115,7 @@ import type { ResultadoBusquedaAlumno } from '../dominio/busquedaAlumnoExtra.ts'
 import type { Reloj } from '../nucleo/reloj.ts';
 import type { ProgramadorIntervalo } from '../nucleo/programadorIntervalo.ts';
 import type { Rebote } from '../nucleo/rebote.ts';
+import type { EntradaEdicionHistorico } from '../dominio/edicionAsistencia.ts';
 import { crearProtectorDobleToque } from '../nucleo/proteccionDobleToque.ts';
 import { crearAlmacenEstado } from '../nucleo/almacenEstado.ts';
 import { mensajeAmigable } from '../nucleo/mensajesAbuso.ts';
@@ -122,6 +123,7 @@ import type { AlmacenColaAsistenciaOffline, ElementoColaAsistencia } from '../nu
 import type { DetectorConexion } from '../nucleo/detectorConexion.ts';
 import { crearElemento } from './dom.ts';
 import { crearZonaMensaje, crearBoton, crearCampoTexto } from './formularios.ts';
+import { abrirDialogoEditar } from './dialogosAsistencia.ts';
 import { montarComboboxAlumnoExtra } from './comboboxAlumnoExtra.ts';
 import type { RegistrarAsistenciaEntrada, RegistrarAusenciaEntrada } from '../datos/asistencia.ts';
 import type { AlumnoConRutaAvatar } from '../datos/avatarAlumno.ts';
@@ -172,6 +174,10 @@ export interface DependenciasPantallaPasarLista {
    * hermano de los otros tres, ofrecido solo dentro de la ventana de edición
    * (`puedeEditarAsistencia`, requisito 4). */
   anular(asistenciaId: string, motivo: string): Promise<Asistencia>;
+  /** R-40: edita las horas de entrada y salida de una card ya registrada desde el lápiz — la misma
+   * RPC `actualizar_asistencia` que el Histórico (R-36), con solo `ocurridoEn`/`ocurridoEnSalida`/
+   * `marcarSalida`, nunca `registrado_en`. Opcional: sin ella, el lápiz no se pinta. */
+  actualizarHoras?(entrada: EntradaEdicionHistorico): Promise<Asistencia>;
   /** Firma en lote (§0.2) las URL de la derivada `mini` (96 px, requisito 2) de los alumnos con
    * avatar que todavía no se hayan pedido. */
   obtenerUrlsAvataresMini(alumnos: readonly AlumnoConRutaAvatar[]): Promise<ReadonlyMap<string, string>>;
@@ -242,11 +248,11 @@ interface FocoTarjeta {
   /** Qué control de la card tenía el foco — la card principal, "Marcar ausente" (R-01), "Marcar
    * salida" (R-03) o "Anular" (R-24, cualquier elemento de su formulario) — así el repintado lo
    * restaura en el control correcto, nunca siempre en el principal por defecto. */
-  readonly control: 'principal' | 'ausente' | 'salida' | 'anular';
+  readonly control: 'principal' | 'ausente' | 'salida' | 'editar' | 'anular';
 }
 
 /** Campos que comparten la card de slot y la de "alumno extra" para "Marcar salida" (R-03) y
- * "Anular" (R-24) — ver `añadirControlesSalidaYAnular`. */
+ * "Anular" (R-24) — ver `añadirFilaAcciones`. */
 interface ControlesPostRegistro {
   readonly fase: FaseTarjeta;
   readonly asistencia?: Asistencia;
@@ -344,7 +350,9 @@ function textoEstadoTarjeta(tarjeta: ConEstadoDeTarjeta, zonaHoraria: string): s
     case 'enviando':
       return 'Registrando…';
     case 'registrado': {
-      const hora = tarjeta.asistencia ? instanteLocal(new Date(tarjeta.asistencia.registrado_en), zonaHoraria).horaMinuto : '';
+      // Hora REAL de entrada (`ocurrido_en`): coincide con `registrado_en` salvo si el lápiz de R-40
+      // (o el Histórico) la ajustó, y entonces es la que debe ver el profesor.
+      const hora = tarjeta.asistencia ? instanteLocal(new Date(tarjeta.asistencia.ocurrido_en), zonaHoraria).horaMinuto : '';
       const salida = tarjeta.asistencia?.ocurrido_en_salida
         ? ` — Salida a las ${instanteLocal(new Date(tarjeta.asistencia.ocurrido_en_salida), zonaHoraria).horaMinuto}`
         : '';
@@ -500,102 +508,122 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     return avatarWrap;
   }
 
-  /** Tercer y cuarto control de una card —"Marcar salida" (R-03) y "Anular" (R-24)—, compartidos por
-   * la card de slot y la de "alumno extra" (pregunta #20, decisión del dueño 2026-10-02): mismos
-   * botones, misma ventana de edición, misma RPC `actualizar_asistencia`. */
-  function añadirControlesSalidaYAnular(
+  /** Botón de icono de 44 px de la fila de acciones de una card (R-40): glifo decorativo
+   * (`aria-hidden`) y nombre accesible en `aria-label`/`title`, nunca solo el icono ni solo el color. */
+  function crearBotonIcono(atributoClave: string, clave: string, glifo: string, etiqueta: string, modificador: string): HTMLButtonElement {
+    const boton = documento.createElement('button');
+    boton.type = 'button';
+    boton.setAttribute(atributoClave, clave);
+    boton.className = `boton-icono boton-icono--${modificador}`;
+    boton.setAttribute('aria-label', etiqueta);
+    boton.title = etiqueta;
+    boton.append(crearElemento(documento, 'span', { texto: glifo, atributos: { 'aria-hidden': 'true' } }));
+    return boton;
+  }
+
+  /** Fila de acciones de una card (R-40), HERMANA de la zona de tocar y nunca anidada en ella:
+   * "Marcar ausente" (R-01, solo card de slot), "Marcar salida" (R-03), lápiz = editar horas (R-40) y
+   * papelera = "Anular" (R-24). Compartida por la card de slot y la de "alumno extra" (pregunta #20,
+   * decisión del dueño 2026-10-02): mismos iconos, misma ventana de edición, misma RPC
+   * `actualizar_asistencia`. Cada icono solo se pinta si la acción es posible en ese estado. */
+  function añadirFilaAcciones(
     contenedorTarjeta: HTMLElement,
     clave: string,
     alumno: AlumnoParaPropuesta,
     estado: ControlesPostRegistro,
+    botonAusente?: HTMLButtonElement,
   ): void {
-    // Tercer control, hermano de los otros dos (R-03, requisito 1: "un segundo toque sobre la card
-    // ya registrada") — solo ofrecido mientras `puedeMarcarSalida`, nunca sobre una ausencia ni
-    // antes de que exista un registro de presencia real que cerrar.
-    if (
-      estado.fase === 'registrado' &&
-      estado.asistencia &&
-      puedeMarcarSalida(estado.asistencia)
-    ) {
-      const botonSalida = documento.createElement('button');
-      botonSalida.type = 'button';
-      botonSalida.dataset.salidaClave = clave;
-      botonSalida.className = 'boton boton--borde';
-      botonSalida.textContent = estado.salidaEnviando ? 'Marcando salida…' : 'Marcar salida';
-      botonSalida.setAttribute(
-        'aria-label',
-        `Marcar salida a ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`,
+    const nombreAlumno = `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`;
+    const fila = documento.createElement('div');
+    fila.className = 'tarjeta-alumno__acciones';
+    if (botonAusente) {
+      fila.append(botonAusente);
+    }
+
+    // Solo ofrecido mientras `puedeMarcarSalida`, nunca sobre una ausencia ni antes de que exista un
+    // registro de presencia real que cerrar (R-03, requisito 1).
+    if (estado.fase === 'registrado' && estado.asistencia && puedeMarcarSalida(estado.asistencia)) {
+      const botonSalida = crearBotonIcono(
+        'data-salida-clave',
+        clave,
+        estado.salidaEnviando ? '…' : '⏱',
+        estado.salidaEnviando ? `Marcando salida a ${nombreAlumno}…` : `Marcar salida a ${nombreAlumno}`,
+        'salida',
       );
       botonSalida.disabled = estado.salidaEnviando === true;
       botonSalida.addEventListener('click', () => {
         void obtenerProtectorSalida(clave)();
       });
-      contenedorTarjeta.append(botonSalida);
-      if (estado.salidaError) {
-        contenedorTarjeta.append(crearElemento(documento, 'span', { texto: estado.salidaError, atributos: { class: 'campo__error' } }));
-      }
+      fila.append(botonSalida);
     }
 
-    // Cuarto control, hermano de los otros tres (R-24, requisito 1: "distinguible del resto de
-    // controles... nunca el mismo gesto") — solo ofrecido dentro de la ventana de edición
-    // (requisito 4: `puedeEditarAsistencia` sobre el registro real, mismo criterio preventivo que
-    // `puedeMarcarSalida` de arriba), y solo sobre una card ya resuelta como presente o ausente.
-    if (
+    // Lápiz y papelera, solo dentro de la ventana de edición (R-24, requisito 4: `puedeEditarAsistencia`
+    // sobre el registro real) y sobre una card ya resuelta. El lápiz edita HORAS, así que solo sobre
+    // una presencia y solo si la composición inyecta `actualizarHoras`.
+    const editable =
       (estado.fase === 'registrado' || estado.fase === 'ausente') &&
-      estado.asistencia &&
+      estado.asistencia !== undefined &&
       puedeEditarAsistencia(
         { profesorId: estado.asistencia.profesor_id, registradoEn: new Date(estado.asistencia.registrado_en) },
         { id: deps.profesorId, rol: deps.rol },
         deps.reloj,
-      )
-    ) {
-      const nombreAlumno = `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`;
+      );
+    if (editable && estado.fase === 'registrado' && deps.actualizarHoras) {
+      const botonEditar = crearBotonIcono('data-editar-clave', clave, '✎', `Editar las horas de ${nombreAlumno}`, 'editar');
+      botonEditar.addEventListener('click', () => {
+        abrirEditarHoras(clave, nombreAlumno);
+      });
+      fila.append(botonEditar);
+    }
+    if (editable) {
+      const botonAnular = crearBotonIcono('data-anular-clave', clave, '🗑', `Anular el registro de ${nombreAlumno}`, 'anular');
+      botonAnular.addEventListener('click', () => {
+        abrirAnular(clave);
+      });
+      fila.append(botonAnular);
+    }
+    if (fila.childElementCount > 0) {
+      contenedorTarjeta.append(fila);
+    }
+    if (estado.fase === 'registrado' && estado.salidaError) {
+      contenedorTarjeta.append(crearElemento(documento, 'span', { texto: estado.salidaError, atributos: { class: 'campo__error' } }));
+    }
+
+    // Formulario de anulación (R-24): motivo obligatorio dentro de la propia tarjeta, debajo de la fila.
+    if (editable && estado.mostrandoAnular) {
       const bloqueAnular = documento.createElement('div');
-      bloqueAnular.className = 'tarjeta-alumno__acciones';
-      if (estado.mostrandoAnular) {
-        const campoMotivo = crearCampoTexto(documento, `motivo-anular-${clave}`, 'Motivo de la anulación', 'text', 'off');
-        campoMotivo.input.value = estado.motivoAnulacion ?? '';
-        campoMotivo.input.dataset.anularClave = clave;
-        campoMotivo.input.disabled = estado.anulando === true;
-        campoMotivo.input.addEventListener('input', () => {
-          actualizarMotivoAnular(clave, campoMotivo.input.value);
-        });
+      bloqueAnular.className = 'tarjeta-alumno__anular';
+      const campoMotivo = crearCampoTexto(documento, `motivo-anular-${clave}`, 'Motivo de la anulación', 'text', 'off');
+      campoMotivo.input.value = estado.motivoAnulacion ?? '';
+      campoMotivo.input.dataset.anularClave = clave;
+      campoMotivo.input.disabled = estado.anulando === true;
+      campoMotivo.input.addEventListener('input', () => {
+        actualizarMotivoAnular(clave, campoMotivo.input.value);
+      });
 
-        const botonConfirmarAnular = documento.createElement('button');
-        botonConfirmarAnular.type = 'button';
-        botonConfirmarAnular.dataset.anularClave = clave;
-        botonConfirmarAnular.className = 'boton boton--peligro-solido';
-        botonConfirmarAnular.textContent = estado.anulando ? 'Anulando…' : 'Confirmar anulación';
-        botonConfirmarAnular.disabled = estado.anulando === true || !motivoAnulacionValido(estado.motivoAnulacion ?? '');
-        botonConfirmarAnular.addEventListener('click', () => {
-          void obtenerProtectorAnular(clave)();
-        });
+      const botonConfirmarAnular = documento.createElement('button');
+      botonConfirmarAnular.type = 'button';
+      botonConfirmarAnular.dataset.anularClave = clave;
+      botonConfirmarAnular.className = 'boton boton--peligro-solido';
+      botonConfirmarAnular.textContent = estado.anulando ? 'Anulando…' : 'Confirmar anulación';
+      botonConfirmarAnular.disabled = estado.anulando === true || !motivoAnulacionValido(estado.motivoAnulacion ?? '');
+      botonConfirmarAnular.addEventListener('click', () => {
+        void obtenerProtectorAnular(clave)();
+      });
 
-        const botonCancelarAnular = documento.createElement('button');
-        botonCancelarAnular.type = 'button';
-        botonCancelarAnular.dataset.anularClave = clave;
-        botonCancelarAnular.className = 'boton boton--borde';
-        botonCancelarAnular.textContent = 'Cancelar';
-        botonCancelarAnular.disabled = estado.anulando === true;
-        botonCancelarAnular.addEventListener('click', () => {
-          cancelarAnular(clave);
-        });
+      const botonCancelarAnular = documento.createElement('button');
+      botonCancelarAnular.type = 'button';
+      botonCancelarAnular.dataset.anularClave = clave;
+      botonCancelarAnular.className = 'boton boton--borde';
+      botonCancelarAnular.textContent = 'Cancelar';
+      botonCancelarAnular.disabled = estado.anulando === true;
+      botonCancelarAnular.addEventListener('click', () => {
+        cancelarAnular(clave);
+      });
 
-        bloqueAnular.append(campoMotivo.contenedor, botonConfirmarAnular, botonCancelarAnular);
-        if (estado.anularError) {
-          bloqueAnular.append(crearElemento(documento, 'span', { texto: estado.anularError, atributos: { class: 'campo__error' } }));
-        }
-      } else {
-        const botonAnular = documento.createElement('button');
-        botonAnular.type = 'button';
-        botonAnular.dataset.anularClave = clave;
-        botonAnular.className = 'boton boton--peligro';
-        botonAnular.textContent = 'Anular';
-        botonAnular.setAttribute('aria-label', `Anular el registro de ${nombreAlumno}`);
-        botonAnular.addEventListener('click', () => {
-          abrirAnular(clave);
-        });
-        bloqueAnular.append(botonAnular);
+      bloqueAnular.append(campoMotivo.contenedor, botonConfirmarAnular, botonCancelarAnular);
+      if (estado.anularError) {
+        bloqueAnular.append(crearElemento(documento, 'span', { texto: estado.anularError, atributos: { class: 'campo__error' } }));
       }
       contenedorTarjeta.append(bloqueAnular);
     }
@@ -661,14 +689,13 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       void obtenerProtector(clave)();
     });
 
-    const botonAusente = documento.createElement('button');
-    botonAusente.type = 'button';
-    botonAusente.dataset.ausenteClave = clave;
-    botonAusente.className = 'boton boton--borde';
-    botonAusente.textContent = tarjeta.fase === 'ausente' ? 'Marcado ausente' : 'Marcar ausente';
-    botonAusente.setAttribute(
-      'aria-label',
-      `Marcar ausente a ${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`,
+    const nombreCompleto = `${alumno.nombre} ${alumno.primer_apellido}${alumno.segundo_apellido ? ` ${alumno.segundo_apellido}` : ''}`;
+    const botonAusente = crearBotonIcono(
+      'data-ausente-clave',
+      clave,
+      '✕',
+      tarjeta.fase === 'ausente' ? `${nombreCompleto}: marcado ausente` : `Marcar ausente a ${nombreCompleto}`,
+      'ausente',
     );
     botonAusente.disabled = resuelta;
 
@@ -676,9 +703,8 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       void obtenerProtectorAusencia(clave)();
     });
 
-    contenedorTarjeta.append(boton, botonAusente);
-
-    añadirControlesSalidaYAnular(contenedorTarjeta, clave, alumno, tarjeta);
+    contenedorTarjeta.append(boton);
+    añadirFilaAcciones(contenedorTarjeta, clave, alumno, tarjeta, botonAusente);
 
     return contenedorTarjeta;
   }
@@ -750,7 +776,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     contenedorTarjeta.setAttribute('aria-label', `Extra. ${alumno.nombre} ${alumno.primer_apellido}`);
     contenedorTarjeta.className = 'tarjeta-alumno-grupo';
     contenedorTarjeta.append(boton);
-    añadirControlesSalidaYAnular(contenedorTarjeta, clave, alumno, extra);
+    añadirFilaAcciones(contenedorTarjeta, clave, alumno, extra);
     return contenedorTarjeta;
   }
 
@@ -770,6 +796,10 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
     const claveSalida = activo?.getAttribute('data-salida-clave');
     if (claveSalida) {
       return { clave: claveSalida, control: 'salida' };
+    }
+    const claveEditar = activo?.getAttribute('data-editar-clave');
+    if (claveEditar) {
+      return { clave: claveEditar, control: 'editar' };
     }
     const claveAnular = activo?.getAttribute('data-anular-clave');
     return claveAnular ? { clave: claveAnular, control: 'anular' } : null;
@@ -791,6 +821,25 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       lista.append(item);
     }
     zonaPausados.append(titulo, lista);
+  }
+
+  const SELECTOR_CONTROL: Readonly<Record<FocoTarjeta['control'], string>> = {
+    principal: '[data-clave]',
+    ausente: '[data-ausente-clave]',
+    salida: '[data-salida-clave]',
+    editar: '[data-editar-clave]',
+    anular: '[data-anular-clave]',
+  };
+
+  /** Devuelve el foco al control que lo tenía; si ese control ya no se pinta (p. ej. el icono de
+   * ausente de una card recién resuelta), a la zona de tocar de la misma card. */
+  function enfocarControl(elemento: HTMLElement, control: FocoTarjeta['control']): void {
+    // Con el formulario de anulación abierto, el foco va a su campo de motivo (antes que al icono).
+    const destino =
+      (control === 'anular' ? elemento.querySelector<HTMLElement>('.tarjeta-alumno__anular [data-anular-clave]') : null) ??
+      elemento.querySelector<HTMLElement>(SELECTOR_CONTROL[control]) ??
+      elemento.querySelector<HTMLElement>('[data-clave]');
+    destino?.focus();
   }
 
   function pintar(estado: EstadoPantalla): void {
@@ -826,15 +875,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const elemento = crearTarjetaElemento(clave, tarjeta, estado.avatares, estado.ausenciasRepetidas);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
-        const selector =
-          foco?.control === 'ausente'
-            ? '[data-ausente-clave]'
-            : foco?.control === 'salida'
-              ? '[data-salida-clave]'
-              : foco?.control === 'anular'
-                ? '[data-anular-clave]'
-                : '[data-clave]';
-        elemento.querySelector<HTMLElement>(selector)?.focus();
+        enfocarControl(elemento, foco?.control ?? 'principal');
       }
     }
     // Los "alumno extra" (T-20) van al final de la MISMA rejilla — "una card más en la lista de la
@@ -843,8 +884,7 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       const elemento = crearTarjetaExtraElemento(clave, extra, estado.avatares, estado.ausenciasRepetidas);
       rejilla.append(elemento);
       if (clave === claveEnfocada) {
-        const selector = foco?.control === 'salida' ? '[data-salida-clave]' : foco?.control === 'anular' ? '[data-anular-clave]' : '[data-clave]';
-        elemento.querySelector<HTMLElement>(selector)?.focus();
+        enfocarControl(elemento, foco?.control ?? 'principal');
       }
     }
   }
@@ -1624,6 +1664,45 @@ export function mostrarPantallaPasarLista(contenedor: HTMLElement, deps: Depende
       protectoresTarjeta.set(claveProtector, protector);
     }
     return protector;
+  }
+
+  /** Lápiz de una card (R-40): abre el diálogo de edición de R-36 limitado a las horas y, al guardar,
+   * envía solo lo que cambió por `deps.actualizarHoras` (`actualizar_asistencia`, sin `registrado_en`).
+   * La card refleja las horas nuevas sin recargar; el foco vuelve al lápiz de la card repintada. */
+  function abrirEditarHoras(clave: string, nombreAlumno: string): void {
+    const tarjeta = almacen.obtener().tarjetas.get(clave);
+    const extra = tarjeta ? undefined : almacen.obtener().extras.get(clave);
+    const asistencia = tarjeta?.asistencia ?? extra?.asistencia;
+    if (!deps.actualizarHoras || !asistencia) {
+      return;
+    }
+    const actualizarHoras = deps.actualizarHoras.bind(deps);
+    abrirDialogoEditar(documento, {
+      registro: asistencia,
+      nombreAlumno,
+      reloj: deps.reloj,
+      zonaHoraria,
+      soloHoras: true,
+      restaurarFoco: {
+        focus: () => {
+          rejilla.querySelector<HTMLElement>(`[data-editar-clave="${clave}"]`)?.focus();
+        },
+      },
+      guardar: async (entrada) => {
+        const fila = await actualizarHoras(entrada);
+        const actual = almacen.obtener();
+        const tarjetaActual = actual.tarjetas.get(clave);
+        if (tarjetaActual) {
+          registrosHoyCache = new Map([...registrosHoyCache, [clave, fila]]);
+          fijarTarjeta(clave, { ...tarjetaActual, asistencia: fila });
+          return;
+        }
+        const extraActual = actual.extras.get(clave);
+        if (extraActual) {
+          fijarExtra(clave, { ...extraActual, asistencia: fila });
+        }
+      },
+    });
   }
 
   /** Abre el formulario de "Anular" (R-24, requisito 1) sobre una card ya registrada — sin tocar

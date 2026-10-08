@@ -968,6 +968,12 @@ function mostrarAppProfesor(
           asistenciaId,
           motivo,
         ),
+      actualizarHoras: (entrada) =>
+        actualizarAsistencia(
+          { postgrest: app.postgrest, ...(app.limitadorAsistencia ? { limitador: app.limitadorAsistencia } : {}) },
+          perfil.id,
+          entrada,
+        ),
       obtenerUrlsAvataresMini: (alumnos) => urlsAvataresEnLote(app.almacenamiento, alumnos, 'mini'),
       generarPeticionId: () => crypto.randomUUID(),
       renovarSesion: () => gestorSesion.renovarAlAbrirPasarLista(),

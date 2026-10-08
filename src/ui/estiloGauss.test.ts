@@ -126,6 +126,10 @@ void test('la clase .boton y los campos fijan 44 px y 16 px en la hoja (sustituy
   const campos = css.slice(css.indexOf('.campo input:not'), css.indexOf('}', css.indexOf('.campo input:not')));
   assert.match(campos, /min-height:\s*var\(--gauss-altura-tactil\)/);
   assert.match(campos, /font-size:\s*16px/);
+  // R-40: los iconos de la fila de acciones de pasar lista son objetivos de 44 px.
+  const icono = regla('.boton-icono');
+  assert.match(icono, /width:\s*var\(--gauss-altura-tactil\)/);
+  assert.match(icono, /height:\s*var\(--gauss-altura-tactil\)/);
 });
 
 void test('montarPanelEntrada pinta el logo y una tarjeta donde colgar el contenido', () => {

@@ -232,14 +232,25 @@ async function main(): Promise<void> {
       `getComputedStyle(document.querySelector('.rejilla-alumnos')).display`,
     );
     comprobar(displayRejilla === 'grid', `la rejilla de pasar lista es display:grid (${displayRejilla})`);
+    // R-40: a ancho de escritorio la rejilla compacta tiene varias columnas y cada icono de la fila de
+    // acciones mide al menos 44 px (jsdom no calcula layout).
+    const columnas = await pagina.evaluate<number>(
+      `getComputedStyle(document.querySelector('.rejilla-alumnos')).gridTemplateColumns.split(' ').length`,
+    );
+    comprobar(columnas >= 4, `la rejilla de pasar lista tiene varias columnas a ancho de escritorio (${String(columnas)})`);
+    const medidasIconos = await pagina.evaluate<string>(
+      `JSON.stringify([...document.querySelectorAll('.tarjeta-alumno__acciones .boton-icono')].map(b => { const r = b.getBoundingClientRect(); return Math.round(Math.min(r.width, r.height)); }))`,
+    );
+    const iconos = JSON.parse(medidasIconos) as number[];
+    comprobar(iconos.length > 0 && iconos.every((m) => m >= 44), `cada icono de acción mide al menos 44 px (${medidasIconos})`);
     await pagina.getByText('Ana Gil').click();
     await pagina.waitForTimeout(500);
     const fondoPresente = await pagina.evaluate<string>(
-      `(() => { const t = document.querySelector('.tarjeta-alumno--presente'); if (!t) return 'sin tarjeta: ' + [...document.querySelectorAll('.tarjeta-alumno')].map(x => x.className).join(' / '); return t ? getComputedStyle(t).backgroundColor + '|' + getComputedStyle(document.documentElement).getPropertyValue('--gauss-verde-fondo').trim() : 'sin tarjeta'; })()`,
+      `(() => { const t = document.querySelector('.tarjeta-alumno-grupo:has(.tarjeta-alumno--presente)'); if (!t) return 'sin tarjeta: ' + [...document.querySelectorAll('.tarjeta-alumno')].map(x => x.className).join(' / '); return t ? getComputedStyle(t).backgroundColor + '|' + getComputedStyle(document.documentElement).getPropertyValue('--gauss-verde-fondo').trim() : 'sin tarjeta'; })()`,
     );
     comprobar(
       !fondoPresente.startsWith('sin tarjeta') && !/^rgba?\(255, 255, 255|^rgba\(0, 0, 0, 0\)/.test(fondoPresente),
-      `la tarjeta presente tiene fondo propio, no el blanco genérico (${fondoPresente})`,
+      `la tarjeta presente (su marco, R-40) tiene fondo propio, no el blanco genérico (${fondoPresente})`,
     );
     const rpc = peticiones.find((p) => p.ruta === '/rest/v1/rpc/registrar_asistencia');
     comprobar(rpc !== undefined, 'pasar lista envía la RPC registrar_asistencia');

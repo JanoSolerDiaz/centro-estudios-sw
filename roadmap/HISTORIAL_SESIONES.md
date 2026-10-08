@@ -15,6 +15,19 @@
 ## Plantilla por sesión (copiar y rellenar, la más reciente arriba)
 
 ```
+### Sesión 2026-10-08 (programador — R-40)
+**Tarea(s):** R-40, tarjetas de pasar lista compactas con las acciones como iconos dentro (sin hallazgos ABIERTOS del auditor: #8 está `ASUMIDO`)
+**Estado resultante:** R-40 `COMPLETADA`. Cola de §1 sin tareas `PENDIENTE`
+**Commits a `develop`:** el de esta sesión
+**Migraciones aplicadas:** ninguna (sin migración)
+**Propagación a prod pendiente:** sin cambio (fila 12 de §3, T-25)
+**Archivos creados/modificados:** `src/ui/pantallaPasarLista.ts` (+ test), `src/ui/dialogosAsistencia.ts`, `src/ui/aplicacion.ts`, `src/ui/estiloGauss.test.ts`, `estilos.css`, `sw.js` (caché `v6`), `herramientas/humo.ts`, skill `estilo-gauss` (`references/componentes.md` §9 y `assets/estilos-base.css`), `roadmap/SEGUIMIENTO.md`, `roadmap/DECISIONES_TECNICAS.md`, esta entrada
+**Verificaciones pre-push:** typecheck, lint, test (2051) y build en verde; `npm run humo` en verde (6 columnas a escritorio, iconos de 44 px)
+**Health check post-deploy:** no aplica
+**Decisiones tomadas:** fila R-40 de `DECISIONES_TECNICAS.md` (desviación: anular conserva el formulario en línea en lugar del modal)
+**Hallazgos del auditor atendidos:** ninguno
+**Tareas autopropuestas (P-XX):** ninguna
+
 ### Sesión 2026-10-07 (programador — P-40)
 **Tarea(s):** P-40, estilos genéricos de R-39 pisaban los componentes
 **Estado resultante:** P-40 `COMPLETADA`. Cola de §1 sin tareas `PENDIENTE`
