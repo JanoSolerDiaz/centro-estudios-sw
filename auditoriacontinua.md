@@ -79,6 +79,33 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-08
+
+**Alcance real de esta pasada — desde `6fe642d` (auditoría 2026-10-07):** cinco commits (`8323f16`, `87b74f9`, `2d41ed4` y los
+de la pasada previa). Cambios de código: solo `estilos.css` (bloque R-39 reescrito con `:where()`), `sw.js` (caché `v4`→`v5`) y
+`herramientas/humo.ts` (la prueba de humo gana dos comprobaciones); el resto es documentación (`roadmap/*`, skill `estilo-gauss`).
+Nada bajo `db/`, `src/`, `_headers` ni `package.json`. `git checkout develop && git pull origin develop` limpio.
+
+**Lo ocurrido:** el dueño detectó en su prueba local (2026-10-07) que los estilos genéricos de R-39 pisaban a los de componente
+(P-40, urgente, `COMPLETADA`): la suite en verde no lo veía, jsdom no calcula la cascada. Es la misma clase de brecha que el
+hallazgo #25 (RESUELTO). Respuesta proporcionada y coherente: el arreglo es de especificidad (`:where()`) y, además, `npm run humo`
+(P-39) ahora comprueba en Chromium real que la rejilla es `display:grid` y que la tarjeta presente conserva su fondo propio, es
+decir, el hueco se cierra con una prueba y no solo con el parche. El PM abrió R-40 (tarjetas compactas con iconos, oleada v19)
+a partir del feedback del dueño; sin migración, consistente con el flujo documentado.
+
+**Puntos de control permanentes:** sin cambios en `db/` ni en la capa de datos, la verificación vigente sigue en pie (escritura
+solo por RPC, triggers de inmutabilidad y rastro, `student` cerrado, bucket privado y acotado, personas de referencia, RLS,
+guardas del runner, no-retroactividad). Re-comprobado hoy: ningún `GRANT … TRUNCATE` en `db/*.sql`; `dependencies` ausente;
+sin valores con forma de token `sbp_…`/JWT en el repositorio (las menciones de `service_role` son documentales/prohibitivas).
+R-40 tocará la tarjeta de pasar lista: vigilar que la foto siga solo en la ficha y en las cards del propio slot. No se re-ejecutó
+`db/pruebas_rls.sql` (sin credenciales; último resultado del dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2045 pruebas, 0 fallidas** (sin cambios).
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO**. Observación no bloqueante: la prueba de humo sigue fuera de CI
+y cubre un único flujo; cada defecto visual solo detectable en navegador real (P-40) refuerza que se amplíe junto a R-40.
+Pendientes sin cambios: pregunta #21 y cierre de T-25 a la espera del dueño, y el piloto real.
+
 ### Auditoría 2026-10-07
 
 **Alcance real de esta pasada — desde `960c6d7` (auditoría 2026-10-06):** dos commits (`cbdc8ff` programador, `2db2342` PM
