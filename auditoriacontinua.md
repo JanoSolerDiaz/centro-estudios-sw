@@ -79,6 +79,28 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-09
+
+**Alcance real de esta pasada — desde `20e320c` (auditoría 2026-10-08):** dos commits (`c6c45c9` R-40, `9473c61` PM ciclo 45).
+Cambios de código: R-40 (tarjetas de pasar lista compactas con fila de iconos: `pantallaPasarLista.ts`, `dialogosAsistencia.ts`
+con modo `soloHoras`, cableado `actualizarHoras` en `aplicacion.ts`), `estilos.css`, `sw.js` (caché `v5`→`v6`), `humo.ts` y
+tests. **Nada bajo `db/`, ni `_headers`, ni `package.json`.** `git checkout develop && git pull origin develop` limpio.
+
+**Coherencia decidido/ejecutado:** R-40 reutiliza la RPC `actualizar_asistencia` ya existente (sin migración); el lápiz de
+horas solo muestra entrada/salida, sin nota ni justificación, y no envía `registrado_en` ni autor: pertenencia y ventana siguen
+decidiéndose en la RPC. El PM no abrió R-XX nuevas (sin feedback ni hallazgos), coherente con esperar al piloto.
+
+**Puntos de control permanentes:** sin cambios en `db/` ni en la capa de datos; la verificación vigente sigue en pie.
+Re-comprobado hoy: ningún `GRANT … TRUNCATE` en `db/*.sql`; `dependencies` ausente; sin valores con forma de token `sbp_…`/JWT
+fuera de fixtures de test. Avatar: sin apariciones nuevas; listado, horario del centro y buscador de alumnos extra siguen sin
+pedirlo (solo ficha y cards del propio slot). No se re-ejecutó `db/pruebas_rls.sql` (sin credenciales; último resultado del
+dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2050 pruebas, 0 fallidas** (+5, de R-40).
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO**. Observación no bloqueante, sin cambios: `npm run humo` sigue
+fuera de CI y R-40 rediseña la tarjeta sin ampliarlo; pregunta #21 y cierre de T-25 a la espera del dueño, y el piloto real.
+
 ### Auditoría 2026-10-08
 
 **Alcance real de esta pasada — desde `6fe642d` (auditoría 2026-10-07):** cinco commits (`8323f16`, `87b74f9`, `2d41ed4` y los
