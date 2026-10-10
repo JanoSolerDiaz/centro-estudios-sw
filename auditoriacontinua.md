@@ -79,6 +79,25 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-10
+
+**Alcance real de esta pasada — desde `92c9240` (auditoría 2026-10-09):** un único commit (`8f8df83`, PM ciclo 46), que solo
+añade una entrada a `roadmap/HISTORIAL_SESIONES.md`. **Ningún cambio de código, de `db/`, de `_headers` ni de `package.json`.**
+`git checkout develop && git pull origin develop` limpio.
+
+**Coherencia decidido/ejecutado:** el PM no abre R-XX (sin feedback nuevo ni hallazgos abiertos) y espera al piloto, T-25 y la
+pregunta #21 del dueño; coherente con el estado del repositorio.
+
+**Puntos de control permanentes:** sin diferencias en `db/` desde la pasada anterior, así que la verificación vigente sigue en pie.
+Re-comprobado hoy: ningún `GRANT … TRUNCATE` en `db/*.sql`; sin `dependencies` en `package.json`; sin valores con forma de token
+`sbp_…`/`service_role` fuera de fixtures de test. No se re-ejecutó `db/pruebas_rls.sql` (sin credenciales; último resultado del
+dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2050 pruebas, 0 fallidas** (sin cambios).
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO**. Observación no bloqueante, sin cambios: `npm run humo` sigue
+fuera de CI; T-25 y la pregunta #21 siguen a la espera del dueño.
+
 ### Auditoría 2026-10-09
 
 **Alcance real de esta pasada — desde `20e320c` (auditoría 2026-10-08):** dos commits (`c6c45c9` R-40, `9473c61` PM ciclo 45).
