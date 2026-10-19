@@ -79,6 +79,26 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-19
+
+**Alcance real de esta pasada — desde `953941a` (auditoría 2026-10-18):** solo cambia `roadmap/HISTORIAL_SESIONES.md`
+(PM ciclo 55, sin R-XX nuevos). **Ningún cambio de código, de `db/`, de `src/`, de `sw.js`, de `_headers` ni de
+`package.json`** (último cambio de código: R-40, 2026-10-08). `git checkout develop && git pull origin develop` limpio.
+
+**Coherencia decidido/ejecutado:** el PM sigue sin abrir tareas a la espera del piloto, T-25 y la pregunta #21 del dueño;
+coherente con el repositorio y con la ausencia de hallazgos abiertos.
+
+**Puntos de control permanentes:** `db/` sin diferencias, así que la verificación vigente (RPC como única vía de escritura,
+triggers de inmutabilidad e historial, `student` cerrado, bucket privado, RLS completa) sigue en pie. Re-comprobado hoy:
+ningún `GRANT … TRUNCATE` en `db/*.sql`; sin `dependencies` en `package.json` ni `@supabase` en `src`; sin valores con forma
+de token `sbp_…` ni JWT en el repositorio. No se re-ejecutó `db/pruebas_rls.sql` (sin credenciales; último resultado del
+dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2050 pruebas, 0 fallidas** (sin cambios).
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO** (#8 sigue ASUMIDO por el dueño). Observaciones no bloqueantes
+sin cambios: `npm run humo` fuera de CI; T-25 y pregunta #21 a la espera del dueño.
+
 ### Auditoría 2026-10-18
 
 **Alcance real de esta pasada — desde `b180199` (auditoría 2026-10-17):** solo cambia `roadmap/HISTORIAL_SESIONES.md`
