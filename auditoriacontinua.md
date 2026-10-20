@@ -79,6 +79,30 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-20
+
+**Alcance real de esta pasada — desde `05dfb5a` (auditoría 2026-10-19):** solo cambia `roadmap/HISTORIAL_SESIONES.md`
+(PM ciclo 56 y dos sesiones del programador con cola vacía, todas sin trabajo de código). **Ningún cambio de código, de `db/`,
+de `src/`, de `sw.js`, de `_headers` ni de `package.json`** (último cambio de código: R-40, 2026-10-08). `git checkout develop &&
+git pull origin develop` limpio.
+
+**Coherencia decidido/ejecutado:** sin novedad. El PM no abre R-XX a la espera del piloto, de T-25 y de la pregunta #21 del
+dueño; el programador reporta cola vacía y verificación en verde. Coherente con el repositorio y con el registro (sin hallazgos
+ABIERTO). Nada que contradiga §0.2 ni `DECISIONES_TECNICAS.md`.
+
+**Puntos de control permanentes:** `db/` sin diferencias, así que la verificación vigente (RPC como única vía de escritura,
+triggers de inmutabilidad e historial, `student` cerrado, bucket privado, RLS completa) sigue en pie. Re-comprobado hoy:
+ningún `GRANT … TRUNCATE` en `db/*.sql` (solo comentarios de `000b_arreglo_permisos.sql`); sin `dependencies` en `package.json`;
+sin valores con forma de token `sbp_…` ni JWT en el repositorio. No se re-ejecutó `db/pruebas_rls.sql` (sin credenciales; último
+resultado del dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2050 pruebas, 0 fallidas** (sin cambios). Nota de
+entorno, no de proyecto: sin `npm ci` previo, `npm test` da 35 fallos por dependencias de desarrollo ausentes; con ellas
+instaladas, todo en verde (mismo comportamiento que ya anotó el programador).
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO** (#8 sigue ASUMIDO por el dueño). Observaciones no bloqueantes
+sin cambios: `npm run humo` fuera de CI; T-25 y pregunta #21 a la espera del dueño; migraciones 020 y 021 pendientes en §3.
+
 ### Auditoría 2026-10-19
 
 **Alcance real de esta pasada — desde `953941a` (auditoría 2026-10-18):** solo cambia `roadmap/HISTORIAL_SESIONES.md`
