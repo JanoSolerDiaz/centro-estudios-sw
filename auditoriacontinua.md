@@ -79,6 +79,28 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-21
+
+**Alcance real de esta pasada — desde `e975fc8` (auditoría 2026-10-20):** solo cambia `roadmap/HISTORIAL_SESIONES.md` (tres
+sesiones del programador con cola vacía y PM ciclo 57). **Ningún cambio de código, de `db/`, de `src/`, de `sw.js`, de
+`_headers` ni de `package.json`** (último cambio de código: R-40, 2026-10-08). `git checkout develop && git pull origin develop`
+limpio.
+
+**Coherencia decidido/ejecutado:** sin novedad. El PM no abre R-XX a la espera del piloto, de T-25 y de la pregunta #21 del
+dueño; coherente con el registro (sin hallazgos ABIERTO) y con §0.2 / `DECISIONES_TECNICAS.md`.
+
+**Puntos de control permanentes:** `db/` sin diferencias, la verificación vigente sigue en pie. Re-comprobado hoy: ningún
+`GRANT … TRUNCATE` activo en `db/*.sql`; `dependencies` vacío; sin valores con forma de token `sbp_…` ni JWT en el repositorio.
+No se re-ejecutó `db/pruebas_rls.sql` (sin credenciales; último resultado del dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2050 pruebas, 0 fallidas**. El programador anotó el
+2026-10-20 (2) un fallo intermitente de 1 test no identificado (no reproducido en 5 pasadas posteriores, ni en la mía). No lo
+abro como hallazgo (no hay evidencia reproducible), pero conviene capturar el nombre del test si reaparece: un test
+intermitente erosiona la confianza en T-03.
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO** (#8 sigue ASUMIDO por el dueño). Observaciones no bloqueantes sin
+cambios: `npm run humo` fuera de CI; T-25 y pregunta #21 a la espera del dueño; migraciones 020 y 021 pendientes en §3.
+
 ### Auditoría 2026-10-20
 
 **Alcance real de esta pasada — desde `05dfb5a` (auditoría 2026-10-19):** solo cambia `roadmap/HISTORIAL_SESIONES.md`
