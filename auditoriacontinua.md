@@ -79,6 +79,25 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-10-25
+
+**Alcance real de esta pasada — desde `e08713a` (auditoría 2026-10-24):** solo cambia `roadmap/HISTORIAL_SESIONES.md` (PM ciclo 61,
+sin R-XX). **Ningún cambio de código, de `db/`, de `src/`, de `sw.js`, de `_headers` ni de `package.json`** (último cambio de
+código: R-40, 2026-10-08). `git checkout develop && git pull origin develop` limpio.
+
+**Coherencia decidido/ejecutado:** sin novedad; el PM sigue sin abrir tareas a la espera del piloto, T-25 y la pregunta #21 del
+dueño. Nada contradice §0.2 ni `DECISIONES_TECNICAS.md`.
+
+**Puntos de control permanentes:** `db/` sin diferencias, la verificación vigente sigue en pie. Re-comprobado hoy: ningún
+`GRANT … TRUNCATE` activo en `db/*.sql`; `package.json` sin clave `dependencies`; sin tokens `sbp_…` en el repositorio (las
+menciones de `service_role` son revocaciones, tests de redacción de logs y avisos de documentación). No se re-ejecutó
+`db/pruebas_rls.sql` (sin credenciales; último resultado del dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck`, `lint` limpios; `npm test` **2050 pruebas, 0 fallidas**.
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO** (#8 sigue ASUMIDO). Observaciones no bloqueantes sin cambios:
+`npm run humo` fuera de CI; T-25 y pregunta #21 a la espera del dueño; migraciones 020 y 021 pendientes en §3.
+
 ### Auditoría 2026-10-24
 
 **Alcance real de esta pasada — desde `531252d` (auditoría 2026-10-23):** solo cambia `roadmap/HISTORIAL_SESIONES.md` (dos
