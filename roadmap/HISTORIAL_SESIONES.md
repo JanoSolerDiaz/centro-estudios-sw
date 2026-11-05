@@ -7018,3 +7018,12 @@ abre oleada solo ante feedback real, hallazgo abierto o respuesta del dueño.
 **Hallazgos del auditor atendidos:** la pasada del 2026-11-04 no deja ningún hallazgo ABIERTO (#8 sigue ASUMIDO); nada que convertir en tarea.
 **FEEDBACK.md:** sin entradas `nuevo` (las tres existentes siguen `en_roadmap`; la fila vacía de plantilla no cuenta).
 **Decisiones tomadas:** no se abren R-XX nuevas ni se mueve nada a `ROADMAP_HISTORICO.md`. Desde el ciclo 71 solo han entrado la pasada del auditor y dos sesiones del programador con cola vacía; sin cambios en `src/` (último cambio de código: R-40, 2026-10-08). Sigue sin haber evidencia del piloto real ni T-25 cerrada, así que ampliar ahora sería inventar trabajo.
+
+## 2026-11-05 — Product Manager (ciclo 73)
+
+**Rol:** Product Manager (solo documentación, sin código)
+**Hallazgos del auditor atendidos:** la pasada del 2026-11-05 no deja ningún hallazgo ABIERTO (#8 sigue ASUMIDO); nada que convertir en tarea.
+**FEEDBACK.md:** sin entradas `nuevo` (las tres existentes siguen `en_roadmap`; la fila vacía de plantilla no cuenta).
+**Decisiones tomadas:** no se abren R-XX nuevas ni se mueve nada a `ROADMAP_HISTORICO.md`. Desde el ciclo 72 solo han entrado la pasada del auditor y dos sesiones del programador con cola vacía; sin cambios en `src/` (último cambio de código: R-40, 2026-10-08). Sigue sin haber evidencia del piloto real ni T-25 cerrada, así que ampliar ahora sería inventar trabajo.
+**Archivos modificados:** esta entrada
+**Próximo paso:** el dueño prueba R-40 en local, responde #21 y avanza T-25; su feedback abrirá la oleada v20.
