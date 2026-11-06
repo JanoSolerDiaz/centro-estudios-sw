@@ -79,6 +79,26 @@
 > atención especial a la coherencia entre lo decidido (`DECISIONES_TECNICAS.md` y §0.2 de la
 > hoja de ruta) y lo realmente implementado, y a las desviaciones (§7 de SEGUIMIENTO).
 
+### Auditoría 2026-11-06
+
+**Alcance real de esta pasada — desde `3b6dedc` (auditoría 2026-11-05):** solo cambia `roadmap/HISTORIAL_SESIONES.md`
+(+15 líneas: dos sesiones del programador con cola vacía y PM ciclo 73, sin hallazgos ni R-XX). **Ningún cambio de `src/`,
+`db/`, `sw.js`, `_headers`, `package.json`, `package-lock.json`, `herramientas/` ni `.github/`** (`git diff --stat` vacío para
+esas rutas). `git checkout develop && git pull origin develop` limpio.
+
+**Coherencia decidido/ejecutado:** sin novedad; el PM sigue sin abrir tareas a la espera del piloto, T-25 y la pregunta #21
+del dueño. Nada contradice §0.2 ni `DECISIONES_TECNICAS.md`.
+
+**Puntos de control permanentes:** `db/` idéntico, por lo que RLS, triggers, historial append-only, student cerrado, bucket
+de avatares y columnas del `teacher` se mantienen. Re-comprobado hoy: ningún `GRANT … TRUNCATE` en `db/*.sql`; `dependencies`
+vacío (0 claves); las únicas coincidencias de `sbp_` están en este documento y en `cargarEnvLocal.test.ts` (fixture). No se
+re-ejecutó `db/pruebas_rls.sql` (sin credenciales; último resultado del dueño 238/0/0 tras `021`).
+
+**Calidad en ejecución:** `npm ci`, `typecheck` y `lint` limpios; `npm test` **2050 pruebas, 0 fallidas** (sin cambios).
+
+**Hallazgos:** sin nuevos; **no queda ningún hallazgo ABIERTO** (#8 sigue ASUMIDO). Observaciones no bloqueantes sin cambios:
+`npm run humo` fuera de CI; T-25 y pregunta #21 a la espera del dueño; migraciones 020 y 021 pendientes en §3.
+
 ### Auditoría 2026-11-05
 
 **Alcance real de esta pasada — desde `6749668` (auditoría 2026-11-04):** solo cambia `roadmap/HISTORIAL_SESIONES.md`
